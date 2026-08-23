@@ -167,6 +167,13 @@ export function readRunCache(area, runKey) {
     };
 }
 
+/**
+ * Why a recorded measurement is not worth having, or undefined when it is. The reader
+ * consults this and the publisher consults it too, so "a record worth having" has one
+ * definition. It used to have two, and the gap between them was a trap: a record of an
+ * edition the reader refused was still a rival to the publisher, which found a matching
+ * key and digest, called it converged, and left the unreadable record in place forever.
+ */
 function cacheFault(record, area, runKey) {
     if (!isJsonObject(record)) return "cache record is not an object";
     if (record.edition !== "1.0.0") {
@@ -174,6 +181,7 @@ function cacheFault(record, area, runKey) {
     }
     if (record.area !== area) return `cache record names area ${JSON.stringify(record.area)}`;
     if (jsonKind(record.measuredAt) !== "string") return "cache record names no commit";
+    if (!isJsonObject(record.identity)) return "cache record names no runtime identity";
     if (record.runKey !== runKey) return "cache record was written under a different run key";
     if (!isJsonObject(record.report)) return "cache record carries no report";
     if (record.reportSha256 !== reportDigest(record.report)) {
@@ -224,6 +232,10 @@ export function requireAreaReport(report, area) {
         throw new TypeError(`Mutation report of ${area} covers no file`);
     }
     const tests = requireTestFiles(report.testFiles);
+    // One set for the whole report, not one per file. `reconcileEquivalence` keys its
+    // resolution by `mutant.id` alone, so two files sharing an id would let one proof
+    // excuse the other file's mutant.
+    const identified = new Set();
     let mutants = 0;
     for (const [path, file] of Object.entries(report.files)) {
         if (!path.startsWith("src/") || equivalenceArea(path) !== area) {
@@ -235,9 +247,8 @@ export function requireAreaReport(report, area) {
         if (file.language !== undefined && jsonKind(file.language) !== "string") {
             throw new TypeError(`Mutation report entry ${path} names no language`);
         }
-        const seen = new Set();
         for (const mutant of file.mutants) {
-            requireMutant(path, mutant, tests, seen);
+            requireMutant(path, mutant, tests, identified);
             mutants += 1;
         }
     }
@@ -271,13 +282,15 @@ function requireTestFiles(testFiles) {
     return tests;
 }
 
-function requireMutant(path, mutant, tests, seen) {
+function requireMutant(path, mutant, tests, identified) {
     if (!isJsonObject(mutant) || jsonKind(mutant.id) !== "string") {
         throw new TypeError(`Mutation report entry ${path} holds an unidentified mutant`);
     }
     const at = `${path}#${mutant.id}`;
-    if (seen.has(mutant.id)) throw new TypeError(`Mutation report entry ${path} names two ${at}`);
-    seen.add(mutant.id);
+    if (identified.has(mutant.id)) {
+        throw new TypeError(`Mutation report names two mutants ${mutant.id}, one of them ${at}`);
+    }
+    identified.add(mutant.id);
     if (jsonKind(mutant.mutatorName) !== "string") {
         throw new TypeError(`Mutant ${at} names no mutator`);
     }
@@ -324,24 +337,32 @@ function requireSpan(at, location) {
     }
 }
 
+/**
+ * That a verdict ran the tests it claims. `disableBail` is committed, so every covering
+ * test runs and the count that ran equals the count that covers — measured across every
+ * retained report, 228 survivors and 2,646 kills, with no mutant differing. A run that
+ * executed some of its filter settles no more than one that executed none of it: the
+ * survivor might have been killed by a test that never ran, and the kill's `killedBy` is
+ * what the committed discrimination artifact takes as complete.
+ */
 function requireEvidence(at, mutant) {
+    if (mutant.status !== "Killed" && mutant.status !== "Survived") return;
+    // The claimant first, because it is the more specific absence: a kill with no killer
+    // named is a different defect from a kill with no coverage recorded, and the reader of
+    // the failure wants the narrower one.
+    if (mutant.status === "Killed" && (mutant.killedBy ?? []).length === 0) {
+        throw new TypeError(`Mutant ${at} is reported Killed and names no test that killed it`);
+    }
     const covering = (mutant.coveredBy ?? []).length;
     const completed = mutant.testsCompleted ?? 0;
-    if (mutant.status === "Killed") {
-        if ((mutant.killedBy ?? []).length === 0) {
-            throw new TypeError(`Mutant ${at} is reported Killed and names no test that killed it`);
-        }
-        if (completed === 0) {
-            throw new TypeError(`Mutant ${at} is reported Killed having executed no test`);
-        }
-        return;
-    }
-    if (mutant.status !== "Survived") return;
     if (covering === 0) {
-        throw new TypeError(`Mutant ${at} is reported Survived and no test covers it`);
+        throw new TypeError(`Mutant ${at} is reported ${mutant.status} and no test covers it`);
     }
-    if (completed === 0) {
-        throw new TypeError(`Mutant ${at} is reported Survived having executed no test`);
+    if (completed !== covering) {
+        throw new TypeError(
+            `Mutant ${at} is reported ${mutant.status} having executed ${completed} of the ` +
+                `${covering} tests that cover it`
+        );
     }
 }
 
@@ -382,12 +403,10 @@ export function publishRunCache(area, record) {
             if (present !== undefined && !present.isFile()) {
                 throw new TypeError(`${portablePath(path)} is not a regular file`);
             }
-            const existing = verifiedRecord(path);
+            const existing = verifiedRecord(path, area, record.runKey);
+            // Not a rival: another key, an edition this cannot read, a report it would
+            // refuse. Unlink and let the next turn create, which is the repair.
             if (existing === undefined) {
-                rmSync(path, { force: true });
-                continue;
-            }
-            if (existing.runKey !== record.runKey) {
                 rmSync(path, { force: true });
                 continue;
             }
@@ -420,28 +439,18 @@ function created(temp, path) {
     }
 }
 
-// A record that vouches for its own report, and for a report worth having. Anything else —
-// unparseable, not an object, digesting to something else, or carrying a report this
-// runner would refuse anyway — holds no evidence, so a writer replaces it instead of
-// treating it as a rival measurement.
-function verifiedRecord(path) {
+// A rival worth deferring to: a record the reader would have used. Judged by `cacheFault`
+// and nothing else, so the publisher and the reader cannot disagree about what a usable
+// record is. Anything it rejects holds no evidence to lose and is replaced, which is how
+// an unreadable record gets repaired rather than outliving every run that meets it.
+function verifiedRecord(path, area, runKey) {
     let record;
     try {
         record = JSON.parse(readFileSync(path, "utf8"));
     } catch {
         return undefined;
     }
-    if (!isJsonObject(record) || !isJsonObject(record.report)) return undefined;
-    if (jsonKind(record.area) !== "string" || jsonKind(record.runKey) !== "string") {
-        return undefined;
-    }
-    if (record.reportSha256 !== reportDigest(record.report)) return undefined;
-    try {
-        requireAreaReport(record.report, record.area);
-    } catch {
-        return undefined;
-    }
-    return unusableMutants(record.report).length === 0 ? record : undefined;
+    return cacheFault(record, area, runKey) === undefined ? record : undefined;
 }
 
 /**

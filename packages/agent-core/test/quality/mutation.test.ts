@@ -208,7 +208,13 @@ describe("mutation adequacy gate", () => {
             reportPath,
             JSON.stringify(
                 reportFor(guardModule, [
-                    { ...guardMutant, status: "Killed", killedBy: ["t1"], testsCompleted: 1 }
+                    {
+                        ...guardMutant,
+                        status: "Killed",
+                        coveredBy: ["t1"],
+                        killedBy: ["t1"],
+                        testsCompleted: 1
+                    }
                 ])
             )
         );
@@ -315,7 +321,13 @@ describe("mutation adequacy gate", () => {
             "no test covers it": reportFor(guardModule, [{ ...guardMutant, status: "Survived" }]),
             // The area check: a perfectly formed report of somewhere else.
             "names src/identity/ref.ts": reportFor(guardModule, [
-                { ...guardMutant, status: "Killed", killedBy: ["t1"], testsCompleted: 1 }
+                {
+                    ...guardMutant,
+                    status: "Killed",
+                    coveredBy: ["t1"],
+                    killedBy: ["t1"],
+                    testsCompleted: 1
+                }
             ])
         };
 
@@ -1360,6 +1372,59 @@ describe("mutation run reuse", () => {
         }
     });
 
+    // The trap a second definition of "usable record" set: an edition this reader refuses
+    // was still a rival to the publisher, which found a matching key and digest, called it
+    // converged, and left the unreadable record in place for every run that followed. One
+    // predicate now answers both, so meeting it repairs it.
+    test("replaces a record its reader would refuse instead of converging on it", () => {
+        const path = runCachePath(probe);
+        const record = recordFor(probe, "sha256:envelope", probeReport("Survived"));
+        clearProbe(probe);
+        mkdirSync(dirname(path), { recursive: true });
+        // Self-consistent in every way the publisher used to look at, and unreadable.
+        writeFileSync(path, JSON.stringify({ ...record, edition: "2.0.0" }));
+        try {
+            expect(readRunCache(probe, "sha256:envelope").rejected).toContain(
+                "cache record edition"
+            );
+            expect(publishRunCache(probe, record)).toBe("published");
+            expect(readRunCache(probe, "sha256:envelope").reused).toBeDefined();
+        } finally {
+            clearProbe(probe);
+        }
+
+        // The same for an envelope missing its runtime identity.
+        clearProbe(probe);
+        mkdirSync(dirname(path), { recursive: true });
+        const { identity: _dropped, ...faceless } = record;
+        writeFileSync(path, JSON.stringify(faceless));
+        try {
+            expect(readRunCache(probe, "sha256:envelope").rejected).toContain(
+                "names no runtime identity"
+            );
+            expect(publishRunCache(probe, record)).toBe("published");
+            expect(readRunCache(probe, "sha256:envelope").reused).toBeDefined();
+        } finally {
+            clearProbe(probe);
+        }
+    });
+
+    // `reconcileEquivalence` keys its resolution by `mutant.id` alone and mutation.mjs
+    // reads it back the same way, so two files sharing an id would let one proof excuse the
+    // other file's mutant. Per-file uniqueness would have missed it.
+    test("refuses one mutant identity used in two files", () => {
+        const here = probeReport("Survived");
+        // Two files, each numbering its own mutants from one, as Stryker's report does.
+        const there = reportFor(
+            guardModule,
+            [{ ...guardMutant, status: "Survived", coveredBy: ["t1"], testsCompleted: 1 }],
+            `src/${probe}/other.ts`
+        );
+        const collided = { ...here, files: { ...here.files, ...there.files } };
+
+        expect(() => requireAreaReport(collided, probe)).toThrow(/names two mutants 1/u);
+    });
+
     test("refuses a symbolic link where its record belongs", () => {
         const path = runCachePath(probe);
         const target = resolve(packageRoot, "reports/mutation/reuse-probe.target");
@@ -1556,10 +1621,54 @@ describe("mutation run reuse", () => {
                 "kill that ran nothing",
                 reportFor(
                     guardModule,
-                    [{ ...guardMutant, status: "Killed", killedBy: ["t1"], testsCompleted: 0 }],
+                    [
+                        {
+                            ...guardMutant,
+                            status: "Killed",
+                            coveredBy: ["t1"],
+                            killedBy: ["t1"],
+                            testsCompleted: 0
+                        }
+                    ],
                     probeFile
                 ),
-                /Killed having executed no test/u
+                /Killed having executed 0 of the 1 tests that cover it/u
+            ],
+            // A filtered run that executed some of its tests is no more conclusive than
+            // one that executed none: the survivor might have been killed by the test
+            // that never ran, and the kill's killedBy is taken as complete.
+            [
+                "kill that ran part of its filter",
+                reportFor(
+                    guardModule,
+                    [
+                        {
+                            ...guardMutant,
+                            status: "Killed",
+                            coveredBy: ["t1", "t2"],
+                            killedBy: ["t1"],
+                            testsCompleted: 1
+                        }
+                    ],
+                    probeFile
+                ),
+                /Killed having executed 1 of the 2 tests that cover it/u
+            ],
+            [
+                "survivor that ran part of its filter",
+                reportFor(
+                    guardModule,
+                    [
+                        {
+                            ...guardMutant,
+                            status: "Survived",
+                            coveredBy: ["t1", "t2"],
+                            testsCompleted: 1
+                        }
+                    ],
+                    probeFile
+                ),
+                /Survived having executed 1 of the 2 tests that cover it/u
             ],
             [
                 "survivor nothing covers",
@@ -1573,7 +1682,7 @@ describe("mutation run reuse", () => {
                     [{ ...guardMutant, status: "Survived", coveredBy: ["t1"], testsCompleted: 0 }],
                     probeFile
                 ),
-                /Survived having executed no test/u
+                /Survived having executed 0 of the 1 tests that cover it/u
             ],
             [
                 "unknown status",
@@ -1688,7 +1797,15 @@ describe("mutation run reuse", () => {
             [probe]: probeReport("Survived"),
             [second]: reportFor(
                 guardModule,
-                [{ ...guardMutant, status: "Killed", killedBy: ["t2"], testsCompleted: 4 }],
+                [
+                    {
+                        ...guardMutant,
+                        status: "Killed",
+                        coveredBy: ["t2"],
+                        killedBy: ["t2"],
+                        testsCompleted: 1
+                    }
+                ],
                 `src/${second}/module.ts`
             )
         };
