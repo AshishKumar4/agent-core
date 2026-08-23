@@ -19,6 +19,7 @@ export {
     InterceptorId,
     OperationName,
     OperationRef,
+    PromptSectionId,
     SlotEntryId,
     SlotName,
     SurfaceId
@@ -64,6 +65,9 @@ export {
     canonicalTrustTiers
 } from "./event";
 export type { EventVisibility, TrustTier, VerificationScheme } from "./event";
+export { PromptSection, PromptSectionContributionOrigin } from "./prompt-section";
+export { PromptWithdrawalSet, WorkspacePromptSectionStore } from "./prompt-store";
+export { MemoryWorkspacePromptSectionStore } from "./prompt-memory";
 export { Prompt, PromptContribution } from "./prompt";
 export { Command } from "./command";
 export type { CommandInit } from "./command";

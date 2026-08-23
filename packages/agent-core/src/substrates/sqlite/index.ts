@@ -5,6 +5,7 @@ export { SqliteContentStore } from "./content";
 export { SqliteContentRetention, SqliteTransientContentAccess } from "./content-retention";
 export { SqliteIdentityReader } from "./identity";
 export { SqlitePackageStore } from "./package";
+export { SqliteWorkspacePromptSectionStore } from "./prompt-section";
 export { SqliteProtocolPersistence } from "./protocol";
 export {
     SqliteInvocationMediationPersistence,
