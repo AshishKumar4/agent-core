@@ -23,6 +23,7 @@ export {
     SettingsLayerId,
     SlotEntryId,
     SlotName,
+    CatalogEntryId,
     SurfaceId
 } from "./id";
 export {
@@ -55,6 +56,13 @@ export { ContributionAttribution } from "./attribution";
 export { SlotContributionOrigin, SlotEntry } from "./slot-entry";
 export { SlotWithdrawalSet, WorkspaceSlotStore } from "./slot-store";
 export { MemoryWorkspaceSlotStore } from "./slot-memory";
+export { CatalogOrigin, CatalogEntry, type CatalogKind } from "./catalog-entry";
+export {
+    CatalogWithdrawalSet,
+    WorkspaceCatalogStore,
+    type CatalogDeclarationInit
+} from "./catalog-entry-store";
+export { MemoryWorkspaceCatalogStore } from "./catalog-entry-memory";
 export { SurfaceRegistration } from "./surface";
 export { SurfaceWithdrawalSet, WorkspaceSurfaceStore } from "./surface-store";
 export { MemoryWorkspaceSurfaceStore } from "./surface-memory";

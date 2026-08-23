@@ -1,5 +1,7 @@
 export { TenantAuthoredCodeDelegationPort, isolateDomain } from "./authored-code";
 export type { IsolateGatewayFactory, TenantAuthoredCodeDelegationInit } from "./authored-code";
+export { CatalogMaterializer } from "./catalog-materializer";
+export type { CatalogMaterializationInit } from "./catalog-materializer";
 export {
     MediatedAuthorityIntent,
     ResolvedOperationAuthority,
