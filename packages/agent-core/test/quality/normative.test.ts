@@ -180,6 +180,9 @@ describe("origin marker parser", () => {
     test("rejects markers that are not exactly once at the tail", () => {
         expect(() => parseOriginMarker(["sourced", "sourced"])).toThrow();
         expect(() => parseOriginMarker(["sourced", "x", "synthetic", "sourced"])).toThrow();
+        expect(() => parseOriginMarker(["synthetic", "sourced"])).toThrow();
+        expect(() => parseOriginMarker(["sourced", "synthetic"])).toThrow();
+        expect(() => parseOriginMarker(["synthetic", "x", "synthetic"])).toThrow();
     });
 });
 

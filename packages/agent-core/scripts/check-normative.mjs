@@ -255,14 +255,17 @@ export function parseOriginMarker(structure) {
         throw new TypeError("declaration structure must be a nonempty array");
     }
     const tail = structure[structure.length - 1];
-    if (typeof tail !== "string" || !originMarkers.includes(tail)) {
+    if (!isNonEmptyString(tail) || !originMarkers.includes(tail)) {
         throw new TypeError(
             "declaration structure must end in origin marker sourced|synthetic"
         );
     }
-    if (structure.slice(0, -1).includes(tail)) {
+    const prefix = structure.slice(0, -1);
+    if (
+        prefix.some((item) => isNonEmptyString(item) && originMarkers.includes(item))
+    ) {
         throw new TypeError(
-            "declaration origin marker must appear exactly once, at the tail"
+            "declaration origin marker must occur exactly once, at the tail"
         );
     }
     return tail;
