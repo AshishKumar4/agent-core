@@ -124,6 +124,24 @@ const probes = [
                 source.slice(end)
             );
         }
+    },
+    {
+        // Same-used-constants control-flow mutation: swapping the equality
+        // operands keeps every referenced constant while changing the
+        // application tree, so only structural hashing can see it.
+        name: "control-flow mutation with unchanged dependency set",
+        target: join(packageRoot, "formal", "AgentCore", "View.lean"),
+        script: normativeGate,
+        pattern: /normative\.lock is stale|check:normative Lean build failed/u,
+        plant(source) {
+            const anchor =
+                "  if delta.base = view.revision then";
+            if (!source.includes(anchor)) throw new Error("applyDelta guard anchor not found");
+            return source.replace(
+                anchor,
+                "  if view.revision = delta.base then"
+            );
+        }
     }
 ];
 

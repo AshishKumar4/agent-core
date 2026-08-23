@@ -270,7 +270,11 @@ function validateAndHash(raw, expectedDesignations, expectedModules) {
         if (declarations.has(name)) {
             throw new TypeError(`structural package contains duplicate declaration ${name}`);
         }
-        declarations.set(name, sha256(JSON.stringify(entry.structure)));
+        const synthetic =
+            Array.isArray(entry.structure) &&
+            entry.structure.length > 0 &&
+            entry.structure[entry.structure.length - 1] === "synthetic";
+        declarations.set(name, { sha: sha256(JSON.stringify(entry.structure)), synthetic });
     }
 
     const emittedDesignations = objectArray(raw.designations, "structural package designations");
@@ -295,9 +299,14 @@ function validateAndHash(raw, expectedDesignations, expectedModules) {
             throw new TypeError(`${location}.closure contains duplicate declarations`);
         }
         for (const declarationName of closureNames) {
-            const declarationHash = declarations.get(declarationName);
-            if (declarationHash === undefined) {
+            const declarationRecord = declarations.get(declarationName);
+            if (declarationRecord === undefined) {
                 throw new TypeError(`${location}.closure references absent ${declarationName}`);
+            }
+            if (declarationRecord.synthetic) {
+                throw new TypeError(
+                    `${location}.closure leaks synthetic declaration ${declarationName}`
+                );
             }
             referencedDeclarations.add(declarationName);
         }
@@ -314,22 +323,32 @@ function validateAndHash(raw, expectedDesignations, expectedModules) {
     if (JSON.stringify([...observedAxioms].sort()) !== JSON.stringify(expectedAxioms)) {
         throw new TypeError("observed designated axiom union does not exactly match formal policy");
     }
-    const unreferenced = [...declarations.keys()].filter(
-        (name) => !referencedDeclarations.has(name)
-    );
+    // Synthetic artifacts are recorded as reachable semantics but are never
+    // closure members, so only sourced declarations must be closure-reachable.
+    const isSyntheticEntry = (entry) => {
+        const structure = entry.structure;
+        return (
+            Array.isArray(structure) &&
+            structure.length > 0 &&
+            structure[structure.length - 1] === "synthetic"
+        );
+    };
+    const unreferenced = [...declarations.entries()]
+        .filter(([name, record]) => !referencedDeclarations.has(name) && !record.synthetic)
+        .map(([name]) => name);
     if (unreferenced.length > 0) {
         throw new TypeError(
             `structural package contains unreferenced declarations: ${unreferenced.join(", ")}`
         );
     }
     const declarationEntries = [...declarations]
-        .map(([name, declarationSha256]) => ({ name, sha256: declarationSha256 }))
+        .map(([name, record]) => ({ name, sha256: record.sha }))
         .sort((left, right) => compareCodeUnits(left.name, right.name));
     const semanticClosures = new Map();
     const normalizedDesignations = designations.map(({ semanticClosureNames, ...designation }) => {
         const closureEntries = semanticClosureNames.map((name) => ({
             name,
-            sha256: declarations.get(name)
+            sha256: declarations.get(name)?.sha
         }));
         const source = JSON.stringify(closureEntries);
         const closureSha256 = sha256(source);

@@ -215,6 +215,16 @@ describe("normative structural encoder", { timeout: 120_000 }, () => {
             const missing = required.filter((name) => !members.includes(name));
             expect(missing, `${designation} lost closure members`).toEqual([]);
         }
+        // Synthetic artifact structure is recorded as reachable semantics
+        // (P1: control-flow mutations inside _f must flip the lock), but the
+        // artifacts themselves stay out of membership.
+        // The committed lock carries content-addressed records for synthetic
+        // artifacts; their sourced|synthetic origin marker is enforced by the
+        // strict checker (closure-leak rejection plus reachability exemption).
+        const syntheticEntry = committed.declarations.find(
+            (d) => d.name === "AgentCore.replay._f"
+        );
+        expect(syntheticEntry?.sha256).toMatch(/^sha256:/u);
         // Compiler naming must stay out of manifest membership entirely.
         const artifactPattern = /(\._f$|\.match_\d+$|\.toCtorIdx$|\.ctorIdx$|\.brecOn\.go$)/u;
         for (const closure of committed.semanticClosures) {

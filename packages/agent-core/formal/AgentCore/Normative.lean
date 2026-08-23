@@ -201,7 +201,7 @@ private def encodeDeclaration (info : ConstantInfo) : MetaM DeclarationEncoding 
   -- registered declaration range; "synthetic" ones are compiler artifacts.
   let origin ← declarationOrigin value.name
   let header kind fields := tagged kind ([encodeName value.name, .str value.levelParams.length.repr,
-    encodedType.json, .str origin] ++ fields)
+    encodedType.json] ++ fields ++ [.str origin])
   let typeDependencies := encodedType.dependencies
   match info with
   | .axiomInfo declaration =>
@@ -371,6 +371,13 @@ private def auditProjectEnvironment (environment : Environment)
 private structure DeclarationGraph where
   dependencies : NameMap (List Name)
   declarations : NameMap Json
+  /-- Recorded structure for every traversed project constant, synthetic or
+      sourced. Synthetic records make control-flow, ordering, and literal
+      mutations inside compiled artifacts visible to the manifest without ever
+      becoming closure members. -/
+  records : NameMap Json
+  spanKeyOf : NameMap Name
+  spanGroups : NameMap (List Name)
 
 private def scheduleDependencies (dependencies : List Name) (pending : List Name)
     (scheduled : NameSet) : List Name × NameSet := Id.run do
@@ -390,6 +397,7 @@ private def collectDeclarationGraph (environment : Environment) (roots : List Na
   let mut scheduled := initialScheduled
   let mut dependencies : NameMap (List Name) := {}
   let mut declarations : NameMap Json := {}
+  let mut records : NameMap Json := {}
   let mut remaining := declarationCount + 1
   -- Declarations elaborated from one syntax origin share an exact declaration
   -- range: an inductive family, or a derived instance and its worker helpers.
@@ -451,15 +459,20 @@ private def collectDeclarationGraph (environment : Environment) (roots : List Na
         pending := next.1
         scheduled := next.2
       | none => pure ()
-      if projectDeclaration && !(← isGeneratedDeclaration name) then
-        match encoding.json with
-        | none => pure ()
-        | some encoded => declarations := declarations.insert name encoded
+      -- Synthetic artifacts are reachable semantics too: their structure is
+      -- recorded (never a closure member), so control-flow, ordering, or
+      -- literal mutations inside them cannot leave the manifest unchanged.
+      match encoding.json with
+      | none => pure ()
+      | some encoded =>
+        records := records.insert name encoded
+        if !(← isGeneratedDeclaration name) then
+          declarations := declarations.insert name encoded
     else
       -- Constants outside the project module are opaque leaves: recorded as
       -- terminal so the designation walk stays bounded by the graph itself.
       dependencies := dependencies.insert name []
-  pure { dependencies, declarations }
+  pure { dependencies, declarations, records, spanKeyOf, spanGroups }
 
 private def collectDesignationClosure (graph : DeclarationGraph) (roots : List Name) :
     Except String (List Name) := do
@@ -480,6 +493,12 @@ private def collectDesignationClosure (graph : DeclarationGraph) (roots : List N
       let next := scheduleDependencies declarationDependencies pending scheduled
       pending := next.1
       scheduled := next.2
+      match graph.spanKeyOf.find? name with
+      | some spanKey =>
+        let siblings := scheduleDependencies (((graph.spanGroups.find? spanKey).getD [])) pending scheduled
+        pending := siblings.1
+        scheduled := siblings.2
+      | none => pure ()
       if graph.declarations.contains name then names := name :: names
   pure names
 
@@ -565,7 +584,7 @@ private def encodePackage (tokens : List String) : CoreM Json := do
       | .ok value => pure value
       | .error message => throwError message
     encodedDesignations := encoded :: encodedDesignations
-  let encodedDeclarations := graph.declarations.toArray.toList.map fun (name, declaration) =>
+  let encodedDeclarations := graph.records.toArray.toList.map fun (name, declaration) =>
     Json.mkObj [("name", .str name.toString), ("structure", declaration)]
   let auditedModules := environment.allImportedModuleNames
     |>.filter ((`AgentCore).isPrefixOf ·)
