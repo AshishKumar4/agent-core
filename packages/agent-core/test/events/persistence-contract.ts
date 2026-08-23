@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import type { SynchronousResultGuard } from "../../src/actors";
 import { Revision } from "../../src/core";
+import type { ContributionAttribution } from "../../src/facets";
 import {
     Event,
     EventId,
@@ -10,8 +11,10 @@ import {
     RouteReservationId,
     View,
     WorkspacePersistence,
-    type EventInit
+    type EventInit,
+    type Subscription
 } from "../../src/workspaces";
+import { attribution } from "../w3/slot-store-contract";
 import {
     content,
     authenticatedProjectionFixture,
@@ -223,6 +226,80 @@ export function workspacePersistenceContract<Transaction>(
             }
         });
 
+        test(
+            "[C13-SUBSCRIPTION-ATTRIBUTION-FIXED] fixes attribution at creation and refuses every later revision that adds, drops, or rewrites it",
+            { tags: "p0" },
+            () => {
+                const harness = create();
+                try {
+                    const contribution = attribution("workspace:fixed");
+                    const contributed = subscriptionFixture(`${name}-attributed`, {
+                        contribution
+                    });
+                    const direct = subscriptionFixture(`${name}-direct`);
+                    harness.transaction((transaction) => {
+                        harness.persistence.saveSubscription(transaction, contributed, undefined);
+                        harness.persistence.saveSubscription(transaction, direct, undefined);
+                    });
+
+                    for (const candidate of [
+                        revised(contributed, attribution("workspace:other")),
+                        revised(contributed, undefined),
+                        revised(direct, contribution)
+                    ]) {
+                        expect(() =>
+                            harness.transaction((transaction) => {
+                                harness.persistence.saveSubscription(
+                                    transaction,
+                                    candidate,
+                                    Revision.initial()
+                                );
+                            })
+                        ).toThrow(
+                            expect.objectContaining({
+                                code: "protocol.invalid-state",
+                                message: "Subscription contribution attribution is immutable"
+                            })
+                        );
+                    }
+
+                    harness.transaction((transaction) => {
+                        const stored = harness.persistence.currentSubscription(
+                            transaction,
+                            contributed.id
+                        );
+                        expect(stored?.revision.value).toBe(0);
+                        expect(stored?.contribution?.equals(contribution)).toBe(true);
+                        expect(
+                            harness.persistence.currentSubscription(transaction, direct.id)
+                                ?.contribution
+                        ).toBeUndefined();
+                    });
+
+                    // The store refuses a changed pair rather than a later revision, and the
+                    // fixed pair survives the substrate rather than the process that wrote it.
+                    harness.transaction((transaction) => {
+                        harness.persistence.saveSubscription(
+                            transaction,
+                            revised(contributed, contribution),
+                            Revision.initial()
+                        );
+                    });
+                    harness.restart();
+                    harness.transaction((transaction) => {
+                        const reopened = harness.persistence.currentSubscription(
+                            transaction,
+                            contributed.id
+                        );
+                        expect(reopened?.revision.value).toBe(1);
+                        expect(reopened?.contribution?.equals(contribution)).toBe(true);
+                    });
+                } finally {
+                    harness.dispose();
+                }
+            }
+        );
+
         test("makes route projection and delivery decisions terminal", { tags: "p0" }, () => {
             const harness = create();
             try {
@@ -373,5 +450,20 @@ export function workspacePersistenceContract<Transaction>(
                 harness.dispose();
             }
         });
+    });
+}
+
+/** A later revision of one Subscription that changes only the attribution it carries. */
+function revised(
+    subscription: Subscription,
+    contribution: ContributionAttribution | undefined
+): Subscription {
+    return subscription.revise({
+        source: subscription.source,
+        target: subscription.target,
+        mapping: subscription.mapping,
+        dedupe: subscription.dedupe,
+        authority: subscription.authority,
+        contribution
     });
 }
