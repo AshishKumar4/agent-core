@@ -323,16 +323,6 @@ function validateAndHash(raw, expectedDesignations, expectedModules) {
     if (JSON.stringify([...observedAxioms].sort()) !== JSON.stringify(expectedAxioms)) {
         throw new TypeError("observed designated axiom union does not exactly match formal policy");
     }
-    // Synthetic artifacts are recorded as reachable semantics but are never
-    // closure members, so only sourced declarations must be closure-reachable.
-    const isSyntheticEntry = (entry) => {
-        const structure = entry.structure;
-        return (
-            Array.isArray(structure) &&
-            structure.length > 0 &&
-            structure[structure.length - 1] === "synthetic"
-        );
-    };
     const unreferenced = [...declarations.entries()]
         .filter(([name, record]) => !referencedDeclarations.has(name) && !record.synthetic)
         .map(([name]) => name);
