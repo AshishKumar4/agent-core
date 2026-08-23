@@ -23,10 +23,11 @@ import { ClaimWorkerId, ItemClaimId } from "../invocation-references";
 import { InvocationId } from "../interaction-references";
 import type { JsonObject } from "./data";
 import { requireExact, requireObject, requireSafeInteger, requireString } from "./data";
-import { Binding, BindingCredentialCustody, BindingLifecycle } from "./binding";
-import { AuthorityCheckRequest } from "./evidence";
+import { Binding, BindingLifecycle } from "./binding";
+import { TargetLeaseEvidenceReference } from "./target-lease-evidence";
 import { PathEpochEvidence, ScopeEpoch } from "./epoch";
 import { AuthorityPermitExpectation } from "./permit";
+import { AuthorityCheckRequest } from "./evidence";
 import {
     GuestVerificationScheme,
     PrincipalId,
@@ -52,9 +53,9 @@ class TargetAuthorityPermitRequestCodec extends RecordCodec<TargetAuthorityPermi
                 SemVer,
                 AuthorityCheckRequest,
                 AuthorityPermitExpectation,
+                TargetLeaseEvidenceReference,
                 Binding,
                 BindingLifecycle,
-                BindingCredentialCustody,
                 PathEpochEvidence,
                 PackagePin,
                 ScopeEpoch,
@@ -82,7 +83,7 @@ class TargetAuthorityPermitRequestCodec extends RecordCodec<TargetAuthorityPermi
                 PrincipalId
             ],
             "authority.target-permit-request",
-            { major: 1, minor: 0 }
+            { major: 2, minor: 0 }
         );
     }
 
@@ -106,7 +107,8 @@ export class TargetAuthorityPermitRequest {
         public readonly expectation: AuthorityPermitExpectation,
         public readonly authority: AuthorityCheckRequest,
         public readonly nonce: string,
-        expiresAt: Date
+        expiresAt: Date,
+        leaseEvidence: TargetLeaseEvidenceReference | undefined = undefined
     ) {
         if (nonce.length === 0 || nonce !== nonce.trim()) {
             throw new TypeError(
@@ -120,12 +122,35 @@ export class TargetAuthorityPermitRequest {
         requireRequestIdentity(expectation, authority, nonce);
         requireAuthorityBinding(expectation, authority);
         requireAuthorityIntent(expectation, authority);
+        if (
+            leaseEvidence !== undefined &&
+            (!leaseEvidence.key.source.equals(expectation.source) ||
+                leaseEvidence.key.idempotencyKey !== nonce)
+        ) {
+            throw new TypeError(
+                "Target authority permit request lease evidence does not match its source identity"
+            );
+        }
         this.#expiresAt = expiresAtTime;
+        this.leaseEvidence =
+            leaseEvidence === undefined
+                ? undefined
+                : TargetLeaseEvidenceReference.fromData(leaseEvidence.toData());
         Object.freeze(this);
     }
 
+    public readonly leaseEvidence: TargetLeaseEvidenceReference | undefined;
     public get expiresAt(): Date {
         return new Date(this.#expiresAt);
+    }
+
+    public identity(): Digest {
+        return TargetAuthorityPermitRequest.identityFor(
+            this.expectation,
+            this.authority,
+            this.nonce,
+            this.expiresAt
+        );
     }
 
     public digest(): Digest {
@@ -137,24 +162,45 @@ export class TargetAuthorityPermitRequest {
             authority: this.authority.toData(),
             expectation: this.expectation.toData(),
             expiresAt: this.#expiresAt,
+            leaseEvidence: this.leaseEvidence?.toData() ?? null,
             nonce: this.nonce
         };
+    }
+
+    public static identityFor(
+        expectation: AuthorityPermitExpectation,
+        authority: AuthorityCheckRequest,
+        nonce: string,
+        expiresAt: Date
+    ): Digest {
+        return Digest.sha256(
+            encodeCanonicalJson({
+                authority: authority.toData(),
+                expectation: expectation.toData(),
+                expiresAt: expiresAt.getTime(),
+                nonce
+            })
+        );
     }
 
     public static fromData(value: JsonValue | undefined): TargetAuthorityPermitRequest {
         const object = requireObject(value, "Target authority permit request");
         requireExact(
             object,
-            ["authority", "expectation", "expiresAt", "nonce"],
+            ["authority", "expectation", "expiresAt", "leaseEvidence", "nonce"],
             "Target authority permit request"
         );
+        const leaseEvidence = object["leaseEvidence"];
         return new TargetAuthorityPermitRequest(
             AuthorityPermitExpectation.fromData(object["expectation"]),
             AuthorityCheckRequest.fromData(object["authority"]),
             requireString(object, "nonce", "Target authority permit request nonce"),
             new Date(
                 requireSafeInteger(object, "expiresAt", "Target authority permit request expiry")
-            )
+            ),
+            leaseEvidence === null
+                ? undefined
+                : TargetLeaseEvidenceReference.fromData(leaseEvidence)
         );
     }
 

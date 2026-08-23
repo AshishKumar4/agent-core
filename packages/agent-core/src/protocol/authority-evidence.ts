@@ -7,6 +7,7 @@ import {
     BindingCredentialCustody,
     BindingLifecycle,
     TargetAuthorityPermitRequest,
+    TargetLeaseEvidence,
     BindingValidationEvidence,
     BindingValidationRequest,
     GrantId,
@@ -381,6 +382,16 @@ export class BindingValidationPayloadCodec implements CommandPayloadCodec<Bindin
     }
     public encode(request: BindingValidationRequest): Uint8Array {
         return BindingValidationRequest.encode(request);
+    }
+}
+
+export class TargetLeaseEvidencePayloadCodec implements CommandPayloadCodec<TargetLeaseEvidence> {
+    public decode(bytes: Uint8Array): TargetLeaseEvidence {
+        return TargetLeaseEvidence.decode(bytes);
+    }
+
+    public encode(evidence: TargetLeaseEvidence): Uint8Array {
+        return TargetLeaseEvidence.encode(evidence);
     }
 }
 

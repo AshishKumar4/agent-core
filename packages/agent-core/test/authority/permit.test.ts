@@ -19,13 +19,17 @@ import {
     Binding,
     GrantId,
     MemoryAuthorityPermitStore,
+    MemoryAuthorityPermitTransaction,
     MemoryTenantAuthorityPermitStore,
     MemoryTenantControlStore,
+    InvalidationWatermark,
     PathEpochEvidence,
     ScopeEpoch,
     StoredAuthorityPermitAdmissionPort,
     TargetAuthorityPermitDenial,
     TargetAuthorityPermitRequest,
+    TargetLeaseEvidence,
+    TargetLeaseEvidenceKey,
     requireAuthenticatedAuthorityPermit,
     type AuthorityPermitExpectationInit,
     type AuthorityPermitIssueStore,
@@ -728,6 +732,89 @@ test("memory permit transactions do not expose mutable scope state", { tags: "p0
         expect(Reflect.ownKeys(transaction)).toEqual([]);
     });
 });
+
+test(
+    "Tenant issuance requires the exact projected source lease evidence",
+    { tags: "p0" },
+    () => {
+        const store = new MemoryAuthorityPermitStore(issuerActor);
+        const expected = expectation();
+        const nonce = "projected-source-evidence";
+        const authority = targetRequestFor(expected, nonce).authority;
+        const sourceKey = new TargetLeaseEvidenceKey(expected.source, nonce);
+        const sourceEvidence = new TargetLeaseEvidence({
+            key: sourceKey,
+            tenant: expected.tenant,
+            run: expected.reservation.run,
+            lease: expected.lease!,
+            target: expected.target,
+            requestIdentity: TargetAuthorityPermitRequest.identityFor(
+                expected,
+                authority,
+                nonce,
+                expiresAt
+            ),
+            deadline: expiresAt,
+            watermark: InvalidationWatermark.empty(
+                expected.tenant,
+                expected.source,
+                expected.lease!.holder
+            )
+        });
+        const request = new TargetAuthorityPermitRequest(
+            expected,
+            authority,
+            nonce,
+            expiresAt,
+            sourceEvidence.reference()
+        );
+        const decision = new CurrentAuthority<MemoryAuthorityPermitTransaction>().evidence(
+            undefined,
+            request,
+            issuedAt
+        );
+
+        expect(() =>
+            store.transaction((transaction) =>
+                new TenantAuthorityPermitIssuer(store).issue(
+                    transaction,
+                    request,
+                    decision,
+                    issuedAt
+                )
+            )
+        ).toThrow(/source lease evidence/);
+        const issued = store.transaction((transaction) => {
+            store.projectEvidence(transaction, sourceEvidence);
+            return new TenantAuthorityPermitIssuer(store).issue(
+                transaction,
+                request,
+                decision,
+                issuedAt
+            );
+        });
+        expect(issued.requestDigest.equals(request.digest())).toBe(true);
+        expect(() =>
+            store.transaction((transaction) =>
+                store.projectEvidence(
+                    transaction,
+                    new TargetLeaseEvidence({
+                        key: sourceEvidence.key,
+                        tenant: sourceEvidence.tenant,
+                        run: sourceEvidence.run,
+                        lease: sourceEvidence.lease,
+                        target: sourceEvidence.target,
+                        requestIdentity: Digest.sha256(
+                            new TextEncoder().encode("substituted-projected-evidence")
+                        ),
+                        deadline: sourceEvidence.deadline,
+                        watermark: sourceEvidence.watermark
+                    })
+                )
+            )
+        ).toThrow(/bound to another attestation/);
+    }
+);
 
 describe("AuthorityPermit", () => {
     test(

@@ -22,7 +22,11 @@ export type {
 export { SqliteRunStorage } from "./run";
 export { ReadableSqlite, TransactionalSqlite, ownSqliteMutations } from "./sqlite";
 export type { SqliteRow, SqliteValue } from "./sqlite";
-export { SqliteAuthorityPermitStore, SqliteTenantAuthorityPermitStore } from "./permit";
+export {
+    SqliteAuthorityPermitStore,
+    SqliteTargetLeaseEvidenceStore,
+    SqliteTenantAuthorityPermitStore
+} from "./permit";
 export { SqliteInvalidationWatermarkStore } from "./watermark";
 export {
     SqliteTargetPermitMediationAggregate,

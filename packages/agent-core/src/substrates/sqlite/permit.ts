@@ -16,6 +16,9 @@ import {
     type TenantAuthorityReadStore,
     TargetAuthorityPermitDenial,
     TargetAuthorityPermitRequest,
+    TargetLeaseEvidence,
+    TargetLeaseEvidenceReference,
+    type TargetLeaseEvidenceStore,
     requireAuthenticatedAuthorityPermit
 } from "../../authority";
 import { Digest } from "../../core";
@@ -55,6 +58,24 @@ const CREATE_DENIALS = `CREATE TABLE IF NOT EXISTS authority_permit_denials (
     denial BLOB NOT NULL
 ) STRICT`;
 
+const CREATE_LEASE_EVIDENCE_PROJECTIONS = `CREATE TABLE IF NOT EXISTS authority_permit_lease_evidence (
+    source_kind TEXT NOT NULL CHECK (source_kind IN ('tenant', 'workspace', 'run', 'environment', 'slate')),
+    source_id TEXT NOT NULL CHECK (length(source_id) > 0),
+    idempotency_key TEXT NOT NULL CHECK (length(idempotency_key) > 0),
+    digest TEXT NOT NULL CHECK (length(digest) = 64),
+    evidence BLOB NOT NULL,
+    PRIMARY KEY (source_kind, source_id, idempotency_key)
+) STRICT`;
+
+const CREATE_SOURCE_LEASE_EVIDENCE = `CREATE TABLE IF NOT EXISTS authority_target_lease_evidence (
+    owner_kind TEXT NOT NULL CHECK (owner_kind IN ('tenant', 'workspace', 'run', 'environment', 'slate')),
+    owner_id TEXT NOT NULL CHECK (length(owner_id) > 0),
+    idempotency_key TEXT NOT NULL CHECK (length(idempotency_key) > 0),
+    digest TEXT NOT NULL CHECK (length(digest) = 64),
+    evidence BLOB NOT NULL,
+    PRIMARY KEY (owner_kind, owner_id, idempotency_key)
+) STRICT`;
+
 export class SqliteAuthorityPermitStore
     implements
         AuthorityPermitTargetStore<TransactionalSqlite>,
@@ -72,6 +93,7 @@ export class SqliteAuthorityPermitStore
                 database.run(CREATE_PERMITS, []);
                 database.run(CREATE_CONSUMPTIONS, []);
                 database.run(CREATE_DENIALS, []);
+                database.run(CREATE_LEASE_EVIDENCE_PROJECTIONS, []);
             });
             this.#actors.transaction((transaction) => this.validateRows(transaction));
         } catch (error) {
@@ -91,6 +113,78 @@ export class SqliteAuthorityPermitStore
         const row = this.row(transaction, nonce);
         if (row === undefined || text(row, "state") !== "issued") return undefined;
         return this.decodeIssued(row, nonce);
+    }
+
+    public projectedEvidence(
+        transaction: TransactionalSqlite,
+        reference: TargetLeaseEvidenceReference
+    ): TargetLeaseEvidence | undefined {
+        this.requireTransaction(transaction);
+        const row = transaction.all(
+            `SELECT * FROM authority_permit_lease_evidence
+             WHERE source_kind = ? AND source_id = ? AND idempotency_key = ?`,
+            [
+                reference.key.source.kind,
+                reference.key.source.id.value,
+                reference.key.idempotencyKey
+            ]
+        )[0];
+        if (row === undefined) return undefined;
+        const bytes = row["evidence"];
+        if (!(bytes instanceof Uint8Array) || text(row, "digest") !== reference.digest.value) {
+            throw corrupt();
+        }
+        const evidence = TargetLeaseEvidence.decode(bytes.slice());
+        if (!evidence.key.equals(reference.key) || !evidence.digest().equals(reference.digest)) {
+            throw corrupt();
+        }
+        return evidence;
+    }
+
+    public projectEvidence(
+        transaction: TransactionalSqlite,
+        evidence: TargetLeaseEvidence
+    ): TargetLeaseEvidence {
+        this.requireTransaction(transaction);
+        try {
+            transaction.run(
+                `INSERT OR IGNORE INTO authority_permit_lease_evidence
+                    (source_kind, source_id, idempotency_key, digest, evidence)
+                 VALUES (?, ?, ?, ?, ?)`,
+                [
+                    evidence.key.source.kind,
+                    evidence.key.source.id.value,
+                    evidence.key.idempotencyKey,
+                    evidence.digest().value,
+                    TargetLeaseEvidence.encode(evidence)
+                ]
+            );
+        } catch (error) {
+            if (error instanceof AgentCoreError) throw error;
+            throw denied("Target lease evidence could not be projected atomically");
+        }
+        const row = transaction.all(
+            `SELECT * FROM authority_permit_lease_evidence
+             WHERE source_kind = ? AND source_id = ? AND idempotency_key = ?`,
+            [
+                evidence.key.source.kind,
+                evidence.key.source.id.value,
+                evidence.key.idempotencyKey
+            ]
+        )[0];
+        const bytes = row?.["evidence"];
+        if (row === undefined || !(bytes instanceof Uint8Array)) {
+            throw conflict("Target lease evidence projection did not persist");
+        }
+        const stored = TargetLeaseEvidence.decode(bytes.slice());
+        if (
+            !stored.key.equals(evidence.key) ||
+            !stored.digest().equals(evidence.digest()) ||
+            text(row, "digest") !== stored.digest().value
+        ) {
+            throw denied("Target lease evidence projection key is bound to another attestation");
+        }
+        return stored;
     }
 
     public requested(
@@ -479,6 +573,122 @@ export class SqliteAuthorityPermitStore
     }
 }
 
+/** SQLite source-Actor store for immutable target lease evidence. */
+export class SqliteTargetLeaseEvidenceStore
+    implements TargetLeaseEvidenceStore<TransactionalSqlite>
+{
+    readonly #actors: SqliteActorStore;
+
+    public constructor(
+        private readonly database: TransactionalSqlite,
+        public readonly owner: ActorRef
+    ) {
+        this.#actors = new SqliteActorStore(database);
+        database.transaction(() => {
+            database.run(CREATE_SOURCE_LEASE_EVIDENCE, []);
+        });
+        this.#actors.transaction((transaction) => this.validateRows(transaction));
+    }
+
+    public transaction<Result>(
+        operation: (transaction: TransactionalSqlite) => Result,
+        ...guard: SynchronousResultGuard<Result>
+    ): Result {
+        return this.#actors.transaction(operation, ...guard);
+    }
+
+    public evidence(
+        transaction: TransactionalSqlite,
+        idempotencyKey: string
+    ): TargetLeaseEvidence | undefined {
+        this.requireTransaction(transaction);
+        const row = transaction.all(
+            `SELECT * FROM authority_target_lease_evidence
+             WHERE owner_kind = ? AND owner_id = ? AND idempotency_key = ?`,
+            [this.owner.kind, this.owner.id.value, idempotencyKey]
+        )[0];
+        if (row === undefined) return undefined;
+        return this.decode(row, idempotencyKey);
+    }
+
+    public record(
+        transaction: TransactionalSqlite,
+        evidence: TargetLeaseEvidence
+    ): TargetLeaseEvidence {
+        this.requireTransaction(transaction);
+        if (!evidence.key.source.equals(this.owner)) {
+            throw denied("Target lease evidence belongs to another source Actor");
+        }
+        try {
+            transaction.run(
+                `INSERT OR IGNORE INTO authority_target_lease_evidence
+                    (owner_kind, owner_id, idempotency_key, digest, evidence)
+                 VALUES (?, ?, ?, ?, ?)`,
+                [
+                    this.owner.kind,
+                    this.owner.id.value,
+                    evidence.key.idempotencyKey,
+                    evidence.digest().value,
+                    TargetLeaseEvidence.encode(evidence)
+                ]
+            );
+        } catch (error) {
+            if (error instanceof AgentCoreError) throw error;
+            throw denied("Target lease evidence could not be recorded atomically");
+        }
+        const stored = this.evidence(transaction, evidence.key.idempotencyKey);
+        if (stored === undefined) throw conflict("Target lease evidence did not persist");
+        if (!stored.digest().equals(evidence.digest())) {
+            throw denied("Target lease evidence key is bound to another source attestation");
+        }
+        return stored;
+    }
+
+    private validateRows(transaction: TransactionalSqlite): void {
+        this.requireTransaction(transaction);
+        const rows = transaction.all(
+            `SELECT * FROM authority_target_lease_evidence
+             WHERE owner_kind = ? AND owner_id = ? ORDER BY idempotency_key`,
+            [this.owner.kind, this.owner.id.value]
+        );
+        for (const row of rows) {
+            this.decode(row, text(row, "idempotency_key"));
+        }
+    }
+
+    private decode(row: SqliteRow, idempotencyKey: string): TargetLeaseEvidence {
+        const bytes = row["evidence"];
+        if (!(bytes instanceof Uint8Array)) throw corrupt();
+        const evidence = TargetLeaseEvidence.decode(bytes.slice());
+        if (
+            text(row, "owner_kind") !== this.owner.kind ||
+            text(row, "owner_id") !== this.owner.id.value ||
+            text(row, "idempotency_key") !== idempotencyKey ||
+            text(row, "digest") !== evidence.digest().value ||
+            !evidence.key.source.equals(this.owner) ||
+            evidence.key.idempotencyKey !== idempotencyKey
+        ) {
+            throw corrupt();
+        }
+        return evidence;
+    }
+
+    private requireTransaction(transaction: TransactionalSqlite): void {
+        if (
+            !(transaction instanceof TransactionalSqlite) ||
+            !hasSameSqliteProvenance(this.database, transaction)
+        ) {
+            throw new TypeError("Target lease evidence transaction belongs to another SQLite owner");
+        }
+        if (!isActiveSqliteActorTransaction(transaction)) {
+            throw new AgentCoreError(
+                "actor.stale-callback",
+                "Target lease evidence writes require the active SQLite Actor transaction"
+            );
+        }
+    }
+}
+
 /** Binds a Tenant's current authority view and issued permits to one SQLite transaction. */
 export class SqliteTenantAuthorityPermitStore
     extends TenantAuthorityTransactionPort<TransactionalSqlite>
@@ -543,6 +753,20 @@ export class SqliteTenantAuthorityPermitStore
         ...guard: SynchronousResultGuard<Result>
     ): Result {
         return this.#actors.read(transaction, operation, ...guard);
+    }
+
+    public projectedEvidence(
+        transaction: TransactionalSqlite,
+        reference: TargetLeaseEvidenceReference
+    ): TargetLeaseEvidence | undefined {
+        return this.#permits.projectedEvidence(transaction, reference);
+    }
+
+    public projectEvidence(
+        transaction: TransactionalSqlite,
+        evidence: TargetLeaseEvidence
+    ): TargetLeaseEvidence {
+        return this.#permits.projectEvidence(transaction, evidence);
     }
 
     public issued(transaction: TransactionalSqlite, nonce: string): AuthorityPermit | undefined {

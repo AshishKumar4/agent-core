@@ -9,8 +9,8 @@ import {
     Binding,
     BindingValidationEvidence,
     BindingValidationRequest,
-    GrantId,
     Grant,
+    GrantId,
     MemoryAuthorityPermitStore,
     MemoryTenantAuthorityPermitStore,
     MemoryTenantControlStore,
@@ -267,7 +267,7 @@ function authorityCommandContract(name: string, create: HarnessFactory): void {
         );
 
         test(
-            "admits exact current check and permit leases while rejecting stale epochs",
+            "keeps direct check lease validation but forbids permit envelope leases",
             { tags: "p0" },
             async () => {
                 const harness = create();
@@ -316,8 +316,8 @@ function authorityCommandContract(name: string, create: HarnessFactory): void {
 
                 expect(checked.outcome).toBe("committed");
                 expect(stale.outcome).toBe("rejectedLease");
-                expect(issued.outcome).toBe("committed");
-                expect(harness.snapshot()).toMatchObject({ checks: 1, permits: 1, writes: 3 });
+                expect(issued.outcome).toBe("rejectedAuthority");
+                expect(harness.snapshot()).toMatchObject({ checks: 1, permits: 0, writes: 3 });
             }
         );
 
@@ -833,7 +833,7 @@ describe("closed Tenant authority command gates", () => {
     );
 
     test(
-        "permit issuance requires the envelope lease to equal the expectation lease exactly",
+        "permit issuance forbids an envelope lease and requires projected source evidence",
         { tags: "p0" },
         async () => {
             const expectationLease = { turn: authorityTurn, holder: principal, epoch: 2 };
@@ -885,24 +885,25 @@ describe("closed Tenant authority command gates", () => {
                     ),
                     payload
                 );
-                expect(result.outcome, reason).toBe("rejectedAuthority");
+                expect(result.outcome, reason).toBe(
+                    envelopeLease !== undefined && lease === undefined
+                        ? "rejectedLease"
+                        : "rejectedAuthority"
+                );
                 expect(harness.snapshot().permits, reason).toBe(0);
             }
-
             const harness = createMemoryHarness();
-            const admitted = permitRequest(currentPath(1), expectationLease);
-            const admittedPayload = AuthorityPermitIssuanceRequest.encode(admitted);
-            const accepted = await harness.dispatch(
+            const request = permitRequest(currentPath(1), expectationLease);
+            const payload = AuthorityPermitIssuanceRequest.encode(request);
+            const result = await harness.dispatch(
                 harness.envelope(
                     TENANT_AUTHORITY_COMMANDS.issuePermit,
-                    "permit-lease-admitted",
-                    admittedPayload,
-                    undefined,
-                    expectationLease
+                    "permit-lease-without-projection",
+                    payload
                 ),
-                admittedPayload
+                payload
             );
-            expect(accepted.outcome).toBe("committed");
+            expect(result.outcome).toBe("rejectedAuthority");
         }
     );
 
@@ -1388,7 +1389,7 @@ describe("the Tenant authority runtime command backend", () => {
     );
 
     test(
-        "admits exactly the check and permit leases the state port reports as current",
+        "continues to validate check leases while permit issuance has no Tenant lease lookup",
         { tags: "p0" },
         async () => {
             const harness = createProductionCommandHarness(new LeasedProductionCommandState());
@@ -1410,24 +1411,19 @@ describe("the Tenant authority runtime command backend", () => {
                 undefined,
                 { ...lease, epoch: 3 }
             );
-
             const permit = permitRequest(harness.path(), lease);
-            const issued = await harness.dispatch(
+            const rejected = await harness.dispatch(
                 TENANT_AUTHORITY_COMMANDS.issuePermit,
-                "runtime-leased-permit",
+                "runtime-lease-forbidden",
                 AuthorityPermitIssuanceRequest.encode(permit),
                 { kind: "actor", actor: targetActor },
                 lease
             );
-            const reply = AuthorityPermitIssuanceReply.decode(issued.reply).requirePermit();
 
             expect(leased.outcome).toBe("committed");
             expect(fenced.outcome).toBe("rejectedLease");
-            expect(issued.outcome).toBe("committed");
-            expect(reply.expectation.lease).toEqual(lease);
-            expect(
-                harness.issued(permit.targetRequest.nonce)?.digest().equals(reply.digest())
-            ).toBe(true);
+            expect(rejected.outcome).toBe("rejectedAuthority");
+            expect(harness.issued(permit.targetRequest.nonce)).toBeUndefined();
         }
     );
 

@@ -6,7 +6,7 @@ import {
     TenantAuthorityRuntime,
     BindingValidationEvidence,
     BindingValidationRequest,
-    type AuthorityPermitExpectation,
+    TargetLeaseEvidence,
     type TenantAuthorityPermitStore
 } from "../authority";
 import type { TransientContentAccess } from "../content";
@@ -15,6 +15,7 @@ import type { PrincipalRef, TenantId } from "../identity";
 import {
     AuthorityCheckPayloadCodec,
     AuthorityCheckReply,
+    TargetLeaseEvidencePayloadCodec,
     AuthorityPermitIssuancePayloadCodec,
     AuthorityPermitIssuanceReply,
     AuthorityPermitIssuanceRequest,
@@ -42,6 +43,7 @@ import {
 export const TENANT_AUTHORITY_COMMANDS = Object.freeze({
     validateBinding: "binding.validate",
     check: "authority.check",
+    projectLeaseEvidence: "authority.permit.evidence.project",
     issuePermit: "authority.permit.issue"
 });
 
@@ -53,11 +55,11 @@ export interface TenantAuthorityCommandBackend<Transaction, Read> {
         request: AuthorityCheckRequest,
         at: Date
     ): CurrentLease | undefined;
-    currentPermitLease(
-        read: Read,
-        request: AuthorityPermitIssuanceRequest,
+    projectLeaseEvidence?(
+        transaction: Transaction,
+        evidence: TargetLeaseEvidence,
         at: Date
-    ): CurrentLease | undefined;
+    ): TargetLeaseEvidence;
     validateBinding(
         transaction: Transaction,
         request: BindingValidationRequest,
@@ -132,12 +134,12 @@ export class TenantAuthorityRuntimeCommandBackend<
         return this.state.currentCheckLease(read, request, at);
     }
 
-    public currentPermitLease(
-        read: Read,
-        request: AuthorityPermitIssuanceRequest,
-        at: Date
-    ): CurrentLease | undefined {
-        return this.state.currentPermitLease(read, request, at);
+    public projectLeaseEvidence(
+        transaction: Transaction,
+        evidence: TargetLeaseEvidence,
+        _at: Date
+    ): TargetLeaseEvidence {
+        return this.authority.projectEvidence(transaction, evidence);
     }
 
     public validateBinding(
@@ -272,6 +274,7 @@ function createTenantAuthorityCommands<Transaction, Read>(
     return Object.freeze([
         new BindingValidationCommand(backend, tenantActor, tenant),
         new AuthorityCheckCommand(backend, tenantActor, tenant),
+        new TargetLeaseEvidenceProjectionCommand(backend, tenant),
         new AuthorityPermitIssuanceCommand(backend, tenantActor, tenant)
     ]);
 }
@@ -417,6 +420,87 @@ class AuthorityCheckCommand<Transaction, Read> implements ProtocolCommandRegistr
     }
 }
 
+class TargetLeaseEvidenceProjectionCommand<Transaction, Read> implements ProtocolCommandRegistration<
+    Transaction,
+    Read,
+    TargetLeaseEvidence,
+    TargetLeaseEvidence,
+    TargetLeaseEvidence
+> {
+    public readonly command = TENANT_AUTHORITY_COMMANDS.projectLeaseEvidence;
+    public readonly caller = anyActorCallerPolicy;
+    public readonly expectedRevision = "forbidden" as const;
+    public readonly lease = "forbidden" as const;
+    public readonly payload = new TargetLeaseEvidencePayloadCodec();
+    public readonly replyCodec: ProtocolValueCodec<TargetLeaseEvidence> = {
+        encode: TargetLeaseEvidence.encode,
+        decode: TargetLeaseEvidence.decode
+    };
+    public readonly observationCodec: ProtocolValueCodec<TargetLeaseEvidence> = {
+        encode: TargetLeaseEvidence.encode,
+        decode: TargetLeaseEvidence.decode
+    };
+    public constructor(
+        private readonly backend: TenantAuthorityCommandBackend<Transaction, Read>,
+        private readonly tenant: TenantId
+    ) {}
+
+    public authorize(
+        _read: Read,
+        envelope: CommandEnvelope,
+        evidence: TargetLeaseEvidence
+    ): boolean {
+        return (
+            evidence.tenant.equals(this.tenant) &&
+            callerIs(envelope.caller, evidence.key.source) &&
+            envelope.idempotencyKey === evidence.key.idempotencyKey
+        );
+    }
+
+    public permitsLifecycle(): boolean {
+        return true;
+    }
+
+    public currentRevision(): undefined {
+        return undefined;
+    }
+
+    public currentLease(): undefined {
+        return undefined;
+    }
+
+    public execute(
+        transaction: Transaction,
+        _envelope: CommandEnvelope,
+        evidence: TargetLeaseEvidence,
+        at: Date
+    ): ProtocolCommandExecution<TargetLeaseEvidence, TargetLeaseEvidence> {
+        const project = this.backend.projectLeaseEvidence;
+        if (project === undefined) {
+            throw new AgentCoreError(
+                "protocol.invalid-state",
+                "Tenant authority does not support source lease evidence projection"
+            );
+        }
+        const projected = project.call(this.backend, transaction, evidence, at);
+        if (
+            !projected.digest().equals(evidence.digest()) ||
+            !projected.key.equals(evidence.key) ||
+            !projected.isCurrentAt(at) ||
+            !projected.tenant.equals(this.tenant) ||
+            !projected.target.actor.equals(evidence.target.actor) ||
+            projected.target.fence !== evidence.target.fence ||
+            !projected.target.domain.equals(evidence.target.domain)
+        ) {
+            throw new AgentCoreError(
+                "protocol.invalid-state",
+                "Tenant authority projected substituted source lease evidence"
+            );
+        }
+        return { outcome: "committed", reply: projected, observation: projected };
+    }
+}
+
 class AuthorityPermitIssuanceCommand<Transaction, Read> implements ProtocolCommandRegistration<
     Transaction,
     Read,
@@ -427,7 +511,7 @@ class AuthorityPermitIssuanceCommand<Transaction, Read> implements ProtocolComma
     public readonly command = TENANT_AUTHORITY_COMMANDS.issuePermit;
     public readonly caller = anyActorCallerPolicy;
     public readonly expectedRevision = "forbidden" as const;
-    public readonly lease = "optional" as const;
+    public readonly lease = "forbidden" as const;
     public readonly payload = new AuthorityPermitIssuancePayloadCodec();
     public readonly replyCodec: ProtocolValueCodec<AuthorityPermitIssuanceReply> = {
         encode: AuthorityPermitIssuanceReply.encode,
@@ -450,13 +534,11 @@ class AuthorityPermitIssuanceCommand<Transaction, Read> implements ProtocolComma
         request: AuthorityPermitIssuanceRequest
     ): boolean {
         const { expectation } = request.targetRequest;
-        // The target owns its fence. Tenant issuance authenticates the target ActorRef;
-        // target-local request creation and consumption enforce the bound fence.
         return (
             expectation.tenant.equals(this.tenant) &&
             expectation.issuer.equals(this.tenantActor) &&
             callerIs(envelope.caller, expectation.target.actor) &&
-            leasesEqual(envelope.lease, expectation.lease, expectation.tenant)
+            (expectation.lease === undefined || request.targetRequest.leaseEvidence !== undefined)
         );
     }
 
@@ -468,13 +550,8 @@ class AuthorityPermitIssuanceCommand<Transaction, Read> implements ProtocolComma
         return undefined;
     }
 
-    public currentLease(
-        read: Read,
-        _envelope: CommandEnvelope,
-        request: AuthorityPermitIssuanceRequest,
-        at: Date
-    ): CurrentLease | undefined {
-        return this.backend.currentPermitLease(read, request, at);
+    public currentLease(): undefined {
+        return undefined;
     }
 
     public execute(
@@ -574,16 +651,3 @@ function requirePermitDecision(
     }
 }
 
-function leasesEqual(
-    left: CommandEnvelope["lease"],
-    right: AuthorityPermitExpectation["lease"],
-    tenant: TenantId
-): boolean {
-    return left === undefined
-        ? right === undefined
-        : right !== undefined &&
-              left.turn.equals(right.turn) &&
-              left.holder.tenantId.equals(tenant) &&
-              left.holder.equals(right.holder) &&
-              left.epoch === right.epoch;
-}

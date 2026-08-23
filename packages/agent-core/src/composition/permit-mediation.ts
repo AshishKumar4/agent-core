@@ -24,6 +24,7 @@ import {
     type AuthorityCheckRequestFactory,
     type AuthorityPermitExpectationFactory,
     type AuthorityPermitIssuanceTransport,
+    type TargetLeaseEvidenceTransport,
     type AuthorityPermitReference
 } from "./permit";
 import { MediatedOperationPipeline, type MediatedOperationPipelineInit } from "./mediation";
@@ -98,6 +99,7 @@ export interface TargetPermitMediationPipelineInit<
         MediationPathEpochReference
     >;
     readonly issuanceTransport: AuthorityPermitIssuanceTransport;
+    readonly sourceEvidence?: TargetLeaseEvidenceTransport;
     readonly authenticator: AuthorityPermitAuthenticator;
     readonly permitNonce: (
         invocation: Parameters<
@@ -146,7 +148,8 @@ export async function activateTargetPermitMediation<Transaction>(
         init.issuanceTransport,
         init.permitNonce,
         init.now,
-        init.permitLifetimeMilliseconds
+        init.permitLifetimeMilliseconds,
+        init.sourceEvidence
     );
     const authentication = new TargetAuthorityPermitAuthenticationPort(
         init.authenticator,
