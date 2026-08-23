@@ -205,15 +205,7 @@ export class MemoryTargetLeaseEvidenceStore
         if (snapshot.version !== 1 || !Array.isArray(snapshot.evidence)) throw corrupt();
         const evidence = new Map<string, Uint8Array>();
         for (const record of snapshot.evidence) {
-            if (
-                record === null ||
-                typeof record !== "object" ||
-                !("idempotencyKey" in record) ||
-                typeof record.idempotencyKey !== "string" ||
-                !("bytes" in record) ||
-                !(record.bytes instanceof Uint8Array) ||
-                evidence.has(record.idempotencyKey)
-            ) {
+            if (!isStoredEvidenceRecord(record) || evidence.has(record.idempotencyKey)) {
                 throw corrupt();
             }
             const decoded = TargetLeaseEvidence.decode(record.bytes.slice());
@@ -247,6 +239,19 @@ export class MemoryTargetLeaseEvidenceStore
             throw denied("Target lease evidence belongs to another source Actor");
         }
     }
+}
+
+function isStoredEvidenceRecord(
+    value: unknown
+): value is MemoryTargetLeaseEvidenceSnapshot["evidence"][number] {
+    return (
+        value !== null &&
+        typeof value === "object" &&
+        "idempotencyKey" in value &&
+        typeof value.idempotencyKey === "string" &&
+        "bytes" in value &&
+        value.bytes instanceof Uint8Array
+    );
 }
 
 function cloneBytesMap(source: ReadonlyMap<string, Uint8Array>): Map<string, Uint8Array> {
