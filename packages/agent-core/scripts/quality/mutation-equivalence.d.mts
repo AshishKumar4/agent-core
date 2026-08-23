@@ -25,6 +25,10 @@ export interface MutationSite {
 export interface ReportMutant extends MutationSite {
     id: string;
     status: string;
+    /** Tests Stryker's coverage analysis says reach this mutant. */
+    coveredBy?: string[];
+    /** Tests the mutant's own run actually executed. */
+    testsCompleted?: number;
 }
 
 export interface MutationReport {
@@ -38,9 +42,17 @@ export interface EquivalenceReconciliation {
     ambiguous: { entry: EquivalenceEntry; matches: ReportMutant[] }[];
 }
 
-export type MutationOutcome = "detected" | "ignored" | "incomplete" | "invalid" | "undetected";
+export type MutationOutcome =
+    | "contaminated"
+    | "detected"
+    | "ignored"
+    | "incomplete"
+    | "invalid"
+    | "undetected";
 
 export function mutationOutcome(status: string): MutationOutcome;
+
+export function unusableMutants(report: MutationReport): string[];
 
 export function requireCompleteMutationReport(report: MutationReport): MutationReport;
 

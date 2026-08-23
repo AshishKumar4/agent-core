@@ -61,9 +61,18 @@ const PROOF_FLOOR = 240;
 // run told the mutant apart.
 const LIVE_STATUSES = new Set(["Survived", "NoCoverage"]);
 
+// What each status licenses a caller to conclude. `Timeout` is the one that reads like a
+// kill and is not one: Stryker derives a mutant's timeout from the *dry run's* net time
+// on a machine whose load is no part of the measurement, so a mutant no test can tell
+// apart times out under contention and arrives labelled exactly like a mutant that
+// looped forever. Counting it as detected raises `killed` and lowers `actionable`,
+// loosening the ratchet's floor on evidence about the workstation — which is how this
+// campaign's first sweep produced kills nothing had killed. The report cannot separate
+// the two cases, so neither can this map: a timeout is contamination, and the run that
+// produced it is refused rather than read.
 const MUTATION_OUTCOMES = new Map([
     ["Killed", "detected"],
-    ["Timeout", "detected"],
+    ["Timeout", "contaminated"],
     ["Survived", "undetected"],
     ["NoCoverage", "undetected"],
     ["RuntimeError", "invalid"],
@@ -72,25 +81,55 @@ const MUTATION_OUTCOMES = new Map([
     ["Pending", "incomplete"]
 ]);
 
+// The outcomes that answer nothing. Every one of them used to be counted somewhere: the
+// invalid pair and `Pending` by refusing the run, `Timeout` by counting as a kill.
+const UNUSABLE_OUTCOMES = new Set(["contaminated", "incomplete", "invalid"]);
+
 export function mutationOutcome(status) {
     const outcome = MUTATION_OUTCOMES.get(status);
     if (outcome === undefined) throw new TypeError(`Unknown mutant status: ${String(status)}`);
     return outcome;
 }
 
-export function requireCompleteMutationReport(report) {
-    const invalid = [];
+/**
+ * Every mutant in a report whose result settles nothing, named so a reader can find it.
+ * Empty means the report can be classified. Callers that must record what a refused run
+ * cost read this first and refuse afterwards, so the evidence outlives the failure.
+ *
+ * Two ways a result settles nothing. The first is the status, above. The second cannot
+ * be read from a status at all: `toMutantRunResult` in
+ * @stryker-mutator/api@9.6.1 maps a completed run with an empty test list to `Survived`,
+ * because no test failed. Under stryker-js#6073 the vitest runner intermittently
+ * executes zero tests for a non-empty filter, and the mutant then arrives labelled
+ * `Survived` on the strength of nothing having run. A mutant Stryker itself says is
+ * covered, whose run completed nothing, is an empty run wearing a verdict — and it lands
+ * in the direction the register can excuse, so it must be refused rather than triaged.
+ */
+export function unusableMutants(report) {
+    const unusable = [];
     for (const [path, file] of Object.entries(report.files)) {
         for (const mutant of file.mutants) {
-            const outcome = mutationOutcome(mutant.status);
-            if (outcome === "invalid" || outcome === "incomplete") {
-                invalid.push(`${path}#${mutant.id} ${mutant.status}`);
+            if (mutationOutcome(mutant.status) === "ignored") continue;
+            const covering = (mutant.coveredBy ?? []).length;
+            if (UNUSABLE_OUTCOMES.has(mutationOutcome(mutant.status))) {
+                unusable.push(`${path}#${mutant.id} ${mutant.status}`);
+            } else if (covering > 0 && (mutant.testsCompleted ?? 0) === 0) {
+                unusable.push(
+                    `${path}#${mutant.id} ${mutant.status} ran 0 of ${covering} covering tests`
+                );
             }
         }
     }
-    if (invalid.length > 0) {
+    return unusable;
+}
+
+export function requireCompleteMutationReport(report) {
+    const unusable = unusableMutants(report);
+    if (unusable.length > 0) {
         throw new TypeError(
-            `Mutation run contains invalid or incomplete results:\n${invalid.join("\n")}`
+            `Mutation run contains results that settle nothing:\n${unusable.join("\n")}\n` +
+                "A timeout is not a kill and an empty run is not a survivor. " +
+                "Re-measure the area on an idle machine."
         );
     }
     return report;

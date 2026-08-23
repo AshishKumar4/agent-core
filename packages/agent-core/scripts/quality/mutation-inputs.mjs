@@ -43,7 +43,8 @@ export function mutationTestFiles() {
  * that back through the ratchet instead of leaving the floor quietly loose.
  */
 export function mutationFingerprint(area, register = committedRegister()) {
-    const files = [
+    const hash = createHash("sha256");
+    digestFiles(hash, [
         ...typescriptFilesForArea(area),
         ...mutationTestFiles(),
         resolve(packageRoot, "package.json"),
@@ -54,14 +55,7 @@ export function mutationFingerprint(area, register = committedRegister()) {
         resolve(packageRoot, "vitest.mutation.config.mjs"),
         ...Object.values(mutationVitestConfig.resolve.alias),
         resolve(packageRoot, "../..", "pnpm-lock.yaml")
-    ].sort();
-    const hash = createHash("sha256");
-    for (const path of files) {
-        hash.update(relative(packageRoot, path).replaceAll("\\", "/"));
-        hash.update("\0");
-        hash.update(readFileSync(path));
-        hash.update("\0");
-    }
+    ]);
     // Only entry identity is hashed, and only for this area: rewording a proof cannot
     // change a count, and an area with no entries hashes nothing extra, so no measurement
     // stales for a register slice it does not depend on.
@@ -74,6 +68,36 @@ export function mutationFingerprint(area, register = committedRegister()) {
         hash.update("\0");
     }
     return `sha256:${hash.digest("hex")}`;
+}
+
+/**
+ * The key a recorded measurement of one area may be reused under. What a measurement
+ * costs, and why reuse is worth having, is mutation-run.mjs's story.
+ *
+ * Reuse is deliberately stricter than the fingerprint the baseline pins. The fingerprint
+ * is what the gate already trusts to call a pinned measurement fresh, and it covers the
+ * area's own sources; a run's result also depends on every other module the executed
+ * tests load, so the whole source tree is hashed here. Reuse therefore never happens
+ * where a fresh run could have disagreed with the pin — which is what stops the cache
+ * from being a second, weaker freshness rule sitting beside the gate's.
+ */
+export function mutationRunKey(area, register = committedRegister()) {
+    const hash = createHash("sha256");
+    hash.update(mutationFingerprint(area, register));
+    hash.update("\0");
+    digestFiles(hash, walkTypeScript(resolve(packageRoot, "src")));
+    return `sha256:${hash.digest("hex")}`;
+}
+
+// Path then content, both terminated: a rename changes the digest even when no byte of
+// any file did, and no concatenation of two files can imitate a third.
+function digestFiles(hash, paths) {
+    for (const path of [...paths].sort()) {
+        hash.update(relative(packageRoot, path).replaceAll("\\", "/"));
+        hash.update("\0");
+        hash.update(readFileSync(path));
+        hash.update("\0");
+    }
 }
 
 function committedRegister() {

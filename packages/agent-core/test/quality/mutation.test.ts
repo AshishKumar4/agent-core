@@ -1,6 +1,6 @@
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, relative, resolve } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import { describe, expect, test } from "vitest";
 import type { JsonValue } from "../../scripts/quality/project.mjs";
 import {
@@ -9,6 +9,7 @@ import {
     readEquivalenceRegister,
     reconcileEquivalence,
     requireCompleteMutationReport,
+    unusableMutants,
     type EquivalenceEntry,
     type MutationReport,
     type ReportMutant
@@ -16,9 +17,11 @@ import {
 import { generatedMutants } from "../../scripts/quality/mutation-instrumenter.mjs";
 import {
     mutationFingerprint,
+    mutationRunKey,
     mutationTestFiles,
     sourceAreas
 } from "../../scripts/quality/mutation-inputs.mjs";
+import { readRunCache, runCachePath } from "../../scripts/quality/mutation-run.mjs";
 import { runQualitySubprocess } from "./subprocess";
 
 const packageRoot = resolve(import.meta.dirname, "../..");
@@ -208,6 +211,46 @@ describe("mutation adequacy gate", () => {
         expect(result.status).toBe(1);
         expect(result.stderr).toContain("--update pins a baseline and so must measure");
     });
+
+    // The defect that produced this campaign's first sweep: every status that was not
+    // `Survived` was counted as a kill, so a mutant that timed out on a machine at load
+    // 43.9 raised `killed`, lowered `actionable`, and moved a ratchet floor on evidence
+    // about the workstation. Four statuses reach that branch and none of them says a test
+    // told the mutant apart. The measurement is refused whole rather than read.
+    test("refuses to count a timeout, an error, or an unfinished mutant as killed", () => {
+        const directory = mkdtempSync(join(tmpdir(), "mutation-contaminated-"));
+        const survivorsPath = join(directory, "survivors.json");
+
+        for (const status of ["Timeout", "RuntimeError", "CompileError", "Pending"]) {
+            const reportPath = join(directory, `${status}.json`);
+            writeFileSync(
+                reportPath,
+                JSON.stringify(reportFor(guardModule, [{ ...guardMutant, status }]))
+            );
+
+            const result = runQualitySubprocess(
+                process.execPath,
+                [
+                    checker,
+                    "--area",
+                    "identity",
+                    "--report",
+                    reportPath,
+                    "--survivors",
+                    survivorsPath,
+                    "--discrimination",
+                    join(directory, "discrimination.json")
+                ],
+                packageRoot
+            );
+
+            expect(result.status).toBe(1);
+            expect(result.stderr).toContain("Mutation run contains");
+            expect(result.stderr).toContain(`${registeredFile}#1 ${status}`);
+            // Nothing downstream ran, so nothing counted the mutant at all.
+            expect(existsSync(survivorsPath)).toBe(false);
+        }
+    });
 });
 
 // One mutant, one proof, and a claim that any future run can contradict. The two
@@ -286,6 +329,8 @@ function reportFor(
         replacement: string;
         status: string;
         occurrence?: number;
+        coveredBy?: string[];
+        testsCompleted?: number;
     }[]
 ): MutationReport {
     return {
@@ -298,7 +343,7 @@ function reportFor(
                         offset = source.indexOf(mutant.text, offset + 1);
                     }
                     if (offset === -1) throw new TypeError(`fixture text absent: ${mutant.text}`);
-                    return {
+                    const built: ReportMutant = {
                         id: String(index + 1),
                         mutatorName: mutant.mutator,
                         replacement: mutant.replacement,
@@ -308,6 +353,11 @@ function reportFor(
                             end: position(source, offset + mutant.text.length)
                         }
                     };
+                    if (mutant.coveredBy !== undefined) built.coveredBy = mutant.coveredBy;
+                    if (mutant.testsCompleted !== undefined) {
+                        built.testsCompleted = mutant.testsCompleted;
+                    }
+                    return built;
                 })
             }
         }
@@ -408,11 +458,14 @@ describe("mutation equivalence register", () => {
         }
     });
 
-    test("distinguishes detected, undetected, invalid, ignored, and incomplete results", () => {
+    test("distinguishes detected, undetected, contaminated, invalid, and ignored results", () => {
         expect(mutationOutcome("Killed")).toBe("detected");
-        expect(mutationOutcome("Timeout")).toBe("detected");
         expect(mutationOutcome("Survived")).toBe("undetected");
         expect(mutationOutcome("NoCoverage")).toBe("undetected");
+        // The status that used to read as a kill. Stryker times a mutant against the dry
+        // run's net time, so a mutant no test can tell apart times out on a loaded machine
+        // and arrives labelled like one that looped forever.
+        expect(mutationOutcome("Timeout")).toBe("contaminated");
         expect(mutationOutcome("RuntimeError")).toBe("invalid");
         expect(mutationOutcome("CompileError")).toBe("invalid");
         expect(mutationOutcome("Ignored")).toBe("ignored");
@@ -420,19 +473,64 @@ describe("mutation equivalence register", () => {
         expect(() => mutationOutcome("WorkerExited")).toThrow(/Unknown mutant status/u);
     });
 
-    test("refuses to measure an invalid or incomplete mutation run", () => {
-        for (const status of ["RuntimeError", "CompileError", "Pending"]) {
+    test("refuses a run that timed out, errored, or never finished", () => {
+        for (const status of ["Timeout", "RuntimeError", "CompileError", "Pending"]) {
             const report = reportFor(guardModule, [{ ...guardMutant, status }]);
+
+            expect(unusableMutants(report)).toEqual([`${registeredFile}#1 ${status}`]);
             expect(() => requireCompleteMutationReport(report)).toThrow(
                 new RegExp(`Mutation run contains[\\s\\S]*${status}`, "u")
             );
         }
 
-        expect(() =>
-            requireCompleteMutationReport(
-                reportFor(guardModule, [{ ...guardMutant, status: "Timeout" }])
+        // The control. Every status that settles something is usable, so the refusal above
+        // discriminates contamination rather than rejecting reports at large.
+        for (const status of ["Killed", "Survived", "NoCoverage", "Ignored"]) {
+            const report = reportFor(guardModule, [{ ...guardMutant, status }]);
+
+            expect(unusableMutants(report)).toEqual([]);
+            expect(requireCompleteMutationReport(report)).toBe(report);
+        }
+    });
+
+    // The survivor that no test ever contradicted because no test ever ran.
+    // `toMutantRunResult` calls a completed run with an empty test list Survived, and the
+    // vitest runner intermittently executes nothing for a non-empty filter
+    // (stryker-js#6073). That verdict is the one the equivalence register can excuse, so a
+    // mutant Stryker says is covered whose run completed nothing is refused.
+    test("refuses a covered mutant whose run executed no test at all", () => {
+        const empty = reportFor(guardModule, [
+            { ...guardMutant, status: "Survived", coveredBy: ["7", "8", "9"], testsCompleted: 0 }
+        ]);
+
+        expect(unusableMutants(empty)).toEqual([
+            `${registeredFile}#1 Survived ran 0 of 3 covering tests`
+        ]);
+        expect(() => requireCompleteMutationReport(empty)).toThrow(
+            /ran 0 of 3 covering tests[\s\S]*empty run is not a survivor/u
+        );
+
+        // Two controls the check must not swallow. A survivor whose covering tests all ran
+        // is a real survivor, and a NoCoverage mutant has nothing to run by definition.
+        expect(
+            unusableMutants(
+                reportFor(guardModule, [
+                    {
+                        ...guardMutant,
+                        status: "Survived",
+                        coveredBy: ["7", "8", "9"],
+                        testsCompleted: 3
+                    }
+                ])
             )
-        ).not.toThrow();
+        ).toEqual([]);
+        expect(
+            unusableMutants(
+                reportFor(guardModule, [
+                    { ...guardMutant, status: "NoCoverage", coveredBy: [], testsCompleted: 0 }
+                ])
+            )
+        ).toEqual([]);
     });
 
     test("reports an entry whose mutant is gone, ignored, or elsewhere as stale", () => {
@@ -801,5 +899,105 @@ describe("mutation staleness inputs", () => {
             mutationFingerprint("identity", [{ ...entry, proof: proofFor("a reworded proof") }])
         );
         expect(mutationFingerprint("actors", [])).toBe(mutationFingerprint("actors", [entry]));
+    });
+});
+
+// Reuse is what makes the campaign affordable: measuring `errors`, the smallest area
+// there is, costs 3 minutes 12 seconds of wall time and 236 seconds of CPU, and a
+// campaign measures the same inputs over and over. Every second of that saving rests on
+// one claim — that the key admitting a recorded report covers every byte a fresh run
+// would have read. The cases below try to break the claim from both sides: touch an
+// input and the key must move, touch a non-input and it must not.
+describe("mutation run reuse", () => {
+    const perturbed = (path: string): string => {
+        const absolute = resolve(packageRoot, path);
+        const original = readFileSync(absolute);
+        try {
+            writeFileSync(absolute, Buffer.concat([original, Buffer.from("\n")]));
+            return mutationRunKey("errors");
+        } finally {
+            writeFileSync(absolute, original);
+        }
+    };
+
+    test("changes the key when any input a run reads changes", () => {
+        const key = mutationRunKey("errors");
+        const inputs = [
+            "src/errors.ts",
+            // Not in the area, and still an input: the tests that kill an `errors` mutant
+            // run this module, so its behavior decides their verdict.
+            "src/actors/actor.ts",
+            "test/actors/actor.test.ts",
+            "package.json",
+            "stryker.conf.mjs",
+            "vitest.config.mjs",
+            "vitest.mutation.config.mjs",
+            "scripts/vitest-bun-test.mjs",
+            "scripts/vitest-bun-sqlite.mjs",
+            "../../pnpm-lock.yaml"
+        ];
+
+        for (const path of inputs) {
+            expect(perturbed(path), `${path} must not be reusable across a change`).not.toBe(key);
+        }
+
+        // The register decides which survivors count, so its slice for this area is an
+        // input like any file.
+        expect(mutationRunKey("errors", [])).not.toBe(
+            mutationRunKey("errors", [
+                {
+                    file: "src/errors.ts",
+                    symbol: "invariant",
+                    mutator: "ConditionalExpression",
+                    replacement: "false",
+                    mutated: "!condition",
+                    proof: proofFor("invariant")
+                }
+            ])
+        );
+
+        // Every perturbation above was restored, so the key is where it started.
+        expect(mutationRunKey("errors")).toBe(key);
+    });
+
+    test("holds the key across a change no mutation run can read", () => {
+        const key = mutationRunKey("errors");
+
+        // A lane the mutation config excludes never executes, and prose is not code. A key
+        // that moved for these would stale every area for a result that cannot have
+        // changed, which is how a ratchet stops being run.
+        for (const path of ["test/quality/subprocess.ts", "SPEC.md"]) {
+            expect(perturbed(path), `${path} must not stale a measurement`).toBe(key);
+        }
+    });
+
+    test("serves a recorded report only under the key it was recorded with", () => {
+        const area = "reuse-probe";
+        const path = runCachePath(area);
+        const report = reportFor(guardModule, [{ ...guardMutant, status: "Survived" }]);
+        try {
+            mkdirSync(dirname(path), { recursive: true });
+            writeFileSync(
+                path,
+                JSON.stringify({
+                    edition: "1.0.0",
+                    area,
+                    runKey: "sha256:recorded",
+                    measuredAt: "0".repeat(40),
+                    report
+                })
+            );
+
+            expect(readRunCache(area, "sha256:recorded")).toEqual({
+                report,
+                measuredAt: "0".repeat(40),
+                strykerMs: 0
+            });
+            expect(readRunCache(area, "sha256:anything-else")).toBeUndefined();
+        } finally {
+            rmSync(path, { force: true });
+        }
+
+        expect(readRunCache(area, "sha256:recorded")).toBeUndefined();
     });
 });
