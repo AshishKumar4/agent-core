@@ -10,6 +10,8 @@ import {
     MemoryRunStorage,
     TurnInboxEntry,
     TurnInboxEntryId,
+    RunCommit,
+    RunCommitId,
     RunId,
     RunRepository,
     RunStoragePort,
@@ -57,7 +59,6 @@ import {
     type TargetLeaseEvidenceSourceStore
 } from "../../src/authority";
 import {
-    ContentRef,
     Digest,
     Revision,
     SemVer,
@@ -1118,42 +1119,61 @@ function sourceEvidenceContract<Transaction extends object>(
                 )
             ).toBeUndefined();
 
-            // The runtime fences the live Turn through its real reclaim path: the
-            // turn.cancel inbox entry names the exact current token and the
-            // repository lease advances to a fresh epoch. Retrying the ORIGINAL
-            // token must fail against the repository's own changed lease — a store
-            // that kept a mirror lease (or echoed requested state) would pass here.
+            // Fence the still-active Turn through the canonical RunRuntime held
+            // cancellation transition BEFORE the original lease/evidence deadline.
+            // A pre-fix mirrored lease remains live and accepts the original token;
+            // the repaired store reads the now-cancelled repository Turn and refuses.
             {
-                const fenced = seededTurn(reclaimed);
-                const cancelBytes = new TextEncoder().encode(`${nonce}-cancel-payload`);
-                await reclaimed.storage.content.put(cancelBytes);
+                const active = seededTurn(reclaimed);
+                const branch = reclaimed.repository.transaction((tx) =>
+                    reclaimed.repository.loadBranch(tx, active.branch)
+                );
+                if (branch === undefined) throw new TypeError("Seeded Turn branch is missing");
+                const originalToken = {
+                    turn: active.id,
+                    holder: principal,
+                    epoch: active.lease.epoch
+                };
                 const cancellation = new TurnInboxEntry(
-                    new TurnInboxEntryId(`${nonce}-cancel-entry`),
-                    fenced.id,
+                    new TurnInboxEntryId(`${nonce}-active-cancel-entry`),
+                    active.id,
                     0,
                     "turn.cancel",
-                    ContentRef.fromDigest(Digest.sha256(cancelBytes)),
-                    Digest.sha256(cancelBytes),
-                    `${nonce}-cancel-key`,
-                    { turn: fenced.id, holder: principal, epoch: fenced.lease.epoch },
-                    issuedAt
+                    content("b"),
+                    content("b").digest,
+                    `${nonce}-active-cancel-key`,
+                    originalToken,
+                    new Date(issuedAt.getTime() + 1)
                 );
-                const lapsed = new Date(expiresAt.getTime() + 1_000);
-                reclaimed.store.transaction((transaction) => {
-                    reclaimed.runtime.reclaimTurnInTransaction(
-                        transaction,
-                        fenced.id,
-                        fenced.revision,
-                        principal,
-                        lapsed,
-                        new Date(lapsed.getTime() + 60_000),
-                        cancellation
-                    );
-                    expect(
-                        reclaimedIssuer.attest(transaction, request, lapsed)
-                    ).toBeUndefined();
-                    return undefined;
+                const result = new RunCommit({
+                    id: new RunCommitId(`${nonce}-active-cancel-result`),
+                    run: active.run,
+                    branch: active.branch,
+                    kind: "result",
+                    parents: [branch.head],
+                    pins: active.pins,
+                    writer: { kind: "turn", token: originalToken },
+                    subjectTurn: active.id,
+                    content: content("7")
                 });
+                const beforeDeadline = new Date(issuedAt.getTime() + 2);
+                reclaimed.runtime.cancelHeldTurn(
+                    {
+                        turn: active.id,
+                        expectedTurnRevision: active.revision,
+                        expectedBranchRevision: branch.revision,
+                        token: originalToken,
+                        outcome: "cancelled",
+                        commit: result,
+                        now: beforeDeadline
+                    },
+                    cancellation
+                );
+                expect(
+                    reclaimed.store.transaction((transaction) =>
+                        reclaimedIssuer.attest(transaction, request, beforeDeadline)
+                    )
+                ).toBeUndefined();
             }
 
             // A token naming a Turn the RunRepository has never seen refuses at once.
