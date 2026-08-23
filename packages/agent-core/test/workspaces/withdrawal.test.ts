@@ -8,13 +8,14 @@ import {
     WorkspaceRoutingWithdrawal,
     type ContentRetentionPort
 } from "../../src/workspaces";
-import { attribution } from "../w3/slot-store-contract";
 import {
+    contributionAttributionFixture,
     authenticatedProjectionFixture,
     deliveryFixture,
     projectionRetention,
     reservationFixture,
     reservationRetention,
+    materializeAttributedSubscription,
     sourceActor,
     subscriptionFixture,
     targetActor,
@@ -78,18 +79,20 @@ describe("routing withdrawal sweep", () => {
             const withdrawn = new FacetRef("workspace:withdrawn");
 
             // swept qualifies; settled is already terminal; prepared drains as an Invocation
-            // item; foreign belongs to another Facet, so it is outside this withdrawal set.
             for (const suffix of ["swept", "settled", "prepared"]) {
-                harness.source.saveSubscription(
+                materializeAttributedSubscription(
+                    harness.source,
                     harness.records,
-                    subscriptionFixture(suffix, { contribution: attribution(withdrawn.value) }),
-                    undefined
+                    contributionAttributionFixture(withdrawn.value),
+                    subscriptionFixture(suffix)
                 );
             }
-            const foreignSubscription = subscriptionFixture("foreign", {
-                contribution: attribution("workspace:other")
-            });
-            harness.source.saveSubscription(harness.records, foreignSubscription, undefined);
+            const foreignSubscription = materializeAttributedSubscription(
+                harness.source,
+                harness.records,
+                contributionAttributionFixture("workspace:other"),
+                subscriptionFixture("foreign")
+            );
 
             const swept = reservationFixture("swept");
             const settled = reservationFixture("settled");
@@ -142,10 +145,12 @@ describe("routing withdrawal sweep", () => {
         { tags: "p1" },
         () => {
             const harness = sweepHarness();
-            const contributed = subscriptionFixture("untouched", {
-                contribution: attribution("workspace:owner")
-            });
-            harness.source.saveSubscription(harness.records, contributed, undefined);
+            const contributed = materializeAttributedSubscription(
+                harness.source,
+                harness.records,
+                contributionAttributionFixture("workspace:owner"),
+                subscriptionFixture("untouched")
+            );
             const reservation = reservationFixture("untouched");
             harness.source.appendReservation(
                 harness.records,
@@ -173,11 +178,13 @@ describe("routing withdrawal sweep", () => {
         () => {
             const harness = sweepHarness();
             const owner = new FacetRef("workspace:owner");
-            const contributed = subscriptionFixture("member", {
-                contribution: attribution(owner.value)
-            });
+            const contributed = materializeAttributedSubscription(
+                harness.source,
+                harness.records,
+                contributionAttributionFixture(owner.value),
+                subscriptionFixture("member")
+            );
             const direct = subscriptionFixture("nonmember");
-            harness.source.saveSubscription(harness.records, contributed, undefined);
             harness.source.saveSubscription(harness.records, direct, undefined);
 
             // Presence of the attribution is the membership test, so the caller-created

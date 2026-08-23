@@ -17,6 +17,7 @@ import {
     projectionRetention,
     reservationFixture,
     reservationRetention,
+    materializeAttributedSubscription,
     sourceActor,
     subscriptionFixture,
     targetActor,
@@ -50,14 +51,18 @@ describe("Facet withdrawal across owning Actors", () => {
         { tags: "p0" },
         () => {
             const harness = routingHarness();
-            const contributed = subscriptionFixture("withdrawn", {
-                contribution: attribution("workspace:withdrawn")
-            });
-            const retained = subscriptionFixture("retained", {
-                contribution: attribution("workspace:retained")
-            });
-            harness.persistence.saveSubscription(harness.records, contributed, undefined);
-            harness.persistence.saveSubscription(harness.records, retained, undefined);
+            const contributed = materializeAttributedSubscription(
+                harness.persistence,
+                harness.records,
+                attribution("workspace:withdrawn"),
+                subscriptionFixture("withdrawn")
+            );
+            materializeAttributedSubscription(
+                harness.persistence,
+                harness.records,
+                attribution("workspace:retained"),
+                subscriptionFixture("retained")
+            );
             const pending = reservationFixture("withdrawn");
             harness.persistence.appendReservation(
                 harness.records,
@@ -92,10 +97,12 @@ describe("Facet withdrawal across owning Actors", () => {
         { tags: "p0" },
         () => {
             const harness = routingHarness();
-            const contributed = subscriptionFixture("immutable", {
-                contribution: attribution("workspace:owner")
-            });
-            harness.persistence.saveSubscription(harness.records, contributed, undefined);
+            const contributed = materializeAttributedSubscription(
+                harness.persistence,
+                harness.records,
+                attribution("workspace:owner"),
+                subscriptionFixture("immutable")
+            );
 
             const rewritten = contributed.revise({
                 source: contributed.source,
@@ -159,10 +166,12 @@ describe("Facet withdrawal across owning Actors", () => {
         { tags: "p0" },
         () => {
             const harness = routingHarness(targetActor);
-            const contributed = subscriptionFixture("prepared", {
-                contribution: attribution("workspace:withdrawn")
-            });
-            harness.persistence.saveSubscription(harness.records, contributed, undefined);
+            materializeAttributedSubscription(
+                harness.persistence,
+                harness.records,
+                attribution("workspace:withdrawn"),
+                subscriptionFixture("prepared")
+            );
             const prepared = reservationFixture("prepared");
             harness.persistence.appendReservation(
                 harness.records,
@@ -199,10 +208,12 @@ describe("Facet withdrawal across owning Actors", () => {
         { tags: "p0" },
         () => {
             const harness = routingHarness();
-            const live = subscriptionFixture("live", {
-                contribution: attribution("workspace:retained")
-            });
-            harness.persistence.saveSubscription(harness.records, live, undefined);
+            materializeAttributedSubscription(
+                harness.persistence,
+                harness.records,
+                attribution("workspace:retained"),
+                subscriptionFixture("live")
+            );
             const reservation = reservationFixture("live");
             harness.persistence.appendReservation(
                 harness.records,
@@ -234,19 +245,17 @@ describe("Facet withdrawal across owning Actors", () => {
             const retainedEntry = entry("workspace:retained", 2, { title: "Retained" });
             contribute(harness.slots, withdrawnEntry);
             contribute(harness.slots, retainedEntry);
-            harness.persistence.saveSubscription(
+            materializeAttributedSubscription(
+                harness.persistence,
                 harness.records,
-                subscriptionFixture("cross-withdrawn", {
-                    contribution: attribution("workspace:withdrawn")
-                }),
-                undefined
+                attribution("workspace:withdrawn"),
+                subscriptionFixture("cross-withdrawn")
             );
-            harness.persistence.saveSubscription(
+            materializeAttributedSubscription(
+                harness.persistence,
                 harness.records,
-                subscriptionFixture("cross-retained", {
-                    contribution: attribution("workspace:retained")
-                }),
-                undefined
+                attribution("workspace:retained"),
+                subscriptionFixture("cross-retained")
             );
 
             const result = harness.withdrawal.withdraw(new FacetRef("workspace:withdrawn"));
@@ -320,12 +329,11 @@ describe("Facet withdrawal across owning Actors", () => {
             const retainedEntry = entry("workspace:retained", 1, { title: "Retained" });
             contribute(harness.slots, declarerEntry);
             contribute(harness.slots, retainedEntry);
-            harness.persistence.saveSubscription(
+            materializeAttributedSubscription(
+                harness.persistence,
                 harness.records,
-                subscriptionFixture("refused", {
-                    contribution: attribution("workspace:declarer")
-                }),
-                undefined
+                attribution("workspace:declarer"),
+                subscriptionFixture("refused")
             );
 
             expect(() => harness.withdrawal.withdraw(new FacetRef("workspace:declarer"))).toThrow(
@@ -354,10 +362,11 @@ describe("Facet activation atomicity", () => {
             const facet = activationFacet(contributor.contributor, () => {
                 // A partial activation: two committed contributions, then a failure.
                 contribute(harness.slots, entry("workspace:partial", 1, { title: "One" }));
-                harness.persistence.saveSubscription(
+                materializeAttributedSubscription(
+                    harness.persistence,
                     harness.records,
-                    subscriptionFixture("partial", { contribution: contributor }),
-                    undefined
+                    contributor,
+                    subscriptionFixture("partial")
                 );
                 throw new TypeError("start failed after materializing");
             });

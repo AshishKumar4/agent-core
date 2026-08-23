@@ -76,7 +76,6 @@ import {
     WorkspaceId
 } from "../../src/identity";
 import { InvocationPlacementPin } from "../../src/invocations";
-import { Subscription, SubscriptionId } from "../../src/workspaces";
 
 /*
  * The end-to-end Blueprint proof: what a platform definer declares is what executes.
@@ -88,8 +87,8 @@ import { Subscription, SubscriptionId } from "../../src/workspaces";
  *
  *   1. a PolicySet tightening declared in the Blueprint changes an admission-tier
  *      decision from direct to mediated (SPEC §7.2);
- *   2. the Subscription record derived from a declared Automation targets exactly the
- *      declared Operation with the declared authority mode (SPEC §6.2 / §4.3); and
+ *   2. the Automation subscription projection targets the declared Operation with the
+ *      declared authority mode (SPEC §6.2 / §4.3); and
  *   3. the facet-placement record pins the declared isolation, and a non-bundled pin
  *      forecloses the direct tier entirely (SPEC §4.1 / §7.2).
  */
@@ -307,7 +306,7 @@ describe("a declared Blueprint is what executes", () => {
     );
 
     test(
-        "the derived Subscription record targets exactly the declared Operation",
+        "the Automation subscription projection targets exactly the declared Operation",
         { tags: "p1" },
         () => {
             const projections = materializedProjections(new PolicySet({}));
@@ -328,18 +327,8 @@ describe("a declared Blueprint is what executes", () => {
             expect(automation.dedupe).toBe("event");
             expect(automation.authority).toBe("delegated");
 
-            // And it constructs the exact live routing Subscription the workspace uses.
-            const live = new Subscription({
-                id: new SubscriptionId("live-subscription"),
-                revision: Revision.initial(),
-                source: automation.source,
-                target: automation.target,
-                mapping: automation.mapping!,
-                dedupe: automation.dedupe!,
-                authority: { kind: "initiator", binding: automation.binding }
-            });
-            expect(live.target.value).toBe(OPERATION);
-            expect(live.source.acceptedTrust).toEqual(["self"]);
+            // Definition materialization stops at an Automation projection. It neither
+            // authenticates a current package installation nor writes a live Workspace record.
         }
     );
 

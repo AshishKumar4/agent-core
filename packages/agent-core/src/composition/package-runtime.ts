@@ -4,7 +4,8 @@ import {
     PackageInstallationProvenancePort,
     type Blueprint,
     type LoadedBlueprint,
-    type LoadedPackageModule
+    type LoadedPackageModule,
+    type PreparedPackageContribution
 } from "../definition";
 import { AgentCoreError } from "../errors";
 import {
@@ -111,7 +112,10 @@ export class ProvenanceFacetSlotBackend<Transaction, Read> implements FacetSlotC
         return this.authority.permitsInstall(read, slot);
     }
 
-    public prepareContribution(read: Read, envelope: CommandEnvelope) {
+    public prepareContribution(
+        read: Read,
+        envelope: CommandEnvelope
+    ): PreparedPackageContribution | undefined {
         return this.provenance.prepareContribution(read, envelope);
     }
 

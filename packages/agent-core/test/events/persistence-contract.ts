@@ -1,7 +1,13 @@
 import { describe, expect, test } from "vitest";
 import type { SynchronousResultGuard } from "../../src/actors";
-import { Revision } from "../../src/core";
-import type { ContributionAttribution } from "../../src/facets";
+import { Revision, SemVer } from "../../src/core";
+import { PackageId, PackagePin, type AuthenticatedContribution } from "../../src/definition";
+import {
+    ContributionAttribution,
+    FacetPackageId,
+    FacetRef,
+    PackageInstallationRef
+} from "../../src/facets";
 import {
     Event,
     EventId,
@@ -11,13 +17,16 @@ import {
     RouteReservationId,
     View,
     WorkspacePersistence,
+    WorkspaceSubscriptionMaterializer,
     type EventInit,
     type Subscription
 } from "../../src/workspaces";
+import { malformed } from "../helpers/malformed";
 import { attribution } from "../w3/slot-store-contract";
 import {
-    content,
+    authenticatedInstallationFixture,
     authenticatedProjectionFixture,
+    content,
     deliveryFixture,
     DeterministicJsonPatchEngine,
     eventFixture,
@@ -29,6 +38,8 @@ import {
     retentionFixture,
     sourceActor,
     subscriptionFixture,
+    subscriptionMaterializationInit,
+    TestPackageInstallationProvenance,
     viewDeltaFixture,
     viewFixture
 } from "../workspaces/fixtures";
@@ -227,18 +238,109 @@ export function workspacePersistenceContract<Transaction>(
         });
 
         test(
-            "[C13-SUBSCRIPTION-ATTRIBUTION-FIXED] fixes attribution at creation and refuses every later revision that adds, drops, or rewrites it",
+            "[C13-SUBSCRIPTION-ATTRIBUTION-FIXED] refuses a caller-supplied attribution before it can enter a withdrawal set",
             { tags: "p0" },
             () => {
                 const harness = create();
                 try {
-                    const contribution = attribution("workspace:fixed");
-                    const contributed = subscriptionFixture(`${name}-attributed`, {
+                    const contribution = attribution("workspace:laundered");
+                    const laundered = subscriptionFixture(`${name}-laundered`, {
                         contribution
                     });
                     const direct = subscriptionFixture(`${name}-direct`);
+
+                    expect(() =>
+                        harness.transaction((transaction) => {
+                            harness.persistence.saveSubscription(transaction, laundered, undefined);
+                        })
+                    ).toThrow(
+                        expect.objectContaining({
+                            code: "authority.denied",
+                            message:
+                                "Subscription attribution requires authenticated contribution materialization"
+                        })
+                    );
+
                     harness.transaction((transaction) => {
-                        harness.persistence.saveSubscription(transaction, contributed, undefined);
+                        harness.persistence.saveSubscription(transaction, direct, undefined);
+                        expect(
+                            harness.persistence.currentSubscription(transaction, laundered.id)
+                        ).toBeUndefined();
+                        expect(
+                            harness.persistence.currentSubscription(transaction, direct.id)
+                                ?.contribution
+                        ).toBeUndefined();
+                        expect(
+                            harness.persistence.listContributedSubscriptions(
+                                transaction,
+                                new FacetRef("workspace:laundered")
+                            )
+                        ).toEqual([]);
+                    });
+                } finally {
+                    harness.dispose();
+                }
+            }
+        );
+
+        test(
+            "[C13-SUBSCRIPTION-ATTRIBUTION-FIXED] materializes attribution from authenticated provenance and refuses every later rewrite",
+            { tags: "p0" },
+            () => {
+                const harness = create();
+                try {
+                    const installation = authenticatedInstallationFixture("workspace:fixed");
+                    const contribution = new ContributionAttribution(
+                        installation.facet,
+                        installation.package
+                    );
+                    const provenance = new TestPackageInstallationProvenance<Transaction>(
+                        installation
+                    );
+                    const materializer = new WorkspaceSubscriptionMaterializer(
+                        harness.persistence,
+                        provenance
+                    );
+                    const context = {};
+                    const initial = subscriptionMaterializationInit(
+                        subscriptionFixture(`${name}-attributed`)
+                    );
+                    const supplied = {
+                        ...initial,
+                        contribution: attribution("workspace:forged")
+                    };
+                    const prepared = harness.transaction((transaction) =>
+                        materializer.prepareContribution(transaction, context)
+                    );
+                    if (prepared === undefined) {
+                        throw new TypeError(
+                            "Authenticated test installation did not prepare a contribution"
+                        );
+                    }
+                    expect(() =>
+                        harness.transaction((transaction) =>
+                            materializer.materialize(transaction, context, prepared, supplied)
+                        )
+                    ).toThrow(
+                        expect.objectContaining({
+                            code: "operation.invalid-input",
+                            message:
+                                "Subscription materialization input must not supply record state"
+                        })
+                    );
+                    const acceptedPrepared = harness.transaction((transaction) =>
+                        materializer.prepareContribution(transaction, context)
+                    );
+                    if (acceptedPrepared === undefined) {
+                        throw new TypeError(
+                            "Authenticated test installation did not prepare a contribution"
+                        );
+                    }
+                    const contributed = harness.transaction((transaction) =>
+                        materializer.materialize(transaction, context, acceptedPrepared, initial)
+                    );
+                    const direct = subscriptionFixture(`${name}-direct`);
+                    harness.transaction((transaction) => {
                         harness.persistence.saveSubscription(transaction, direct, undefined);
                     });
 
@@ -269,7 +371,12 @@ export function workspacePersistenceContract<Transaction>(
                             contributed.id
                         );
                         expect(stored?.revision.value).toBe(0);
-                        expect(stored?.contribution?.equals(contribution)).toBe(true);
+                        expect(stored?.contribution?.contributor.equals(installation.facet)).toBe(
+                            true
+                        );
+                        expect(stored?.contribution?.package.equals(installation.package)).toBe(
+                            true
+                        );
                         expect(
                             harness.persistence.currentSubscription(transaction, direct.id)
                                 ?.contribution
@@ -277,7 +384,7 @@ export function workspacePersistenceContract<Transaction>(
                     });
 
                     // The store refuses a changed pair rather than a later revision, and the
-                    // fixed pair survives the substrate rather than the process that wrote it.
+                    // trusted pair survives the substrate rather than the process that wrote it.
                     harness.transaction((transaction) => {
                         harness.persistence.saveSubscription(
                             transaction,
@@ -294,6 +401,190 @@ export function workspacePersistenceContract<Transaction>(
                         expect(reopened?.revision.value).toBe(1);
                         expect(reopened?.contribution?.equals(contribution)).toBe(true);
                     });
+                } finally {
+                    harness.dispose();
+                }
+            }
+        );
+
+        test(
+            "[C13-SUBSCRIPTION-ATTRIBUTION-FIXED] refuses forged, replayed, expired, and drifted contribution provenance",
+            { tags: "p0" },
+            () => {
+                const harness = create();
+                try {
+                    const context = {};
+                    const initial = subscriptionMaterializationInit(
+                        subscriptionFixture(`${name}-capability`)
+                    );
+                    for (const forged of [
+                        malformed<AuthenticatedContribution>({}),
+                        forgedAuthenticatedContribution(
+                            new PackageInstallationRef(
+                                attribution("workspace:lookalike"),
+                                new FacetPackageId("subscription.lookalike")
+                            )
+                        )
+                    ]) {
+                        expect(() =>
+                            harness.transaction((transaction) => {
+                                harness.persistence.materializeSubscription(
+                                    transaction,
+                                    forged,
+                                    initial
+                                );
+                            })
+                        ).toThrow(
+                            expect.objectContaining({
+                                code: "authority.denied",
+                                message:
+                                    "Subscription materialization requires authenticated contribution provenance"
+                            })
+                        );
+                    }
+
+                    const installation = authenticatedInstallationFixture("workspace:capability");
+                    const port = new TestPackageInstallationProvenance<Transaction>(installation);
+                    const prepared = harness.transaction((transaction) =>
+                        port.prepareContribution(transaction, context)
+                    );
+                    if (prepared === undefined) {
+                        throw new TypeError(
+                            "Authenticated test installation did not prepare a capability"
+                        );
+                    }
+                    let captured: AuthenticatedContribution | undefined;
+                    const materialized = harness.transaction((transaction) =>
+                        port.withAuthenticatedContribution(
+                            transaction,
+                            context,
+                            prepared.stamp,
+                            (contribution) => {
+                                captured = contribution;
+                                const subscription = harness.persistence.materializeSubscription(
+                                    transaction,
+                                    contribution,
+                                    initial
+                                );
+                                expect(() =>
+                                    harness.persistence.materializeSubscription(
+                                        transaction,
+                                        contribution,
+                                        subscriptionMaterializationInit(
+                                            subscriptionFixture(`${name}-replay`)
+                                        )
+                                    )
+                                ).toThrow(expect.objectContaining({ code: "authority.denied" }));
+                                return subscription;
+                            }
+                        )
+                    );
+                    expect(materialized?.contribution?.contributor.equals(installation.facet)).toBe(
+                        true
+                    );
+                    const expired = captured;
+                    if (expired === undefined) {
+                        throw new TypeError("Authenticated contribution was not issued");
+                    }
+                    expect(() =>
+                        harness.transaction((transaction) => {
+                            harness.persistence.materializeSubscription(
+                                transaction,
+                                expired,
+                                subscriptionMaterializationInit(
+                                    subscriptionFixture(`${name}-expired`)
+                                )
+                            );
+                        })
+                    ).toThrow(expect.objectContaining({ code: "authority.denied" }));
+
+                    const failedPort = new TestPackageInstallationProvenance<Transaction>(
+                        authenticatedInstallationFixture("workspace:failed")
+                    );
+                    const failedMaterializer = new WorkspaceSubscriptionMaterializer(
+                        harness.persistence,
+                        failedPort
+                    );
+                    const failedPrepared = harness.transaction((transaction) =>
+                        failedMaterializer.prepareContribution(transaction, context)
+                    );
+                    if (failedPrepared === undefined) {
+                        throw new TypeError(
+                            "Authenticated test installation did not prepare a capability"
+                        );
+                    }
+                    failedPort.installation = undefined;
+                    expect(() =>
+                        harness.transaction((transaction) =>
+                            failedMaterializer.materialize(
+                                transaction,
+                                context,
+                                failedPrepared,
+                                subscriptionMaterializationInit(
+                                    subscriptionFixture(`${name}-failed-resolve`)
+                                )
+                            )
+                        )
+                    ).toThrow(
+                        expect.objectContaining({
+                            code: "authority.denied",
+                            message:
+                                "Subscription contributor installation provenance changed before materialization"
+                        })
+                    );
+
+                    for (const changedInstallation of [
+                        Object.freeze({
+                            ...installation,
+                            package: new PackagePin(
+                                new PackageId("subscription-substituted"),
+                                new SemVer("1.0.0"),
+                                installation.package.manifestDigest,
+                                installation.package.codeDigest
+                            )
+                        }),
+                        Object.freeze({
+                            ...installation,
+                            packageFacet: new FacetPackageId("subscription.substituted")
+                        })
+                    ]) {
+                        const driftedPort = new TestPackageInstallationProvenance<Transaction>(
+                            installation
+                        );
+                        const drifted = new WorkspaceSubscriptionMaterializer(
+                            harness.persistence,
+                            driftedPort
+                        );
+                        const driftedPrepared = harness.transaction((transaction) =>
+                            drifted.prepareContribution(transaction, context)
+                        );
+                        if (driftedPrepared === undefined) {
+                            throw new TypeError(
+                                "Authenticated test installation did not prepare a contribution"
+                            );
+                        }
+                        driftedPort.installation = changedInstallation;
+                        expect(() =>
+                            harness.transaction((transaction) => {
+                                drifted.materialize(
+                                    transaction,
+                                    context,
+                                    driftedPrepared,
+                                    subscriptionMaterializationInit(
+                                        subscriptionFixture(
+                                            `${name}-drifted-${changedInstallation.packageFacet.value}`
+                                        )
+                                    )
+                                );
+                            })
+                        ).toThrow(
+                            expect.objectContaining({
+                                code: "authority.denied",
+                                message:
+                                    "Subscription contributor installation provenance changed before materialization"
+                            })
+                        );
+                    }
                 } finally {
                     harness.dispose();
                 }
@@ -466,4 +757,13 @@ function revised(
         authority: subscription.authority,
         contribution
     });
+}
+
+/**
+ * SAFETY: this is deliberately not an AuthenticatedContribution. The persistence boundary
+ * must reject a public PackageInstallationRef even though it carries a valid-looking pair.
+ */
+function forgedAuthenticatedContribution<TActual>(value: TActual): AuthenticatedContribution {
+    // SAFETY: this value has no private WeakMap entry, and the boundary must reject it.
+    return value as TActual & AuthenticatedContribution;
 }

@@ -99,10 +99,11 @@ function install(acceptedTrust: readonly [TrustTier, ...TrustTier[]]): Installed
 }
 
 /**
- * Materializes the workspace Subscription the Definition layer derives from an installed
- * Command's Automation — the single routing path a Command invocation may take (§4.3).
+ * Builds a caller-created routing fixture from an installed Command's Automation shape.
+ * No host materializes a durable Command Subscription in this test, so no contribution
+ * attribution is claimed here.
  */
-function routedSubscription(installed: InstalledCommand): Subscription {
+function commandRouteFixture(installed: InstalledCommand): Subscription {
     const automation = installed.subscription;
     return new Subscription({
         id: new SubscriptionId(`command-subscription-${installed.id}`),
@@ -117,7 +118,7 @@ function routedSubscription(installed: InstalledCommand): Subscription {
 
 describe("Command invocation routing", () => {
     test(
-        "routes an invocation only when the derived Subscription accepts the Event trust",
+        "routes an invocation only when the command route fixture accepts the Event trust",
         { tags: "p0" },
         async () => {
             const installed = install(["owner"]);
@@ -136,7 +137,7 @@ describe("Command invocation routing", () => {
             harness.transaction((state) =>
                 harness.persistence.saveSubscription(
                     state,
-                    routedSubscription(installed),
+                    commandRouteFixture(installed),
                     undefined
                 )
             );
@@ -165,7 +166,7 @@ async function reservationCount(
 ): Promise<number> {
     const harness = createHarness();
     harness.transaction((state) =>
-        harness.persistence.saveSubscription(state, routedSubscription(installed), undefined)
+        harness.persistence.saveSubscription(state, commandRouteFixture(installed), undefined)
     );
     const protocol = sourceProtocol(harness, trust);
     return (await commit(harness, protocol, eventId)).reservations.length;

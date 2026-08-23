@@ -254,24 +254,30 @@
       "id": "C13-SUBSCRIPTION-ATTRIBUTION-FIXED",
       "owner": "W7",
       "specAnchor": "C13-SUBSCRIPTION-ATTRIBUTION-FIXED",
-      "specTextSha256": "sha256:e920f0b26f8c339d5fe0d7fff402828bc039b2d1b13fcf0c443f43eb1b99dbb2",
+      "specTextSha256": "sha256:c7ca9539b12a522053071209ffb4214d1ad57640f38d9a7c4b560e033d2d2435",
       "status": "implemented",
       "prerequisites": [],
       "sourceSymbols": [
+        "src/workspaces/persistence.ts#WorkspacePersistence.materializeSubscription",
         "src/workspaces/persistence.ts#WorkspacePersistence.saveSubscription",
+        "src/workspaces/subscription-materializer.ts#WorkspaceSubscriptionMaterializer",
         "src/workspaces/subscription.ts#Subscription",
         "src/workspaces/withdrawal.ts#WorkspaceRoutingWithdrawal.contributed"
       ],
       "testSelectors": [
-        "test/events/persistence-memory.test.ts#memory workspace persistence [C13-SUBSCRIPTION-ATTRIBUTION-FIXED] fixes attribution at creation and refuses every later revision that adds, drops, or rewrites it",
-        "test/substrates/sqlite/events-persistence.test.ts#SQLite workspace persistence [C13-SUBSCRIPTION-ATTRIBUTION-FIXED] fixes attribution at creation and refuses every later revision that adds, drops, or rewrites it",
+        "test/events/persistence-memory.test.ts#memory workspace persistence [C13-SUBSCRIPTION-ATTRIBUTION-FIXED] refuses a caller-supplied attribution before it can enter a withdrawal set",
+        "test/events/persistence-memory.test.ts#memory workspace persistence [C13-SUBSCRIPTION-ATTRIBUTION-FIXED] materializes attribution from authenticated provenance and refuses every later rewrite",
+        "test/events/persistence-memory.test.ts#memory workspace persistence [C13-SUBSCRIPTION-ATTRIBUTION-FIXED] refuses forged, replayed, expired, and drifted contribution provenance",
+        "test/substrates/sqlite/events-persistence.test.ts#SQLite workspace persistence [C13-SUBSCRIPTION-ATTRIBUTION-FIXED] refuses a caller-supplied attribution before it can enter a withdrawal set",
+        "test/substrates/sqlite/events-persistence.test.ts#SQLite workspace persistence [C13-SUBSCRIPTION-ATTRIBUTION-FIXED] materializes attribution from authenticated provenance and refuses every later rewrite",
+        "test/substrates/sqlite/events-persistence.test.ts#SQLite workspace persistence [C13-SUBSCRIPTION-ATTRIBUTION-FIXED] refuses forged, replayed, expired, and drifted contribution provenance",
         "test/workspaces/codec-id-mutations.test.ts#Subscription mutation coverage [C13-SUBSCRIPTION-ATTRIBUTION-FIXED] carries both attribution halves at major 2 and omits the field where no Facet contributed",
         "test/workspaces/withdrawal.test.ts#routing withdrawal sweep [C13-SUBSCRIPTION-ATTRIBUTION-FIXED] a Subscription no Facet contributed belongs to no withdrawal set"
       ],
       "checkerInvariants": ["ACQ-ATTRIBUTION", "ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": [
-        "Citation discrimination is unmeasured for this area rather than measured and weak: artifacts/quality/discrimination/ holds no attribution file for src/workspaces, so discrimination.mjs cannot judge whether these citations constrain Subscription, saveSubscription, or the membership query, and the mutation campaign that would produce one is halted. The row stays implemented until a W7 mutation run records a symbol-tier kill inside each of the three. Measured by hand in an isolated worktree instead, and stated at that tier: deleting the saveSubscription refusal reds exactly the persistence case on both the memory and the SQLite substrate; encoding an absent attribution as an explicit null reds exactly the codec case; dropping the PackagePin half from the encoded pair reds it as well; and admitting an unattributed Subscription into every withdrawal set reds exactly the membership case. Every kill was an assertion failure rather than a collection error",
-        "The store is proved to refuse the changed pair, not to be the only writer of one. WorkspacePersistence.saveSubscription is the single revision path the workspace Actor exposes, and both substrates drive it through the shared test/events/persistence-contract.ts seam, but nothing yet asserts that no other production path appends a subscription record beside it. Closure needs a record-plane check that the subscription namespace has exactly one writer, which is ACQ-OWNER's shape rather than this row's tests"
+        "Citation discrimination is unmeasured for this area rather than measured and weak: artifacts/quality/discrimination/ holds no attribution file for src/workspaces, so discrimination.mjs cannot judge whether these citations constrain Subscription, WorkspacePersistence.saveSubscription, WorkspacePersistence.materializeSubscription, WorkspaceSubscriptionMaterializer, or the membership query, and the mutation campaign that would produce one is halted. The row stays implemented until a W7 mutation run records a symbol-tier kill inside each. The present evidence is public behavioral evidence, not a mutation claim: the shared memory and SQLite contract refuses an attributed initial generic write, accepts a direct unattributed one, materializes both exact fields only through current authenticated package-installation provenance, refuses caller-supplied record state, a structural lookalike, a public PackageInstallationRef, a replayed or expired token, a failed resolve, and package or Facet drift, then proves legal immutable revision and restart. The codec and withdrawal tests separately prove major-2 absence encoding and withdrawal-set membership",
+        "The record has two intentional initial-write paths rather than the one this row previously claimed: WorkspacePersistence.saveSubscription writes a caller-created Subscription only when it carries no attribution, and WorkspacePersistence.materializeSubscription writes a contributed Subscription only after it consumes the opaque one-use capability PackageInstallationProvenancePort issued inside its synchronous current-provenance callback. Both converge on private writeSubscription. Source inspection finds no other production initial writer, but no record-plane gate proves that negative claim or proves every future writer reaches those two paths. Closure needs an ACQ-OWNER-shaped assertion over the subscription namespace, not a stronger status string"
       ],
       "bounds": [
         "This rule does not claim the withdrawal sweep. That a withdrawal retires exactly the contributed Subscriptions, and terminates their unadmitted reservations, is C13-FACET-WITHDRAWAL-EXACT's mechanism and evidence; the citation here is WorkspaceRoutingWithdrawal.contributed, the membership query, because the discriminator is what attribution fixity decides.",

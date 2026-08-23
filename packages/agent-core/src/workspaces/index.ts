@@ -57,6 +57,8 @@ export type {
     WorkspaceRecordKind,
     WorkspaceRecordStorage
 } from "./persistence";
+export type { SubscriptionMaterializationInit } from "./persistence";
+export { WorkspaceSubscriptionMaterializer } from "./subscription-materializer";
 export {
     validateStoredWorkspaceRecord,
     validateWorkspacePointer,
