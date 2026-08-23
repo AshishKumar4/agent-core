@@ -11,6 +11,7 @@ import {
     RunRepository,
     RunRuntime,
     Turn,
+    TurnPlacementSnapshot,
     TurnId,
     type RunTransaction
 } from "../../src/agents";
@@ -65,7 +66,6 @@ import { violating } from "../helpers/malformed";
 import { PackageId, PackagePin } from "../../src/definition";
 import { AgentCoreError } from "../../src/errors";
 import { BindingName, FacetRef, OperationRef, ProtectionDomain } from "../../src/facets";
-import { TurnPlacementSnapshot } from "../../src/agents/runs/placement";
 import {
     PrincipalId,
     PrincipalRef,
@@ -78,7 +78,7 @@ import { ClaimWorkerId, ItemClaimId } from "../../src/invocation-references";
 import { InvocationId } from "../../src/interaction-references";
 import {
     SqliteAuthorityPermitStore,
-    SqliteInvalidationWatermarkStore,
+    SqliteContentStore,
     SqliteRunStorage,
     TransactionalSqlite,
     type SqliteRow,
@@ -88,7 +88,7 @@ import { TestSqlite } from "../helpers/sqlite";
 import {
     content,
     genesis,
-    harness,
+    memoryRunStorage,
     ids,
     pins,
     TestEvidencePort,
@@ -96,7 +96,8 @@ import {
     TestSettlementPort,
     TestSourcePort,
     TestSpawnPort,
-    UncontributedCutPoints
+    UncontributedCutPoints,
+    fixtureContentEntries
 } from "../agents/runs/fixture";
 
 const tenant = new TenantId("permit-tenant");
@@ -376,7 +377,7 @@ function permitStoreContract<Transaction>(
             }
         );
 
-        test("replays an exact issuance after response loss and restart", { tags: "p0" }, () => {
+        test("replays an exact issuance after response loss and restart", { tags: "p0" }, async () => {
             const harness = create();
             const authority = new CurrentAuthority<Transaction>();
             const expected = expectation();
@@ -606,7 +607,7 @@ function permitStoreContract<Transaction>(
             }
         );
 
-        test("[authority.target-permit-denial] stores exact denial", { tags: "p0" }, () => {
+        test("[authority.target-permit-denial] stores exact denial", { tags: "p0" }, async () => {
             const harness = create();
             const request = targetRequest(`${name}-denied`);
             const authority = new CurrentAuthority<Transaction>();
@@ -649,7 +650,7 @@ function permitStoreContract<Transaction>(
             ).toThrow();
         });
 
-        test("rolls target denial evidence back with its owner transaction", { tags: "p0" }, () => {
+        test("rolls target denial evidence back with its owner transaction", { tags: "p0" }, async () => {
             const harness = create();
             const request = targetRequest(`${name}-denial-rollback`);
             const authority = new CurrentAuthority<Transaction>();
@@ -756,7 +757,7 @@ permitStoreContract<TransactionalSqlite>("sqlite", () => {
     };
 });
 
-test("memory permit transactions do not expose mutable scope state", { tags: "p0" }, () => {
+test("memory permit transactions do not expose mutable scope state", { tags: "p0" }, async () => {
     const store = new MemoryAuthorityPermitStore(targetActor);
     store.transaction((transaction) => {
         expect(Reflect.ownKeys(transaction)).toEqual([]);
@@ -877,33 +878,8 @@ function sourceFacts<Transaction>(
 }
 
 function memoryEvidenceContext(): SourceEvidenceContext<RunTransaction> {
-    const value = harness();
-    const watermarks = new MemoryInvalidationWatermarkStore(tenant, sourceActor);
-    const intents = new Map<string, Digest>();
-    return {
-        store: new RunTargetLeaseEvidenceStore(
-            tenant,
-            sourceActor,
-            value.storage,
-            sourceFacts(value.repository, watermarks, intents)
-        ),
-        runtime: value.runtime as unknown as RunRuntime<RunTransaction>,
-        repository: value.repository as unknown as RunRepository<RunTransaction>,
-        watermarks,
-        intents,
-        seededTurnId: undefined
-    };
-}
-
-function sqliteEvidenceContext(): SourceEvidenceContext<RunTransaction> {
-    const database = new TestSqlite();
-    // Initialize the canonical run schema first, then the watermark owner, then
-    // bind them together behind one Run-Actor store.
-    const storage = new SqliteRunStorage(database, tenant, sourceActor);
+    const storage = memoryRunStorage();
     const repository = new RunRepository(storage);
-    repository.transaction(() => undefined);
-    const watermarksInit = new SqliteInvalidationWatermarkStore(database, tenant, sourceActor);
-    void watermarksInit;
     const runtime = new RunRuntime(
         repository,
         new TestSourcePort(),
@@ -913,7 +889,41 @@ function sqliteEvidenceContext(): SourceEvidenceContext<RunTransaction> {
         new TestMergePort(),
         new UncontributedCutPoints()
     );
-    const watermarks = watermarksInit;
+    const watermarks = new MemoryInvalidationWatermarkStore(tenant, sourceActor);
+    const intents = new Map<string, Digest>();
+    return {
+        store: new RunTargetLeaseEvidenceStore(
+            tenant,
+            sourceActor,
+            storage,
+            sourceFacts(repository, watermarks, intents)
+        ),
+        runtime,
+        repository,
+        watermarks,
+        intents,
+        seededTurnId: undefined
+    };
+}
+
+async function sqliteEvidenceContext(): Promise<SourceEvidenceContext<RunTransaction>> {
+    const database = new TestSqlite();
+    // Content custody lives on its own lane outside Run storage transactions, so
+    // seed the genesis and Turn content through the standalone content store.
+    const contents = new SqliteContentStore(database);
+    for (const entry of fixtureContentEntries()) await contents.put(entry.bytes);
+    const storage = new SqliteRunStorage(database, tenant, sourceActor);
+    const repository = new RunRepository(storage);
+    const runtime = new RunRuntime(
+        repository,
+        new TestSourcePort(),
+        new TestEvidencePort(),
+        new TestSettlementPort(),
+        new TestSpawnPort(),
+        new TestMergePort(),
+        new UncontributedCutPoints()
+    );
+    const watermarks = new MemoryInvalidationWatermarkStore(tenant, sourceActor);
     const intents = new Map<string, Digest>();
     return {
         store: new RunTargetLeaseEvidenceStore(
@@ -967,16 +977,23 @@ function seedDelegatedTurn<Transaction>(
 
 function seededTurn<Transaction>(context: SourceEvidenceContext<Transaction>): Turn {
     if (context.seededTurnId === undefined) throw new TypeError("Evidence Turn is not seeded");
-    const stored = context.repository.transaction((tx) =>
-        context.repository.loadTurn(tx, context.seededTurnId!)
-    );
+    return context.repository.transaction((tx) => seededTurnIn(context, tx));
+}
+
+/** Reads the seeded Turn inside an already-open Run-Actor transaction. */
+function seededTurnIn<Transaction>(
+    context: SourceEvidenceContext<Transaction>,
+    tx: Parameters<RunRepository<Transaction>["loadTurn"]>[0]
+): Turn {
+    if (context.seededTurnId === undefined) throw new TypeError("Evidence Turn is not seeded");
+    const stored = context.repository.loadTurn(tx, context.seededTurnId);
     if (stored === undefined) throw new TypeError("Seeded evidence Turn is missing");
     return stored;
 }
 
 function sourceEvidenceContract<Transaction extends object>(
     name: string,
-    createContext: () => SourceEvidenceContext<Transaction>
+    createContext: () => SourceEvidenceContext<Transaction> | Promise<SourceEvidenceContext<Transaction>>
 ): void {
     describe(`source lease evidence issuer (${name})`, () => {
         // A real RunRuntime claim opens the unclaimed Turn at epoch 1; every request
@@ -998,7 +1015,7 @@ function sourceEvidenceContract<Transaction extends object>(
             seedDelegatedTurn(context, nonce, issuedAt, expiresAt);
             const storedTurn = seededTurn(context);
             expected = expectation({
-                lease: { ...storedTurn.lease },
+                lease: { ...storedTurn.lease, holder: principal },
                 reservation: {
                     run: evidenceRuns.run,
                     registryEpoch: 5,
@@ -1009,8 +1026,8 @@ function sourceEvidenceContract<Transaction extends object>(
             return new TargetLeaseEvidenceIssuer(context.store, context.store.source);
         }
 
-        test("records the original current lease deadline and invocation lineage", { tags: "p0" }, () => {
-            const context = createContext();
+        test("[target-lease-evidence-source] records the original current lease deadline and invocation lineage", { tags: "p0" }, async () => {
+            const context = await createContext();
             const issuer = prepare(context);
             const attested = context.store.transaction((transaction) =>
                 issuer.attest(transaction, request, issuedAt)
@@ -1027,8 +1044,8 @@ function sourceEvidenceContract<Transaction extends object>(
             )).toBe(true);
         });
 
-        test("replays the original attestation when a renewed lease retries a lost response", { tags: "p0" }, () => {
-            const context = createContext();
+        test("replays the original attestation when a renewed lease retries a lost response", { tags: "p0" }, async () => {
+            const context = await createContext();
             const issuer = prepare(context);
             const original = context.store.transaction((transaction) =>
                 issuer.attest(transaction, request, issuedAt)
@@ -1038,7 +1055,7 @@ function sourceEvidenceContract<Transaction extends object>(
             // re-attests: read-your-writes against the canonical lease, and the retry
             // returns the committed record instead of regenerating a later deadline.
             context.store.transaction((transaction) => {
-                const stored = seededTurn(context);
+                const stored = seededTurnIn(context, transaction);
                 context.runtime.renewTurnInTransaction(
                     transaction,
                     stored.id,
@@ -1054,8 +1071,8 @@ function sourceEvidenceContract<Transaction extends object>(
             });
         });
 
-        test("refuses once the runtime reclaims the Turn or the watermark advances", { tags: "p0" }, () => {
-            const reclaimed = createContext();
+        test("refuses once the runtime reclaims the Turn or the watermark advances", { tags: "p0" }, async () => {
+            const reclaimed = await createContext();
             const reclaimedIssuer = prepare(reclaimed);
             reclaimed.store.transaction((transaction) =>
                 reclaimedIssuer.attest(transaction, request, issuedAt)
@@ -1079,15 +1096,20 @@ function sourceEvidenceContract<Transaction extends object>(
                 )
             ).toBeUndefined();
 
-            const invalidated = createContext();
+            const invalidated = await createContext();
             const invalidatedIssuer = prepare(invalidated);
             invalidated.store.transaction((transaction) =>
                 invalidatedIssuer.attest(transaction, request, issuedAt)
             );
-            invalidated.watermarks.join(
-                watermarkKey(InvalidationWatermark.empty(tenant, sourceActor, principal)),
-                [new ScopeEpoch(ScopeRef.tenant(tenant), path.path[0]!.epoch + 1)]
-            );
+            {
+                // Canonical invalidation delivery initializes the holder watermark,
+                // then joins the advanced epoch through the same owner.
+                const owner = invalidated.watermarks;
+                const empty = InvalidationWatermark.empty(tenant, sourceActor, principal);
+                const key = watermarkKey(empty);
+                if (owner.load(key) === undefined) owner.save(empty);
+                owner.join(key, [new ScopeEpoch(ScopeRef.tenant(tenant), path.path[0]!.epoch + 1)]);
+            }
             expect(
                 invalidated.store.transaction((transaction) =>
                     invalidatedIssuer.attest(transaction, request, issuedAt)
@@ -1095,7 +1117,7 @@ function sourceEvidenceContract<Transaction extends object>(
             ).toBeUndefined();
 
             // A token naming a wrong epoch for the same live Turn attests nothing.
-            const forged = createContext();
+            const forged = await createContext();
             const forgedIssuer = prepare(forged);
             const liveTurn = seededTurn(forged);
             const forgedRequest = targetRequestFor(
@@ -1117,8 +1139,8 @@ function sourceEvidenceContract<Transaction extends object>(
             ).toBeUndefined();
         });
 
-        test("refuses after intent substitution and detects a substituted same-key request", { tags: "p0" }, () => {
-            const context = createContext();
+        test("refuses after intent substitution and detects a substituted same-key request", { tags: "p0" }, async () => {
+            const context = await createContext();
             const issuer = prepare(context);
             context.store.transaction((transaction) =>
                 issuer.attest(transaction, request, issuedAt)
@@ -1143,7 +1165,8 @@ function sourceEvidenceContract<Transaction extends object>(
             const liveTurn = seededTurn(context);
             const substituted = targetRequestFor(
                 expectation({
-                    lease: { ...liveTurn.lease },
+                    lease: { ...liveTurn.lease, holder: principal },
+                    itemIndex: 3,
                     reservation: {
                         run: evidenceRuns.run,
                         registryEpoch: 5,
@@ -1165,12 +1188,12 @@ function sourceEvidenceContract<Transaction extends object>(
             ).toThrow(/bound to another source attestation/);
         });
 
-        test("attests nothing for a foreign source owner", { tags: "p0" }, () => {
-            const context = createContext();
+        test("attests nothing for a foreign source owner", { tags: "p0" }, async () => {
+            const context = await createContext();
             const issuer = prepare(context);
             const foreign = targetRequestFor(
                 expectation({
-                    lease: { ...seededTurn(context).lease },
+                    lease: { ...seededTurn(context).lease, holder: principal },
                     source: targetActor,
                     target: {
                         actor: sourceActor,
@@ -1345,7 +1368,7 @@ describe("AuthorityPermit", () => {
         }
     );
 
-    test("rejects malformed permit identities and times before issuance", { tags: "p0" }, () => {
+    test("rejects malformed permit identities and times before issuance", { tags: "p0" }, async () => {
         expect(() =>
             expectation({ issuer: new ActorRef("workspace", new ActorId("not-a-tenant")) })
         ).toThrow(/Tenant Actor/);
@@ -1422,7 +1445,7 @@ describe("AuthorityPermit", () => {
         ).toThrow(/valid non-negative Date/);
     });
 
-    test("rejects reservation obligations that are not invocation items", { tags: "p0" }, () => {
+    test("rejects reservation obligations that are not invocation items", { tags: "p0" }, async () => {
         expect(() =>
             expectation({
                 reservation: {
@@ -1437,7 +1460,7 @@ describe("AuthorityPermit", () => {
         ).toThrow(TypeError);
     });
 
-    test("rejects malformed codec variants fail closed", { tags: "p0" }, () => {
+    test("rejects malformed codec variants fail closed", { tags: "p0" }, async () => {
         const permit = new AuthorityPermit({
             ...expectation(),
             nonce: "malformed-codec",
@@ -2300,7 +2323,7 @@ function requestDigestFor(
 }
 
 describe("AuthorityPermit mutation gates", () => {
-    test("exposes every expectation field through the permit getters", { tags: "p0" }, () => {
+    test("exposes every expectation field through the permit getters", { tags: "p0" }, async () => {
         const expected = expectation();
         const permit = new AuthorityPermit({
             ...expected,
@@ -2359,7 +2382,7 @@ describe("AuthorityPermit mutation gates", () => {
         }
     );
 
-    test("validates issuance and expiry times with exact subjects", { tags: "p0" }, () => {
+    test("validates issuance and expiry times with exact subjects", { tags: "p0" }, async () => {
         expect(
             () =>
                 new AuthorityPermit({
@@ -2405,7 +2428,7 @@ describe("AuthorityPermit mutation gates", () => {
         expect(epochPermit.issuedAt.getTime()).toBe(0);
     });
 
-    test("rejects blank and non-canonical nonces exactly", { tags: "p0" }, () => {
+    test("rejects blank and non-canonical nonces exactly", { tags: "p0" }, async () => {
         for (const nonce of ["", " padded"]) {
             expect(
                 () =>
@@ -2434,7 +2457,7 @@ describe("AuthorityPermit mutation gates", () => {
         }
     );
 
-    test("pins the reservation obligation to the exact invocation item", { tags: "p0" }, () => {
+    test("pins the reservation obligation to the exact invocation item", { tags: "p0" }, async () => {
         expect(() =>
             expectation({
                 reservation: {
@@ -2464,7 +2487,7 @@ describe("AuthorityPermit mutation gates", () => {
         );
     });
 
-    test("decodes only canonical Actor and claim owner kinds", { tags: "p0" }, () => {
+    test("decodes only canonical Actor and claim owner kinds", { tags: "p0" }, async () => {
         const data = expectation().toData();
         const withSource = (kind: string) =>
             AuthorityPermitExpectation.fromData({
@@ -2498,7 +2521,7 @@ describe("AuthorityPermit mutation gates", () => {
         ).toThrow(new TypeError("Authority permit impact is invalid"));
     });
 
-    test("requires lease tokens to carry exact qualified identities", { tags: "p0" }, () => {
+    test("requires lease tokens to carry exact qualified identities", { tags: "p0" }, async () => {
         expect(() =>
             expectation({
                 lease: Object.freeze({
@@ -2512,7 +2535,7 @@ describe("AuthorityPermit mutation gates", () => {
 });
 
 describe("AuthorityPermit authentication mutation gates", () => {
-    test("rejects authentications minted without the module issuer", { tags: "p0" }, () => {
+    test("rejects authentications minted without the module issuer", { tags: "p0" }, async () => {
         const permit = new AuthorityPermit({
             ...expectation(),
             nonce: "auth-forged",
@@ -2793,7 +2816,7 @@ describe("MemoryAuthorityPermitStore mutation gates", () => {
         ]);
     });
 
-    test("snapshot bytes stay detached from committed state", { tags: "p0" }, () => {
+    test("snapshot bytes stay detached from committed state", { tags: "p0" }, async () => {
         const store = new MemoryAuthorityPermitStore(issuerActor);
         const permit = new AuthorityPermit({
             ...expectation(),
@@ -2815,7 +2838,7 @@ describe("MemoryAuthorityPermitStore mutation gates", () => {
         ).toBe(permit.digest().value);
     });
 
-    test("detects issued records filed under a foreign nonce", { tags: "p0" }, () => {
+    test("detects issued records filed under a foreign nonce", { tags: "p0" }, async () => {
         const permit = new AuthorityPermit({
             ...expectation(),
             nonce: "store-real-nonce",
@@ -2843,7 +2866,7 @@ describe("MemoryAuthorityPermitStore mutation gates", () => {
         expect(error.message).toBe("Stored authority permit ownership is malformed");
     });
 
-    test("restore rejects holed snapshot records as malformed", { tags: "p0" }, () => {
+    test("restore rejects holed snapshot records as malformed", { tags: "p0" }, async () => {
         // Length-only arrays model malformed persisted records without forging types.
         const issuedHole = caughtAgentCoreError(
             () =>
@@ -3079,7 +3102,7 @@ describe("MemoryAuthorityPermitStore mutation gates", () => {
         ).toBeUndefined();
     });
 
-    test("refuses a target request that targets another Actor owner", { tags: "p0" }, () => {
+    test("refuses a target request that targets another Actor owner", { tags: "p0" }, async () => {
         const store = new MemoryAuthorityPermitStore(targetActor);
         const foreign = targetRequest("store-foreign-target", {
             target: permitTarget(new ActorRef("run", new ActorId("permit-other-target-actor")))
@@ -3163,7 +3186,7 @@ describe("MemoryAuthorityPermitStore mutation gates", () => {
         }
     );
 
-    test("restore rejects duplicated requested and denied records", { tags: "p0" }, () => {
+    test("restore rejects duplicated requested and denied records", { tags: "p0" }, async () => {
         const request = targetRequest("store-restore-duplicate-nonce");
         const denial = deniedTargetRequest(request);
 
@@ -3423,7 +3446,7 @@ describe("TargetAuthorityPermitRequest construction gates", () => {
         }
     });
 
-    test("refuses a request whose authority input names another nonce", { tags: "p0" }, () => {
+    test("refuses a request whose authority input names another nonce", { tags: "p0" }, async () => {
         const valid = targetRequest("request-identity-gate");
 
         const error = caughtTypeError(
@@ -3441,7 +3464,7 @@ describe("TargetAuthorityPermitRequest construction gates", () => {
         );
     });
 
-    test("refuses a request whose Tenant issuer is its own target", { tags: "p0" }, () => {
+    test("refuses a request whose Tenant issuer is its own target", { tags: "p0" }, async () => {
         const nonce = "request-self-issued-gate";
         const mediated = targetRequestFor(
             expectation({ issuer: auxiliaryIssuerActor, target: permitTarget(issuerActor) }),
@@ -3588,7 +3611,7 @@ function permitRuntimeStore(
 }
 
 describe("MemoryTenantAuthorityPermitStore", () => {
-    test("refuses an owner that is not a Tenant Actor", { tags: "p0" }, () => {
+    test("refuses an owner that is not a Tenant Actor", { tags: "p0" }, async () => {
         const actors = permitRuntimeActors();
 
         const error = caughtTypeError(() => permitRuntimeStore(actors, targetActor));

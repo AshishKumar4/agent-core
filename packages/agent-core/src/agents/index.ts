@@ -55,7 +55,12 @@ export {
     RepositoryTurnLeaseVerifier
 } from "./runs";
 export { RunCheckpointId } from "./runs/id";
-export { ownRunStorageBackend, RUN_RECORD_KINDS } from "./runs/store";
+export {
+    ownRunStorageBackend,
+    RUN_RECORD_KINDS,
+    TargetLeaseEvidenceRecord,
+    targetLeaseEvidenceRecordCodec
+} from "./runs/store";
 export type { RunRecordKind, StoredRunParent, StoredRunRecord } from "./runs/store";
 export { leaseTokensEqual } from "./runs/lease";
 export {

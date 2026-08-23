@@ -25,8 +25,13 @@ import {
     TargetLeaseEvidenceProjectionTransport
 } from "../../src/composition";
 import { Digest, Revision, SemVer, encodeCanonicalJson } from "../../src/core";
-import { RunId, Turn, TurnId, type RunTransaction } from "../../src/agents";
-import { TurnPlacementSnapshot } from "../../src/agents/runs/placement";
+import {
+    Turn,
+    TurnId,
+    TurnPlacementSnapshot,
+    type LeaseToken,
+    type RunTransaction
+} from "../../src/agents";
 import { PackageId, PackagePin } from "../../src/definition";
 import { AgentCoreError } from "../../src/errors";
 import { BindingName, FacetRef, OperationRef, ProtectionDomain } from "../../src/facets";
@@ -78,6 +83,7 @@ function argumentsDigest(): Digest {
 interface ExpectationOverrides {
     readonly tenant?: TenantId;
     readonly itemIndex?: number;
+    readonly lease?: LeaseToken;
 }
 
 function expectation(overrides: ExpectationOverrides = {}): AuthorityPermitExpectation {
@@ -120,7 +126,7 @@ function expectation(overrides: ExpectationOverrides = {}): AuthorityPermitExpec
         claim: new ItemClaimId("lease-attest-claim"),
         claimOwner: {
             kind: "executor",
-            token: { ...leaseToken, holder: selectedPrincipal },
+            token: overrides.lease ?? { ...leaseToken, holder: selectedPrincipal },
             worker: new ClaimWorkerId("lease-attest-worker")
         },
         itemKey: "lease-attest-item",
@@ -138,7 +144,7 @@ function expectation(overrides: ExpectationOverrides = {}): AuthorityPermitExpec
             principal: selectedPrincipal,
             binding: new BindingName("mail")
         },
-        lease: { ...leaseToken, holder: selectedPrincipal }
+        lease: overrides.lease ?? { ...leaseToken, holder: selectedPrincipal }
     });
 }
 
@@ -243,19 +249,9 @@ function allowedTenantEvidence(request: TargetAuthorityPermitRequest): Authority
 }
 
 describe("source-hosted target lease attestation across three distinct hosts", () => {
-    const expected = expectation();
     const nonce = "lease-attest-nonce";
-    const provisional = provisionalRequestFor(expected, nonce, provisionalExpiry);
-    let seededTurnId: TurnId | undefined;
 
-    function buildHosts(): {
-        runtime: ReturnType<typeof harness>["runtime"];
-        repository: ReturnType<typeof harness>["repository"];
-        tenantStore: MemoryAuthorityPermitStore;
-        channel: TenantProjectionChannel;
-        issuer: TargetLeaseEvidenceIssuer<RunTransaction>;
-        transport: StoredProjectedTargetLeaseEvidence<RunTransaction>;
-    } {
+    function buildHosts() {
         const value = harness();
         // Canonical owners for this source host: the RunRepository above, the
         // canonical watermark store here, one delegation ledger for intent.
@@ -275,7 +271,7 @@ describe("source-hosted target lease attestation across three distinct hosts", (
         const issuer = new TargetLeaseEvidenceIssuer(store, store.source);
         const transport = new StoredProjectedTargetLeaseEvidence(store, issuer, channel, () => issuedAt);
 
-        intents.set(run.value, expected.intentDigest);
+        intents.set(run.value, digestOf("intent"));
         if (
             value.repository.transaction((tx) => value.repository.loadRun(tx, run)) === undefined
         ) {
@@ -302,14 +298,30 @@ describe("source-hosted target lease attestation across three distinct hosts", (
         );
         value.runtime.claimTurn(turnId, new Revision(0), principal, issuedAt, leaseExpiry);
 
-        return { runtime: value.runtime, repository: value.repository, tenantStore, channel, issuer, transport };
+        return {
+            runtime: value.runtime,
+            repository: value.repository,
+            tenantStore,
+            channel,
+            issuer,
+            transport,
+            storedTurn: value.repository.transaction((tx) => {
+                const stored = value.repository.loadTurn(tx, turnId);
+                if (stored === undefined) throw new TypeError("Seeded source Turn vanished");
+                return stored;
+            })
+        };
     }
 
     test(
         "commits, self-projects, and returns only an immutable reference to the target",
         { tags: "p0" },
         async () => {
-            const { repository, tenantStore, channel, transport } = buildHosts();
+            const { tenantStore, channel, transport, storedTurn } = buildHosts();
+            const expected = expectation({
+                lease: { ...storedTurn.lease, holder: principal }
+            });
+            const provisional = provisionalRequestFor(expected, nonce, provisionalExpiry);
 
             const attestation = await transport.attest(TargetAuthorityPermitRequest.encode(provisional));
 
@@ -339,12 +351,13 @@ describe("source-hosted target lease attestation across three distinct hosts", (
                 )
             );
             expect(permit.requestDigest.equals(finalRequest.digest())).toBe(true);
-            expect(repository.transaction((tx) => repository.loadTurn(tx, seededTurnId!))).toBeDefined();
         }
     );
 
     test("replays the committed attestation across a lost projection reply and a renewal", { tags: "p0" }, async () => {
-        const { runtime, repository, channel, transport } = buildHosts();
+        const { runtime, channel, transport, storedTurn } = buildHosts();
+        const expected = expectation({ lease: { ...storedTurn.lease, holder: principal } });
+        const provisional = provisionalRequestFor(expected, nonce, provisionalExpiry);
 
         const first = await transport.attest(TargetAuthorityPermitRequest.encode(provisional));
 
@@ -355,11 +368,7 @@ describe("source-hosted target lease attestation across three distinct hosts", (
         ).rejects.toThrow(/projection reply was lost/);
 
         // Renewal goes through the real runtime against the canonical lease.
-        const stored = repository.transaction((tx) => {
-            const turn = seededTurnId === undefined ? undefined : repository.loadTurn(tx, seededTurnId);
-            if (turn === undefined) throw new TypeError("Seeded Turn vanished");
-            return turn;
-        });
+        const stored = storedTurn;
         runtime.renewTurn(
             stored.id,
             stored.revision,
@@ -392,7 +401,7 @@ describe("source-hosted target lease attestation across three distinct hosts", (
                     fence: 11,
                     domain: new ProtectionDomain("backend", "lease-attest-domain", "no-secrets")
                 },
-                requestIdentity: provisional.identity(),
+                requestIdentity: digestOf("forged-request"),
                 deadline: leaseExpiry,
                 watermark: InvalidationWatermark.empty(tenant, sourceActor, principal)
             })
@@ -414,12 +423,14 @@ describe("source-hosted target lease attestation across three distinct hosts", (
     });
 
     test("keeps issuance closed when a request substitutes the attested binding", { tags: "p0" }, async () => {
-        const { tenantStore, channel, transport } = buildHosts();
+        const { tenantStore, channel, transport, storedTurn } = buildHosts();
+        const expected = expectation({ lease: { ...storedTurn.lease, holder: principal } });
+        const provisional = provisionalRequestFor(expected, nonce, provisionalExpiry);
         const attestation = await transport.attest(TargetAuthorityPermitRequest.encode(provisional));
         expect(channel.calls).toBe(1);
 
         const substitutedBase = provisionalRequestFor(
-            expectation({ itemIndex: 3 }),
+            expectation({ itemIndex: 3, lease: { ...storedTurn.lease, holder: principal } }),
             nonce,
             attestation!.deadline
         );

@@ -897,7 +897,7 @@ export class TargetLeaseEvidenceRecord extends CodecRecord {
 
 class TargetLeaseEvidenceRecordCodec extends RecordCodec<TargetLeaseEvidenceRecord> {
     public constructor() {
-        super([TargetLeaseEvidenceRecord], "runs.target-lease-evidence", { major: 1, minor: 0 });
+        super([TargetLeaseEvidenceRecord, CodecRecord], "runs.target-lease-evidence", { major: 1, minor: 0 });
     }
 
     protected encodePayload(record: TargetLeaseEvidenceRecord): JsonValue {
@@ -909,7 +909,8 @@ class TargetLeaseEvidenceRecordCodec extends RecordCodec<TargetLeaseEvidenceReco
     }
 }
 
-const targetLeaseEvidenceRecordCodec = new TargetLeaseEvidenceRecordCodec();
+export const targetLeaseEvidenceRecordCodec: RecordCodec<TargetLeaseEvidenceRecord> =
+    new TargetLeaseEvidenceRecordCodec();
 
 const RUN_RECORD_DESCRIPTORS = Object.freeze({
     configuration: recordDescriptor(RunConfigurationSnapshotCodec, (value) => value.id.value),

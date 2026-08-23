@@ -7,13 +7,19 @@ import {
     TargetLeaseEvidence,
     TargetLeaseEvidenceKey
 } from "../../src/authority";
-import { RunId, TurnId, type RunTransaction } from "../../src/agents";
+import {
+    MemoryRunStorage,
+    RunId,
+    TurnId,
+    type RunTransaction
+} from "../../src/agents";
 import { Digest } from "../../src/core";
 import { ProtectionDomain } from "../../src/facets";
-import { SqliteAuthorityPermitStore } from "../../src/substrates";
-import { SqliteRunStorage } from "../../src/substrates/sqlite/run";
+import {
+    SqliteAuthorityPermitStore,
+    SqliteRunStorage
+} from "../../src/substrates";
 import { PrincipalId, PrincipalRef, TenantId } from "../../src/identity";
-import { MemoryRunStorage } from "../../src/agents/runs/memory";
 import { TestSqlite } from "../helpers/sqlite";
 
 const tenant = new TenantId("target-lease-evidence-tenant");
@@ -46,7 +52,7 @@ function evidence(requestIdentity = Digest.sha256(new TextEncoder().encode("targ
 }
 
 describe("TargetLeaseEvidence", () => {
-    test("[authority.target-lease-evidence] records one exact source-owned immutable attestation across restart", { tags: "p0" }, () => {
+    test("[authority.target-lease-evidence] [runs.target-lease-evidence] records one exact source-owned immutable attestation across restart", { tags: "p0" }, () => {
         const storage = new MemoryRunStorage(tenant, source);
         const store = new RunTargetLeaseEvidenceStore<RunTransaction>(tenant, source, storage, {
             turnLease: () => undefined,

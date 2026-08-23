@@ -37,7 +37,6 @@
   "pendingFragments": [],
   "pendingRequired": [],
   "discoveredDispositions": {
-    "src/actors/store.ts#ActorStore": "actor-local-store",
-    "src/authority/target-lease-evidence-store.ts#TargetLeaseEvidenceSourcePort": "target-lease-evidence-source"
+    "src/actors/store.ts#ActorStore": "actor-local-store"
   }
 }
