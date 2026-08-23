@@ -20,7 +20,7 @@ const allowedAxiomTokens = ["Classical.choice", "Quot.sound", "propext"]
 
 interface StructuralPackage {
     allowedAxioms: string[];
-    encodingVersion: string;
+    encoding: string;
     designations: {
         axioms: string[];
         closure: string[];
@@ -70,7 +70,7 @@ async function runLean(source: string): Promise<{ output?: StructuralPackage; st
             .split(/\r?\n/u)
             .find(
                 (candidate) =>
-                    candidate.startsWith('{"') && candidate.includes('"encodingVersion":')
+                    candidate.startsWith('{"') && candidate.includes('"encoding":"agent-core-lean-structure-sourced-closure"')
             );
         return { output: line === undefined ? undefined : JSON.parse(line), stderr: result.stderr };
     }
@@ -174,6 +174,9 @@ describe("normative structural encoder", { timeout: 120_000 }, () => {
         // through internal artifacts (replay._f), and the graph walk cut them
         // off, silently emptying the closures of nonvacuous_view_replay,
         // replay_deterministic, and replay_revision.
+        // SAFETY: artifacts/normative.lock is machine-written by
+        // check-normative --update, whose strict parser validated these
+        // fields on the bytes it serialized.
         const committed = JSON.parse(
             await readFile(resolve(packageRoot, "artifacts/normative.lock"), "utf8")
         ) as {
@@ -488,7 +491,7 @@ describe("structural package line selector", () => {
         auditedModules: ["AgentCore"],
         declarations: [{ name: "X", structure: [] }],
         designations: [{ kind: "claim", name: "Y", axioms: [], type: {}, closure: [] }],
-        encodingVersion: "agent-core-lean-structure-v2"
+        encoding: "agent-core-lean-structure-sourced-closure"
     };
 
     test("accepts the canonical lexicographic package line", () => {
@@ -516,14 +519,14 @@ describe("structural package line selector", () => {
 
     test("rejects a duplicate top-level key", () => {
         const line =
-            '{"encodingVersion":"v","encodingVersion":"w","auditedModules":[],' +
+            '{"encoding":"v","encoding":"w","auditedModules":[],' +
             '"allowedAxioms":[],"designations":[],"declarations":[]}';
         expect(() => parseStructuralPackageLine(line, "p")).toThrow(/Duplicate key/u);
     });
 
     test("rejects a nested duplicate key inside designations", () => {
         const line =
-            '{"encodingVersion":"v","auditedModules":[],"allowedAxioms":[],"designations":' +
+            '{"encoding":"agent-core-lean-structure-sourced-closure","auditedModules":[],"allowedAxioms":[],"designations":' +
             '[{"kind":"claim","kind":"claim","name":"X","axioms":[],"type":{},"closure":[]}],' +
             '"declarations":[]}';
         expect(() => parseStructuralPackageLine(line, "p")).toThrow(
@@ -535,7 +538,7 @@ describe("structural package line selector", () => {
         ["allowedAxioms", JSON.stringify({ ...base, allowedAxioms: 7 })],
         ["designations", JSON.stringify({ ...base, designations: true })],
         ["declarations", JSON.stringify({ ...base, declarations: "none" })],
-        ["encodingVersion", JSON.stringify({ ...base, encodingVersion: 9 })]
+        ["encoding", JSON.stringify({ ...base, encoding: 9 })]
     ])("rejects a mis-typed %s", (_field, line) => {
         let message = "";
         try {
@@ -549,8 +552,8 @@ describe("structural package line selector", () => {
     test("selector isolates the single complete package line from noise", () => {
         const good = JSON.stringify(base);
         const source = `noise line\n{"unrelated":true}\n${good}\n`;
-        expect(structuralPackage(source).encodingVersion).toBe(
-            "agent-core-lean-structure-v2"
+        expect(structuralPackage(source).encoding).toBe(
+            "agent-core-lean-structure-sourced-closure"
         );
     });
 });

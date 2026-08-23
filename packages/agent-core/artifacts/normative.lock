@@ -16764,7 +16764,7 @@
       "semanticClosureSha256": "sha256:6052fed1b5d210d64b9069948c02063b26b07de686692843b4cbea693b978c69"
     }
   ],
-  "encodingVersion": "agent-core-lean-structure-v3",
+  "encoding": "agent-core-lean-structure-sourced-closure",
   "pins": {
     "lakeManifest": {
       "dependencies": [],

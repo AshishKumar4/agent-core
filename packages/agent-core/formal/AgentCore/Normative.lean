@@ -5,7 +5,7 @@ namespace AgentCore.Normative
 
 open Lean
 
-def encodingVersion : String := "agent-core-lean-structure-v3"
+def encoding : String := "agent-core-lean-structure-sourced-closure"
 
 private def jsonArray (items : List Json) : Json := .arr items.toArray
 
@@ -572,7 +572,7 @@ private def encodePackage (tokens : List String) : CoreM Json := do
     |>.qsort Name.quickLt
     |>.toList
   pure (Json.mkObj [
-    ("encodingVersion", .str encodingVersion),
+    ("encoding", .str encoding),
     ("auditedModules", jsonArray (auditedModules.map (Json.str ·.toString))),
     ("allowedAxioms", jsonArray (allowed.map Json.str)),
     ("designations", jsonArray encodedDesignations.reverse),

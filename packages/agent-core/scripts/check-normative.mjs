@@ -77,7 +77,7 @@ export const structuralPackageKeys = Object.freeze([
     "allowedAxioms",
     "declarations",
     "designations",
-    "encodingVersion"
+    "encoding"
 ]);
 
 export function parseStructuralPackageLine(line, location) {
@@ -103,7 +103,12 @@ export function parseStructuralPackageLine(line, location) {
     strings(value.allowedAxioms, `${location}.allowedAxioms`);
     objectArray(value.designations, `${location}.designations`);
     objectArray(value.declarations, `${location}.declarations`);
-    stringField(value, "encodingVersion", location);
+    const encoding = stringField(value, "encoding", location);
+    if (encoding !== "agent-core-lean-structure-sourced-closure") {
+        throw new TypeError(
+            `${location}.encoding must be agent-core-lean-structure-sourced-closure`
+        );
+    }
     return value;
 }
 
@@ -238,7 +243,7 @@ function driverSource(designations, auditedModules) {
 }
 
 function validateAndHash(raw, expectedDesignations, expectedModules) {
-    const encodingVersion = stringField(raw, "encodingVersion", "structural package");
+    const encoding = stringField(raw, "encoding", "structural package");
     const auditedModules = strings(raw.auditedModules, "structural package auditedModules");
     if (new Set(auditedModules).size !== auditedModules.length) {
         throw new TypeError("Lean structural package contains duplicate audited modules");
@@ -342,7 +347,7 @@ function validateAndHash(raw, expectedDesignations, expectedModules) {
         auditedModules: [...auditedModules].sort(),
         declarations: declarationEntries,
         designations: normalizedDesignations,
-        encodingVersion,
+        encoding,
         semanticClosures: [...semanticClosures]
             .map(([closureSha256, closure]) => ({
                 declarations: closure.declarations,
@@ -370,7 +375,7 @@ export function generateNormativeLock() {
             auditedModules: normalized.auditedModules,
             declarations: normalized.declarations,
             designations: normalized.designations,
-            encodingVersion: normalized.encodingVersion,
+            encoding: normalized.encoding,
             pins: readPins(),
             schemaVersion,
             semanticClosures: normalized.semanticClosures
