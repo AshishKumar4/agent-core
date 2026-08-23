@@ -279,6 +279,61 @@ describe("Subscription mutation coverage", () => {
     );
 
     test(
+        "[C13-SUBSCRIPTION-ATTRIBUTION-FIXED] carries both attribution halves at major 2 and omits the field where no Facet contributed",
+        { tags: "p0" },
+        () => {
+            const contribution = attribution("workspace:fixed");
+            const bytes = Subscription.encode(
+                subscriptionFixture("attribution-fixed", { contribution })
+            );
+            const envelope = decodeCanonicalJson(bytes);
+            if (!isJsonObject(envelope)) {
+                throw new TypeError("Subscription envelope must be an object");
+            }
+            expect(envelope["kind"]).toBe("workspace.subscription");
+            expect(envelope["version"]).toEqual({ major: 2, minor: 0 });
+
+            // The wire shape is the attribution object's own, so a derived Subscription
+            // spells the pair exactly as every other attributed record spells it.
+            const payload = recordPayload(bytes);
+            expect(payload["contribution"]).toEqual(contribution.encodeFields());
+            expect(Subscription.decode(bytes).contribution?.equals(contribution)).toBe(true);
+
+            const direct = Subscription.encode(subscriptionFixture("attribution-direct"));
+            expect(Object.hasOwn(recordPayload(direct), "contribution")).toBe(false);
+            expect(Subscription.decode(direct).contribution).toBeUndefined();
+
+            const halved: readonly (readonly [JsonValue, string])[] = [
+                [null, "Subscription contribution must be an object"],
+                [
+                    { contributor: contribution.contributor.value },
+                    "Subscription contribution carries no source Package pin"
+                ],
+                [
+                    { package: contribution.package.toData() },
+                    "Subscription contribution contributor must be a string"
+                ]
+            ];
+            for (const [forged, message] of halved) {
+                expect(() =>
+                    Subscription.decode(
+                        recordBytes(
+                            "workspace.subscription",
+                            { ...payload, contribution: forged },
+                            2
+                        )
+                    )
+                ).toThrow(
+                    expect.objectContaining({
+                        code: "codec.invalid",
+                        message: `Invalid workspace.subscription record: ${message}`
+                    })
+                );
+            }
+        }
+    );
+
+    test(
         "decode refuses a dedupe policy and an authority kind outside the vocabulary",
         { tags: "p2" },
         () => {

@@ -166,4 +166,41 @@ describe("routing withdrawal sweep", () => {
             ).toBeUndefined();
         }
     );
+
+    test(
+        "[C13-SUBSCRIPTION-ATTRIBUTION-FIXED] a Subscription no Facet contributed belongs to no withdrawal set",
+        { tags: "p0" },
+        () => {
+            const harness = sweepHarness();
+            const owner = new FacetRef("workspace:owner");
+            const contributed = subscriptionFixture("member", {
+                contribution: attribution(owner.value)
+            });
+            const direct = subscriptionFixture("nonmember");
+            harness.source.saveSubscription(harness.records, contributed, undefined);
+            harness.source.saveSubscription(harness.records, direct, undefined);
+
+            // Presence of the attribution is the membership test, so the caller-created
+            // route answers to its contributor and to every other Facet the same way.
+            expect(
+                harness.routing
+                    .contributed(harness.records, owner)
+                    .map((subscription) => subscription.id.value)
+            ).toEqual([contributed.id.value]);
+            for (const facet of [owner, new FacetRef("workspace:other")]) {
+                expect(
+                    harness.routing
+                        .contributed(harness.records, facet)
+                        .map((subscription) => subscription.id.value)
+                ).not.toContain(direct.id.value);
+            }
+
+            const result = harness.routing.retire(harness.records, owner);
+
+            expect(result.subscriptions.map((id) => id.value)).toEqual([contributed.id.value]);
+            const untouched = harness.source.currentSubscription(harness.records, direct.id);
+            expect(untouched?.retired).toBeUndefined();
+            expect(untouched?.revision.value).toBe(0);
+        }
+    );
 });
