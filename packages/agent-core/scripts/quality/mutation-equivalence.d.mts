@@ -34,6 +34,8 @@ export interface ReportMutant extends MutationSite {
 }
 
 export interface MutationReport {
+    schemaVersion?: string;
+    thresholds?: Record<string, number | null>;
     files: Record<string, { source: string; mutants: ReportMutant[] }>;
     testFiles?: Record<string, { tests: { id: string; name: string }[]; source?: string }>;
 }

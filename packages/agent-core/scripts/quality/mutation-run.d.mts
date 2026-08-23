@@ -55,7 +55,7 @@ export interface MutationRunRecord {
 export function publishRunCache(
     area: string,
     record: MutationRunRecord
-): "converged" | "deferred" | "published";
+): "converged" | "published";
 
 export function requireAreaReport(report: MutationReport, area: string): MutationReport;
 

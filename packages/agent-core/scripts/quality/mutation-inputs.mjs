@@ -163,45 +163,101 @@ export function mutationRunKey(area, register = committedRegister()) {
 }
 
 // What Stryker 9.6.1's ProjectReader skips no matter what it is told: its own
-// ALWAYS_IGNORE list. It reads no .gitignore — `resolveInputFileNames` crawls
-// `process.cwd()` and prunes by these names and by `ignorePatterns` alone — so a rule
-// derived from git would have been a different set that happened to have the same size.
+// ALWAYS_IGNORE list, matched by basename at any depth. It reads no .gitignore —
+// `resolveInputFileNames` crawls `process.cwd()` and prunes by these names and by
+// `ignorePatterns` alone — so a rule derived from git would have been a different set that
+// happened, once, to have the same size.
 const ALWAYS_IGNORED = [".git", ".next", ".nuxt", ".svelte-kit", "node_modules"];
 
+// The version this mirror was read from. Its crawl and its ignore semantics are not API,
+// so an upgrade has to be re-read rather than assumed: a release that adds a name to
+// ALWAYS_IGNORE only stales measurements that could not have changed, but one that stops
+// pruning node_modules would have the key covering less than a run reads, and a cache is
+// only as sound as that containment. Refusing is the fail-closed answer.
+const MIRRORED_STRYKER = "9.6.1";
+
 /**
- * Every file a run can read: Stryker's crawl, mirrored. The pruning comes from the
- * committed Stryker configuration rather than from a second list here, so the sandbox and
- * the key cannot disagree about `reports/` — and they must not, because this runner's own
- * scratch, ledger and cache live there. Anything this mirror keeps that Stryker's crawl
- * would have pruned only stales a measurement that could not have changed, which is the
- * safe direction to be wrong in.
+ * Every file a run can read: Stryker's crawl, mirrored. The pruning is read from the
+ * committed Stryker configuration rather than restated, so the sandbox and the key cannot
+ * disagree about `reports/` — and they must not, because this runner's own scratch, ledger
+ * and cache live there.
+ *
+ * Two details decide whether the mirror is exact rather than approximately right. A
+ * leading-slash pattern is anchored at the crawl root, so `/reports` prunes `reports/` and
+ * leaves a nested `src/x/reports/` in the sandbox — treating it as a bare name would omit
+ * from the key a directory Stryker copies. And `readdir` does not follow links, so
+ * Stryker's `dirent.isDirectory()` is false for a symlink and it copies it as a file;
+ * anything that is not a directory is therefore a file here too.
  */
-function sandboxFiles(root, at = "") {
-    const pruned = new Set([
-        ...ALWAYS_IGNORED,
-        strykerConfig.tempDirName,
-        ...strykerConfig.ignorePatterns.map((pattern) => pattern.replace(/^[/]|^[*][*][/]/u, ""))
-    ]);
+function sandboxFiles(root) {
+    return crawl(root, "", ignoreRules());
+}
+
+function crawl(root, at, rules) {
     const files = [];
     for (const entry of readdirSync(resolve(root, at), { withFileTypes: true })) {
-        if (pruned.has(entry.name) || entry.name.endsWith(".tsbuildinfo")) continue;
         const offset = at.length === 0 ? entry.name : `${at}/${entry.name}`;
-        if (entry.isDirectory()) files.push(...sandboxFiles(root, offset));
-        else if (entry.isFile()) files.push(resolve(root, offset));
+        if (rules.anywhere.has(entry.name)) continue;
+        if (at.length === 0 && rules.atRoot.has(entry.name)) continue;
+        if (entry.name.endsWith(".tsbuildinfo")) continue;
+        if (entry.isDirectory()) files.push(...crawl(root, offset, rules));
+        else files.push(resolve(root, offset));
     }
     return files;
 }
 
-// Path then content, both terminated: a rename changes the digest even when no byte of
-// any file did, and no concatenation of two files can imitate a third. An input git lists
-// but the tree no longer holds hashes as absent rather than throwing, so a deletion moves
-// the digest instead of crashing the run that should have noticed it.
+/**
+ * The configured pruning, parsed exactly. Only the two shapes this project uses are
+ * understood — a leading slash anchors a name at the crawl root, a leading double star
+ * and slash matches it at any depth — and
+ * anything else refuses the run rather than being guessed at. A pattern this cannot read
+ * would silently drop from the key a file Stryker copies, and the whole value of the key
+ * is that it cannot do that.
+ */
+function ignoreRules() {
+    const installed = resolve(packageRoot, "node_modules/@stryker-mutator/core/package.json");
+    const version = String(JSON.parse(readFileSync(installed, "utf8")).version);
+    if (version !== MIRRORED_STRYKER) {
+        throw new TypeError(
+            `Mutation reuse mirrors @stryker-mutator/core@${MIRRORED_STRYKER}'s file crawl ` +
+                `and ${version} is installed. Re-read ProjectReader.resolveInputFileNames ` +
+                "and its ALWAYS_IGNORE list, then move MIRRORED_STRYKER."
+        );
+    }
+    const atRoot = new Set([strykerConfig.tempDirName]);
+    const anywhere = new Set(ALWAYS_IGNORED);
+    for (const pattern of strykerConfig.ignorePatterns) {
+        if (/^[/][^*/]+$/u.test(pattern)) atRoot.add(pattern.slice(1));
+        else if (/^[*][*][/][^*/]+$/u.test(pattern)) anywhere.add(pattern.slice(3));
+        else {
+            throw new TypeError(
+                `Mutation reuse cannot mirror the Stryker ignore pattern ${pattern}. ` +
+                    "Express it as /name or **/name, or teach ignoreRules to read it."
+            );
+        }
+    }
+    return { anywhere, atRoot };
+}
+
+// Path then content, both terminated: a rename changes the digest even when no byte of any
+// file did, and no concatenation of two files can imitate a third. A path the crawl listed
+// but cannot be read — deleted between the two, or a link to a directory, both of which
+// Stryker would also choke on — digests as the reason instead of crashing the run that
+// should have noticed it.
 function digestFiles(hash, paths) {
     for (const path of [...paths].sort()) {
         hash.update(relative(packageRoot, path).replaceAll("\\", "/"));
         hash.update("\0");
-        hash.update(existsSync(path) ? readFileSync(path) : "absent");
+        hash.update(fileBytes(path));
         hash.update("\0");
+    }
+}
+
+function fileBytes(path) {
+    try {
+        return readFileSync(path);
+    } catch (error) {
+        return `unreadable:${error instanceof Error ? error.message : "unknown"}`;
     }
 }
 

@@ -44,7 +44,7 @@ import {
     reconcileEquivalence,
     requireCompleteMutationReport
 } from "./mutation-equivalence.mjs";
-import { gitHead, measureArea } from "./mutation-run.mjs";
+import { gitHead, measureArea, requireAreaReport } from "./mutation-run.mjs";
 import {
     artifactRoot,
     compareCanonicalText,
@@ -162,10 +162,17 @@ function barrelOnly(files) {
 }
 
 const measured = await measurement();
-// One gate, one place, for every source a report can arrive from. A contaminated run has
-// already written its ledger by now, so the refusal below names the timeouts without
-// discarding what it cost to find them.
-const report = requireCompleteMutationReport(measured.report);
+// One gate, one place, for every source a report can arrive from — measured, reused, or
+// named by `--report`. It used to be two: `measureArea` validated what it was about to
+// cache and `--report` went straight to the status check, so a hand-written report of no
+// files scored 100% and overwrote an area's committed discrimination attribution with
+// nothing. A contaminated run has already written its ledger by now, so the refusals here
+// name what went wrong without discarding what it cost to find out.
+const report = requireCompleteMutationReport(
+    measured.barrel
+        ? requireNothingToMutate(measured.report)
+        : requireAreaReport(measured.report, options.area)
+);
 
 /**
  * Where this run's mutant statuses come from. `--report` names a report a run already
@@ -181,15 +188,32 @@ async function measurement() {
         // says it does not know — the same word `gitHead` uses when git cannot answer.
         return {
             report: JSON.parse(readFileSync(resolve(packageRoot, options.report), "utf8")),
-            measuredAt: "unknown"
+            measuredAt: "unknown",
+            barrel: false
         };
     }
     // An empty report carries a barrel-only area through the same classification, survivor
     // and baseline path as any other, recording the zeros it truly has instead of branching.
     // It also costs nothing, so it earns no ledger and no cache entry.
     const areaSources = existsSync(areaRoot) ? typescriptSources(areaRoot) : [areaFile];
-    if (barrelOnly(areaSources)) return { report: { files: {} }, measuredAt: gitHead() };
-    return measureArea(options.area, mutatePattern);
+    if (barrelOnly(areaSources)) {
+        return { report: { files: {} }, measuredAt: gitHead(), barrel: true };
+    }
+    return { ...(await measureArea(options.area, mutatePattern)), barrel: false };
+}
+
+/**
+ * The one report allowed to be empty, and only because `barrelOnly` read the area's own
+ * statements and found nothing a mutator could touch. A measurement of no mutants scores
+ * 100% and reads to the ratchet as an area with no work left in it, so the exception is
+ * bound to that decision rather than to the emptiness itself: if the area has files to
+ * mutate, an empty report is a broken run, not a barrel.
+ */
+function requireNothingToMutate(empty) {
+    if (Object.keys(empty.files).length > 0) {
+        throw new TypeError(`Mutation area ${options.area} is barrel-only and reported mutants`);
+    }
+    return empty;
 }
 
 // Kill attribution is the trustworthy direction of a perTest measurement: a test is

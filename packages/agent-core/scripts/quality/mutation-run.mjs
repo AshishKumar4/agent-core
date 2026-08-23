@@ -41,22 +41,18 @@ import { randomBytes } from "node:crypto";
 import {
     closeSync,
     fsyncSync,
+    linkSync,
     lstatSync,
     mkdirSync,
     mkdtempSync,
     openSync,
     readFileSync,
-    renameSync,
     rmSync,
     writeFileSync
 } from "node:fs";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
-import {
-    equivalenceArea,
-    mutationOutcome,
-    unusableMutants
-} from "./mutation-equivalence.mjs";
+import { equivalenceArea, mutationOutcome, unusableMutants } from "./mutation-equivalence.mjs";
 import { mutationRunIdentity, mutationRunKey } from "./mutation-inputs.mjs";
 import {
     assertString,
@@ -188,39 +184,47 @@ function cacheFault(record, area, runKey) {
     } catch (error) {
         return `cached report is unusable: ${error instanceof Error ? error.message : "unknown"}`;
     }
+    // A record from before contamination was refused, or one placed by hand, can carry a
+    // timeout. Treating it as absent is what makes the next run a fresh measurement
+    // instead of a permanent refusal on evidence nobody can re-examine.
+    const unusable = unusableMutants(record.report);
+    if (unusable.length > 0) return `cached report settles nothing: ${unusable[0]}`;
     return undefined;
 }
 
 /**
  * That a report is the report of this area, in the shape the classifier reads, carrying
- * verdicts it can account for. Three separate laundering routes close here:
+ * verdicts it can account for. Every check here closes a way for kill credit or a clean
+ * score to arrive without evidence behind it:
  *
- *   * a report of another area arriving under the right key, which a shared output path
- *     used to make possible;
- *   * a report of nothing at all, whose score is 100% and whose kill count is zero, and
- *     which the ratchet would accept as an area with no work left in it;
- *   * a `Killed` verdict naming no test, or naming a test the report does not carry, or
- *     completing no test. `killedBy` is what the committed discrimination artifact is
- *     built from, so a kill nobody claims spends the credit and records no claimant.
+ *   * a report of another area, which a shared output path used to make possible;
+ *   * a report with no mutants at all — score 100%, zero kills, an area the ratchet reads
+ *     as finished;
+ *   * a `Killed` verdict naming no test, naming a test the report does not carry, or
+ *     executing none. `killedBy` is what the committed discrimination artifact is built
+ *     from, so a kill nobody claims spends the credit and records no claimant;
+ *   * a `Survived` verdict with nothing behind it either. A survivor is a mutant some
+ *     test ran without telling it apart, so a covering set and an executed count are what
+ *     make it a survivor rather than an empty run — the same laundering the zero-test
+ *     check refuses, arriving through an absent field instead of a zero;
+ *   * a test identity that only looks like one. `String(test.id)` would coerce a number,
+ *     an object or `undefined` into a key that a `killedBy` could then match, so ids and
+ *     names are text or the report is refused, and two tests may not share an id.
  */
 export function requireAreaReport(report, area) {
     if (!isJsonObject(report)) throw new TypeError("Mutation report is not an object");
+    if (jsonKind(report.schemaVersion) !== "string") {
+        throw new TypeError("Mutation report states no schema version");
+    }
+    if (report.thresholds !== undefined && !isJsonObject(report.thresholds)) {
+        throw new TypeError("Mutation report thresholds is not an object");
+    }
     if (!isJsonObject(report.files)) throw new TypeError("Mutation report has no files");
     if (Object.keys(report.files).length === 0) {
         throw new TypeError(`Mutation report of ${area} covers no file`);
     }
-    const tests = new Set();
-    if (report.testFiles !== undefined) {
-        if (!isJsonObject(report.testFiles)) {
-            throw new TypeError("Mutation report testFiles is not an object");
-        }
-        for (const file of Object.values(report.testFiles)) {
-            if (jsonKind(file.tests) !== "array") {
-                throw new TypeError("Mutation report testFiles entry lists no tests");
-            }
-            for (const test of file.tests) tests.add(String(test.id));
-        }
-    }
+    const tests = requireTestFiles(report.testFiles);
+    let mutants = 0;
     for (const [path, file] of Object.entries(report.files)) {
         if (!path.startsWith("src/") || equivalenceArea(path) !== area) {
             throw new TypeError(`Mutation report of ${area} names ${path}`);
@@ -228,33 +232,62 @@ export function requireAreaReport(report, area) {
         if (jsonKind(file.source) !== "string" || jsonKind(file.mutants) !== "array") {
             throw new TypeError(`Mutation report entry ${path} has no source or mutants`);
         }
+        if (file.language !== undefined && jsonKind(file.language) !== "string") {
+            throw new TypeError(`Mutation report entry ${path} names no language`);
+        }
+        const seen = new Set();
         for (const mutant of file.mutants) {
-            requireMutant(path, mutant, tests);
+            requireMutant(path, mutant, tests, seen);
+            mutants += 1;
         }
     }
+    // Per file it is ordinary — a module of nothing but types carries no mutant. Across the
+    // report it is a measurement of nothing wearing a perfect score.
+    if (mutants === 0) throw new TypeError(`Mutation report of ${area} holds no mutant`);
     return report;
 }
 
-function requireMutant(path, mutant, tests) {
+function requireTestFiles(testFiles) {
+    const tests = new Set();
+    if (testFiles === undefined) return tests;
+    if (!isJsonObject(testFiles)) throw new TypeError("Mutation report testFiles is not an object");
+    for (const [path, file] of Object.entries(testFiles)) {
+        if (!isJsonObject(file) || jsonKind(file.tests) !== "array") {
+            throw new TypeError(`Mutation report test file ${path} lists no tests`);
+        }
+        for (const test of file.tests) {
+            if (!isJsonObject(test) || jsonKind(test.id) !== "string") {
+                throw new TypeError(`Mutation report test file ${path} holds an unidentified test`);
+            }
+            if (jsonKind(test.name) !== "string") {
+                throw new TypeError(`Test ${path}#${test.id} has no name`);
+            }
+            if (tests.has(test.id)) {
+                throw new TypeError(`Mutation report names two tests ${test.id}`);
+            }
+            tests.add(test.id);
+        }
+    }
+    return tests;
+}
+
+function requireMutant(path, mutant, tests, seen) {
     if (!isJsonObject(mutant) || jsonKind(mutant.id) !== "string") {
         throw new TypeError(`Mutation report entry ${path} holds an unidentified mutant`);
     }
-    const at = `${path}#${String(mutant.id)}`;
-    if (jsonKind(mutant.mutatorName) !== "string") throw new TypeError(`Mutant ${at} names no mutator`);
+    const at = `${path}#${mutant.id}`;
+    if (seen.has(mutant.id)) throw new TypeError(`Mutation report entry ${path} names two ${at}`);
+    seen.add(mutant.id);
+    if (jsonKind(mutant.mutatorName) !== "string") {
+        throw new TypeError(`Mutant ${at} names no mutator`);
+    }
     // `mutationOutcome` refuses a status it does not know, so the vocabulary a report may
     // speak is the one the classifier reads, and nothing else reaches classification.
     mutationOutcome(assertString(mutant.status, `mutant ${at} status`));
     if (mutant.replacement !== undefined && jsonKind(mutant.replacement) !== "string") {
         throw new TypeError(`Mutant ${at} has a replacement that is not text`);
     }
-    const start = isJsonObject(mutant.location) ? mutant.location.start : undefined;
-    const end = isJsonObject(mutant.location) ? mutant.location.end : undefined;
-    if (!isJsonObject(start) || !Number.isSafeInteger(start.line)) {
-        throw new TypeError(`Mutant ${at} has no source location`);
-    }
-    if (!isJsonObject(end) || !Number.isSafeInteger(end.line)) {
-        throw new TypeError(`Mutant ${at} has no end of its source location`);
-    }
+    requireSpan(at, mutant.location);
     if (mutant.testsCompleted !== undefined) {
         if (!Number.isSafeInteger(mutant.testsCompleted) || mutant.testsCompleted < 0) {
             throw new TypeError(`Mutant ${at} counts a nonsense number of executed tests`);
@@ -266,89 +299,131 @@ function requireMutant(path, mutant, tests) {
             throw new TypeError(`Mutant ${at} ${field} is not a list of tests`);
         }
         for (const id of mutant[field]) {
-            if (!tests.has(String(id))) {
+            if (jsonKind(id) !== "string" || !tests.has(id)) {
                 throw new TypeError(`Mutant ${at} ${field} names test ${String(id)}, absent`);
             }
         }
     }
-    if (mutant.status !== "Killed") return;
-    if ((mutant.killedBy ?? []).length === 0) {
-        throw new TypeError(`Mutant ${at} is reported Killed and names no test that killed it`);
+    requireEvidence(at, mutant);
+}
+
+function requireSpan(at, location) {
+    const start = isJsonObject(location) ? location.start : undefined;
+    const end = isJsonObject(location) ? location.end : undefined;
+    for (const [edge, position] of [
+        ["start", start],
+        ["end", end]
+    ]) {
+        if (
+            !isJsonObject(position) ||
+            !Number.isSafeInteger(position.line) ||
+            !Number.isSafeInteger(position.column)
+        ) {
+            throw new TypeError(`Mutant ${at} has no ${edge} of its source location`);
+        }
     }
-    if ((mutant.testsCompleted ?? 0) === 0) {
-        throw new TypeError(`Mutant ${at} is reported Killed having executed no test`);
+}
+
+function requireEvidence(at, mutant) {
+    const covering = (mutant.coveredBy ?? []).length;
+    const completed = mutant.testsCompleted ?? 0;
+    if (mutant.status === "Killed") {
+        if ((mutant.killedBy ?? []).length === 0) {
+            throw new TypeError(`Mutant ${at} is reported Killed and names no test that killed it`);
+        }
+        if (completed === 0) {
+            throw new TypeError(`Mutant ${at} is reported Killed having executed no test`);
+        }
+        return;
+    }
+    if (mutant.status !== "Survived") return;
+    if (covering === 0) {
+        throw new TypeError(`Mutant ${at} is reported Survived and no test covers it`);
+    }
+    if (completed === 0) {
+        throw new TypeError(`Mutant ${at} is reported Survived having executed no test`);
     }
 }
 
 /**
- * Publishes a record under its key, holding an exclusive lock across the whole
- * check-and-replace. Without the lock two writers both read an absent or stale record and
- * both rename over the destination, and the one that renamed second wins silently — which
- * is the one outcome this is here to prevent. A lock nobody can take means somebody else
- * is publishing, and declining costs nothing: publication is an optimisation, so the
- * measurement stands either way.
+ * Publishes a record under its key. No lock: a lock file survives the crash that dropped
+ * it and then blocks publication forever, and stealing one on a timer trades that for
+ * the race it was meant to stop. The destination is created instead of replaced —
+ * `link` refuses to overwrite, atomically — so the only thing a crash can leave behind is
+ * a temp file nothing reads.
  *
- * Under the lock: the same evidence converges, different evidence under one key fails
- * because identical inputs cannot yield two reports, and a record that cannot vouch for
- * its own report holds no evidence to lose and is replaced.
+ * Losing the create is not a failure but the interesting case, because the winner's record
+ * is right there to compare against: the same evidence converges, and different evidence
+ * under one key fails, because identical inputs cannot yield two reports. A record that
+ * cannot vouch for its own report, or that was written under another key, holds nothing
+ * worth keeping and is unlinked so the next attempt creates.
  */
 export function publishRunCache(area, record) {
     const path = runCachePath(area);
     const directory = dirname(path);
     requireOwnedDirectory(directory);
-    const lock = `${path}.lock`;
-    let held;
+    const temp = join(
+        directory,
+        `.${basename(path)}.${process.pid}.${randomBytes(8).toString("hex")}`
+    );
+    const handle = openSync(temp, "wx", 0o600);
     try {
-        held = openSync(lock, "wx", 0o600);
-    } catch (error) {
-        if (isJsonObject(error) || !(error instanceof Error)) throw error;
-        if (!error.message.includes("EEXIST")) throw error;
-        return "deferred";
+        writeFileSync(handle, `${JSON.stringify(record)}\n`);
+        fsyncSync(handle);
+    } finally {
+        closeSync(handle);
     }
     try {
-        const present = statWithoutFollowing(path);
-        if (present !== undefined) {
-            if (!present.isFile()) {
+        // Bounded, because each turn either creates or removes something: an unbounded
+        // loop against a writer that keeps replacing the record would spin forever.
+        for (let attempt = 0; attempt < 4; attempt += 1) {
+            if (created(temp, path)) return "published";
+            const present = statWithoutFollowing(path);
+            if (present !== undefined && !present.isFile()) {
                 throw new TypeError(`${portablePath(path)} is not a regular file`);
             }
             const existing = verifiedRecord(path);
-            if (existing?.runKey === record.runKey) {
-                if (existing.reportSha256 === record.reportSha256) return "converged";
-                throw new TypeError(
-                    `Two measurements of ${area} under run key ${record.runKey} disagree: ` +
-                        `${String(existing.reportSha256)} is recorded and this run produced ` +
-                        `${record.reportSha256}. Identical inputs cannot yield two reports; ` +
-                        "delete the record only once you know which run was wrong."
-                );
+            if (existing === undefined) {
+                rmSync(path, { force: true });
+                continue;
             }
+            if (existing.runKey !== record.runKey) {
+                rmSync(path, { force: true });
+                continue;
+            }
+            if (existing.reportSha256 === record.reportSha256) return "converged";
+            throw new TypeError(
+                `Two measurements of ${area} under run key ${record.runKey} disagree: ` +
+                    `${String(existing.reportSha256)} is recorded and this run produced ` +
+                    `${record.reportSha256}. Identical inputs cannot yield two reports; ` +
+                    "delete the record only once you know which run was wrong."
+            );
         }
-        const temp = join(
-            directory,
-            `.${basename(path)}.${process.pid}.${randomBytes(8).toString("hex")}`
+        throw new TypeError(
+            `Publishing the ${area} measurement kept losing to another writer. Nothing is ` +
+                "lost: the measurement stands and the next run will record it."
         );
-        const handle = openSync(temp, "wx", 0o600);
-        try {
-            writeFileSync(handle, `${JSON.stringify(record)}\n`);
-            fsyncSync(handle);
-        } finally {
-            closeSync(handle);
-        }
-        try {
-            renameSync(temp, path);
-        } catch (error) {
-            rmSync(temp, { force: true });
-            throw error;
-        }
-        return "published";
     } finally {
-        closeSync(held);
-        rmSync(lock, { force: true });
+        rmSync(temp, { force: true });
     }
 }
 
-// A record that vouches for its own report. Anything else — unparseable, not an object,
-// or carrying a report it does not digest to — holds no evidence, so a writer replaces it
-// instead of treating it as a rival measurement.
+// `link` is the create-if-absent this needs: it is atomic and it never replaces, so two
+// writers cannot both believe they published. EEXIST is the loser's answer, not an error.
+function created(temp, path) {
+    try {
+        linkSync(temp, path);
+        return true;
+    } catch (error) {
+        if (error instanceof Error && error.message.includes("EEXIST")) return false;
+        throw error;
+    }
+}
+
+// A record that vouches for its own report, and for a report worth having. Anything else —
+// unparseable, not an object, digesting to something else, or carrying a report this
+// runner would refuse anyway — holds no evidence, so a writer replaces it instead of
+// treating it as a rival measurement.
 function verifiedRecord(path) {
     let record;
     try {
@@ -357,7 +432,16 @@ function verifiedRecord(path) {
         return undefined;
     }
     if (!isJsonObject(record) || !isJsonObject(record.report)) return undefined;
-    return record.reportSha256 === reportDigest(record.report) ? record : undefined;
+    if (jsonKind(record.area) !== "string" || jsonKind(record.runKey) !== "string") {
+        return undefined;
+    }
+    if (record.reportSha256 !== reportDigest(record.report)) return undefined;
+    try {
+        requireAreaReport(record.report, record.area);
+    } catch {
+        return undefined;
+    }
+    return unusableMutants(record.report).length === 0 ? record : undefined;
 }
 
 /**
