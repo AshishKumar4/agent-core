@@ -69,8 +69,16 @@ const backendAttribution = new ContributionAttribution(
     packagePin
 );
 
-function attributionFor(facet: string): ContributionAttribution {
-    return new ContributionAttribution(new FacetRef(facet), packagePin);
+function attributionFor(facet: string, version = "1.0.0"): ContributionAttribution {
+    return new ContributionAttribution(
+        new FacetRef(facet),
+        new PackagePin(
+            packagePin.id,
+            new SemVer(version),
+            packagePin.manifestDigest,
+            packagePin.codeDigest
+        )
+    );
 }
 
 describe("Facet Slot protocol commands", () => {
@@ -181,19 +189,26 @@ describe("Facet Slot protocol commands", () => {
     });
 
     test(
-        "[C13-FACET-WITHDRAWAL-EXACT] retires a Facet's contributions through one administer control transaction",
+        "[C13-FACET-WITHDRAWAL-EXACT] carries exact attribution through one administer control transaction",
         { tags: "p0" },
         () => {
             const target = actor("workspace");
             const backend = new Backend();
             const withdraw = new FacetSlotWithdrawCommand(backend, target);
-            backend.declaration = slot();
-            backend.entries = [entry()];
-            const payload = withdraw.payload.decode(
-                FacetSlotCommandPayload.withdraw(new FacetRef("workspace:facet"))
-            );
+            const releaseA = attributionFor("workspace:facet", "1.0.0");
+            const releaseB = attributionFor("workspace:facet", "2.0.0");
+            const wrongRelease = attributionFor("workspace:facet", "9.9.9");
+            const entryA = entry();
+            const entryB = new SlotEntry(new SlotName("dashboard.card"), releaseB, 1, {
+                title: "Release B"
+            });
+            backend.entries = [entryA, entryB];
+            const encoded = FacetSlotCommandPayload.withdraw(releaseA);
+            const payload = withdraw.payload.decode(encoded);
             const withdrawalEnvelope = envelope(withdraw.command, target, Revision.initial());
 
+            expect(new TextDecoder().decode(encoded)).toContain('"package"');
+            expect(payload.equals(releaseA)).toBe(true);
             expect(withdraw.caller.admits(caller(actor("foreign")))).toBe(false);
             expect(withdraw.authorize(backend, withdrawalEnvelope, payload)).toBe(true);
             expect(withdraw.permitsLifecycle(backend, withdrawalEnvelope, payload)).toBe(true);
@@ -203,13 +218,40 @@ describe("Facet Slot protocol commands", () => {
             expect(withdraw.currentRevision(backend, withdrawalEnvelope, payload).value).toBe(0);
             expect(
                 backend
-                    .withdrawalSet(backend, new FacetRef("workspace:facet"))
+                    .withdrawalSet(backend, releaseA)
                     .entries.map((id) => id.value)
-            ).toEqual([entry().id.value]);
+            ).toEqual([entryA.id.value]);
 
             const reply = withdraw.execute(backend, withdrawalEnvelope, payload, decisionAt);
             expect(reply.reply.revision.value).toBe(1);
-            expect(backend.entries).toEqual([]);
+            expect(backend.entries.map((candidate) => candidate.id.value)).toEqual([
+                entryB.id.value
+            ]);
+
+            const replay = withdraw.execute(
+                backend,
+                envelope(withdraw.command, target, new Revision(1)),
+                payload,
+                decisionAt
+            );
+            expect(replay.reply.revision.value).toBe(1);
+            expect(backend.entries.map((candidate) => candidate.id.value)).toEqual([
+                entryB.id.value
+            ]);
+            const wrongPayload = withdraw.payload.decode(
+                FacetSlotCommandPayload.withdraw(wrongRelease)
+            );
+            expect(
+                withdraw.execute(
+                    backend,
+                    envelope(withdraw.command, target, new Revision(1)),
+                    wrongPayload,
+                    decisionAt
+                ).reply.revision.value
+            ).toBe(1);
+            expect(backend.entries.map((candidate) => candidate.id.value)).toEqual([
+                entryB.id.value
+            ]);
 
             backend.withdrawalAllowed = false;
             expect(withdraw.authorize(backend, envelope(withdraw.command, target), payload)).toBe(
@@ -224,18 +266,28 @@ describe("Facet Slot protocol commands", () => {
             ).toThrow(/Workspace/);
             expect(() =>
                 withdraw.payload.decode(
-                    encodeCanonicalJson({ contributor: "workspace:facet", extra: true })
+                    encodeCanonicalJson({ ...releaseA.encodeFields(), extra: true })
                 )
             ).toThrow(/unknown fields/);
-            expect(() => withdraw.payload.decode(encodeCanonicalJson({ contributor: 1 }))).toThrow(
-                /Slot withdrawal contributor/
-            );
+            expect(() =>
+                withdraw.payload.decode(encodeCanonicalJson({ contributor: "workspace:facet" }))
+            ).toThrow(/missing or unknown fields/);
+            expect(() =>
+                withdraw.payload.decode(
+                    encodeCanonicalJson({ contributor: 1, package: packagePin.toData() })
+                )
+            ).toThrow(/Slot withdrawal contributor/);
+            expect(() =>
+                withdraw.payload.decode(
+                    encodeCanonicalJson({ contributor: "workspace:facet", package: null })
+                )
+            ).toThrow(/Package pin/);
             expectAgentCoreError(
                 () =>
                     withdraw.execute(
                         backend,
                         envelope(withdraw.command, target),
-                        forgedContributor({}),
+                        forgedAttribution({}),
                         decisionAt
                     ),
                 "protocol.invalid-state"
@@ -632,29 +684,41 @@ class Backend implements FacetSlotCommandBackend<Backend, Backend> {
         return this.contributionAllowed;
     }
 
-    public permitsWithdrawal(): boolean {
+    public permitsWithdrawal(
+        _read: Backend,
+        _attribution: ContributionAttribution
+    ): boolean {
         return this.withdrawalAllowed;
     }
 
-    public withdrawalSet(_read: Backend, contributor: FacetRef): SlotWithdrawalSet {
+    public withdrawalSet(
+        _read: Backend,
+        attribution: ContributionAttribution
+    ): SlotWithdrawalSet {
         return new SlotWithdrawalSet(
-            contributor,
-            this.declaration !== undefined &&
-            this.declaration.attribution.contributor.equals(contributor)
+            attribution,
+            this.declaration?.attribution.equals(attribution) === true
                 ? [this.declaration.declaration.name]
                 : [],
             this.entries
-                .filter((candidate) => candidate.attribution.contributor.equals(contributor))
+                .filter((candidate) => candidate.attribution.equals(attribution))
                 .map((candidate) => candidate.id)
         );
     }
 
-    public applyWithdrawal(_transaction: Backend, contributor: FacetRef): boolean {
-        const before = this.entries.length;
+    public applyWithdrawal(
+        _transaction: Backend,
+        attribution: ContributionAttribution
+    ): boolean {
+        const before = this.entries.length + (this.declaration === undefined ? 0 : 1);
+        if (this.declaration?.attribution.equals(attribution) === true) {
+            this.declaration = undefined;
+        }
         this.entries = this.entries.filter(
-            (candidate) => !candidate.attribution.contributor.equals(contributor)
+            (candidate) => !candidate.attribution.equals(attribution)
         );
-        return this.changed && this.entries.length !== before;
+        const after = this.entries.length + (this.declaration === undefined ? 0 : 1);
+        return this.changed && after !== before;
     }
 
     public prepareContribution(
@@ -1104,10 +1168,10 @@ function forgedDeclaration<TActual>(value: TActual): SlotDeclaration {
     return value as TActual & SlotDeclaration;
 }
 
-function forgedContributor<TActual>(value: TActual): FacetRef {
-    // SAFETY: not a decoded FacetRef. The withdrawal command must refuse it as an invalid
-    // state rather than compute a withdrawal set from an unvalidated contributor.
-    return value as TActual & FacetRef;
+function forgedAttribution<TActual>(value: TActual): ContributionAttribution {
+    // SAFETY: not a decoded ContributionAttribution. The withdrawal command must refuse it
+    // rather than compute a withdrawal set from an unvalidated FacetRef and PackagePin pair.
+    return value as TActual & ContributionAttribution;
 }
 
 function forgedContribution<TActual>(value: TActual): SlotContributionRequest {

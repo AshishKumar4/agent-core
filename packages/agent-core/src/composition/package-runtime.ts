@@ -11,8 +11,8 @@ import { AgentCoreError } from "../errors";
 import {
     InstalledSlot,
     SlotEntry,
+    type ContributionAttribution,
     type Facet,
-    type FacetRef,
     type SlotName,
     type SlotWithdrawalSet,
     type WorkspaceSlotStore
@@ -82,7 +82,7 @@ export class PackageFacetRuntime<Loaded> implements AsyncDisposable {
 export interface FacetSlotAuthorityPort<Read, Transaction = Read> {
     permitsInstall(state: Read | Transaction, slot: InstalledSlot): boolean;
     permitsContribution(state: Read | Transaction, entry: SlotEntry): boolean;
-    permitsWithdrawal(state: Read | Transaction, contributor: FacetRef): boolean;
+    permitsWithdrawal(state: Read | Transaction, attribution: ContributionAttribution): boolean;
 }
 
 export interface FacetSlotReadPort<Read> {
@@ -210,24 +210,27 @@ export class ProvenanceFacetSlotBackend<Transaction, Read> implements FacetSlotC
         return true;
     }
 
-    public permitsWithdrawal(read: Read, contributor: FacetRef): boolean {
-        return this.authority.permitsWithdrawal(read, contributor);
+    public permitsWithdrawal(read: Read, attribution: ContributionAttribution): boolean {
+        return this.authority.permitsWithdrawal(read, attribution);
     }
 
-    public withdrawalSet(_read: Read, contributor: FacetRef): SlotWithdrawalSet {
+    public withdrawalSet(_read: Read, attribution: ContributionAttribution): SlotWithdrawalSet {
         return this.slots.transaction((transaction) =>
-            this.slots.withdrawalSet(transaction, contributor)
+            this.slots.withdrawalSet(transaction, attribution)
         );
     }
 
-    public applyWithdrawal(transaction: Transaction, contributor: FacetRef): boolean {
-        if (!this.authority.permitsWithdrawal(transaction, contributor)) {
+    public applyWithdrawal(
+        transaction: Transaction,
+        attribution: ContributionAttribution
+    ): boolean {
+        if (!this.authority.permitsWithdrawal(transaction, attribution)) {
             throw new AgentCoreError(
                 "authority.denied",
                 "Current authority does not admit the Facet withdrawal"
             );
         }
-        return this.slots.retireWithdrawalSet(transaction, contributor);
+        return this.slots.retireWithdrawalSet(transaction, attribution);
     }
 
     public contribute(transaction: Transaction, entry: SlotEntry): boolean {

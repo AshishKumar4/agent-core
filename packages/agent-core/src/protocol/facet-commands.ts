@@ -11,7 +11,7 @@ import {
 } from "../core";
 import {
     canonicalFacetData,
-    FacetRef,
+    ContributionAttribution,
     InstalledSlot,
     isFacetData,
     PackageInstallationRef,
@@ -54,9 +54,9 @@ export interface FacetSlotCommandBackend<Transaction, Read, Stamp extends WeakKe
         entry: SlotEntry
     ): boolean;
     permitsContribution(read: Read, entry: SlotEntry): boolean;
-    permitsWithdrawal(read: Read, contributor: FacetRef): boolean;
-    withdrawalSet(read: Read, contributor: FacetRef): SlotWithdrawalSet;
-    applyWithdrawal(transaction: Transaction, contributor: FacetRef): boolean;
+    permitsWithdrawal(read: Read, attribution: ContributionAttribution): boolean;
+    withdrawalSet(read: Read, attribution: ContributionAttribution): SlotWithdrawalSet;
+    applyWithdrawal(transaction: Transaction, attribution: ContributionAttribution): boolean;
     slot(read: Read, name: SlotName): InstalledSlot | undefined;
     advanceRevision(transaction: Transaction, expected: Revision): Revision;
 }
@@ -181,21 +181,23 @@ interface PreparedSlotInstall<Stamp> {
 
 /**
  * SPEC §4.1 (C13-FACET-WITHDRAWAL-EXACT): the `administer`-impact retirement of one
- * Facet's contributions in a single control transaction of the owning Actor. The set is
+ * contribution's records in a single control transaction of the owning Actor. The set is
  * computed by querying attribution, so this command carries only the withdrawing
- * `FacetRef` and never an inverse the Facet supplied.
+ * `ContributionAttribution` — the exact FacetRef and PackagePin pair — and never an inverse
+ * the Facet supplied.
  */
 export class FacetSlotWithdrawCommand<Transaction, Read> implements ProtocolCommand<
     Transaction,
     Read,
-    FacetRef,
+    ContributionAttribution,
     FacetSlotCommandReply
 > {
     public readonly command = FACET_SLOT_COMMANDS.withdraw;
     public readonly caller: CommandCallerPolicy;
     public readonly expectedRevision = "required" as const;
     public readonly lease = "forbidden" as const;
-    public readonly payload: CommandPayloadCodec<FacetRef> = new SlotWithdrawalPayloadCodec();
+    public readonly payload: CommandPayloadCodec<ContributionAttribution> =
+        new SlotWithdrawalPayloadCodec();
     public readonly replyCodec = facetSlotReplyCodec;
 
     public constructor(
@@ -206,29 +208,41 @@ export class FacetSlotWithdrawCommand<Transaction, Read> implements ProtocolComm
         this.caller = new ExactActorCallerPolicy(target);
     }
 
-    public authorize(read: Read, envelope: CommandEnvelope, payload: FacetRef): boolean {
-        const contributor = requireContributor(payload);
+    public authorize(
+        read: Read,
+        envelope: CommandEnvelope,
+        payload: ContributionAttribution
+    ): boolean {
+        const attribution = requireAttribution(payload);
         return (
             callerIsTarget(envelope.caller, this.target) &&
-            this.backend.permitsWithdrawal(read, contributor)
+            this.backend.permitsWithdrawal(read, attribution)
         );
     }
 
-    public permitsLifecycle(read: Read, _envelope: CommandEnvelope, payload: FacetRef): boolean {
+    public permitsLifecycle(
+        read: Read,
+        _envelope: CommandEnvelope,
+        payload: ContributionAttribution
+    ): boolean {
         // The set must be computable before the transaction begins; a host that cannot
         // compute it refuses the withdrawal rather than performing a partial one.
-        this.backend.withdrawalSet(read, requireContributor(payload));
+        this.backend.withdrawalSet(read, requireAttribution(payload));
         return true;
     }
 
-    public currentRevision(read: Read, _envelope: CommandEnvelope, _payload: FacetRef): Revision {
+    public currentRevision(
+        read: Read,
+        _envelope: CommandEnvelope,
+        _payload: ContributionAttribution
+    ): Revision {
         return this.backend.currentRevision(read);
     }
 
     public currentLease(
         _read: Read,
         _envelope: CommandEnvelope,
-        _payload: FacetRef,
+        _payload: ContributionAttribution,
         _at: Date
     ): CurrentLease | undefined {
         return undefined;
@@ -237,12 +251,12 @@ export class FacetSlotWithdrawCommand<Transaction, Read> implements ProtocolComm
     public execute(
         transaction: Transaction,
         envelope: CommandEnvelope,
-        payload: FacetRef,
+        payload: ContributionAttribution,
         _at: Date
     ): ProtocolCommandExecution<FacetSlotCommandReply, never> {
-        const contributor = requireContributor(payload);
+        const attribution = requireAttribution(payload);
         const expected = requireExpectedRevision(envelope);
-        const changed = this.backend.applyWithdrawal(transaction, contributor);
+        const changed = this.backend.applyWithdrawal(transaction, attribution);
         const revision = changed ? this.backend.advanceRevision(transaction, expected) : expected;
         return { outcome: "committed", reply: Object.freeze({ revision }) };
     }
@@ -373,8 +387,8 @@ export const FacetSlotCommandPayload = Object.freeze({
     install(declaration: SlotDeclaration): Uint8Array {
         return encodeCanonicalJson({ record: encodeBase64(SlotDeclaration.encode(declaration)) });
     },
-    withdraw(contributor: FacetRef): Uint8Array {
-        return encodeCanonicalJson({ contributor: contributor.value });
+    withdraw(attribution: ContributionAttribution): Uint8Array {
+        return encodeCanonicalJson(attribution.encodeFields());
     },
     contribute(request: SlotContributionRequest): Uint8Array {
         if (!Number.isSafeInteger(request.ordinal) || request.ordinal < 0) {
@@ -440,15 +454,13 @@ class SlotInstallPayloadCodec implements CommandPayloadCodec<SlotDeclaration> {
     }
 }
 
-class SlotWithdrawalPayloadCodec implements CommandPayloadCodec<FacetRef> {
-    public decode(bytes: Uint8Array): FacetRef {
+class SlotWithdrawalPayloadCodec implements CommandPayloadCodec<ContributionAttribution> {
+    public decode(bytes: Uint8Array): ContributionAttribution {
         const payload = requireObject(decodeCanonicalJson(bytes), "Slot withdrawal payload");
-        if (!hasExactJsonKeys(payload, ["contributor"])) {
+        if (!hasExactJsonKeys(payload, ["contributor", "package"])) {
             throw new TypeError("Slot withdrawal payload contains missing or unknown fields");
         }
-        return new FacetRef(
-            requireStringValue(payload["contributor"], "Slot withdrawal contributor")
-        );
+        return ContributionAttribution.decodeFields(payload, "Slot withdrawal");
     }
 }
 
@@ -477,14 +489,14 @@ function requireDeclaration(payload: SlotDeclaration): SlotDeclaration {
     return payload;
 }
 
-function requireContributor(payload: FacetRef): FacetRef {
-    if (!(payload instanceof FacetRef)) {
+function requireAttribution(payload: ContributionAttribution): ContributionAttribution {
+    if (!(payload instanceof ContributionAttribution)) {
         throw new AgentCoreError(
             "protocol.invalid-state",
             "Slot withdrawal payload was not decoded"
         );
     }
-    return new FacetRef(payload.value);
+    return payload;
 }
 
 function declarationMatchesSlot(declaration: SlotDeclaration, slot: InstalledSlot): boolean {

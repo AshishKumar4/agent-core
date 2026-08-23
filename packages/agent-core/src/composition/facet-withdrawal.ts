@@ -15,26 +15,28 @@ export interface ControlTransaction<Transaction> {
 }
 
 export interface FacetWithdrawalPlan {
-    readonly contributor: FacetRef;
+    readonly attribution: ContributionAttribution;
     readonly slots: SlotWithdrawalSet;
     readonly subscriptions: number;
 }
 
 export interface FacetWithdrawalResult {
-    readonly contributor: FacetRef;
+    readonly attribution: ContributionAttribution;
     readonly slots: SlotWithdrawalSet;
     readonly routing: RoutingWithdrawal;
 }
 
 /**
- * SPEC §4.1 (C13-FACET-WITHDRAWAL-EXACT): the `administer`-impact retirement of one Facet's
- * contributions, computed by querying attribution and applied in one control transaction
- * per owning Actor.
+ * SPEC §4.1 (C13-FACET-WITHDRAWAL-EXACT): the `administer`-impact retirement of one
+ * contribution's records, named by its complete `ContributionAttribution` — the FacetRef
+ * and the PackagePin it was read from — computed by querying attribution and applied in one
+ * control transaction per owning Actor. Another release of the same Facet is a different
+ * contribution and keeps every record this withdrawal does not name.
  *
  * The set is computed across every plane before any of them is written. A plane that cannot
  * answer the attribution query makes the set incomputable, and the whole withdrawal is
  * refused rather than performed in part; so is a set whose Slot declaration still carries a
- * retained Facet's entry.
+ * retained contribution's entry.
  */
 export class FacetWithdrawal<SlotTransaction, RouteTransaction> {
     public constructor(
@@ -43,11 +45,11 @@ export class FacetWithdrawal<SlotTransaction, RouteTransaction> {
         private readonly routingTransaction: ControlTransaction<RouteTransaction>
     ) {}
 
-    public plan(contributor: FacetRef): FacetWithdrawalPlan {
+    public plan(attribution: ContributionAttribution): FacetWithdrawalPlan {
         const slots = this.compute(
             () =>
                 this.slots.transaction((transaction) => {
-                    const set = this.slots.withdrawalSet(transaction, contributor);
+                    const set = this.slots.withdrawalSet(transaction, attribution);
                     this.slots.requireWithdrawable(transaction, set);
                     return set;
                 }),
@@ -56,20 +58,20 @@ export class FacetWithdrawal<SlotTransaction, RouteTransaction> {
         const subscriptions = this.compute(
             () =>
                 this.routingTransaction(
-                    (transaction) => this.routing.contributed(transaction, contributor).length
+                    (transaction) => this.routing.contributed(transaction, attribution).length
                 ),
             "routing"
         );
-        return Object.freeze({ contributor, slots, subscriptions });
+        return Object.freeze({ attribution, slots, subscriptions });
     }
 
-    public withdraw(contributor: FacetRef): FacetWithdrawalResult {
-        const planned = this.plan(contributor);
+    public withdraw(attribution: ContributionAttribution): FacetWithdrawalResult {
+        const planned = this.plan(attribution);
         const routing = this.routingTransaction((transaction) =>
-            this.routing.retire(transaction, contributor)
+            this.routing.retire(transaction, attribution)
         );
-        this.slots.withdraw(contributor);
-        return Object.freeze({ contributor, slots: planned.slots, routing });
+        this.slots.withdraw(attribution);
+        return Object.freeze({ attribution, slots: planned.slots, routing });
     }
 
     private compute<Result>(query: () => Result, plane: string): Result {
@@ -115,7 +117,7 @@ export class FacetActivation<SlotTransaction, RouteTransaction> {
         }
         // A retry against a Scope whose prior partial effect was never retired would compose
         // against state no Blueprint declares, so it is refused rather than repeated.
-        const before = this.withdrawal.plan(contributor);
+        const before = this.withdrawal.plan(attribution);
         if (before.slots.slots.length > 0 || before.slots.entries.length > 0) {
             throw new AgentCoreError(
                 "protocol.invalid-state",
@@ -125,7 +127,7 @@ export class FacetActivation<SlotTransaction, RouteTransaction> {
         try {
             await facet.start(context);
         } catch (error) {
-            this.withdrawal.withdraw(contributor);
+            this.withdrawal.withdraw(attribution);
             return Object.freeze({
                 kind: "failed",
                 facet: contributor,

@@ -39,9 +39,12 @@ export interface SlotStoreContract<Transaction> {
     entries(name: SlotName): readonly SlotEntry[];
     install(slot: InstalledSlot): Revision;
     contribute(entry: SlotEntry): Revision;
-    withdrawalSet(transaction: Transaction, contributor: FacetRef): SlotWithdrawalSet;
-    retireWithdrawalSet(transaction: Transaction, contributor: FacetRef): boolean;
-    withdraw(contributor: FacetRef): Revision;
+    withdrawalSet(
+        transaction: Transaction,
+        attribution: ContributionAttribution
+    ): SlotWithdrawalSet;
+    retireWithdrawalSet(transaction: Transaction, attribution: ContributionAttribution): boolean;
+    withdraw(attribution: ContributionAttribution): Revision;
 }
 
 export function workspaceSlotStoreContract<Transaction>(
@@ -202,7 +205,7 @@ export function workspaceSlotStoreContract<Transaction>(
                 expect(
                     store
                         .transaction((transaction) =>
-                            store.withdrawalSet(transaction, new FacetRef("workspace:facet"))
+                            store.withdrawalSet(transaction, attribution("workspace:facet"))
                         )
                         .entries.map((id) => id.value)
                 ).toEqual([after.id.value]);
@@ -338,14 +341,14 @@ export function workspaceSlotStoreContract<Transaction>(
                 const secondBytes = SlotEntry.encode(second);
 
                 const set = store.transaction((transaction) =>
-                    store.withdrawalSet(transaction, new FacetRef("workspace:first"))
+                    store.withdrawalSet(transaction, attribution("workspace:first"))
                 );
                 expect(set.entries.map((id) => id.value).sort()).toEqual(
                     [first.id.value, firstElsewhere.id.value].sort()
                 );
                 expect(set.slots.map((slotName) => slotName.value)).toEqual(["dashboard.panel"]);
 
-                store.withdraw(new FacetRef("workspace:first"));
+                store.withdraw(attribution("workspace:first"));
 
                 expect(
                     store.transaction((transaction) => store.loadEntry(transaction, first.id))
@@ -385,7 +388,7 @@ export function workspaceSlotStoreContract<Transaction>(
                 contribute(store, retainedEntry);
                 const before = store.revision().value;
 
-                expect(() => store.withdraw(new FacetRef("workspace:declarer"))).toThrow(
+                expect(() => store.withdraw(attribution("workspace:declarer"))).toThrow(
                     /still contributes/
                 );
 
@@ -417,8 +420,83 @@ export function workspaceSlotStoreContract<Transaction>(
                 contribute(store, entry("workspace:facet", 1, { title: "Card" }));
                 const before = store.revision().value;
 
-                expect(store.withdraw(new FacetRef("workspace:absent")).value).toBe(before);
+                expect(store.withdraw(attribution("workspace:absent")).value).toBe(before);
                 expect(store.entries(new SlotName("dashboard.card"))).toHaveLength(1);
+            }
+        );
+
+        test(
+            "[C13-FACET-WITHDRAWAL-EXACT] withdraws only the release the attribution names when one Facet holds two releases",
+            { tags: "p0" },
+            () => {
+                const store = create(new WorkspaceId("workspace"));
+                install(store, slot());
+                const older = entry("workspace:facet", 1, { title: "Old" });
+                const newer = new SlotEntry(
+                    new SlotName("dashboard.card"),
+                    attribution("workspace:facet", "2.0.0"),
+                    2,
+                    { title: "New" }
+                );
+                contribute(store, older);
+                contribute(store, newer);
+                const newerBytes = SlotEntry.encode(newer);
+
+                store.withdraw(attribution("workspace:facet", "1.0.0"));
+
+                expect(
+                    store.transaction((transaction) => store.loadEntry(transaction, older.id))
+                ).toBeUndefined();
+                const retained = store.transaction((transaction) =>
+                    store.loadEntry(transaction, newer.id)
+                );
+                expect(retained).toBeDefined();
+                expect([...SlotEntry.encode(retained!)]).toEqual([...newerBytes]);
+                expect(store.entries(new SlotName("dashboard.card"))).toHaveLength(1);
+            }
+        );
+
+        test(
+            "[C13-FACET-WITHDRAWAL-EXACT] a wrong pin is a no-op, and a release whose Slot still carries a later one is refused",
+            { tags: "p0" },
+            () => {
+                const store = create(new WorkspaceId("workspace"));
+                install(store, slot());
+                contribute(store, entry("workspace:facet", 1, { title: "Card" }));
+                const before = store.revision().value;
+
+                // The Facet contributed nothing at this release, so nothing retires.
+                expect(
+                    store
+                        .transaction((transaction) =>
+                            store.withdrawalSet(
+                                transaction,
+                                attribution("workspace:facet", "9.9.9")
+                            )
+                        )
+                        .entries
+                ).toEqual([]);
+                expect(store.withdraw(attribution("workspace:facet", "9.9.9")).value).toBe(before);
+
+                // A withdrawal that names a release whose Slot declaration still carries a
+                // retained entry from another release keeps the existing refusal policy.
+                const upgraded = create(new WorkspaceId("workspace"));
+                install(upgraded, declarerSlot("dashboard.card", "workspace:facet"));
+                contribute(
+                    upgraded,
+                    new SlotEntry(
+                        new SlotName("dashboard.card"),
+                        attribution("workspace:facet", "2.0.0"),
+                        0,
+                        { title: "New" }
+                    )
+                );
+                const upgradedRevision = upgraded.revision().value;
+                expect(() => upgraded.withdraw(attribution("workspace:facet"))).toThrow(
+                    /still contributes/
+                );
+                expect(upgraded.revision().value).toBe(upgradedRevision);
+                expect(upgraded.entries(new SlotName("dashboard.card"))).toHaveLength(1);
             }
         );
     });

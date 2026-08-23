@@ -648,7 +648,6 @@ describe("W9 composition behavior branches", () => {
         () => {
             const store = new MemoryWorkspaceSlotStore(new WorkspaceId("composition-workspace"));
             const contribution = attribution("workspace:declarer");
-            const contributor = contribution.contributor;
             const declaration = slotDeclaration({ type: "object" });
             const installed = new InstalledSlot(declaration, contribution);
             const packageFacet = new FacetPackageId("composition.slot-package");
@@ -689,7 +688,7 @@ describe("W9 composition behavior branches", () => {
                 });
             const withdraw = (): boolean =>
                 store.transaction((transaction) => {
-                    const changed = backend.applyWithdrawal(transaction, contributor);
+                    const changed = backend.applyWithdrawal(transaction, contribution);
                     if (changed) {
                         backend.advanceRevision(transaction, backend.currentRevision(transaction));
                     }
@@ -725,16 +724,16 @@ describe("W9 composition behavior branches", () => {
             // from the state it is handed: it opens the Slot Actor's own transaction.
             const planned = backend.withdrawalSet(
                 forwarded("the withdrawal set read"),
-                contributor
+                contribution
             );
             expect(planned.slots.map((name) => name.value)).toEqual([declaration.name.value]);
             expect(planned.entries).toHaveLength(1);
-            expect(store.transaction((read) => backend.permitsWithdrawal(read, contributor))).toBe(
+            expect(store.transaction((read) => backend.permitsWithdrawal(read, contribution))).toBe(
                 true
             );
 
             withdrawalAllowed = false;
-            expect(store.transaction((read) => backend.permitsWithdrawal(read, contributor))).toBe(
+            expect(store.transaction((read) => backend.permitsWithdrawal(read, contribution))).toBe(
                 false
             );
             expect(withdraw).toThrow(
@@ -750,7 +749,7 @@ describe("W9 composition behavior branches", () => {
             expect(store.slot(declaration.name)).toBeUndefined();
             const retired = backend.withdrawalSet(
                 forwarded("the withdrawal set read"),
-                contributor
+                contribution
             );
             expect([retired.slots.length, retired.entries.length]).toEqual([0, 0]);
         }

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { AuditRecordId } from "../../src/interaction-references";
-import { FacetRef, MemoryWorkspaceSlotStore, SlotName } from "../../src/facets";
+import { FacetRef, MemoryWorkspaceSlotStore, SlotEntry, SlotName } from "../../src/facets";
 import { WorkspaceId } from "../../src/identity";
 import { AgentCoreError } from "../../src/errors";
 import { FacetActivation, FacetWithdrawal } from "../../src/composition";
@@ -73,7 +73,7 @@ describe("Facet withdrawal across owning Actors", () => {
 
             const result = harness.routing.retire(
                 harness.records,
-                new FacetRef("workspace:withdrawn")
+                attribution("workspace:withdrawn")
             );
 
             expect(result.subscriptions.map((id) => id.value)).toEqual(["subscription-withdrawn"]);
@@ -152,8 +152,7 @@ describe("Facet withdrawal across owning Actors", () => {
             // An unattributed Subscription is nobody's contribution, so no withdrawal names it.
             expect(() => unattributed.retire()).toThrow(/Only a contributed Subscription/);
             expect(
-                harness.routing.retire(harness.records, new FacetRef("workspace:owner"))
-                    .subscriptions
+                harness.routing.retire(harness.records, attribution("workspace:owner")).subscriptions
             ).toHaveLength(1);
             expect(
                 harness.persistence.currentSubscription(harness.records, unattributed.id)?.retired
@@ -187,7 +186,7 @@ describe("Facet withdrawal across owning Actors", () => {
 
             const result = harness.routing.retire(
                 harness.records,
-                new FacetRef("workspace:withdrawn")
+                attribution("workspace:withdrawn")
             );
 
             expect(result.rejected).toEqual([]);
@@ -258,7 +257,7 @@ describe("Facet withdrawal across owning Actors", () => {
                 subscriptionFixture("cross-retained")
             );
 
-            const result = harness.withdrawal.withdraw(new FacetRef("workspace:withdrawn"));
+            const result = harness.withdrawal.withdraw(attribution("workspace:withdrawn"));
 
             expect(result.slots.entries.map((id) => id.value)).toEqual([withdrawnEntry.id.value]);
             expect(result.routing.subscriptions.map((id) => id.value)).toEqual([
@@ -279,6 +278,71 @@ describe("Facet withdrawal across owning Actors", () => {
     );
 
     test(
+        "[C13-FACET-WITHDRAWAL-EXACT] withdraws one release across both planes and preserves another release of the same Facet",
+        { tags: "p0" },
+        () => {
+            const harness = crossPlaneHarness();
+            const releaseA = attribution("workspace:dual", "1.0.0");
+            const releaseB = attribution("workspace:dual", "2.0.0");
+            const entryA = new SlotEntry(
+                new SlotName("dashboard.card"),
+                releaseA,
+                1,
+                { title: "Release A" }
+            );
+            const entryB = new SlotEntry(
+                new SlotName("dashboard.card"),
+                releaseB,
+                2,
+                { title: "Release B" }
+            );
+            contribute(harness.slots, entryA);
+            contribute(harness.slots, entryB);
+            const subscriptionA = materializeAttributedSubscription(
+                harness.persistence,
+                harness.records,
+                releaseA,
+                subscriptionFixture("dual-a")
+            );
+            const subscriptionB = materializeAttributedSubscription(
+                harness.persistence,
+                harness.records,
+                releaseB,
+                subscriptionFixture("dual-b")
+            );
+            const entryBBytes = SlotEntry.encode(entryB);
+
+            const result = harness.withdrawal.withdraw(releaseA);
+
+            expect(result.attribution.equals(releaseA)).toBe(true);
+            expect(result.slots.entries.map((id) => id.value)).toEqual([entryA.id.value]);
+            expect(result.routing.subscriptions.map((id) => id.value)).toEqual([
+                subscriptionA.id.value
+            ]);
+            const retainedEntry = harness.slots.transaction((transaction) =>
+                harness.slots.loadEntry(transaction, entryB.id)
+            );
+            expect(retainedEntry).toBeDefined();
+            expect([...SlotEntry.encode(retainedEntry!)]).toEqual([...entryBBytes]);
+            expect(
+                harness.persistence.currentSubscription(harness.records, subscriptionB.id)?.retired
+            ).toBeUndefined();
+
+            const wrongPin = harness.withdrawal.withdraw(
+                attribution("workspace:dual", "9.9.9")
+            );
+            expect(wrongPin.slots.entries).toEqual([]);
+            expect(wrongPin.routing.subscriptions).toEqual([]);
+            const replay = harness.withdrawal.withdraw(releaseA);
+            expect(replay.slots.entries).toEqual([]);
+            expect(replay.routing.subscriptions).toEqual([]);
+            expect(
+                harness.persistence.currentSubscription(harness.records, subscriptionB.id)?.retired
+            ).toBeUndefined();
+        }
+    );
+
+    test(
         "[C13-FACET-WITHDRAWAL-EXACT] refuses the whole withdrawal when a plane cannot answer the attribution query",
         { tags: "p0" },
         () => {
@@ -287,7 +351,7 @@ describe("Facet withdrawal across owning Actors", () => {
             contribute(harness.slots, withdrawnEntry);
             harness.routingFails = true;
 
-            expect(() => harness.withdrawal.withdraw(new FacetRef("workspace:withdrawn"))).toThrow(
+            expect(() => harness.withdrawal.withdraw(attribution("workspace:withdrawn"))).toThrow(
                 /not computable from the routing plane/
             );
             // No plane was written, so the slot record the set named is still present.
@@ -311,7 +375,7 @@ describe("Facet withdrawal across owning Actors", () => {
             harness.routingFails = true;
             harness.routingFailure = "routing Actor rejected without an Error";
 
-            expect(() => harness.withdrawal.plan(new FacetRef("workspace:withdrawn"))).toThrow(
+            expect(() => harness.withdrawal.plan(attribution("workspace:withdrawn"))).toThrow(
                 new AgentCoreError(
                     "protocol.invalid-state",
                     "Withdrawal set is not computable from the routing plane: routing Actor rejected without an Error"
@@ -336,7 +400,7 @@ describe("Facet withdrawal across owning Actors", () => {
                 subscriptionFixture("refused")
             );
 
-            expect(() => harness.withdrawal.withdraw(new FacetRef("workspace:declarer"))).toThrow(
+            expect(() => harness.withdrawal.withdraw(attribution("workspace:declarer"))).toThrow(
                 /still contributes/
             );
 
@@ -384,7 +448,7 @@ describe("Facet activation atomicity", () => {
             expect(harness.persistence.listSubscriptions(harness.records)).toEqual([]);
             expect(
                 harness.slots.transaction((transaction) =>
-                    harness.slots.withdrawalSet(transaction, contributor.contributor)
+                    harness.slots.withdrawalSet(transaction, contributor)
                 ).entries
             ).toEqual([]);
         }
@@ -415,7 +479,7 @@ describe("Facet activation atomicity", () => {
             });
             expect(
                 harness.slots.transaction((transaction) =>
-                    harness.slots.withdrawalSet(transaction, contributor.contributor)
+                    harness.slots.withdrawalSet(transaction, contributor)
                 ).entries
             ).toEqual([]);
         }
