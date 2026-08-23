@@ -610,6 +610,11 @@ export class WorkspacePersistence<Transaction> {
     ): void {
         const storage = this.storage(transaction);
         const current = this.currentView(transaction, view.surface.value);
+        // SPEC §6.3 (C13-VIEW-WITHDRAWAL-TERMINAL): the terminal View is itself the durable
+        // record of retirement, so no later revision exists that could revive the stream.
+        if (current?.terminal !== undefined) {
+            throw revisionConflict("Retired Surface admits no further View revision");
+        }
         if (expectedRevision === undefined) {
             if (current !== undefined || view.revision.value !== 0) {
                 throw revisionConflict("Initial View requires revision zero and no current View");
@@ -654,6 +659,11 @@ export class WorkspacePersistence<Transaction> {
         deltaRetentions: readonly ContentRetentionReference[]
     ): View {
         const current = this.currentView(transaction, delta.surface.value);
+        // SPEC §6.3 (C13-VIEW-WITHDRAWAL-TERMINAL): retirement is terminal, so the delta
+        // that adds `terminal` is the last revision the Surface ever admits.
+        if (current?.terminal !== undefined) {
+            throw revisionConflict("Retired Surface admits no further View revision");
+        }
         if (current === undefined || !current.revision.equals(delta.baseRevision)) {
             throw revisionConflict("View delta base revision is stale");
         }
