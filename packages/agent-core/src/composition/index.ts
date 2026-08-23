@@ -45,7 +45,8 @@ export type {
 export {
     AuthenticatedAuthorityPermitDenial,
     AuthorityPermitIssuanceTransport,
-    StoredTargetLeaseEvidenceTransport,
+    StoredProjectedTargetLeaseEvidence,
+    TargetLeaseEvidenceProjectionTransport,
     TargetLeaseEvidenceTransport,
     authorityPermitReferenceCodec,
     ConsumedAuthorityAdmissionPort,
@@ -57,7 +58,8 @@ export type {
     AuthorityCheckRequestFactory,
     AuthorityPermitExpectationFactory,
     AuthorityPermitReference,
-    TargetAuthorityPermitDenialState
+    TargetAuthorityPermitDenialState,
+    TargetLeaseEvidenceAttestation
 } from "./permit";
 export { ApprovalGatewayReconciliationPort, createProtectedProfileRuntime } from "./profile";
 export {

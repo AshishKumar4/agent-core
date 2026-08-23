@@ -91,6 +91,7 @@ import { OperationRequestKey } from "../../src/operations";
 import {
     AuthorityPermitIssuanceTransport,
     TargetLeaseEvidenceTransport,
+    type TargetLeaseEvidenceAttestation,
     MediatedOperationPipeline,
     ResolvedOperationAuthority,
     activateTargetPermitMediation,
@@ -777,33 +778,29 @@ class DeniedPermitRequests implements AuthorityCheckRequestFactory<
 }
 
 class DeniedSourceEvidenceTransport extends TargetLeaseEvidenceTransport {
-    public async attest(bytes: Uint8Array): Promise<Uint8Array | undefined> {
+    public async attest(bytes: Uint8Array): Promise<TargetLeaseEvidenceAttestation | undefined> {
         const request = TargetAuthorityPermitRequest.decode(bytes);
         const lease = request.expectation.lease;
         if (lease === undefined) return undefined;
-        return TargetLeaseEvidence.encode(
-            new TargetLeaseEvidence({
-                key: new TargetLeaseEvidenceKey(request.expectation.source, request.nonce),
-                tenant: request.expectation.tenant,
-                run: request.expectation.reservation.run,
-                lease,
-                target: request.expectation.target,
-                requestIdentity: request.identity(),
-                deadline: request.expiresAt,
-                watermark: InvalidationWatermark.empty(
-                    request.expectation.tenant,
-                    request.expectation.source,
-                    lease.holder
-                )
-            })
-        );
+        const evidence = new TargetLeaseEvidence({
+            key: new TargetLeaseEvidenceKey(request.expectation.source, request.nonce),
+            tenant: request.expectation.tenant,
+            run: request.expectation.reservation.run,
+            lease,
+            target: request.expectation.target,
+            requestIdentity: request.identity(),
+            deadline: request.expiresAt,
+            watermark: InvalidationWatermark.empty(
+                request.expectation.tenant,
+                request.expectation.source,
+                lease.holder
+            )
+        });
+        return { reference: evidence.reference(), deadline: evidence.deadline };
     }
 }
 
 class DeniedPermitTransport extends AuthorityPermitIssuanceTransport {
-    public override async project(bytes: Uint8Array): Promise<Uint8Array> {
-        return bytes.slice();
-    }
     public async issue(bytes: Uint8Array): Promise<Uint8Array> {
         const request = AuthorityPermitIssuanceRequest.decode(bytes).targetRequest;
         const evidence = new AuthorityCheckEvidence(
@@ -984,7 +981,7 @@ describe("the published mediation composition root", () => {
                 roots: [new MemoryFacet(observed)],
                 activations,
                 issuanceTransport: new DeniedPermitTransport(),
-                sourceEvidence: new DeniedSourceEvidenceTransport(),
+                sourceAttestation: new DeniedSourceEvidenceTransport(),
                 expectations: new DeniedPermitExpectations(),
                 authorityRequests: new DeniedPermitRequests(),
                 authenticator: new AuthorityPermitAuthenticator(new MissingIssuedPermits()),

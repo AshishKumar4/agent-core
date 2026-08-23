@@ -8,6 +8,7 @@ import {
     TargetAuthorityPermitRequest,
     TargetLeaseEvidence,
     TargetLeaseEvidenceIssuer,
+    type TargetLeaseEvidenceReference,
     type AuthorityCheckRequest,
     type AuthenticatedAuthorityPermit,
     type AuthorityPermitTargetDenialStore,
@@ -114,25 +115,52 @@ export interface AuthorityCheckRequestFactory<Lease, Authority, Domain, PathEpoc
     ): AuthorityCheckRequest;
 }
 
-export abstract class TargetLeaseEvidenceTransport {
-    /**
-     * The source Actor records and returns one canonical immutable attestation for the
-     * provisional target request. `undefined` means its current lease cannot attest it.
-     */
-    public abstract attest(request: Uint8Array): Promise<Uint8Array | undefined>;
+/**
+ * The immutable outcome a source host returns to the target: which committed
+ * attestation to name in the permit request, and the deadline it already bound.
+ * The record itself never crosses to the target.
+ */
+export interface TargetLeaseEvidenceAttestation {
+    readonly reference: TargetLeaseEvidenceReference;
+    readonly deadline: Date;
 }
 
-/** Source-side adapter that records an attestation in its owning Actor transaction. */
-export class StoredTargetLeaseEvidenceTransport<Transaction> extends TargetLeaseEvidenceTransport {
+export abstract class TargetLeaseEvidenceTransport {
+    /**
+     * The source host commits one canonical immutable attestation for the provisional
+     * target request, projects it to its Tenant under its own authenticated caller
+     * after its transaction closes, and returns only the projected immutable reference.
+     * `undefined` means its current lease cannot attest the request.
+     */
+    public abstract attest(
+        request: Uint8Array
+    ): Promise<TargetLeaseEvidenceAttestation | undefined>;
+}
+
+/** The source's own authenticated channel to its Tenant for lease-evidence projection. */
+export abstract class TargetLeaseEvidenceProjectionTransport {
+    public abstract project(evidence: Uint8Array, idempotencyKey: string): Promise<Uint8Array>;
+}
+
+/**
+ * Source-side host step. The attestation commits in the owning Actor's transaction;
+ * the Tenant projection is originated by the source host itself only after that
+ * transaction has closed, so no target ever forwards evidence bytes or speaks as the
+ * source, and no await spans the commit.
+ */
+export class StoredProjectedTargetLeaseEvidence<Transaction> extends TargetLeaseEvidenceTransport {
     public constructor(
         private readonly store: TargetLeaseEvidenceStore<Transaction>,
         private readonly issuer: TargetLeaseEvidenceIssuer<Transaction>,
+        private readonly projection: TargetLeaseEvidenceProjectionTransport,
         private readonly now: () => Date
     ) {
         super();
     }
 
-    public async attest(request: Uint8Array): Promise<Uint8Array | undefined> {
+    public async attest(
+        request: Uint8Array
+    ): Promise<TargetLeaseEvidenceAttestation | undefined> {
         let decoded: TargetAuthorityPermitRequest;
         try {
             decoded = TargetAuthorityPermitRequest.decode(request);
@@ -142,20 +170,25 @@ export class StoredTargetLeaseEvidenceTransport<Transaction> extends TargetLease
         const evidence = this.store.transaction((transaction) =>
             this.issuer.attest(transaction, decoded, this.now())
         );
-        return evidence === undefined ? undefined : TargetLeaseEvidence.encode(evidence);
+        if (evidence === undefined) return undefined;
+        const projectedBytes = await this.projection.project(
+            TargetLeaseEvidence.encode(evidence),
+            evidence.key.idempotencyKey
+        );
+        let projected: TargetLeaseEvidence;
+        try {
+            projected = TargetLeaseEvidence.decode(projectedBytes);
+        } catch {
+            throw new AgentCoreError("codec.invalid", "Tenant projection reply is malformed");
+        }
+        if (!projected.digest().equals(evidence.digest())) {
+            throw denied("Tenant projection substituted source lease evidence");
+        }
+        return Object.freeze({ reference: evidence.reference(), deadline: evidence.deadline });
     }
 }
 
 export abstract class AuthorityPermitIssuanceTransport {
-    public project(_evidence: Uint8Array, _idempotencyKey: string): Promise<Uint8Array> {
-        return Promise.reject(
-            new AgentCoreError(
-                "authority.denied",
-                "Authority permit transport does not support source lease evidence projection"
-            )
-        );
-    }
-
     public abstract issue(request: Uint8Array, idempotencyKey: string): Promise<Uint8Array>;
 }
 
@@ -221,7 +254,7 @@ export class IssuedAuthorityPermitPort<
         ) => string,
         private readonly now: () => Date,
         private readonly lifetimeMilliseconds: number,
-        private readonly sourceEvidence: TargetLeaseEvidenceTransport | undefined = undefined
+        private readonly attestation: TargetLeaseEvidenceTransport | undefined = undefined
     ) {
         if (!Number.isSafeInteger(lifetimeMilliseconds) || lifetimeMilliseconds <= 0) {
             throw new TypeError("Authority permit lifetime must be a positive safe integer");
@@ -269,14 +302,14 @@ export class IssuedAuthorityPermitPort<
         if (candidate.kind !== "ready") return candidate;
 
         const provisional = candidate.request;
-        const sourceEvidence =
-            provisional.expectation.lease === undefined || this.sourceEvidence === undefined
+        const attestation =
+            provisional.expectation.lease === undefined || this.attestation === undefined
                 ? undefined
-                : await this.readSourceEvidence(provisional);
+                : await this.readSourceAttestation(provisional);
         if (
-            sourceEvidence === undefined &&
+            attestation === undefined &&
             provisional.expectation.lease !== undefined &&
-            this.sourceEvidence !== undefined
+            this.attestation !== undefined
         ) {
             return {
                 kind: "invalid",
@@ -284,28 +317,16 @@ export class IssuedAuthorityPermitPort<
             };
         }
         const expiresAt =
-            sourceEvidence === undefined
+            attestation === undefined
                 ? provisional.expiresAt
-                : new Date(
-                      Math.min(provisional.expiresAt.getTime(), sourceEvidence.deadline.getTime())
-                  );
+                : new Date(Math.min(provisional.expiresAt.getTime(), attestation.deadline.getTime()));
         const request = new TargetAuthorityPermitRequest(
             provisional.expectation,
             provisional.authority,
             provisional.nonce,
             expiresAt,
-            sourceEvidence?.reference()
+            attestation?.reference
         );
-        if (sourceEvidence !== undefined) {
-            try {
-                requireSourceEvidence(sourceEvidence, request, this.now());
-            } catch (error) {
-                if (error instanceof AgentCoreError && error.code === "authority.denied") {
-                    return { kind: "invalid", reason: error.message };
-                }
-                throw error;
-            }
-        }
         let persisted: TargetAuthorityPermitRequest;
         try {
             persisted = this.store.transaction((transaction) => {
@@ -325,7 +346,7 @@ export class IssuedAuthorityPermitPort<
                 nonce,
                 this.expectations,
                 this.authority,
-                sourceEvidence
+                attestation
             );
         } catch (error) {
             if (isInvalidIssuanceReply(error)) {
@@ -343,20 +364,6 @@ export class IssuedAuthorityPermitPort<
         const payload = AuthorityPermitIssuanceRequest.encode(
             new AuthorityPermitIssuanceRequest(persisted)
         );
-        if (sourceEvidence !== undefined) {
-            const projected = TargetLeaseEvidence.decode(
-                await this.transport.project(
-                    TargetLeaseEvidence.encode(sourceEvidence),
-                    sourceEvidence.key.idempotencyKey
-                )
-            );
-            if (!projected.digest().equals(sourceEvidence.digest())) {
-                return {
-                    kind: "invalid",
-                    reason: "Tenant projection substituted source lease evidence"
-                };
-            }
-        }
         try {
             const replyBytes = await this.transport.issue(payload, nonce);
             const receivedAt = this.now();
@@ -391,13 +398,11 @@ export class IssuedAuthorityPermitPort<
         }
     }
 
-    private async readSourceEvidence(
+    private async readSourceAttestation(
         request: TargetAuthorityPermitRequest
-    ): Promise<TargetLeaseEvidence | undefined> {
-        if (this.sourceEvidence === undefined) return undefined;
-        const bytes = await this.sourceEvidence.attest(TargetAuthorityPermitRequest.encode(request));
-        if (bytes === undefined) return undefined;
-        return TargetLeaseEvidence.decode(bytes);
+    ): Promise<TargetLeaseEvidenceAttestation | undefined> {
+        if (this.attestation === undefined) return undefined;
+        return this.attestation.attest(TargetAuthorityPermitRequest.encode(request));
     }
 
     public deny(
@@ -431,52 +436,20 @@ function requireRetainedRequest<Transaction, Lease, Authority, Domain, PathEpoch
         PathEpochs
     >,
     authority: AuthorityCheckRequestFactory<Lease, Authority, Domain, PathEpochs>,
-    sourceEvidence: TargetLeaseEvidence | undefined
+    attestation: TargetLeaseEvidenceAttestation | undefined
 ): void {
     const expectedExpiry =
-        sourceEvidence === undefined
+        attestation === undefined
             ? claim.expiresAt.getTime()
-            : Math.min(claim.expiresAt.getTime(), sourceEvidence.deadline.getTime());
+            : Math.min(claim.expiresAt.getTime(), attestation.deadline.getTime());
     if (
         request.nonce !== nonce ||
         !request.expectation.equals(expectations.forClaim(invocation, claim)) ||
         !request.authority.digest().equals(authority.forClaim(invocation, claim, nonce).digest()) ||
         request.expiresAt.getTime() !== expectedExpiry ||
-        ((request.leaseEvidence === undefined) !== (sourceEvidence === undefined))
+        ((request.leaseEvidence === undefined) !== (attestation === undefined))
     ) {
         throw denied("Retained authority permit request does not bind the current claim");
-    }
-    if (sourceEvidence !== undefined) {
-        requireSourceEvidence(sourceEvidence, request);
-    }
-}
-
-function requireSourceEvidence(
-    evidence: TargetLeaseEvidence,
-    request: TargetAuthorityPermitRequest,
-    observedAt?: Date
-): void {
-    const reference = request.leaseEvidence;
-    const lease = request.expectation.lease;
-    if (
-        reference === undefined ||
-        lease === undefined ||
-        !evidence.digest().equals(reference.digest) ||
-        !evidence.matches({
-            key: reference.key,
-            tenant: request.expectation.tenant,
-            run: request.expectation.reservation.run,
-            lease,
-            target: request.expectation.target,
-            requestIdentity: request.identity()
-        }) ||
-        request.expiresAt.getTime() > evidence.deadline.getTime() ||
-        request.expectation.pathEpochs.path.some(
-            (entry) => evidence.watermark.epoch(entry.scope) > entry.epoch
-        ) ||
-        (observedAt !== undefined && !evidence.isCurrentAt(observedAt))
-    ) {
-        throw denied("Target lease evidence is stale or does not bind its exact permit request");
     }
 }
 

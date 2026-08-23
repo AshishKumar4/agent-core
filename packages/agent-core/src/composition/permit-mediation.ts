@@ -99,7 +99,7 @@ export interface TargetPermitMediationPipelineInit<
         MediationPathEpochReference
     >;
     readonly issuanceTransport: AuthorityPermitIssuanceTransport;
-    readonly sourceEvidence: TargetLeaseEvidenceTransport;
+    readonly sourceAttestation: TargetLeaseEvidenceTransport;
     readonly authenticator: AuthorityPermitAuthenticator;
     readonly permitNonce: (
         invocation: Parameters<
@@ -149,7 +149,7 @@ export async function activateTargetPermitMediation<Transaction>(
         init.permitNonce,
         init.now,
         init.permitLifetimeMilliseconds,
-        init.sourceEvidence
+        init.sourceAttestation
     );
     const authentication = new TargetAuthorityPermitAuthenticationPort(
         init.authenticator,

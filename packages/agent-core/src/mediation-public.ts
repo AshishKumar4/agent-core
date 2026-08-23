@@ -1,4 +1,13 @@
 export {
+    AuthorityPermitIssuanceTransport,
+    IssuedAuthorityPermitPort,
+    StoredProjectedTargetLeaseEvidence,
+    TargetAuthorityPermitAuthenticationPort,
+    TargetAuthorityPermitDenialPort,
+    TargetLeaseEvidenceProjectionTransport,
+    TargetLeaseEvidenceTransport,
+    TargetPermitMediationAggregate,
+    activateTargetPermitMediation,
     MediatedAuthorityIntent,
     MediatedOperationPipeline,
     ResolutionStamp,
@@ -23,5 +32,7 @@ export type {
     OperationAuthorityStatePort,
     OperationResolutionCandidate,
     OperationResolutionEvidence,
-    OperationResolutionState
+    OperationResolutionState,
+    TargetLeaseEvidenceAttestation,
+    TargetPermitMediationPipelineInit
 } from "./composition";
