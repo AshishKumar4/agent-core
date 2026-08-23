@@ -1282,9 +1282,29 @@ describe("AuthorityPermit", () => {
             ).toThrow(/malformed/);
             expect(
                 () =>
+                    new MemoryAuthorityPermitStore(
+                        issuerActor,
+                        violating(snapshot, { version: 3 })
+                    )
+            ).toThrow(/malformed/);
+            expect(
+                () =>
+                    new MemoryAuthorityPermitStore(
+                        issuerActor,
+                        violating<MemoryAuthorityPermitSnapshot>({
+                            requested: [],
+                            issued: [],
+                            denied: [],
+                            consumed: []
+                        })
+                    )
+            ).toThrow(/malformed/);
+            expect(
+                () =>
                     new MemoryAuthorityPermitStore(issuerActor, {
-                        version: 3,
+                        version: 4,
                         denied: [],
+                        projectedEvidence: [],
                         requested: [],
                         issued: [snapshot.issued[0]!, snapshot.issued[0]!],
                         consumed: []
@@ -1293,8 +1313,9 @@ describe("AuthorityPermit", () => {
             expect(
                 () =>
                     new MemoryAuthorityPermitStore(issuerActor, {
-                        version: 3,
+                        version: 4,
                         denied: [],
+                        projectedEvidence: [],
                         requested: [],
                         issued: [{ nonce: "wrong-nonce", bytes: snapshot.issued[0]!.bytes }],
                         consumed: []
@@ -1303,8 +1324,9 @@ describe("AuthorityPermit", () => {
             expect(
                 () =>
                     new MemoryAuthorityPermitStore(issuerActor, {
-                        version: 3,
+                        version: 4,
                         denied: [],
+                        projectedEvidence: [],
                         requested: [],
                         issued: [],
                         consumed: [{ nonce: "consumed", bytes: Uint8Array.of(0) }]
@@ -1313,8 +1335,9 @@ describe("AuthorityPermit", () => {
             expect(
                 () =>
                     new MemoryAuthorityPermitStore(issuerActor, {
-                        version: 3,
+                        version: 4,
                         denied: [],
+                        projectedEvidence: [],
                         requested: [],
                         issued: snapshot.issued,
                         consumed: [{ nonce: permit.nonce, bytes: AuthorityPermit.encode(permit) }]
@@ -1332,8 +1355,9 @@ describe("AuthorityPermit", () => {
             let malformedKey: unknown;
             try {
                 new MemoryAuthorityPermitStore(targetActor, {
-                    version: 3,
+                    version: 4,
                     denied: [],
+                    projectedEvidence: [],
                     requested: [],
                     issued: [violating(snapshot.issued[0]!, { nonce: 5 })],
                     consumed: []
@@ -1372,8 +1396,9 @@ describe("AuthorityPermit", () => {
             const malformedStores = [
                 () =>
                     new MemoryAuthorityPermitStore(issuerActor, {
-                        version: 3,
+                        version: 4,
                         denied: [],
+                        projectedEvidence: [],
                         requested: [],
                         // @ts-expect-error Issued ownership records cannot be null.
                         issued: [null],
@@ -1381,8 +1406,9 @@ describe("AuthorityPermit", () => {
                     }),
                 () =>
                     new MemoryAuthorityPermitStore(issuerActor, {
-                        version: 3,
+                        version: 4,
                         denied: [],
+                        projectedEvidence: [],
                         requested: [],
                         issued: [],
                         // @ts-expect-error Consumed ownership records cannot be null.
@@ -1390,8 +1416,9 @@ describe("AuthorityPermit", () => {
                     }),
                 () =>
                     new MemoryAuthorityPermitStore(issuerActor, {
-                        version: 3,
+                        version: 4,
                         denied: [],
+                        projectedEvidence: [],
                         requested: [],
                         issued: [],
                         consumed: [
@@ -1404,8 +1431,9 @@ describe("AuthorityPermit", () => {
                     }),
                 () =>
                     new MemoryAuthorityPermitStore(issuerActor, {
-                        version: 3,
+                        version: 4,
                         denied: [],
+                        projectedEvidence: [],
                         requested: [],
                         issued: [],
                         consumed: [
@@ -2491,8 +2519,9 @@ describe("MemoryAuthorityPermitStore mutation gates", () => {
         const error = caughtAgentCoreError(
             () =>
                 new MemoryAuthorityPermitStore(issuerActor, {
-                    version: 3,
+                    version: 4,
                     denied: [],
+                    projectedEvidence: [],
                     requested: [],
                     issued: [
                         {
@@ -2512,8 +2541,9 @@ describe("MemoryAuthorityPermitStore mutation gates", () => {
         const issuedHole = caughtAgentCoreError(
             () =>
                 new MemoryAuthorityPermitStore(issuerActor, {
-                    version: 3,
+                    version: 4,
                     denied: [],
+                    projectedEvidence: [],
                     requested: [],
                     issued: Array.from<{ nonce: string; bytes: Uint8Array }>({ length: 1 }),
                     consumed: []
@@ -2525,8 +2555,9 @@ describe("MemoryAuthorityPermitStore mutation gates", () => {
         const consumedHole = caughtAgentCoreError(
             () =>
                 new MemoryAuthorityPermitStore(issuerActor, {
-                    version: 3,
+                    version: 4,
                     denied: [],
+                    projectedEvidence: [],
                     requested: [],
                     issued: [],
                     consumed: Array.from<{ nonce: string; bytes: Uint8Array }>({ length: 1 })

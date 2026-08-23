@@ -200,8 +200,8 @@ export class StoredAuthorityPermitAdmissionPort<
 }
 
 export interface MemoryAuthorityPermitSnapshot {
-    readonly version: 3 | 4;
-    readonly projectedEvidence?: readonly { readonly key: string; readonly bytes: Uint8Array }[];
+    readonly version: 4;
+    readonly projectedEvidence: readonly { readonly key: string; readonly bytes: Uint8Array }[];
     readonly requested: readonly { readonly nonce: string; readonly bytes: Uint8Array }[];
     readonly issued: readonly { readonly nonce: string; readonly bytes: Uint8Array }[];
     readonly denied: readonly { readonly nonce: string; readonly bytes: Uint8Array }[];
