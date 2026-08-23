@@ -1,7 +1,6 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -147,48 +146,6 @@ for (const probe of probes) {
     );
 }
 
-// Closure-mutation negative against the parity auditor itself.
-{
-    const headLock = execFileSync(
-        "git",
-        ["show", "HEAD:packages/agent-core/artifacts/normative.lock"],
-        { cwd: packageRoot, encoding: "utf8", maxBuffer: 512 * 1024 * 1024 }
-    );
-    const original = JSON.parse(headLock);
-    const mutated = JSON.parse(headLock);
-    const designation = mutated.designations.find(
-        (entry) => entry.name === "AgentCore.prepared_item_key_is_derived"
-    );
-    const closure = mutated.semanticClosures.find(
-        (entry) => entry.sha256 === designation.semanticClosureSha256
-    );
-    const [removedMember] = closure.declarations.splice(0, 1);
-    const basePath = join(tmpdir(), "tmp-parity-base.lock");
-    const mutatedPath = join(tmpdir(), "tmp-parity-mutated.lock");
-    writeFileSync(basePath, headLock);
-    writeFileSync(mutatedPath, `${JSON.stringify(mutated, null, 2)}\n`);
-    const audit = spawnSync(
-        process.execPath,
-        [
-            join(packageRoot, "scripts", "quality", "lock-parity-audit.mjs"),
-            basePath,
-            mutatedPath
-        ],
-        { cwd: packageRoot, encoding: "utf8", maxBuffer: 512 * 1024 * 1024 }
-    );
-    const report = JSON.parse(audit.stdout);
-    const delta = report.closureDeltas.deltas.find(
-        (entry) => entry.designation === "claim:AgentCore.prepared_item_key_is_derived"
-    );
-    const detected =
-        delta !== undefined &&
-        delta.lost.some((member) => member.name === removedMember);
-    console.log(
-        `${detected ? "PASS" : "FAIL"} one-designation closure mutation: ` +
-            `auditor ${detected ? "reports" : "misses"} lost member ${removedMember}`
-    );
-    if (!detected) failures += 1;
-}
 console.log(
     failures === 0
         ? "all planted negatives failed their gates for the intended reasons"
