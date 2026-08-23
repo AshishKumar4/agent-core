@@ -90,6 +90,12 @@ describe("TargetLeaseEvidence", () => {
                 lease: { ...binding.lease, turn: new TurnId("target-lease-evidence-other-turn") }
             })
         ).toBe(false);
+        expect(
+            record.matches({
+                ...binding,
+                lease: { ...binding.lease, epoch: binding.lease.epoch + 1 }
+            })
+        ).toBe(false);
         expect(record.isCurrentAt(new Date(deadline.getTime() - 1))).toBe(true);
         expect(record.isCurrentAt(deadline)).toBe(false);
     });
