@@ -145,6 +145,34 @@ for (const specifier of forbidden) {
         if (error?.code !== "ERR_PACKAGE_PATH_NOT_EXPORTED") throw error;
     }
 }
+
+// A packed consumer decoding an incompatible durable record must see the one
+// stable typed outcome cross the package boundary — never a raw parser error.
+const core = await import("@agent-core/core");
+const { ReceiptCodec } = await import("@agent-core/core/invocations");
+const incompatible = (version) =>
+    new TextEncoder().encode(
+        JSON.stringify({ kind: ReceiptCodec.kind, payload: null, version })
+    );
+const expectTypedRejection = (bytes, code) => {
+    let thrown;
+    try {
+        ReceiptCodec.decode(bytes);
+    } catch (error) {
+        thrown = error;
+    }
+    if (!(thrown instanceof core.AgentCoreError)) {
+        throw new TypeError("Packed codec decode leaked an untyped error: " + String(thrown));
+    }
+    if (thrown.code !== code) {
+        throw new TypeError("Packed codec rejected with " + thrown.code + " instead of " + code);
+    }
+};
+const { major, minor } = ReceiptCodec.version;
+expectTypedRejection(incompatible({ major: major + 1, minor }), "codec.unknown-major");
+expectTypedRejection(incompatible({ major: Number.MAX_SAFE_INTEGER, minor }), "codec.unknown-major");
+expectTypedRejection(incompatible({ major, minor: minor + 1 }), "codec.invalid");
+expectTypedRejection(new TextEncoder().encode("{"), "codec.invalid");
 `
     );
 
