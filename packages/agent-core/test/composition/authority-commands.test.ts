@@ -1454,18 +1454,45 @@ describe("the Tenant authority runtime command backend", () => {
                 projectedRequest.evidence.key.idempotencyKey,
                 evidenceBytes
             );
+            const issuancePayload = AuthorityPermitIssuanceRequest.encode(projectedRequest.request);
             const issued = await harness.dispatch(
                 TENANT_AUTHORITY_COMMANDS.issuePermit,
                 "projected-permit-issue",
-                AuthorityPermitIssuanceRequest.encode(projectedRequest.request),
+                issuancePayload,
                 { kind: "actor", actor: targetActor }
             );
+            const responseLossReplay = await harness.dispatch(
+                TENANT_AUTHORITY_COMMANDS.issuePermit,
+                "projected-permit-issue",
+                issuancePayload,
+                { kind: "actor", actor: targetActor }
+            );
+            const [concurrentLeft, concurrentRight] = await Promise.all([
+                harness.dispatch(
+                    TENANT_AUTHORITY_COMMANDS.issuePermit,
+                    "projected-permit-concurrent-left",
+                    issuancePayload,
+                    { kind: "actor", actor: targetActor }
+                ),
+                harness.dispatch(
+                    TENANT_AUTHORITY_COMMANDS.issuePermit,
+                    "projected-permit-concurrent-right",
+                    issuancePayload,
+                    { kind: "actor", actor: targetActor }
+                )
+            ]);
 
             expect(forged.outcome).toBe("rejectedAuthority");
             expect(forged.write.audit).toBeDefined();
             expect(projected.outcome).toBe("committed");
             expect(duplicate.outcome).toBe("duplicate");
             expect(issued.outcome).toBe("committed");
+            expect(responseLossReplay.outcome).toBe("duplicate");
+            expect([concurrentLeft.outcome, concurrentRight.outcome]).toEqual([
+                "committed",
+                "committed"
+            ]);
+            expect(concurrentLeft.reply).toEqual(concurrentRight.reply);
             const permit = AuthorityPermitIssuanceReply.decode(issued.reply).requirePermit();
             expect(permit.requestDigest.equals(projectedRequest.request.targetRequest.digest())).toBe(
                 true
@@ -1555,20 +1582,6 @@ class LeasedProductionCommandState extends TenantAuthorityCommandStatePort<Autho
         };
     }
 
-    public currentPermitLease(
-        _read: AuthorityCommandRead,
-        request: AuthorityPermitIssuanceRequest,
-        at: Date
-    ) {
-        const lease = request.targetRequest.expectation.lease;
-        if (lease === undefined) return undefined;
-        return {
-            turn: lease.turn,
-            holder: principal,
-            epoch: lease.epoch,
-            expiresAt: new Date(at.getTime() + 5_000)
-        };
-    }
 }
 
 function createProductionCommandHarness(
@@ -1803,9 +1816,6 @@ class ProductionCommandState extends TenantAuthorityCommandStatePort<AuthorityCo
         return undefined;
     }
 
-    public currentPermitLease(): undefined {
-        return undefined;
-    }
 }
 
 const productionCommandState = new ProductionCommandState();
@@ -2095,16 +2105,6 @@ const readBackend = {
         turn: authorityTurn,
         holder: principal,
         epoch: 2,
-        expiresAt: new Date(at.getTime() + 5_000)
-    }),
-    currentPermitLease: (
-        _read: AuthorityCommandRead,
-        request: AuthorityPermitIssuanceRequest,
-        at: Date
-    ) => ({
-        turn: request.targetRequest.expectation.lease!.turn,
-        holder: principal,
-        epoch: request.targetRequest.expectation.lease!.epoch,
         expiresAt: new Date(at.getTime() + 5_000)
     })
 };

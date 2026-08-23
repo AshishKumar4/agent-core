@@ -193,11 +193,6 @@ class AuthorityJourneyIdentity {
                 _read: AuthorityJourneyRead,
                 _request: AuthorityCheckRequest,
                 at: Date
-            ) => lease(at),
-            currentPermitLease: (
-                _read: AuthorityJourneyRead,
-                _request: AuthorityPermitIssuanceRequest,
-                at: Date
             ) => lease(at)
         };
     }
