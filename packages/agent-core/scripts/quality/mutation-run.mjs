@@ -56,6 +56,7 @@ import { equivalenceArea, mutationOutcome, unusableMutants } from "./mutation-eq
 import { mutationRunIdentity, mutationRunKey } from "./mutation-inputs.mjs";
 import {
     assertString,
+    canonicalJson,
     isJsonObject,
     jsonKind,
     packageRoot,
@@ -186,6 +187,12 @@ function cacheFault(record, area, runKey) {
     if (!isJsonObject(record.report)) return "cache record carries no report";
     if (record.reportSha256 !== reportDigest(record.report)) {
         return "cache record and its report disagree";
+    }
+    if (
+        JSON.stringify(canonicalJson(record.identity)) !==
+        JSON.stringify(canonicalJson(mutationRunIdentity()))
+    ) {
+        return "cache record names a different runtime identity";
     }
     try {
         requireAreaReport(record.report, area);

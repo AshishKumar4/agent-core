@@ -6,9 +6,18 @@
 // for a provably identical outcome, which is how a ratchet stops being run. The
 // equivalence register is one of those inputs, sliced per area so it stales only what it
 // actually decides.
+import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
-import { relative, resolve } from "node:path";
+import {
+    accessSync,
+    constants,
+    existsSync,
+    readFileSync,
+    readdirSync,
+    realpathSync,
+    statSync
+} from "node:fs";
+import { delimiter, relative, resolve } from "node:path";
 import strykerConfig from "../../stryker.conf.mjs";
 import mutationVitestConfig from "../../vitest.mutation.config.mjs";
 import {
@@ -21,7 +30,8 @@ import {
     canonicalJson,
     globMatches,
     packageRoot,
-    parseCanonicalJson
+    parseCanonicalJson,
+    sha256
 } from "./project.mjs";
 
 // An area is a src/ subdirectory, or a single root module such as errors.
@@ -90,6 +100,58 @@ const RUNTIME_PACKAGES = [
     "vite",
     "vitest"
 ];
+/**
+ * The external runtime one included behavior test launches by bare name:
+ * test/substrates/sqlite/materialization-bun.test.ts calls `spawnSync("bun", [fixture])`.
+ * Node and package versions do not identify that executable. The ordered PATH decides
+ * which one gets launched, and an upgrade can replace it in place with the same version,
+ * so the identity binds both a digest of PATH and a digest of the resolved path plus file
+ * metadata. Neither raw path nor raw PATH is recorded: they routinely carry home
+ * directories and can carry private mount locations, while a digest still moves the key.
+ */
+function bunRuntime() {
+    const path = process.env["PATH"] ?? "";
+    const executable = resolveCommand("bun", path);
+    if (executable === undefined) {
+        return {
+            path: `sha256:${sha256(path)}`,
+            resolution: "absent",
+            state: "absent",
+            version: "absent"
+        };
+    }
+    const metadata = statSync(executable);
+    const version = spawnSync(executable, ["--version"], {
+        encoding: "utf8",
+        timeout: 5_000
+    });
+    return {
+        path: `sha256:${sha256(path)}`,
+        resolution: `sha256:${sha256(
+            `${executable}\0${metadata.dev}:${metadata.ino}:${metadata.size}:${metadata.mtimeMs}:${metadata.mode}`
+        )}`,
+        state: version.status === 0 ? "present" : "unavailable",
+        version: version.status === 0 ? version.stdout.trim() : "unavailable"
+    };
+}
+
+function resolveCommand(command, path) {
+    const names =
+        process.platform === "win32" ? [`${command}.exe`, `${command}.cmd`, command] : [command];
+    for (const directory of path.split(delimiter)) {
+        for (const name of names) {
+            const candidate = resolve(directory.length === 0 ? "." : directory, name);
+            try {
+                accessSync(candidate, constants.X_OK);
+                const metadata = statSync(candidate);
+                if (metadata.isFile()) return realpathSync(candidate);
+            } catch {
+                // The next PATH entry is the resolution behavior Node's bare command gets.
+            }
+        }
+    }
+    return undefined;
+}
 
 // Environment that reaches module resolution, a transform, or a test's own answer.
 // AGENT_CORE_ENFORCEMENT is the one that changes what the suite even loads:
@@ -131,6 +193,7 @@ export function mutationRunIdentity() {
     }
     return {
         abi: process.versions.modules,
+        bun: bunRuntime(),
         environment,
         node: process.version,
         packages,

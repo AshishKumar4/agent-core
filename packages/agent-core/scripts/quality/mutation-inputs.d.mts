@@ -7,6 +7,14 @@ export function mutationRunKey(area: string, register?: readonly EquivalenceEntr
 
 export interface MutationRunIdentity {
     abi: string;
+    bun: {
+        /** Digest of PATH, never its raw value. */
+        path: string;
+        /** Digest of resolved executable path plus file identity, never raw path. */
+        resolution: string;
+        state: "absent" | "present" | "unavailable";
+        version: string;
+    };
     environment: Record<string, string>;
     node: string;
     packages: Record<string, string>;

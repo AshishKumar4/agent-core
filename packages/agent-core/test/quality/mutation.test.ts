@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import {
+    chmodSync,
     existsSync,
     mkdirSync,
     mkdtempSync,
@@ -9,7 +10,7 @@ import {
     writeFileSync
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, dirname, join, relative, resolve } from "node:path";
+import { basename, delimiter, dirname, join, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { describe, expect, test } from "vitest";
 import {
@@ -1219,6 +1220,82 @@ describe("mutation run reuse", () => {
         }
     });
 
+    // The mutation lane contains materialization-bun.test.ts, which launches bare `bun`.
+    // The external runtime is not Node, and a package lock cannot identify it. Resolution
+    // changes with PATH, a different binary at the same version changes with its identity,
+    // and its absence changes the test's result; all three must stale reuse. Raw PATH must
+    // not land in a ledger or a cache record, because it commonly names private mounts.
+    test("binds Bun resolution without persisting raw PATH", async () => {
+        const root = mkdtempSync(join(packageRoot, "reports/mutation/bun-runtime-"));
+        const first = join(root, "first");
+        const second = join(root, "second");
+        const missing = join(root, "missing");
+        const sentinel = join(root, "bun-path-secret-never-on-disk");
+        const prior = process.env["PATH"];
+        const install = (directory: string, version: string): void => {
+            mkdirSync(directory, { recursive: true });
+            const executable = join(directory, "bun");
+            writeFileSync(executable, `#!/bin/sh\nprintf '%s\n' '${version}'\n`);
+            chmodSync(executable, 0o700);
+        };
+        const withBun = (directory: string): void => {
+            process.env["PATH"] = `${directory}${delimiter}${prior ?? ""}`;
+        };
+
+        try {
+            install(first, "9.0.0");
+            withBun(first);
+            const firstIdentity = mutationRunIdentity();
+            const firstKey = mutationRunKey("errors");
+            expect(firstIdentity.bun.state).toBe("present");
+            expect(firstIdentity.bun.version).toBe("9.0.0");
+
+            // Same version, different resolved executable. PATH resolution itself is an
+            // input, not merely a way to find a version string.
+            install(second, "9.0.0");
+            withBun(second);
+            const secondIdentity = mutationRunIdentity();
+            const secondKey = mutationRunKey("errors");
+            expect(secondIdentity.bun.version).toBe("9.0.0");
+            expect(secondIdentity.bun.resolution).not.toBe(firstIdentity.bun.resolution);
+            expect(secondKey).not.toBe(firstKey);
+
+            // Same path, changed Bun release.
+            install(second, "9.0.1");
+            const upgradedKey = mutationRunKey("errors");
+            expect(mutationRunIdentity().bun.version).toBe("9.0.1");
+            expect(upgradedKey).not.toBe(secondKey);
+
+            // No Bun in resolution is a distinct state; the included test would fail
+            // rather than execute its native SQLite fixture.
+            process.env["PATH"] = missing;
+            const absentKey = mutationRunKey("errors");
+            expect(mutationRunIdentity().bun.state).toBe("absent");
+            expect(absentKey).not.toBe(upgradedKey);
+
+            // A sentinel raw PATH is deliberately never persisted. The name appears only
+            // inside its digest and must be absent from both durable records.
+            install(sentinel, "9.0.2");
+            withBun(sentinel);
+            clearProbe(probe);
+            await measureArea(probe, probePattern, () => ({
+                report: probeReport("Survived"),
+                measuredAt: "bun-head",
+                strykerMs: 1
+            }));
+            for (const path of [runLedgerPath(probe), runCachePath(probe)]) {
+                const written = readFileSync(path, "utf8");
+                expect(written, path).not.toContain("bun-path-secret-never-on-disk");
+                expect(written, path).toContain(sha256(process.env["PATH"] ?? ""));
+            }
+        } finally {
+            if (prior === undefined) delete process.env["PATH"];
+            else process.env["PATH"] = prior;
+            clearProbe(probe);
+            rmSync(root, { recursive: true, force: true });
+        }
+    });
+
     test("holds the key across a change no mutation run can read", () => {
         const key = mutationRunKey("errors");
         const sibling = resolve(packageRoot, "../agent-core-cloudflare/package.json");
@@ -1346,6 +1423,13 @@ describe("mutation run reuse", () => {
             "cache record and its report disagree": JSON.stringify({
                 ...recordFor(probe, "k", report),
                 reportSha256: `sha256:${"0".repeat(64)}`
+            }),
+            "cache record names a different runtime identity": JSON.stringify({
+                ...recordFor(probe, "k", report),
+                identity: {
+                    ...mutationRunIdentity(),
+                    bun: { ...mutationRunIdentity().bun, version: "other-bun" }
+                }
             }),
             // The one the shared report path used to allow: a real, self-consistent
             // record whose report describes a different area entirely.
