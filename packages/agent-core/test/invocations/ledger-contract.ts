@@ -2,13 +2,14 @@ import fc, { type Command } from "fast-check";
 import { afterEach, describe, expect, test } from "vitest";
 import { ActorId, ActorRef } from "../../src/actors";
 import { RunCommitId } from "../../src/agents";
-import { ContentRef, Digest } from "../../src/core";
+import { ContentRef, Digest, JsonSchema } from "../../src/core";
 import { AgentCoreError } from "../../src/errors";
 import { PrincipalId, TenantId } from "../../src/identity";
 import {
     Approval,
     ApprovalId,
     AttemptCompletion,
+    AttemptFailureKind,
     AttemptReceipt,
     type AttemptReceiptOutcome,
     type AuditAppendContext,
@@ -916,6 +917,262 @@ export function invocationLedgerContract<Transaction>(
                         harness.ledger.supersedeReceipt(transaction, final)
                     )
                 ).toThrow();
+            }
+        );
+        test(
+            "[C13-RECEIPT-FAILURE-ORTHOGONAL] permits the next ordinal identically after every failure kind",
+            { tags: "p0" },
+            () => {
+                for (const [name, failureOf] of failureKinds()) {
+                    const harness = open();
+                    const invocation = prepared(`orthogonal-retry-${name}`, [{ item: name }], {
+                        lease: "lease:1"
+                    });
+                    const claim0 = executorClaim(
+                        invocation.header.id,
+                        0,
+                        0,
+                        `claim:${name}:0`,
+                        `worker:${name}:0`,
+                        time(10)
+                    );
+                    const attempt0 = effectAttempt(invocation, claim0, `attempt:${name}:0`, time(2));
+                    const claim1 = executorClaim(
+                        invocation.header.id,
+                        0,
+                        1,
+                        `claim:${name}:1`,
+                        `worker:${name}:1`,
+                        time(20)
+                    );
+                    const attempt1 = effectAttempt(invocation, claim1, `attempt:${name}:1`, time(5));
+
+                    harness.transaction((transaction) => {
+                        harness.ledger.prepare(transaction, invocation);
+                        harness.ledger.claimItem(transaction, claim0, time(1));
+                        harness.ledger.admitAttempt(transaction, attempt0, time(2));
+                        // Before any Receipt the next ordinal is unreachable, whatever kind is
+                        // about to be recorded.
+                        expectAgentCoreError(
+                            () => harness.ledger.claimItem(transaction, claim1, time(3)),
+                            /unresolved EffectAttempt/
+                        );
+                        harness.ledger.recordAttemptReceipt(
+                            transaction,
+                            new AttemptReceipt(
+                                new ReceiptId(`receipt:${name}:failed`),
+                                attempt0.id,
+                                AttemptCompletion.failed(failureOf()),
+                                undefined,
+                                time(3),
+                                undefined
+                            )
+                        );
+                        harness.ledger.claimItem(transaction, claim1, time(4));
+                        harness.ledger.admitAttempt(transaction, attempt1, time(5));
+                    });
+
+                    // Next-ordinal eligibility is identical across kinds: prior ordinal plus
+                    // one, on the same item, with no kind-specific condition anywhere.
+                    expect(
+                        harness.transaction((transaction) =>
+                            harness.persistence
+                                .attemptsForItem(transaction, invocation.header.id, 0)
+                                .map((attempt) => attempt.ordinal)
+                        )
+                    ).toEqual([0, 1]);
+                    expect(
+                        harness.transaction((transaction) =>
+                            harness.persistence.receiptsForAttempt(transaction, attempt0.id)
+                        ).map(
+                            (receipt) =>
+                                receipt instanceof AttemptReceipt
+                                    ? [receipt.attempt.equals(attempt0.id), receipt.failure?.kind]
+                                    : "other"
+                        )
+                    ).toEqual([[true, failureOf().kind]]);
+                }
+            }
+        );
+
+        test(
+            "[C13-RECEIPT-FAILURE-ORTHOGONAL] supersedes one indeterminate Receipt exactly once whatever the final kind names",
+            { tags: "p0" },
+            () => {
+                for (const [name, failureOf] of failureKinds()) {
+                    const harness = open();
+                    const invocation = prepared(`orthogonal-supersede-${name}`, { run: true }, {
+                        lease: "lease:1"
+                    });
+                    const claim0 = executorClaim(
+                        invocation.header.id,
+                        0,
+                        0,
+                        `claim:${name}:s0`,
+                        `worker:${name}:s0`,
+                        time(20)
+                    );
+                    const attempt0 = effectAttempt(invocation, claim0, `attempt:${name}:s`, time(2));
+                    const unknown = new AttemptReceipt(
+                        new ReceiptId(`receipt:${name}:unknown`),
+                        attempt0.id,
+                        AttemptCompletion.indeterminate,
+                        undefined,
+                        time(3),
+                        undefined
+                    );
+                    harness.transaction((transaction) => {
+                        harness.ledger.prepare(transaction, invocation);
+                        harness.ledger.claimItem(transaction, claim0, time(1));
+                        harness.ledger.admitAttempt(transaction, attempt0, time(2));
+                        harness.ledger.recordAttemptReceipt(transaction, unknown);
+                    });
+
+                    const final = new AttemptReceipt(
+                        new ReceiptId(`receipt:${name}:final`),
+                        attempt0.id,
+                        AttemptCompletion.failed(failureOf()),
+                        unknown.id,
+                        time(4),
+                        undefined
+                    );
+                    harness.transaction((transaction) =>
+                        harness.ledger.supersedeReceipt(transaction, final)
+                    );
+                    const head = harness.transaction((transaction) =>
+                        harness.ledger.currentReceipt(transaction, invocation.header.id, 0)
+                    );
+                    if (!(head instanceof AttemptReceipt)) throw new TypeError("Expected a head");
+                    expect(head.outcome).toBe("failed");
+                    expect(head.failure?.kind).toBe(failureOf().kind);
+
+                    // Exactly once: a final head — failed or succeeded — supersedes nothing,
+                    // an indeterminate successor supersedes nothing, and no Receipt over a
+                    // different attempt may join this lineage.
+                    for (const successor of [
+                        new AttemptReceipt(
+                            new ReceiptId(`receipt:${name}:again`),
+                            attempt0.id,
+                            AttemptCompletion.succeeded,
+                            final.id,
+                            time(5),
+                            content(`${name}-again`)
+                        ),
+                        new AttemptReceipt(
+                            new ReceiptId(`receipt:${name}:unknown-again`),
+                            attempt0.id,
+                            AttemptCompletion.indeterminate,
+                            final.id,
+                            time(5),
+                            undefined
+                        ),
+                        new AttemptReceipt(
+                            new ReceiptId(`receipt:${name}:foreign`),
+                            new EffectAttemptId(`attempt:${name}:other`),
+                            AttemptCompletion.failed(failureOf()),
+                            final.id,
+                            time(5),
+                            undefined
+                        )
+                    ]) {
+                        expectAgentCoreError(
+                            () =>
+                                harness.transaction((transaction) =>
+                                    harness.ledger.supersedeReceipt(transaction, successor)
+                                ),
+                            /Only a current indeterminate Receipt may be superseded once/
+                        );
+                    }
+                }
+            }
+        );
+
+        test(
+            "[C13-RECEIPT-FAILURE-ORTHOGONAL] keeps both pre-effect outcomes outside attempted lineage",
+            { tags: "p0" },
+            () => {
+                const harness = open();
+                const invocation = prepared(
+                    "orthogonal-pre-effect",
+                    [{ item: 0 }, { item: 1 }],
+                    { lease: "lease:1" }
+                );
+                harness.transaction((transaction) => {
+                    harness.ledger.prepare(transaction, invocation);
+                    harness.ledger.recordPreEffect(
+                        transaction,
+                        new PreEffectReceipt(
+                            new ReceiptId("receipt:orthogonal-denied"),
+                            invocation.header.id,
+                            0,
+                            "deniedPreEffect",
+                            time(2),
+                            "authority stale"
+                        )
+                    );
+                    harness.ledger.recordPreEffect(
+                        transaction,
+                        new PreEffectReceipt(
+                            new ReceiptId("receipt:orthogonal-cancelled"),
+                            invocation.header.id,
+                            1,
+                            "cancelledPreEffect",
+                            time(2),
+                            "the required Turn was cancelled"
+                        )
+                    );
+                });
+                for (const itemIndex of [0, 1]) {
+                    expect(
+                        harness.transaction((transaction) =>
+                            harness.persistence.attemptsForItem(
+                                transaction,
+                                invocation.header.id,
+                                itemIndex
+                            )
+                        )
+                    ).toEqual([]);
+                }
+
+                // Once an EffectAttempt exists, neither pre-effect outcome may appear for that
+                // item: the variant boundary is what keeps denial evidence out of attempted
+                // lineage.
+                const attempted = prepared("orthogonal-pre-effect-attempted", { run: true }, {
+                    lease: "lease:1"
+                });
+                const claim = executorClaim(
+                    attempted.header.id,
+                    0,
+                    0,
+                    "claim:orthogonal-pre-effect:0",
+                    "worker:orthogonal-pre-effect",
+                    time(10)
+                );
+                const attempt = effectAttempt(attempted, claim, "attempt:orthogonal-pe", time(2));
+                harness.transaction((transaction) => {
+                    harness.ledger.prepare(transaction, attempted);
+                    harness.ledger.claimItem(transaction, claim, time(1));
+                    harness.ledger.admitAttempt(transaction, attempt, time(2));
+                });
+                for (const outcome of ["deniedPreEffect", "cancelledPreEffect"] as const) {
+                    expectAgentCoreError(
+                        () =>
+                            harness.transaction((transaction) =>
+                                harness.ledger.recordPreEffect(
+                                    transaction,
+                                    new PreEffectReceipt(
+                                        new ReceiptId(`receipt:orthogonal-late-${outcome}`),
+                                        attempted.header.id,
+                                        0,
+                                        outcome,
+                                        time(3),
+                                        "late denial"
+                                    )
+                                )
+                            ),
+                        /untouched item/
+                    );
+                }
             }
         );
 
@@ -6782,4 +7039,29 @@ function content(value: string): ContentRef {
 
 function time(second: number): Date {
     return new Date(second * 1000);
+}
+
+/**
+ * The closed §7.4 taxonomy, each kind built from the fact that defines it. Orthogonality is
+ * a per-kind property, so every sweep that proves a lineage rule ignores the kind must run
+ * all five rather than one representative.
+ */
+function failureKinds(): readonly (readonly [
+    string,
+    () => AttemptFailureKind
+])[] {
+    return [
+        ["raised", (): AttemptFailureKind => AttemptFailureKind.raised],
+        ["deadline", (): AttemptFailureKind => AttemptFailureKind.deadline(time(1), time(2))],
+        ["aborted", (): AttemptFailureKind => AttemptFailureKind.aborted(AbortSignal.abort())],
+        [
+            "domainLost",
+            (): AttemptFailureKind => AttemptFailureKind.domainLost({ answering: () => false })
+        ],
+        [
+            "outputInvalid",
+            (): AttemptFailureKind =>
+                AttemptFailureKind.outputInvalid(new JsonSchema({ type: "boolean" }), 1)
+        ]
+    ];
 }

@@ -1,3 +1,4 @@
+import { encodeCanonicalJson } from "../../src/core";
 import {
     Approval,
     ApprovalId,
@@ -10,8 +11,9 @@ import {
     createInvocationMemoryState,
     EffectAttempt,
     EffectAttemptId,
-    type InvocationAuditPersistence,
     InvocationContinuation,
+    InvocationId,
+    type InvocationAuditPersistence,
     InvocationError,
     type InvocationMemoryState,
     ItemClaim,
@@ -243,6 +245,42 @@ test(
         );
         fresh.receipts.set(receipt.id.value, invocationCodecs.receipt.encode(receipt));
         expect(() => persistence.receipt(fresh, receipt.id)).toThrow(/order/);
+    }
+);
+
+test(
+    "[C13-RECEIPT-FAILURE-ORTHOGONAL] [invocation-persistence] memory refuses pre-effect bytes carrying a failure kind",
+    { tags: "p0" },
+    () => {
+        // Bytes only a writer that bypassed the codec could produce: the store's own read
+        // path must still refuse them, so the exact-key codec check is not the only guard.
+        const state = createInvocationMemoryState();
+        const persistence = new MemoryInvocationPersistence(invocationCodecs);
+        const hostile = encodeCanonicalJson({
+            kind: "invocation.receipt",
+            version: { major: 2, minor: 0 },
+            payload: {
+                failure: "raised",
+                id: "memory-hostile",
+                invocation: "memory-hostile-invocation",
+                itemIndex: 0,
+                outcome: "deniedPreEffect",
+                reason: "denied",
+                recordedAt: new Date(1000).toISOString(),
+                variant: "preEffect"
+            }
+        });
+        state.receipts.set("memory-hostile", hostile);
+        state.receiptOrder.push("memory-hostile");
+        expect(() =>
+            persistence.receipt(state, new ReceiptId("memory-hostile"))
+        ).toThrow(/Pre-effect Receipt contains missing or unknown fields/);
+        expect(() =>
+            persistence.receiptsForItem(state, new InvocationId("memory-hostile-invocation"), 0)
+        ).toThrow(/Pre-effect Receipt contains missing or unknown fields/);
+        expect(
+            state.receiptOrder.includes("memory-hostile") && state.receipts.has("memory-hostile")
+        ).toBe(true);
     }
 );
 
