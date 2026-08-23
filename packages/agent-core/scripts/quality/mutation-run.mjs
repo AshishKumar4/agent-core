@@ -19,19 +19,53 @@
 // opinion on a count. So a run records itself, and a run whose inputs are byte-identical
 // reads that record instead.
 //
-// Two files, because they answer different questions and a contaminated run must answer
-// the first one:
+// Reuse is only as good as its guards, and the guards are the point of this module:
+//
+//   * the key is recomputed after the run and the measurement is refused if it moved, so
+//     a tree edited during those minutes cannot be published as a measurement of either
+//     version of it;
+//   * the record binds the key before and after, the runtime identity, and a digest of
+//     the report, and a reader that cannot reproduce all four treats the record as absent;
+//   * publication is a mode-600 temp file in the destination directory, fsynced, then
+//     renamed, and two writers under one key either agree or fail — never last-wins;
+//   * every Stryker run gets a private report path and a private temp directory, because
+//     the committed config names one report file and `cleanTempDir` deletes the whole
+//     temp directory, so two areas at once would overwrite and delete each other's work.
+//
+// Two files, because they answer different questions and a refused run must answer the
+// first one:
 //   reports/mutation/<area>-run.json     what the run cost and whether it is usable
 //   reports/mutation/cache/<area>.json   the report itself, keyed, written only when it is
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { unusableMutants } from "./mutation-equivalence.mjs";
-import { mutationRunKey } from "./mutation-inputs.mjs";
-import { packageRoot, writeCanonicalJson } from "./project.mjs";
+import { randomBytes } from "node:crypto";
+import {
+    closeSync,
+    fsyncSync,
+    lstatSync,
+    mkdirSync,
+    mkdtempSync,
+    openSync,
+    readFileSync,
+    renameSync,
+    rmSync,
+    writeFileSync
+} from "node:fs";
+import { basename, dirname, join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
+import { equivalenceArea, unusableMutants } from "./mutation-equivalence.mjs";
+import { mutationRunIdentity, mutationRunKey } from "./mutation-inputs.mjs";
+import {
+    isJsonObject,
+    jsonKind,
+    packageRoot,
+    portablePath,
+    sha256,
+    writeCanonicalJson
+} from "./project.mjs";
 
 const strykerBin = resolve(packageRoot, "node_modules/@stryker-mutator/core/bin/stryker.js");
-const strykerReport = resolve(packageRoot, "reports/quality/mutation/report.json");
+const strykerConfig = resolve(packageRoot, "stryker.conf.mjs");
+const scratchRoot = resolve(packageRoot, "reports/mutation/run");
 
 export function runLedgerPath(area) {
     return resolve(packageRoot, `reports/mutation/${area}-run.json`);
@@ -43,18 +77,27 @@ export function runCachePath(area) {
 
 /**
  * One area's report, measured or reused, with the run's own ledger written either way.
- * `measuredAt` is the commit the report was produced at rather than the commit reading
- * it: a reused report was not measured here, and saying it was would be the one lie a
- * cache can tell that its key cannot catch.
+ * `run` is the measurement itself, injected so the guards around it can be tested without
+ * paying three minutes a case.
+ *
+ * `measuredAt` is the commit the report was produced at rather than the commit reading it:
+ * a reused report was not measured here, and saying it was would be the one lie a cache
+ * can tell that its key cannot catch.
  */
-export async function measureArea(area, mutatePattern) {
+export async function measureArea(area, mutatePattern, run = runStryker) {
     const startedAt = process.hrtime.bigint();
+    const identity = mutationRunIdentity();
     const runKey = mutationRunKey(area);
-    const reused = readRunCache(area, runKey);
-    const measured = reused ?? runStryker(area, mutatePattern);
+    const { reused, rejected } = readRunCache(area, runKey);
+    const measured = reused ?? run(area, mutatePattern);
+    requireAreaReport(measured.report, area);
+    // After, not only before. A measurement takes minutes, and a key checked once at the
+    // start says nothing about the tree the run actually read. Publishing under either
+    // version of an edited tree would attach the measurement to inputs it never saw.
+    const settledKey = mutationRunKey(area);
     const unusable = unusableMutants(measured.report);
     const cost = {
-        source: reused === undefined ? "measured" : "cached",
+        cache: reused === undefined ? (rejected ?? "miss") : "hit",
         // Wall time only. Stryker runs as a child process and neither `spawnSync` nor
         // `process.resourceUsage` reports a child's CPU, so a CPU figure here would be
         // this process's, which is idle while the child works. Measure CPU around the
@@ -68,57 +111,268 @@ export async function measureArea(area, mutatePattern) {
         edition: "1.0.0",
         area,
         runKey,
+        settledKey,
+        identity,
         measuredAt: measured.measuredAt,
+        reportSha256: reportDigest(measured.report),
         cost
     });
-    // A contaminated report is never cached. Its statuses are the ones a rerun exists to
-    // replace, so serving them again would make one bad afternoon permanent.
-    if (reused === undefined && unusable.length === 0) {
-        const path = runCachePath(area);
-        mkdirSync(dirname(path), { recursive: true });
-        // Compact, unlike every artifact this harness writes: nobody reads an 8 MB report
-        // of 268 inlined test sources, and indenting it costs a second of every run.
-        writeFileSync(
-            path,
-            JSON.stringify({
-                edition: "1.0.0",
-                area,
-                runKey,
-                measuredAt: measured.measuredAt,
-                report: measured.report
-            })
+    if (settledKey !== runKey) {
+        throw new TypeError(
+            `Mutation inputs of ${area} changed while it was measured: the run began at ` +
+                `${runKey} and ended at ${settledKey}. The measurement describes neither ` +
+                "tree and is refused; re-measure a still tree."
         );
+    }
+    // A report that settles nothing is never recorded. Its statuses are the ones a rerun
+    // exists to replace, so serving them again would make one bad afternoon permanent.
+    if (reused === undefined && unusable.length === 0) {
+        publishRunCache(area, {
+            edition: "1.0.0",
+            area,
+            runKey,
+            identity,
+            measuredAt: measured.measuredAt,
+            reportSha256: reportDigest(measured.report),
+            report: measured.report
+        });
     }
     return { report: measured.report, measuredAt: measured.measuredAt, cost };
 }
 
 /**
- * A recorded report, or undefined when nothing recorded matches. The key is the only
- * admission test: it covers every source file, every test file a mutation run executes,
- * the Stryker and Vitest configuration, the lockfile, and the area's slice of the
- * equivalence register, so a hit means a fresh run had the same bytes to work from.
+ * A recorded measurement, or the reason a recorded one was not used. The key is the
+ * admission test but not the only one: a record must also be this edition, name this
+ * area, carry a report that digests to what it claims, and hold a report that describes
+ * this area and nothing else. Anything a reader cannot reproduce is treated as absent,
+ * because re-measuring is always safe. A symlink at the cache path is not treated as
+ * absent — nothing in this harness creates one, so it is refused rather than followed.
  */
 export function readRunCache(area, runKey) {
     const path = runCachePath(area);
-    if (!existsSync(path)) return undefined;
-    const recorded = JSON.parse(readFileSync(path, "utf8"));
-    if (recorded.runKey !== runKey) return undefined;
-    return { report: recorded.report, measuredAt: recorded.measuredAt, strykerMs: 0 };
+    const present = statWithoutFollowing(path);
+    if (present === undefined) return {};
+    if (!present.isFile()) return { rejected: "cache path is not a regular file" };
+    let record;
+    try {
+        record = JSON.parse(readFileSync(path, "utf8"));
+    } catch {
+        return { rejected: "cache record does not parse" };
+    }
+    const fault = cacheFault(record, area, runKey);
+    if (fault !== undefined) return { rejected: fault };
+    return {
+        reused: { report: record.report, measuredAt: record.measuredAt, strykerMs: 0 }
+    };
+}
+
+function cacheFault(record, area, runKey) {
+    if (!isJsonObject(record)) return "cache record is not an object";
+    if (record.edition !== "1.0.0") {
+        return `cache record edition ${JSON.stringify(record.edition)} is not readable`;
+    }
+    if (record.area !== area) return `cache record names area ${JSON.stringify(record.area)}`;
+    if (jsonKind(record.measuredAt) !== "string") return "cache record names no commit";
+    if (record.runKey !== runKey) return "cache record was written under a different run key";
+    if (!isJsonObject(record.report)) return "cache record carries no report";
+    if (record.reportSha256 !== reportDigest(record.report)) {
+        return "cache record and its report disagree";
+    }
+    try {
+        requireAreaReport(record.report, area);
+    } catch (error) {
+        return `cached report is unusable: ${error instanceof Error ? error.message : "unknown"}`;
+    }
+    return undefined;
+}
+
+/**
+ * That a report is the report of this area, in the shape the classifier reads. The area
+ * check is what catches a report that arrived under the right key by way of a shared
+ * output path; the id checks are what catches attribution that would otherwise be
+ * dropped silently, since a `killedBy` naming a test the report does not carry costs the
+ * discrimination artifact a claimant without saying so.
+ */
+export function requireAreaReport(report, area) {
+    if (!isJsonObject(report)) throw new TypeError("Mutation report is not an object");
+    if (!isJsonObject(report.files)) throw new TypeError("Mutation report has no files");
+    const tests = new Set();
+    if (report.testFiles !== undefined) {
+        if (!isJsonObject(report.testFiles)) {
+            throw new TypeError("Mutation report testFiles is not an object");
+        }
+        for (const file of Object.values(report.testFiles)) {
+            for (const test of file.tests ?? []) tests.add(String(test.id));
+        }
+    }
+    for (const [path, file] of Object.entries(report.files)) {
+        if (!path.startsWith("src/") || equivalenceArea(path) !== area) {
+            throw new TypeError(`Mutation report of ${area} names ${path}`);
+        }
+        if (jsonKind(file.source) !== "string" || jsonKind(file.mutants) !== "array") {
+            throw new TypeError(`Mutation report entry ${path} has no source or mutants`);
+        }
+        for (const mutant of file.mutants) {
+            requireMutant(path, mutant, tests);
+        }
+    }
+    return report;
+}
+
+function requireMutant(path, mutant, tests) {
+    if (!isJsonObject(mutant) || jsonKind(mutant.id) !== "string") {
+        throw new TypeError(`Mutation report entry ${path} holds an unidentified mutant`);
+    }
+    const at = `${path}#${String(mutant.id)}`;
+    if (jsonKind(mutant.mutatorName) !== "string" || jsonKind(mutant.status) !== "string") {
+        throw new TypeError(`Mutant ${at} names no mutator or no status`);
+    }
+    const start = isJsonObject(mutant.location) ? mutant.location.start : undefined;
+    if (!isJsonObject(start) || !Number.isSafeInteger(start.line)) {
+        throw new TypeError(`Mutant ${at} has no source location`);
+    }
+    for (const field of ["coveredBy", "killedBy"]) {
+        for (const id of mutant[field] ?? []) {
+            if (!tests.has(String(id))) {
+                throw new TypeError(`Mutant ${at} ${field} names test ${String(id)}, absent`);
+            }
+        }
+    }
+}
+
+/**
+ * Publishes a record under its key. Converges when another writer already recorded the
+ * same evidence, and fails when another writer recorded different evidence under the same
+ * key: two measurements of identical inputs that disagree is a finding, and letting
+ * whoever finished last win would bury it. A record whose own digest does not check out
+ * carries no evidence to lose, so it is replaced rather than argued with.
+ */
+export function publishRunCache(area, record) {
+    const path = runCachePath(area);
+    const directory = dirname(path);
+    requireOwnedDirectory(directory);
+    const present = statWithoutFollowing(path);
+    if (present !== undefined) {
+        if (!present.isFile()) {
+            throw new TypeError(`${portablePath(path)} is not a regular file`);
+        }
+        const existing = verifiedRecord(path);
+        if (existing?.runKey === record.runKey) {
+            if (existing.reportSha256 === record.reportSha256) return "converged";
+            throw new TypeError(
+                `Two measurements of ${area} under run key ${record.runKey} disagree: ` +
+                    `${String(existing.reportSha256)} is recorded and this run produced ` +
+                    `${record.reportSha256}. Identical inputs cannot yield two reports; ` +
+                    "delete the record only once you know which run was wrong."
+            );
+        }
+    }
+    const temp = join(
+        directory,
+        `.${basename(path)}.${process.pid}.${randomBytes(8).toString("hex")}`
+    );
+    const handle = openSync(temp, "wx", 0o600);
+    try {
+        writeFileSync(handle, `${JSON.stringify(record)}\n`);
+        fsyncSync(handle);
+    } finally {
+        closeSync(handle);
+    }
+    try {
+        renameSync(temp, path);
+    } catch (error) {
+        rmSync(temp, { force: true });
+        throw error;
+    }
+    return "published";
+}
+
+// A record that vouches for its own report. Anything else — unparseable, not an object,
+// or carrying a report it does not digest to — holds no evidence, so a writer replaces it
+// instead of treating it as a rival measurement.
+function verifiedRecord(path) {
+    let record;
+    try {
+        record = JSON.parse(readFileSync(path, "utf8"));
+    } catch {
+        return undefined;
+    }
+    if (!isJsonObject(record) || !isJsonObject(record.report)) return undefined;
+    return record.reportSha256 === reportDigest(record.report) ? record : undefined;
+}
+
+// `lstat`, so a symlink is seen rather than followed, and absence is an answer rather
+// than an exception.
+function statWithoutFollowing(path) {
+    const present = lstatSync(path, { throwIfNoEntry: false });
+    if (present === undefined) return undefined;
+    if (present.isSymbolicLink()) {
+        throw new TypeError(
+            `${portablePath(path)} is a symbolic link; this runner reads and writes its ` +
+                "own files and follows no redirection into someone else's"
+        );
+    }
+    return present;
+}
+
+function requireOwnedDirectory(directory) {
+    const present = statWithoutFollowing(directory);
+    if (present === undefined) {
+        mkdirSync(directory, { recursive: true, mode: 0o700 });
+        return;
+    }
+    if (!present.isDirectory()) {
+        throw new TypeError(`${portablePath(directory)} is not a directory`);
+    }
 }
 
 function runStryker(area, mutatePattern) {
     const startedAt = process.hrtime.bigint();
-    const stryker = spawnSync("node", [strykerBin, "run", "--mutate", mutatePattern], {
-        cwd: packageRoot,
-        encoding: "utf8",
-        stdio: ["ignore", "inherit", "inherit"]
-    });
-    if (stryker.status !== 0) throw new TypeError(`Stryker failed for area ${area}`);
-    return {
-        report: JSON.parse(readFileSync(strykerReport, "utf8")),
-        measuredAt: gitHead(),
-        strykerMs: elapsedMs(startedAt)
-    };
+    requireOwnedDirectory(scratchRoot);
+    const scratch = mkdtempSync(join(scratchRoot, `${area}-`));
+    try {
+        const reportPath = join(scratch, "report.json");
+        const configPath = join(scratch, "stryker.conf.mjs");
+        writeFileSync(configPath, privateOutputConfig(reportPath, join(scratch, "tmp")), {
+            mode: 0o600
+        });
+        // `process.execPath`, not `node`: the key binds `process.version`, and a `node`
+        // resolved off PATH is free to be a different interpreter than the one that
+        // hashed it.
+        const stryker = spawnSync(
+            process.execPath,
+            [strykerBin, "run", configPath, "--mutate", mutatePattern],
+            { cwd: packageRoot, encoding: "utf8", stdio: ["ignore", "inherit", "inherit"] }
+        );
+        if (stryker.status !== 0) throw new TypeError(`Stryker failed for area ${area}`);
+        return {
+            report: JSON.parse(readFileSync(reportPath, "utf8")),
+            measuredAt: gitHead(),
+            strykerMs: elapsedMs(startedAt)
+        };
+    } finally {
+        rmSync(scratch, { recursive: true, force: true });
+    }
+}
+
+/**
+ * The committed configuration with private output paths. It spreads the committed module
+ * rather than restating any of it, so the only fields that can differ from what the run
+ * key hashed are the two this function names — and neither of them can change a mutant's
+ * status. Without it, two areas measured at once write one report file and `cleanTempDir`
+ * deletes one another's sandbox.
+ */
+function privateOutputConfig(reportPath, tempDirName) {
+    return [
+        `import committed from ${JSON.stringify(pathToFileURL(strykerConfig).href)};`,
+        "",
+        "export default {",
+        "    ...committed,",
+        `    jsonReporter: { fileName: ${JSON.stringify(reportPath)} },`,
+        `    tempDirName: ${JSON.stringify(tempDirName)}`,
+        "};",
+        ""
+    ].join("\n");
 }
 
 /**
@@ -145,6 +399,11 @@ function reportCost(report) {
             mutants.length === 0 ? 0 : Math.round((testsRun / mutants.length) * 10) / 10,
         maxTestsPerMutant: completed.reduce((most, count) => Math.max(most, count), 0)
     };
+}
+
+// Over the bytes a round trip through JSON reproduces, which is what a reader can check.
+function reportDigest(report) {
+    return `sha256:${sha256(JSON.stringify(report))}`;
 }
 
 function elapsedMs(startedAt) {

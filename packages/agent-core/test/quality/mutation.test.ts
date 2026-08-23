@@ -1,8 +1,14 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { describe, expect, test } from "vitest";
-import type { JsonValue } from "../../scripts/quality/project.mjs";
+import {
+    assertObject,
+    assertString,
+    parseCanonicalJson,
+    sha256,
+    type JsonValue
+} from "../../scripts/quality/project.mjs";
 import {
     auditEquivalenceAnchors,
     mutationOutcome,
@@ -17,11 +23,18 @@ import {
 import { generatedMutants } from "../../scripts/quality/mutation-instrumenter.mjs";
 import {
     mutationFingerprint,
+    mutationRunIdentity,
     mutationRunKey,
     mutationTestFiles,
     sourceAreas
 } from "../../scripts/quality/mutation-inputs.mjs";
-import { readRunCache, runCachePath } from "../../scripts/quality/mutation-run.mjs";
+import {
+    measureArea,
+    publishRunCache,
+    readRunCache,
+    runCachePath,
+    runLedgerPath
+} from "../../scripts/quality/mutation-run.mjs";
 import { runQualitySubprocess } from "./subprocess";
 
 const packageRoot = resolve(import.meta.dirname, "../..");
@@ -331,11 +344,12 @@ function reportFor(
         occurrence?: number;
         coveredBy?: string[];
         testsCompleted?: number;
-    }[]
+    }[],
+    file: string = registeredFile
 ): MutationReport {
     return {
         files: {
-            [registeredFile]: {
+            [file]: {
                 source,
                 mutants: mutants.map((mutant, index): ReportMutant => {
                     let offset = -1;
@@ -903,12 +917,24 @@ describe("mutation staleness inputs", () => {
 });
 
 // Reuse is what makes the campaign affordable: measuring `errors`, the smallest area
-// there is, costs 3 minutes 12 seconds of wall time and 236 seconds of CPU, and a
-// campaign measures the same inputs over and over. Every second of that saving rests on
-// one claim — that the key admitting a recorded report covers every byte a fresh run
-// would have read. The cases below try to break the claim from both sides: touch an
-// input and the key must move, touch a non-input and it must not.
+// there is, costs over three minutes of wall time and four of CPU, and a campaign
+// measures the same inputs over and over. Every second of that saving rests on claims a
+// hostile reader should be able to break, so the cases below try: an input the key
+// forgot, a tree edited while the run was in flight, a record that does not vouch for
+// its report, a symlink where the record belongs, two areas at once, and two writers
+// under one key.
 describe("mutation run reuse", () => {
+    const probe = "reuse-probe";
+    const probeFile = `src/${probe}/module.ts`;
+    const probePattern = `src/${probe}/**/*.ts`;
+    const probeReport = (status: string): MutationReport =>
+        reportFor(guardModule, [{ ...guardMutant, status }], probeFile);
+
+    const clearProbe = (area: string): void => {
+        rmSync(runCachePath(area), { force: true });
+        rmSync(runLedgerPath(area), { force: true });
+    };
+
     const perturbed = (path: string): string => {
         const absolute = resolve(packageRoot, path);
         const original = readFileSync(absolute);
@@ -920,6 +946,22 @@ describe("mutation run reuse", () => {
         }
     };
 
+    const readLedger = (area: string) =>
+        assertObject(
+            parseCanonicalJson(readFileSync(runLedgerPath(area), "utf8"), `${area} ledger`),
+            `${area} ledger`
+        );
+
+    const recordFor = (area: string, runKey: string, report: MutationReport) => ({
+        edition: "1.0.0",
+        area,
+        runKey,
+        identity: mutationRunIdentity(),
+        measuredAt: "0".repeat(40),
+        reportSha256: `sha256:${sha256(JSON.stringify(report))}`,
+        report
+    });
+
     test("changes the key when any input a run reads changes", () => {
         const key = mutationRunKey("errors");
         const inputs = [
@@ -928,6 +970,18 @@ describe("mutation run reuse", () => {
             // run this module, so its behavior decides their verdict.
             "src/actors/actor.ts",
             "test/actors/actor.test.ts",
+            // Not TypeScript, and read by the executed suite all the same: the conformance
+            // and integration lanes open the spec, the request archive, and the committed
+            // record index, and Stryker copies the tsconfig into its sandbox.
+            "SPEC.md",
+            "tsconfig.json",
+            "artifacts/quality/mutation-equivalence.json",
+            "artifacts/integration/request-archive/W5/ownership.json",
+            "artifacts/records/index.json",
+            // The runner's own revision. A change to how a verdict is classified changes
+            // the verdict, and nothing else here would notice.
+            "scripts/quality/mutation.mjs",
+            "scripts/quality/mutation-run.mjs",
             "package.json",
             "stryker.conf.mjs",
             "vitest.config.mjs",
@@ -960,44 +1014,244 @@ describe("mutation run reuse", () => {
         expect(mutationRunKey("errors")).toBe(key);
     });
 
+    // A run is not only the tree. The same bytes under a different interpreter, a
+    // different Stryker, or AGENT_CORE_ENFORCEMENT set — which resolves every import of
+    // src/facets/enforcement to the TSLean-lowered twin — is a different measurement.
+    test("changes the key when the runtime it executes under changes", () => {
+        const key = mutationRunKey("errors");
+        const identity = mutationRunIdentity();
+
+        expect(identity.node).toBe(process.version);
+        expect(identity.abi).toBe(process.versions.modules);
+        expect(identity.platform).toBe(`${process.platform}-${process.arch}`);
+        // Every tool whose code decides a verdict is named, and named at its installed
+        // version rather than at the range the manifest asked for.
+        for (const name of [
+            "@stryker-mutator/core",
+            "@stryker-mutator/instrumenter",
+            "@stryker-mutator/vitest-runner",
+            "@vitest/coverage-v8",
+            "typescript",
+            "vite",
+            "vitest"
+        ]) {
+            const manifest = assertObject(
+                parseCanonicalJson(
+                    readFileSync(resolve(packageRoot, "node_modules", name, "package.json"), "utf8"),
+                    name
+                ),
+                name
+            );
+            expect(identity.packages[name], name).toBe(assertString(manifest["version"], name));
+        }
+
+        const enforcement = "AGENT_CORE_ENFORCEMENT";
+        const restore = process.env[enforcement];
+        try {
+            process.env[enforcement] = "generated";
+            expect(mutationRunIdentity().environment[enforcement]).toBe("generated");
+            expect(mutationRunKey("errors")).not.toBe(key);
+        } finally {
+            if (restore === undefined) delete process.env[enforcement];
+            else process.env[enforcement] = restore;
+        }
+
+        expect(mutationRunKey("errors")).toBe(key);
+    });
+
     test("holds the key across a change no mutation run can read", () => {
         const key = mutationRunKey("errors");
+        const ignored = resolve(packageRoot, "reports/mutation/reuse-probe.scratch");
+        const sibling = resolve(packageRoot, "../agent-core-cloudflare/package.json");
 
-        // A lane the mutation config excludes never executes, and prose is not code. A key
-        // that moved for these would stale every area for a result that cannot have
-        // changed, which is how a ratchet stops being run.
-        for (const path of ["test/quality/subprocess.ts", "SPEC.md"]) {
-            expect(perturbed(path), `${path} must not stale a measurement`).toBe(key);
+        // Stryker's sandbox is this package minus what .gitignore excludes, so neither a
+        // gitignored scratch file nor a sibling package is copied into it. A key that
+        // moved for these would stale every area for a result that cannot have changed.
+        mkdirSync(dirname(ignored), { recursive: true });
+        writeFileSync(ignored, "scratch\n");
+        try {
+            expect(mutationRunKey("errors")).toBe(key);
+        } finally {
+            rmSync(ignored, { force: true });
+        }
+
+        const original = readFileSync(sibling);
+        try {
+            writeFileSync(sibling, Buffer.concat([original, Buffer.from("\n")]));
+            expect(mutationRunKey("errors")).toBe(key);
+        } finally {
+            writeFileSync(sibling, original);
         }
     });
 
     test("serves a recorded report only under the key it was recorded with", () => {
-        const area = "reuse-probe";
-        const path = runCachePath(area);
-        const report = reportFor(guardModule, [{ ...guardMutant, status: "Survived" }]);
+        const report = probeReport("Survived");
+        clearProbe(probe);
         try {
-            mkdirSync(dirname(path), { recursive: true });
-            writeFileSync(
-                path,
-                JSON.stringify({
-                    edition: "1.0.0",
-                    area,
-                    runKey: "sha256:recorded",
-                    measuredAt: "0".repeat(40),
-                    report
-                })
-            );
+            publishRunCache(probe, recordFor(probe, "sha256:recorded", report));
 
-            expect(readRunCache(area, "sha256:recorded")).toEqual({
-                report,
-                measuredAt: "0".repeat(40),
-                strykerMs: 0
+            expect(readRunCache(probe, "sha256:recorded")).toEqual({
+                reused: { report, measuredAt: "0".repeat(40), strykerMs: 0 }
             });
-            expect(readRunCache(area, "sha256:anything-else")).toBeUndefined();
+            expect(readRunCache(probe, "sha256:something-else")).toEqual({
+                rejected: "cache record was written under a different run key"
+            });
         } finally {
-            rmSync(path, { force: true });
+            clearProbe(probe);
         }
 
-        expect(readRunCache(area, "sha256:recorded")).toBeUndefined();
+        expect(readRunCache(probe, "sha256:recorded")).toEqual({});
+    });
+
+    // Every one of these is a record that exists and must not be believed. Absence is the
+    // right answer to all of them, because re-measuring is always safe.
+    test("treats a torn, mis-digested, or foreign record as absent", () => {
+        const path = runCachePath(probe);
+        const report = probeReport("Survived");
+        const cases = {
+            "cache record does not parse": JSON.stringify(recordFor(probe, "k", report)).slice(
+                0,
+                200
+            ),
+            "cache record edition": JSON.stringify({
+                ...recordFor(probe, "k", report),
+                edition: "2.0.0"
+            }),
+            "cache record names area": JSON.stringify(recordFor("elsewhere", "k", report)),
+            "cache record and its report disagree": JSON.stringify({
+                ...recordFor(probe, "k", report),
+                reportSha256: `sha256:${"0".repeat(64)}`
+            }),
+            // The one the shared report path used to allow: a real, self-consistent
+            // record whose report describes a different area entirely.
+            "cached report is unusable": JSON.stringify(
+                recordFor(probe, "k", reportFor(guardModule, [{ ...guardMutant, status: "Killed" }]))
+            )
+        };
+
+        mkdirSync(dirname(path), { recursive: true });
+        try {
+            for (const [reason, contents] of Object.entries(cases)) {
+                writeFileSync(path, contents);
+                const read = readRunCache(probe, "k");
+
+                expect(read.reused, reason).toBeUndefined();
+                expect(read.rejected, reason).toContain(reason);
+            }
+        } finally {
+            clearProbe(probe);
+        }
+    });
+
+    test("refuses a symbolic link where its record belongs", () => {
+        const path = runCachePath(probe);
+        const target = resolve(packageRoot, "reports/mutation/reuse-probe.target");
+        clearProbe(probe);
+        mkdirSync(dirname(path), { recursive: true });
+        writeFileSync(target, JSON.stringify(recordFor(probe, "k", probeReport("Survived"))));
+        symlinkSync(target, path);
+        try {
+            expect(() => readRunCache(probe, "k")).toThrow(/is a symbolic link/u);
+            expect(() =>
+                publishRunCache(probe, recordFor(probe, "k", probeReport("Survived")))
+            ).toThrow(/is a symbolic link/u);
+        } finally {
+            rmSync(path, { force: true });
+            rmSync(target, { force: true });
+            clearProbe(probe);
+        }
+    });
+
+    // The race the key alone cannot settle: two runs of identical inputs finish at once.
+    // Agreeing is fine and must be idempotent; disagreeing is a finding, and resolving it
+    // by whoever renamed last would bury it.
+    test("converges on agreeing writers and refuses disagreeing ones", () => {
+        const record = recordFor(probe, "sha256:contended", probeReport("Survived"));
+        clearProbe(probe);
+        try {
+            expect(publishRunCache(probe, record)).toBe("published");
+            expect(publishRunCache(probe, record)).toBe("converged");
+            expect(() =>
+                publishRunCache(
+                    probe,
+                    recordFor(probe, "sha256:contended", probeReport("Killed"))
+                )
+            ).toThrow(/under run key sha256:contended disagree/u);
+
+            // A record that cannot vouch for its own report holds no evidence to lose, so
+            // it is replaced rather than treated as a rival measurement.
+            writeFileSync(runCachePath(probe), "{ not json");
+            expect(publishRunCache(probe, record)).toBe("published");
+        } finally {
+            clearProbe(probe);
+        }
+    });
+
+    test("refuses a measurement whose inputs moved while it ran", async () => {
+        const intruder = resolve(packageRoot, "reuse-probe-input.ts");
+        clearProbe(probe);
+        try {
+            await expect(
+                measureArea(probe, probePattern, (area) => {
+                    // An untracked file git does not ignore is an input the moment it
+                    // exists, so this is the tree changing under a run in flight.
+                    writeFileSync(intruder, "export const probe = 1;\n");
+                    return {
+                        report: probeReport("Survived"),
+                        measuredAt: `${area}-head`,
+                        strykerMs: 1
+                    };
+                })
+            ).rejects.toThrow(/changed while it was measured/u);
+
+            // Refused, and not silently: the ledger names both keys, and nothing was
+            // recorded for reuse.
+            const ledger = readLedger(probe);
+            expect(assertString(ledger["runKey"], "runKey")).not.toBe(
+                assertString(ledger["settledKey"], "settledKey")
+            );
+            expect(existsSync(runCachePath(probe))).toBe(false);
+        } finally {
+            rmSync(intruder, { force: true });
+            clearProbe(probe);
+        }
+    });
+
+    // The committed config names one report file and deletes its whole temp directory on
+    // success, so two areas at once used to be able to read and delete each other's work.
+    test("keeps two areas measured at once out of each other's records", async () => {
+        const second = "reuse-probe-two";
+        const reports = {
+            [probe]: probeReport("Survived"),
+            [second]: reportFor(
+                guardModule,
+                [{ ...guardMutant, status: "Killed" }],
+                `src/${second}/module.ts`
+            )
+        };
+        clearProbe(probe);
+        clearProbe(second);
+        try {
+            await Promise.all(
+                Object.entries(reports).map(([area, report]) =>
+                    measureArea(area, `src/${area}/**/*.ts`, () => ({
+                        report,
+                        measuredAt: `${area}-head`,
+                        strykerMs: 1
+                    }))
+                )
+            );
+
+            for (const [area, report] of Object.entries(reports)) {
+                const key = mutationRunKey(area);
+                expect(readRunCache(area, key).reused?.report, area).toEqual(report);
+                const ledger = readLedger(area);
+                expect(assertString(ledger["area"], "area")).toBe(area);
+                expect(assertString(ledger["measuredAt"], "measuredAt")).toBe(`${area}-head`);
+            }
+        } finally {
+            clearProbe(probe);
+            clearProbe(second);
+        }
     });
 });

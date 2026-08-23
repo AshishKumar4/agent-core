@@ -6,6 +6,7 @@
 // for a provably identical outcome, which is how a ratchet stops being run. The
 // equivalence register is one of those inputs, sliced per area so it stales only what it
 // actually decides.
+import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { relative, resolve } from "node:path";
@@ -15,7 +16,13 @@ import {
     equivalenceKey,
     readEquivalenceRegister
 } from "./mutation-equivalence.mjs";
-import { artifactRoot, globMatches, packageRoot, parseCanonicalJson } from "./project.mjs";
+import {
+    artifactRoot,
+    canonicalJson,
+    globMatches,
+    packageRoot,
+    parseCanonicalJson
+} from "./project.mjs";
 
 // An area is a src/ subdirectory, or a single root module such as errors.
 export function sourceAreas() {
@@ -70,32 +77,113 @@ export function mutationFingerprint(area, register = committedRegister()) {
     return `sha256:${hash.digest("hex")}`;
 }
 
+// The installed packages whose code decides a mutant's verdict. Read from what is
+// actually resolved rather than from the manifest that asked for it: a lockfile records
+// an intention, and the sandbox symlinks node_modules, so only the installed version says
+// what ran.
+const RUNTIME_PACKAGES = [
+    "@stryker-mutator/core",
+    "@stryker-mutator/instrumenter",
+    "@stryker-mutator/vitest-runner",
+    "@vitest/coverage-v8",
+    "typescript",
+    "vite",
+    "vitest"
+];
+
+// Environment that reaches module resolution, a transform, or a test's own answer.
+// AGENT_CORE_ENFORCEMENT is the one that changes what the suite even loads:
+// vitest.config.mjs resolves every import of src/facets/enforcement to the TSLean-lowered
+// twin when it is set. The prefixes are there so a variable added to a config later is
+// bound without anyone remembering to list it.
+const RUNTIME_ENVIRONMENT = ["LANG", "LC_ALL", "NODE_ENV", "NODE_OPTIONS", "NODE_PATH", "TZ"];
+const RUNTIME_ENVIRONMENT_PREFIXES = ["AGENT_CORE_", "STRYKER", "VITE"];
+
+/**
+ * Everything outside the tree that decides what a run computes: the interpreter, its
+ * ABI, the platform, the installed tool versions, and the environment the run inherits.
+ * Recorded beside a measurement as well as hashed into its key, so a reader can see which
+ * of these moved when a cache stops matching.
+ */
+export function mutationRunIdentity() {
+    const packages = {};
+    for (const name of RUNTIME_PACKAGES) {
+        const manifest = resolve(packageRoot, "node_modules", name, "package.json");
+        packages[name] = existsSync(manifest)
+            ? String(JSON.parse(readFileSync(manifest, "utf8")).version)
+            : "absent";
+    }
+    const environment = {};
+    for (const [name, value] of Object.entries(process.env)) {
+        if (value === undefined) continue;
+        const bound =
+            RUNTIME_ENVIRONMENT.includes(name) ||
+            RUNTIME_ENVIRONMENT_PREFIXES.some((prefix) => name.startsWith(prefix));
+        if (bound) environment[name] = value;
+    }
+    return {
+        abi: process.versions.modules,
+        environment,
+        node: process.version,
+        packages,
+        platform: `${process.platform}-${process.arch}`,
+        v8: process.versions.v8
+    };
+}
+
 /**
  * The key a recorded measurement of one area may be reused under. What a measurement
  * costs, and why reuse is worth having, is mutation-run.mjs's story.
  *
  * Reuse is deliberately stricter than the fingerprint the baseline pins. The fingerprint
  * is what the gate already trusts to call a pinned measurement fresh, and it covers the
- * area's own sources; a run's result also depends on every other module the executed
- * tests load, so the whole source tree is hashed here. Reuse therefore never happens
- * where a fresh run could have disagreed with the pin — which is what stops the cache
- * from being a second, weaker freshness rule sitting beside the gate's.
+ * area's own sources and the test lanes; a run reads far more than that — SPEC.md and the
+ * artifacts the conformance tests open, tsconfig.json, the quality scripts, the formal
+ * model — so the key covers every file Stryker copies into its sandbox, plus the runtime
+ * identity outside the tree. Reuse therefore never happens where a fresh run could have
+ * disagreed with the pin, which is what stops the cache from being a second, weaker
+ * freshness rule sitting beside the gate's.
  */
 export function mutationRunKey(area, register = committedRegister()) {
     const hash = createHash("sha256");
     hash.update(mutationFingerprint(area, register));
     hash.update("\0");
-    digestFiles(hash, walkTypeScript(resolve(packageRoot, "src")));
+    digestFiles(hash, sandboxFiles());
+    hash.update(JSON.stringify(canonicalJson(mutationRunIdentity())));
+    hash.update("\0");
     return `sha256:${hash.digest("hex")}`;
 }
 
+/**
+ * Every file a run can read, by the predicate Stryker itself uses. Its sandbox is the
+ * package minus what .gitignore excludes, so asking git for the same set is a reading of
+ * that rule rather than a second guess at it — and the two agree exactly: Stryker reports
+ * 1058 input files and `git ls-files -c -o --exclude-standard` lists 1058.
+ */
+function sandboxFiles() {
+    const listed = spawnSync("git", ["ls-files", "-z", "-c", "-o", "--exclude-standard"], {
+        cwd: packageRoot,
+        maxBuffer: 64 * 1024 * 1024
+    });
+    if (listed.status !== 0) {
+        throw new TypeError("Mutation run inputs are unknowable: git ls-files failed");
+    }
+    return listed.stdout
+        .toString("utf8")
+        .split("\0")
+        .filter((offset) => offset.length > 0)
+        .map((offset) => resolve(packageRoot, offset));
+}
+
 // Path then content, both terminated: a rename changes the digest even when no byte of
-// any file did, and no concatenation of two files can imitate a third.
+// any file did, and no concatenation of two files can imitate a third. An input git lists
+// but the tree no longer holds hashes as absent rather than throwing, so a deletion moves
+// the digest instead of crashing the run that should have noticed it.
 function digestFiles(hash, paths) {
     for (const path of [...paths].sort()) {
         hash.update(relative(packageRoot, path).replaceAll("\\", "/"));
         hash.update("\0");
-        hash.update(readFileSync(path));
+        hash.update(existsSync(path) ? readFileSync(path) : "absent");
         hash.update("\0");
     }
 }

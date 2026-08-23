@@ -33,6 +33,7 @@ export interface ReportMutant extends MutationSite {
 
 export interface MutationReport {
     files: Record<string, { source: string; mutants: ReportMutant[] }>;
+    testFiles?: Record<string, { tests: { id: string; name: string }[]; source?: string }>;
 }
 
 export interface EquivalenceReconciliation {
