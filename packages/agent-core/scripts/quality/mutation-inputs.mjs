@@ -6,10 +6,10 @@
 // for a provably identical outcome, which is how a ratchet stops being run. The
 // equivalence register is one of those inputs, sliced per area so it stales only what it
 // actually decides.
-import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { relative, resolve } from "node:path";
+import strykerConfig from "../../stryker.conf.mjs";
 import mutationVitestConfig from "../../vitest.mutation.config.mjs";
 import {
     equivalenceArea,
@@ -104,6 +104,12 @@ const RUNTIME_ENVIRONMENT_PREFIXES = ["AGENT_CORE_", "STRYKER", "VITE"];
  * ABI, the platform, the installed tool versions, and the environment the run inherits.
  * Recorded beside a measurement as well as hashed into its key, so a reader can see which
  * of these moved when a cache stops matching.
+ *
+ * Environment values are digested, never kept. The bound names are matched by prefix and
+ * `STRYKER_DASHBOARD_API_KEY` is a real Stryker variable, so a run in a credentialed
+ * shell would otherwise write a token into a report that lives on disk for the rest of
+ * the campaign. A digest distinguishes two values, which is all a key needs, and names a
+ * variable that changed, which is all a reader needs.
  */
 export function mutationRunIdentity() {
     const packages = {};
@@ -119,7 +125,9 @@ export function mutationRunIdentity() {
         const bound =
             RUNTIME_ENVIRONMENT.includes(name) ||
             RUNTIME_ENVIRONMENT_PREFIXES.some((prefix) => name.startsWith(prefix));
-        if (bound) environment[name] = value;
+        if (bound) {
+            environment[name] = `sha256:${createHash("sha256").update(value).digest("hex")}`;
+        }
     }
     return {
         abi: process.versions.modules,
@@ -138,41 +146,50 @@ export function mutationRunIdentity() {
  * Reuse is deliberately stricter than the fingerprint the baseline pins. The fingerprint
  * is what the gate already trusts to call a pinned measurement fresh, and it covers the
  * area's own sources and the test lanes; a run reads far more than that — SPEC.md and the
- * artifacts the conformance tests open, tsconfig.json, the quality scripts, the formal
- * model — so the key covers every file Stryker copies into its sandbox, plus the runtime
- * identity outside the tree. Reuse therefore never happens where a fresh run could have
- * disagreed with the pin, which is what stops the cache from being a second, weaker
- * freshness rule sitting beside the gate's.
+ * artifacts the conformance and integration lanes open, tsconfig.json, the quality
+ * scripts, the formal model — so the key covers every file Stryker crawls into its
+ * sandbox, plus the runtime identity outside the tree. Reuse therefore never happens
+ * where a fresh run could have disagreed with the pin, which is what stops the cache from
+ * being a second, weaker freshness rule sitting beside the gate's.
  */
 export function mutationRunKey(area, register = committedRegister()) {
     const hash = createHash("sha256");
     hash.update(mutationFingerprint(area, register));
     hash.update("\0");
-    digestFiles(hash, sandboxFiles());
+    digestFiles(hash, sandboxFiles(packageRoot));
     hash.update(JSON.stringify(canonicalJson(mutationRunIdentity())));
     hash.update("\0");
     return `sha256:${hash.digest("hex")}`;
 }
 
+// What Stryker 9.6.1's ProjectReader skips no matter what it is told: its own
+// ALWAYS_IGNORE list. It reads no .gitignore — `resolveInputFileNames` crawls
+// `process.cwd()` and prunes by these names and by `ignorePatterns` alone — so a rule
+// derived from git would have been a different set that happened to have the same size.
+const ALWAYS_IGNORED = [".git", ".next", ".nuxt", ".svelte-kit", "node_modules"];
+
 /**
- * Every file a run can read, by the predicate Stryker itself uses. Its sandbox is the
- * package minus what .gitignore excludes, so asking git for the same set is a reading of
- * that rule rather than a second guess at it — and the two agree exactly: Stryker reports
- * 1058 input files and `git ls-files -c -o --exclude-standard` lists 1058.
+ * Every file a run can read: Stryker's crawl, mirrored. The pruning comes from the
+ * committed Stryker configuration rather than from a second list here, so the sandbox and
+ * the key cannot disagree about `reports/` — and they must not, because this runner's own
+ * scratch, ledger and cache live there. Anything this mirror keeps that Stryker's crawl
+ * would have pruned only stales a measurement that could not have changed, which is the
+ * safe direction to be wrong in.
  */
-function sandboxFiles() {
-    const listed = spawnSync("git", ["ls-files", "-z", "-c", "-o", "--exclude-standard"], {
-        cwd: packageRoot,
-        maxBuffer: 64 * 1024 * 1024
-    });
-    if (listed.status !== 0) {
-        throw new TypeError("Mutation run inputs are unknowable: git ls-files failed");
+function sandboxFiles(root, at = "") {
+    const pruned = new Set([
+        ...ALWAYS_IGNORED,
+        strykerConfig.tempDirName,
+        ...strykerConfig.ignorePatterns.map((pattern) => pattern.replace(/^[/]|^[*][*][/]/u, ""))
+    ]);
+    const files = [];
+    for (const entry of readdirSync(resolve(root, at), { withFileTypes: true })) {
+        if (pruned.has(entry.name) || entry.name.endsWith(".tsbuildinfo")) continue;
+        const offset = at.length === 0 ? entry.name : `${at}/${entry.name}`;
+        if (entry.isDirectory()) files.push(...sandboxFiles(root, offset));
+        else if (entry.isFile()) files.push(resolve(root, offset));
     }
-    return listed.stdout
-        .toString("utf8")
-        .split("\0")
-        .filter((offset) => offset.length > 0)
-        .map((offset) => resolve(packageRoot, offset));
+    return files;
 }
 
 // Path then content, both terminated: a rename changes the digest even when no byte of

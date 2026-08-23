@@ -50,11 +50,16 @@ import {
     rmSync,
     writeFileSync
 } from "node:fs";
-import { basename, dirname, join, resolve } from "node:path";
+import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
-import { equivalenceArea, unusableMutants } from "./mutation-equivalence.mjs";
+import {
+    equivalenceArea,
+    mutationOutcome,
+    unusableMutants
+} from "./mutation-equivalence.mjs";
 import { mutationRunIdentity, mutationRunKey } from "./mutation-inputs.mjs";
 import {
+    assertString,
     isJsonObject,
     jsonKind,
     packageRoot,
@@ -187,22 +192,33 @@ function cacheFault(record, area, runKey) {
 }
 
 /**
- * That a report is the report of this area, in the shape the classifier reads. The area
- * check is what catches a report that arrived under the right key by way of a shared
- * output path; the id checks are what catches attribution that would otherwise be
- * dropped silently, since a `killedBy` naming a test the report does not carry costs the
- * discrimination artifact a claimant without saying so.
+ * That a report is the report of this area, in the shape the classifier reads, carrying
+ * verdicts it can account for. Three separate laundering routes close here:
+ *
+ *   * a report of another area arriving under the right key, which a shared output path
+ *     used to make possible;
+ *   * a report of nothing at all, whose score is 100% and whose kill count is zero, and
+ *     which the ratchet would accept as an area with no work left in it;
+ *   * a `Killed` verdict naming no test, or naming a test the report does not carry, or
+ *     completing no test. `killedBy` is what the committed discrimination artifact is
+ *     built from, so a kill nobody claims spends the credit and records no claimant.
  */
 export function requireAreaReport(report, area) {
     if (!isJsonObject(report)) throw new TypeError("Mutation report is not an object");
     if (!isJsonObject(report.files)) throw new TypeError("Mutation report has no files");
+    if (Object.keys(report.files).length === 0) {
+        throw new TypeError(`Mutation report of ${area} covers no file`);
+    }
     const tests = new Set();
     if (report.testFiles !== undefined) {
         if (!isJsonObject(report.testFiles)) {
             throw new TypeError("Mutation report testFiles is not an object");
         }
         for (const file of Object.values(report.testFiles)) {
-            for (const test of file.tests ?? []) tests.add(String(test.id));
+            if (jsonKind(file.tests) !== "array") {
+                throw new TypeError("Mutation report testFiles entry lists no tests");
+            }
+            for (const test of file.tests) tests.add(String(test.id));
         }
     }
     for (const [path, file] of Object.entries(report.files)) {
@@ -224,67 +240,110 @@ function requireMutant(path, mutant, tests) {
         throw new TypeError(`Mutation report entry ${path} holds an unidentified mutant`);
     }
     const at = `${path}#${String(mutant.id)}`;
-    if (jsonKind(mutant.mutatorName) !== "string" || jsonKind(mutant.status) !== "string") {
-        throw new TypeError(`Mutant ${at} names no mutator or no status`);
+    if (jsonKind(mutant.mutatorName) !== "string") throw new TypeError(`Mutant ${at} names no mutator`);
+    // `mutationOutcome` refuses a status it does not know, so the vocabulary a report may
+    // speak is the one the classifier reads, and nothing else reaches classification.
+    mutationOutcome(assertString(mutant.status, `mutant ${at} status`));
+    if (mutant.replacement !== undefined && jsonKind(mutant.replacement) !== "string") {
+        throw new TypeError(`Mutant ${at} has a replacement that is not text`);
     }
     const start = isJsonObject(mutant.location) ? mutant.location.start : undefined;
+    const end = isJsonObject(mutant.location) ? mutant.location.end : undefined;
     if (!isJsonObject(start) || !Number.isSafeInteger(start.line)) {
         throw new TypeError(`Mutant ${at} has no source location`);
     }
+    if (!isJsonObject(end) || !Number.isSafeInteger(end.line)) {
+        throw new TypeError(`Mutant ${at} has no end of its source location`);
+    }
+    if (mutant.testsCompleted !== undefined) {
+        if (!Number.isSafeInteger(mutant.testsCompleted) || mutant.testsCompleted < 0) {
+            throw new TypeError(`Mutant ${at} counts a nonsense number of executed tests`);
+        }
+    }
     for (const field of ["coveredBy", "killedBy"]) {
-        for (const id of mutant[field] ?? []) {
+        if (mutant[field] === undefined) continue;
+        if (jsonKind(mutant[field]) !== "array") {
+            throw new TypeError(`Mutant ${at} ${field} is not a list of tests`);
+        }
+        for (const id of mutant[field]) {
             if (!tests.has(String(id))) {
                 throw new TypeError(`Mutant ${at} ${field} names test ${String(id)}, absent`);
             }
         }
     }
+    if (mutant.status !== "Killed") return;
+    if ((mutant.killedBy ?? []).length === 0) {
+        throw new TypeError(`Mutant ${at} is reported Killed and names no test that killed it`);
+    }
+    if ((mutant.testsCompleted ?? 0) === 0) {
+        throw new TypeError(`Mutant ${at} is reported Killed having executed no test`);
+    }
 }
 
 /**
- * Publishes a record under its key. Converges when another writer already recorded the
- * same evidence, and fails when another writer recorded different evidence under the same
- * key: two measurements of identical inputs that disagree is a finding, and letting
- * whoever finished last win would bury it. A record whose own digest does not check out
- * carries no evidence to lose, so it is replaced rather than argued with.
+ * Publishes a record under its key, holding an exclusive lock across the whole
+ * check-and-replace. Without the lock two writers both read an absent or stale record and
+ * both rename over the destination, and the one that renamed second wins silently — which
+ * is the one outcome this is here to prevent. A lock nobody can take means somebody else
+ * is publishing, and declining costs nothing: publication is an optimisation, so the
+ * measurement stands either way.
+ *
+ * Under the lock: the same evidence converges, different evidence under one key fails
+ * because identical inputs cannot yield two reports, and a record that cannot vouch for
+ * its own report holds no evidence to lose and is replaced.
  */
 export function publishRunCache(area, record) {
     const path = runCachePath(area);
     const directory = dirname(path);
     requireOwnedDirectory(directory);
-    const present = statWithoutFollowing(path);
-    if (present !== undefined) {
-        if (!present.isFile()) {
-            throw new TypeError(`${portablePath(path)} is not a regular file`);
-        }
-        const existing = verifiedRecord(path);
-        if (existing?.runKey === record.runKey) {
-            if (existing.reportSha256 === record.reportSha256) return "converged";
-            throw new TypeError(
-                `Two measurements of ${area} under run key ${record.runKey} disagree: ` +
-                    `${String(existing.reportSha256)} is recorded and this run produced ` +
-                    `${record.reportSha256}. Identical inputs cannot yield two reports; ` +
-                    "delete the record only once you know which run was wrong."
-            );
-        }
-    }
-    const temp = join(
-        directory,
-        `.${basename(path)}.${process.pid}.${randomBytes(8).toString("hex")}`
-    );
-    const handle = openSync(temp, "wx", 0o600);
+    const lock = `${path}.lock`;
+    let held;
     try {
-        writeFileSync(handle, `${JSON.stringify(record)}\n`);
-        fsyncSync(handle);
-    } finally {
-        closeSync(handle);
-    }
-    try {
-        renameSync(temp, path);
+        held = openSync(lock, "wx", 0o600);
     } catch (error) {
-        rmSync(temp, { force: true });
-        throw error;
+        if (isJsonObject(error) || !(error instanceof Error)) throw error;
+        if (!error.message.includes("EEXIST")) throw error;
+        return "deferred";
     }
-    return "published";
+    try {
+        const present = statWithoutFollowing(path);
+        if (present !== undefined) {
+            if (!present.isFile()) {
+                throw new TypeError(`${portablePath(path)} is not a regular file`);
+            }
+            const existing = verifiedRecord(path);
+            if (existing?.runKey === record.runKey) {
+                if (existing.reportSha256 === record.reportSha256) return "converged";
+                throw new TypeError(
+                    `Two measurements of ${area} under run key ${record.runKey} disagree: ` +
+                        `${String(existing.reportSha256)} is recorded and this run produced ` +
+                        `${record.reportSha256}. Identical inputs cannot yield two reports; ` +
+                        "delete the record only once you know which run was wrong."
+                );
+            }
+        }
+        const temp = join(
+            directory,
+            `.${basename(path)}.${process.pid}.${randomBytes(8).toString("hex")}`
+        );
+        const handle = openSync(temp, "wx", 0o600);
+        try {
+            writeFileSync(handle, `${JSON.stringify(record)}\n`);
+            fsyncSync(handle);
+        } finally {
+            closeSync(handle);
+        }
+        try {
+            renameSync(temp, path);
+        } catch (error) {
+            rmSync(temp, { force: true });
+            throw error;
+        }
+        return "published";
+    } finally {
+        closeSync(held);
+        rmSync(lock, { force: true });
+    }
 }
 
 // A record that vouches for its own report. Anything else — unparseable, not an object,
@@ -301,18 +360,31 @@ function verifiedRecord(path) {
     return record.reportSha256 === reportDigest(record.report) ? record : undefined;
 }
 
-// `lstat`, so a symlink is seen rather than followed, and absence is an answer rather
-// than an exception.
+/**
+ * `lstat` on every component from the package root down, so a symlink anywhere on the
+ * way is seen rather than followed. Checking the leaf alone leaves the interesting
+ * substitution unguarded: nothing stops a link at `reports/` or `reports/mutation/` from
+ * redirecting every record this runner writes, and the leaf would look like an ordinary
+ * file the whole time. Absence is an answer rather than an exception.
+ */
 function statWithoutFollowing(path) {
+    const offset = relative(packageRoot, path).split(sep);
+    for (let depth = 1; depth < offset.length; depth += 1) {
+        const ancestor = resolve(packageRoot, ...offset.slice(0, depth));
+        const above = lstatSync(ancestor, { throwIfNoEntry: false });
+        if (above?.isSymbolicLink() === true) throw redirection(ancestor);
+    }
     const present = lstatSync(path, { throwIfNoEntry: false });
     if (present === undefined) return undefined;
-    if (present.isSymbolicLink()) {
-        throw new TypeError(
-            `${portablePath(path)} is a symbolic link; this runner reads and writes its ` +
-                "own files and follows no redirection into someone else's"
-        );
-    }
+    if (present.isSymbolicLink()) throw redirection(path);
     return present;
+}
+
+function redirection(path) {
+    return new TypeError(
+        `${portablePath(path)} is a symbolic link; this runner reads and writes its own ` +
+            "files and follows no redirection into someone else's"
+    );
 }
 
 function requireOwnedDirectory(directory) {

@@ -32,6 +32,7 @@ import {
     measureArea,
     publishRunCache,
     readRunCache,
+    requireAreaReport,
     runCachePath,
     runLedgerPath
 } from "../../scripts/quality/mutation-run.mjs";
@@ -334,6 +335,9 @@ function position(source: string, offset: number): SourcePosition {
     return { line: consumed.length, column: (consumed.at(-1) ?? "").length + 1 };
 }
 
+// Reports built here answer to `requireAreaReport`, so a fixture that names a test must
+// carry it: the `testFiles` section is assembled from every id the mutants reference, and
+// a `Killed` mutant that names no killer is exactly what the validator refuses.
 function reportFor(
     source: string,
     mutants: readonly {
@@ -343,11 +347,13 @@ function reportFor(
         status: string;
         occurrence?: number;
         coveredBy?: string[];
+        killedBy?: string[];
         testsCompleted?: number;
     }[],
     file: string = registeredFile
 ): MutationReport {
-    return {
+    const named = new Set<string>();
+    const report: MutationReport = {
         files: {
             [file]: {
                 source,
@@ -368,11 +374,24 @@ function reportFor(
                         }
                     };
                     if (mutant.coveredBy !== undefined) built.coveredBy = mutant.coveredBy;
+                    if (mutant.killedBy !== undefined) built.killedBy = mutant.killedBy;
                     if (mutant.testsCompleted !== undefined) {
                         built.testsCompleted = mutant.testsCompleted;
                     }
+                    for (const id of [...(built.coveredBy ?? []), ...(built.killedBy ?? [])]) {
+                        named.add(id);
+                    }
                     return built;
                 })
+            }
+        }
+    };
+    if (named.size === 0) return report;
+    return {
+        ...report,
+        testFiles: {
+            "test/fixture.test.ts": {
+                tests: [...named].sort().map((id) => ({ id, name: `fixture test ${id}` }))
             }
         }
     };
@@ -927,8 +946,18 @@ describe("mutation run reuse", () => {
     const probe = "reuse-probe";
     const probeFile = `src/${probe}/module.ts`;
     const probePattern = `src/${probe}/**/*.ts`;
+    // A Killed verdict has to name a killer and count an executed test, so the fixture
+    // does; the validator refuses one that does not, and a case below proves it.
     const probeReport = (status: string): MutationReport =>
-        reportFor(guardModule, [{ ...guardMutant, status }], probeFile);
+        reportFor(
+            guardModule,
+            [
+                status === "Killed"
+                    ? { ...guardMutant, status, killedBy: ["t1"], testsCompleted: 1 }
+                    : { ...guardMutant, status }
+            ],
+            probeFile
+        );
 
     const clearProbe = (area: string): void => {
         rmSync(runCachePath(area), { force: true });
@@ -1049,7 +1078,11 @@ describe("mutation run reuse", () => {
         const restore = process.env[enforcement];
         try {
             process.env[enforcement] = "generated";
-            expect(mutationRunIdentity().environment[enforcement]).toBe("generated");
+            // The name is recorded; the value is not. Bound names are matched by prefix,
+            // and STRYKER_DASHBOARD_API_KEY is a real Stryker variable.
+            expect(mutationRunIdentity().environment[enforcement]).toBe(
+                `sha256:${sha256("generated")}`
+            );
             expect(mutationRunKey("errors")).not.toBe(key);
         } finally {
             if (restore === undefined) delete process.env[enforcement];
@@ -1059,20 +1092,59 @@ describe("mutation run reuse", () => {
         expect(mutationRunKey("errors")).toBe(key);
     });
 
+    // A credentialed shell must not be able to leave a token on disk for the rest of the
+    // campaign. The identity binds the variable so the key moves, and records a digest so
+    // nothing that lands in reports/ carries the value.
+    test("never writes an environment value it binds", async () => {
+        const secret = "sentinel-a1b2c3-never-on-disk";
+        const name = "STRYKER_DASHBOARD_API_KEY";
+        const restore = process.env[name];
+        const before = mutationRunKey("errors");
+        clearProbe(probe);
+        try {
+            process.env[name] = secret;
+            expect(mutationRunKey("errors")).not.toBe(before);
+            await measureArea(probe, probePattern, () => ({
+                report: probeReport("Survived"),
+                measuredAt: "sentinel-head",
+                strykerMs: 1
+            }));
+
+            for (const path of [runLedgerPath(probe), runCachePath(probe)]) {
+                const written = readFileSync(path, "utf8");
+                expect(written, path).not.toContain(secret);
+                expect(written, path).toContain(name);
+                expect(written, path).toContain(sha256(secret));
+            }
+        } finally {
+            if (restore === undefined) delete process.env[name];
+            else process.env[name] = restore;
+            clearProbe(probe);
+        }
+    });
+
     test("holds the key across a change no mutation run can read", () => {
         const key = mutationRunKey("errors");
-        const ignored = resolve(packageRoot, "reports/mutation/reuse-probe.scratch");
         const sibling = resolve(packageRoot, "../agent-core-cloudflare/package.json");
 
-        // Stryker's sandbox is this package minus what .gitignore excludes, so neither a
-        // gitignored scratch file nor a sibling package is copied into it. A key that
-        // moved for these would stale every area for a result that cannot have changed.
-        mkdirSync(dirname(ignored), { recursive: true });
-        writeFileSync(ignored, "scratch\n");
-        try {
-            expect(mutationRunKey("errors")).toBe(key);
-        } finally {
-            rmSync(ignored, { force: true });
+        // Stryker crawls this package and prunes what stryker.conf.mjs names, so its
+        // sandbox holds none of these; the crawl is rooted here, so a sibling package is
+        // outside it entirely. A key that moved for any of them would stale every area for
+        // a result that cannot have changed — and for reports/ it would stale the area on
+        // the runner's own output, which is the cache invalidating itself.
+        for (const offset of [
+            "reports/mutation/reuse-probe.scratch",
+            "dist/reuse-probe.js",
+            "formal/.lake/reuse-probe.olean"
+        ]) {
+            const path = resolve(packageRoot, offset);
+            mkdirSync(dirname(path), { recursive: true });
+            writeFileSync(path, "scratch\n");
+            try {
+                expect(mutationRunKey("errors"), offset).toBe(key);
+            } finally {
+                rmSync(path, { force: true });
+            }
         }
 
         const original = readFileSync(sibling);
@@ -1162,6 +1234,84 @@ describe("mutation run reuse", () => {
         }
     });
 
+    // Checking the leaf alone leaves the interesting substitution unguarded: a link one
+    // directory up redirects every record this runner writes, and the leaf looks like an
+    // ordinary file the whole time.
+    test("refuses a symbolic link anywhere above its record", () => {
+        const cache = dirname(runCachePath(probe));
+        const elsewhere = resolve(packageRoot, "reports/mutation/reuse-probe-elsewhere");
+        clearProbe(probe);
+        rmSync(cache, { recursive: true, force: true });
+        mkdirSync(elsewhere, { recursive: true });
+        symlinkSync(elsewhere, cache);
+        try {
+            expect(() => readRunCache(probe, "k")).toThrow(/is a symbolic link/u);
+            expect(() =>
+                publishRunCache(probe, recordFor(probe, "k", probeReport("Survived")))
+            ).toThrow(/is a symbolic link/u);
+        } finally {
+            rmSync(cache, { force: true });
+            rmSync(elsewhere, { recursive: true, force: true });
+        }
+    });
+
+    // Two writers reading an absent record and both renaming over it is the race a
+    // check-then-write cannot see. The lock is what serialises the whole decision, and
+    // declining to race costs nothing: the other writer publishes the same evidence.
+    test("declines to publish while another writer holds the lock", () => {
+        const lock = `${runCachePath(probe)}.lock`;
+        const record = recordFor(probe, "sha256:locked", probeReport("Survived"));
+        clearProbe(probe);
+        mkdirSync(dirname(lock), { recursive: true });
+        writeFileSync(lock, "");
+        try {
+            expect(publishRunCache(probe, record)).toBe("deferred");
+            expect(existsSync(runCachePath(probe))).toBe(false);
+        } finally {
+            rmSync(lock, { force: true });
+        }
+
+        // Lock released, and the same call publishes: nothing was lost, only deferred.
+        try {
+            expect(publishRunCache(probe, record)).toBe("published");
+            expect(existsSync(lock)).toBe(false);
+        } finally {
+            clearProbe(probe);
+        }
+    });
+
+    // A verdict the classifier would credit without anything behind it. `killed` divided
+    // by `mutants` is the score, and `killedBy` is what the committed discrimination
+    // artifact is built from, so each of these buys kill credit for nothing.
+    test("refuses a report of nothing and a kill nobody claims", () => {
+        expect(() => requireAreaReport({ files: {} }, probe)).toThrow(/covers no file/u);
+        expect(() =>
+            requireAreaReport(
+                reportFor(guardModule, [{ ...guardMutant, status: "Killed" }], probeFile),
+                probe
+            )
+        ).toThrow(/Killed and names no test that killed it/u);
+        expect(() =>
+            requireAreaReport(
+                reportFor(
+                    guardModule,
+                    [{ ...guardMutant, status: "Killed", killedBy: ["t1"], testsCompleted: 0 }],
+                    probeFile
+                ),
+                probe
+            )
+        ).toThrow(/Killed having executed no test/u);
+        expect(() =>
+            requireAreaReport(
+                reportFor(guardModule, [{ ...guardMutant, status: "WorkerExited" }], probeFile),
+                probe
+            )
+        ).toThrow(/Unknown mutant status/u);
+
+        // The control: the same fixture with a claimant and an executed test is admitted.
+        expect(requireAreaReport(probeReport("Killed"), probe)).toBeDefined();
+    });
+
     // The race the key alone cannot settle: two runs of identical inputs finish at once.
     // Agreeing is fine and must be idempotent; disagreeing is a finding, and resolving it
     // by whoever renamed last would bury it.
@@ -1225,7 +1375,7 @@ describe("mutation run reuse", () => {
             [probe]: probeReport("Survived"),
             [second]: reportFor(
                 guardModule,
-                [{ ...guardMutant, status: "Killed" }],
+                [{ ...guardMutant, status: "Killed", killedBy: ["t2"], testsCompleted: 4 }],
                 `src/${second}/module.ts`
             )
         };

@@ -27,6 +27,8 @@ export interface ReportMutant extends MutationSite {
     status: string;
     /** Tests Stryker's coverage analysis says reach this mutant. */
     coveredBy?: string[];
+    /** Tests that failed while this mutant was active. */
+    killedBy?: string[];
     /** Tests the mutant's own run actually executed. */
     testsCompleted?: number;
 }
