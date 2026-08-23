@@ -100,6 +100,8 @@ export class TargetLeaseEvidenceIssuer<Transaction> {
         if (token === undefined || !expectation.source.equals(this.store.owner)) {
             return undefined;
         }
+        const existing = this.store.evidence(transaction, request.nonce);
+        if (existing !== undefined) return this.replay(existing, request, token, now, transaction);
         const current = this.source.current(
             transaction,
             expectation.source,
@@ -143,6 +145,63 @@ export class TargetLeaseEvidenceIssuer<Transaction> {
             watermark: current.watermark
         });
         return this.store.record(transaction, evidence);
+    }
+
+    /**
+     * A committed record whose response was lost replays unchanged while the exact
+     * request still binds it and every live condition held at issuance still holds:
+     * the original deadline has not passed, the current lease admits its token even
+     * after a same-token renewal, and the current watermark has not invalidated the
+     * path. The original deadline is never regenerated — renewal cannot extend an
+     * attestation that already exists.
+     */
+    private replay(
+        existing: TargetLeaseEvidence,
+        request: TargetAuthorityPermitRequest,
+        token: LeaseToken,
+        now: Date,
+        transaction: Transaction
+    ): TargetLeaseEvidence | undefined {
+        const expectation = request.expectation;
+        if (
+            !existing.matches({
+                key: existing.key,
+                tenant: expectation.tenant,
+                run: expectation.reservation.run,
+                lease: token,
+                target: expectation.target,
+                requestIdentity: TargetAuthorityPermitRequest.identityFor(
+                    expectation,
+                    request.authority,
+                    request.nonce,
+                    existing.deadline
+                )
+            })
+        ) {
+            throw denied("Target lease evidence key is bound to another source attestation");
+        }
+        const current = this.source.current(
+            transaction,
+            expectation.source,
+            expectation.reservation.run,
+            token
+        );
+        if (
+            current === undefined ||
+            !current.run.equals(expectation.reservation.run) ||
+            !current.lease.admits(token, now) ||
+            !current.invocationIntent.equals(expectation.intentDigest) ||
+            current.watermark.ownerTenant.equals(expectation.tenant) !== true ||
+            current.watermark.owner.equals(expectation.source) !== true ||
+            current.watermark.holder.equals(token.holder) !== true ||
+            expectation.pathEpochs.path.some(
+                (entry) => current.watermark.epoch(entry.scope) > entry.epoch
+            ) ||
+            !existing.isCurrentAt(now)
+        ) {
+            return undefined;
+        }
+        return existing;
     }
 }
 

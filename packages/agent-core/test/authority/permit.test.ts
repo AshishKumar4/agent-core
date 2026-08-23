@@ -37,7 +37,8 @@ import {
     type AuthorityPermitIssueStore,
     type AuthorityPermitTargetStore,
     type MemoryAuthorityPermitSnapshot,
-    type MemoryTenantControlSnapshot
+    type MemoryTenantControlSnapshot,
+    type TargetLeaseEvidenceSourceStore
 } from "../../src/authority";
 import {
     Digest,
@@ -65,6 +66,7 @@ import { ClaimWorkerId, ItemClaimId } from "../../src/invocation-references";
 import { InvocationId } from "../../src/interaction-references";
 import {
     SqliteAuthorityPermitStore,
+    SqliteTargetLeaseSourceStore,
     TransactionalSqlite,
     type SqliteRow,
     type SqliteValue
@@ -818,62 +820,155 @@ test(
     }
 );
 
-test(
-    "source evidence records the original current lease deadline and invocation lineage",
-    { tags: "p0" },
-    () => {
-        const nonce = "source-issuer-deadline";
-        const provisionalExpiry = new Date(issuedAt.getTime() + 10_000);
+function sourceEvidenceContract<Transaction>(
+    name: string,
+    createStore: () => TargetLeaseEvidenceSourceStore<Transaction>
+): void {
+    describe(`source lease evidence issuer (${name})`, () => {
         // A real claim opens an unclaimed Turn at epoch 1; the request names that token.
         const expected = expectation({ lease: { ...lease, epoch: 1 } });
+        const nonce = `source-issuer-${name}`;
+        const provisionalExpiry = new Date(issuedAt.getTime() + 10_000);
         const request = targetRequestFor(expected, nonce, provisionalExpiry);
-        const store = new MemoryTargetLeaseSourceStore(expected.tenant, expected.source);
-        store.transaction((transaction) => {
-            store.claimTurn(
-                transaction,
-                expected.lease!.turn,
-                expected.lease!.holder,
-                expiresAt,
-                issuedAt
+
+        function seed(store: TargetLeaseEvidenceSourceStore<Transaction>): void {
+            store.transaction((transaction) => {
+                store.claimTurn(
+                    transaction,
+                    expected.lease!.turn,
+                    expected.lease!.holder,
+                    expiresAt,
+                    issuedAt
+                );
+                store.delegateInvocation(transaction, expected.reservation.run, expected.intentDigest);
+            });
+        }
+
+        test("records the original current lease deadline and invocation lineage", { tags: "p0" }, () => {
+            const store = createStore();
+            seed(store);
+            const issuer = new TargetLeaseEvidenceIssuer(store, store.source);
+            const attested = store.transaction((transaction) =>
+                issuer.attest(transaction, request, issuedAt)
             );
-            store.delegateInvocation(transaction, expected.reservation.run, expected.intentDigest);
+
+            expect(attested?.deadline).toEqual(expiresAt);
+            expect(attested?.requestIdentity.equals(
+                TargetAuthorityPermitRequest.identityFor(
+                    expected,
+                    request.authority,
+                    nonce,
+                    expiresAt
+                )
+            )).toBe(true);
         });
-        const issuer = new TargetLeaseEvidenceIssuer(store, store.source);
-        const attested = store.transaction((transaction) =>
-            issuer.attest(transaction, request, issuedAt)
-        );
 
-        expect(attested?.deadline).toEqual(expiresAt);
-        expect(attested?.requestIdentity.equals(
-            TargetAuthorityPermitRequest.identityFor(
-                expected,
-                request.authority,
+        test("replays the original attestation when a renewed lease retries a lost response", { tags: "p0" }, () => {
+            const store = createStore();
+            seed(store);
+            const issuer = new TargetLeaseEvidenceIssuer(store, store.source);
+            const original = store.transaction((transaction) =>
+                issuer.attest(transaction, request, issuedAt)
+            );
+
+            // Renewal keeps the same Turn, holder, and epoch and only moves the expiry;
+            // a retry must return the committed record, never regenerate a later deadline.
+            store.transaction((transaction) =>
+                store.renewTurn(transaction, expected.lease!, provisionalExpiry, issuedAt)
+            );
+            const replayed = store.transaction((transaction) =>
+                issuer.attest(transaction, request, issuedAt)
+            );
+
+            expect(replayed?.digest().equals(original!.digest())).toBe(true);
+            expect(replayed?.deadline).toEqual(original!.deadline);
+            expect(replayed?.deadline).toEqual(expiresAt);
+        });
+
+        test("refuses replay once the lease fences or the watermark invalidates the path", { tags: "p0" }, () => {
+            const fenced = createStore();
+            seed(fenced);
+            const fencedIssuer = new TargetLeaseEvidenceIssuer(fenced, fenced.source);
+            fenced.transaction((transaction) =>
+                fencedIssuer.attest(transaction, request, issuedAt)
+            );
+            fenced.transaction((transaction) => fenced.fenceTurn(transaction, expected.lease!.turn));
+            expect(
+                fenced.transaction((transaction) =>
+                    fencedIssuer.attest(transaction, request, issuedAt)
+                )
+            ).toBeUndefined();
+
+            const invalidated = createStore();
+            seed(invalidated);
+            const invalidatedIssuer = new TargetLeaseEvidenceIssuer(invalidated, invalidated.source);
+            invalidated.transaction((transaction) =>
+                invalidatedIssuer.attest(transaction, request, issuedAt)
+            );
+            invalidated.transaction((transaction) =>
+                invalidated.joinInvalidation(transaction, principal, [
+                    new ScopeEpoch(ScopeRef.tenant(tenant), path.path[0]!.epoch + 1)
+                ])
+            );
+            expect(
+                invalidated.transaction((transaction) =>
+                    invalidatedIssuer.attest(transaction, request, issuedAt)
+                )
+            ).toBeUndefined();
+        });
+
+        test("refuses replay after intent substitution and detects a substituted same-key request", { tags: "p0" }, () => {
+            const store = createStore();
+            seed(store);
+            const issuer = new TargetLeaseEvidenceIssuer(store, store.source);
+            store.transaction((transaction) => issuer.attest(transaction, request, issuedAt));
+            store.transaction((transaction) =>
+                store.delegateInvocation(
+                    transaction,
+                    expected.reservation.run,
+                    Digest.sha256(new TextEncoder().encode(`${name}-intent-substitution`))
+                )
+            );
+            expect(
+                store.transaction((transaction) => issuer.attest(transaction, request, issuedAt))
+            ).toBeUndefined();
+            const unrelated = targetRequestFor(expected, `${nonce}-unrelated`, provisionalExpiry);
+            expect(
+                store.transaction((transaction) => issuer.attest(transaction, unrelated, issuedAt))
+            ).toBeUndefined();
+
+            const substituted = targetRequestFor(
+                expectation({ lease: { ...lease, epoch: 1 }, itemIndex: 3 }),
                 nonce,
-                expiresAt
-            )
-        )).toBe(true);
+                provisionalExpiry
+            );
+            expect(() =>
+                store.transaction((transaction) => issuer.attest(transaction, substituted, issuedAt))
+            ).toThrow(/bound to another source attestation/);
+        });
 
-        // Renewal keeps the same Turn, holder, and epoch and only moves the expiry.
-        store.transaction((transaction) =>
-            store.renewTurn(transaction, expected.lease!, provisionalExpiry, issuedAt)
-        );
-        expect(() =>
-            store.transaction((transaction) => issuer.attest(transaction, request, issuedAt))
-        ).toThrow(/bound to another source attestation/);
+        test("attests nothing for a foreign source owner", { tags: "p0" }, () => {
+            const store = createStore();
+            seed(store);
+            const issuer = new TargetLeaseEvidenceIssuer(store, store.source);
+            const foreign = targetRequestFor(
+                expectation({
+                    lease: { ...lease, epoch: 1 },
+                    source: targetActor,
+                    target: { actor: sourceActor, fence: 11, domain: new ProtectionDomain("backend", "permit-domain", "may-hold-secrets") }
+                }),
+                `${nonce}-foreign`,
+                provisionalExpiry
+            );
+            expect(
+                store.transaction((transaction) => issuer.attest(transaction, foreign, issuedAt))
+            ).toBeUndefined();
+        });
+    });
+}
 
-        store.transaction((transaction) =>
-            store.delegateInvocation(
-                transaction,
-                expected.reservation.run,
-                Digest.sha256(new TextEncoder().encode("source-intent-substitution"))
-            )
-        );
-        const unrelated = targetRequestFor(expected, "source-issuer-unrelated", provisionalExpiry);
-        expect(
-            store.transaction((transaction) => issuer.attest(transaction, unrelated, issuedAt))
-        ).toBeUndefined();
-    }
-);
+sourceEvidenceContract("memory", () => new MemoryTargetLeaseSourceStore(tenant, sourceActor));
+sourceEvidenceContract("sqlite", () => new SqliteTargetLeaseSourceStore(new TestSqlite(), tenant, sourceActor));
 
 describe("AuthorityPermit", () => {
     test(
