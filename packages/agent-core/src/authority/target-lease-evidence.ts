@@ -1,10 +1,17 @@
 import { ActorId, ActorRef, type ActorKind } from "../actors";
 import { RunId, TurnId, type LeaseToken } from "../agents";
-import { Digest, RecordCodec, TextId, type JsonValue } from "../core";
+import { Digest, RecordCodec, Revision, TextId, type JsonValue } from "../core";
 import { ProtectionDomain } from "../facets";
-import { PrincipalId, PrincipalRef, TenantId } from "../identity";
+import {
+    PrincipalId,
+    PrincipalRef,
+    ProjectId,
+    ScopeRef,
+    TenantId,
+    WorkspaceId
+} from "../identity";
 import { requireExact, requireObject, requireSafeInteger, requireString, type JsonObject } from "./data";
-import { InvalidationWatermark } from "./epoch";
+import { InvalidationWatermark, ScopeEpoch } from "./epoch";
 
 export interface TargetLeaseEvidenceTarget {
     readonly actor: ActorRef;
@@ -116,9 +123,14 @@ class TargetLeaseEvidenceCodec extends RecordCodec<TargetLeaseEvidence> {
                 ActorId,
                 Digest,
                 InvalidationWatermark,
+                Revision,
+                ScopeEpoch,
+                ScopeRef,
                 ProtectionDomain,
                 RunId,
                 TenantId,
+                WorkspaceId,
+                ProjectId,
                 TextId,
                 TurnId,
                 PrincipalId,

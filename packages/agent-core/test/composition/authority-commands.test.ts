@@ -1696,6 +1696,11 @@ function createMemoryHarness(
 }
 
 function memoryBackend(overrides: Partial<AuthorityBackend> = {}): AuthorityBackend {
+    const {
+        projectLeaseEvidence = (_state: MemoryAuthorityState, evidence: TargetLeaseEvidence) =>
+            evidence,
+        ...remaining
+    } = overrides;
     return {
         ...readBackend,
         validateBinding: (_state, request, at) => validationEvidence(request, at),
@@ -1715,7 +1720,8 @@ function memoryBackend(overrides: Partial<AuthorityBackend> = {}): AuthorityBack
             state.permits[request.targetRequest.nonce] = AuthorityPermit.encode(permit);
             return AuthorityPermitIssuanceReply.issued(evidence, permit);
         },
-        ...overrides
+        ...remaining,
+        projectLeaseEvidence
     };
 }
 
@@ -2058,6 +2064,10 @@ function sqliteBackend(
                 []
             );
             return checkEvidence(request, readSqlite(database).path, at);
+        },
+        projectLeaseEvidence: (database, evidence) => {
+            permitStore.projectEvidence(database, evidence);
+            return evidence;
         },
         issuePermit: (database, request, at) => {
             const evidence = checkEvidence(

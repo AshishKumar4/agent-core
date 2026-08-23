@@ -11,7 +11,7 @@ import {
     GrantId,
     PathEpochEvidence,
     ScopeEpoch,
-    TargetAuthorityPermitRequest
+    TargetAuthorityPermitRequest,
 } from "../../../src/authority";
 import {
     createClosedTenantAuthorityComposition,
@@ -403,6 +403,7 @@ function createMemoryAuthorityJourney(name: string): AuthorityJourney {
                 state.checks += 1;
                 return identity.checkEvidence(request, at);
             },
+            projectLeaseEvidence: (_state, evidence) => evidence,
             issuePermit: (state, request, at) => {
                 const permit = identity.permit(request, at);
                 state.permits[request.targetRequest.nonce] = AuthorityPermit.encode(permit);
@@ -473,6 +474,10 @@ function createSqliteAuthorityJourney(name: string): AuthorityJourney {
                     []
                 );
                 return identity.checkEvidence(request, at);
+            },
+            projectLeaseEvidence: (transaction, evidence) => {
+                permits.projectEvidence(transaction, evidence);
+                return evidence;
             },
             issuePermit: (transaction, request, at) => {
                 const permit = identity.permit(request, at);

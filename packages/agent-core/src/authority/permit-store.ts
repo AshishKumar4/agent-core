@@ -1,5 +1,5 @@
 import { requireSynchronousResult, type ActorRef, type SynchronousResultGuard } from "../actors";
-import { Digest, compareCanonicalText } from "../core";
+import { Digest, compareCanonicalText, encodeCanonicalJson } from "../core";
 import { AgentCoreError } from "../errors";
 import type { AuthorityCheckEvidence } from "./evidence";
 import { AuthorityPermit, AuthorityPermitExpectation } from "./permit";
@@ -676,7 +676,12 @@ function isProjectedEvidenceRecord(
 }
 
 function evidenceProjectionKey(key: TargetLeaseEvidenceKey): string {
-    return `${key.source.kind}\0${key.source.id.value}\0${key.idempotencyKey}`;
+    return Digest.sha256(
+        encodeCanonicalJson({
+            idempotencyKey: key.idempotencyKey,
+            source: { id: key.source.id.value, kind: key.source.kind }
+        })
+    ).value;
 }
 
 function isRequestedPermitRecord(

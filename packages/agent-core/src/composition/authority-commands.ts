@@ -55,7 +55,7 @@ export interface TenantAuthorityCommandBackend<Transaction, Read> {
         request: AuthorityCheckRequest,
         at: Date
     ): CurrentLease | undefined;
-    projectLeaseEvidence?(
+    projectLeaseEvidence(
         transaction: Transaction,
         evidence: TargetLeaseEvidence,
         at: Date
@@ -470,14 +470,7 @@ class TargetLeaseEvidenceProjectionCommand<Transaction, Read> implements Protoco
         evidence: TargetLeaseEvidence,
         at: Date
     ): ProtocolCommandExecution<TargetLeaseEvidence, TargetLeaseEvidence> {
-        const project = this.backend.projectLeaseEvidence;
-        if (project === undefined) {
-            throw new AgentCoreError(
-                "protocol.invalid-state",
-                "Tenant authority does not support source lease evidence projection"
-            );
-        }
-        const projected = project.call(this.backend, transaction, evidence, at);
+        const projected = this.backend.projectLeaseEvidence(transaction, evidence, at);
         if (
             !projected.digest().equals(evidence.digest()) ||
             !projected.key.equals(evidence.key) ||

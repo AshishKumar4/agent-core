@@ -23,8 +23,11 @@ import { ClaimWorkerId, ItemClaimId } from "../invocation-references";
 import { InvocationId } from "../interaction-references";
 import type { JsonObject } from "./data";
 import { requireExact, requireObject, requireSafeInteger, requireString } from "./data";
-import { Binding, BindingLifecycle } from "./binding";
-import { TargetLeaseEvidenceReference } from "./target-lease-evidence";
+import { Binding, BindingCredentialCustody, BindingLifecycle } from "./binding";
+import {
+    TargetLeaseEvidenceKey,
+    TargetLeaseEvidenceReference
+} from "./target-lease-evidence";
 import { PathEpochEvidence, ScopeEpoch } from "./epoch";
 import { AuthorityPermitExpectation } from "./permit";
 import { AuthorityCheckRequest } from "./evidence";
@@ -54,8 +57,10 @@ class TargetAuthorityPermitRequestCodec extends RecordCodec<TargetAuthorityPermi
                 AuthorityCheckRequest,
                 AuthorityPermitExpectation,
                 TargetLeaseEvidenceReference,
+                TargetLeaseEvidenceKey,
                 Binding,
                 BindingLifecycle,
+                BindingCredentialCustody,
                 PathEpochEvidence,
                 PackagePin,
                 ScopeEpoch,
