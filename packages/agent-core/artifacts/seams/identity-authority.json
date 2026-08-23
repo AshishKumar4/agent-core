@@ -31,11 +31,22 @@
       "disposition": "verified",
       "contract": "src/authority/target-lease-evidence-store.ts#TargetLeaseEvidenceStore",
       "implementations": [
-        "src/authority/target-lease-evidence-store.ts#MemoryTargetLeaseEvidenceStore",
-        "src/substrates/sqlite/permit.ts#SqliteTargetLeaseEvidenceStore"
+        "src/authority/target-lease-evidence-store.ts#MemoryTargetLeaseSourceStore",
+        "src/substrates/sqlite/permit.ts#SqliteTargetLeaseSourceStore"
       ],
-      "memoryReference": "src/authority/target-lease-evidence-store.ts#MemoryTargetLeaseEvidenceStore",
+      "memoryReference": "src/authority/target-lease-evidence-store.ts#MemoryTargetLeaseSourceStore",
       "contractTest": "test/authority/target-lease-evidence.test.ts#TargetLeaseEvidence [target-lease-evidence-store] persists the source-owned record through SQLite restart"
+    },
+    {
+      "id": "target-lease-evidence-source",
+      "disposition": "verified",
+      "contract": "src/authority/target-lease-evidence-store.ts#TargetLeaseEvidenceSourceStore",
+      "implementations": [
+        "src/authority/target-lease-evidence-store.ts#MemoryTargetLeaseSourceStore",
+        "src/substrates/sqlite/permit.ts#SqliteTargetLeaseSourceStore"
+      ],
+      "memoryReference": "src/authority/target-lease-evidence-store.ts#MemoryTargetLeaseSourceStore",
+      "contractTest": "test/authority/target-lease-evidence.test.ts#source delegation authority (memory) [target-lease-evidence-source] reads the real Turn lease, watermark, and delegation intent under one transaction"
     },
     {
       "id": "tenant-authority-transaction-port",

@@ -6,7 +6,7 @@ import {
     MemoryActorStore,
     type SynchronousResultGuard
 } from "../../src/actors";
-import { RunId, TurnId, TurnLease } from "../../src/agents";
+import { RunId, TurnId } from "../../src/agents";
 import {
     AuthenticatedAuthorityPermit,
     AuthorityCheckEvidence,
@@ -21,8 +21,7 @@ import {
     InvalidationWatermark,
     MemoryAuthorityPermitStore,
     MemoryAuthorityPermitTransaction,
-    MemoryTargetLeaseEvidenceStore,
-    MemoryTargetLeaseEvidenceTransaction,
+    MemoryTargetLeaseSourceStore,
     MemoryTenantAuthorityPermitStore,
     MemoryTenantControlStore,
     PathEpochEvidence,
@@ -33,7 +32,6 @@ import {
     TargetLeaseEvidence,
     TargetLeaseEvidenceIssuer,
     TargetLeaseEvidenceKey,
-    TargetLeaseEvidenceSourcePort,
     requireAuthenticatedAuthorityPermit,
     type AuthorityPermitExpectationInit,
     type AuthorityPermitIssueStore,
@@ -824,41 +822,23 @@ test(
     "source evidence records the original current lease deadline and invocation lineage",
     { tags: "p0" },
     () => {
-        const expected = expectation();
         const nonce = "source-issuer-deadline";
         const provisionalExpiry = new Date(issuedAt.getTime() + 10_000);
+        // A real claim opens an unclaimed Turn at epoch 1; the request names that token.
+        const expected = expectation({ lease: { ...lease, epoch: 1 } });
         const request = targetRequestFor(expected, nonce, provisionalExpiry);
-        const store = new MemoryTargetLeaseEvidenceStore(expected.source);
-        let currentLease = TurnLease.restore(
-            expected.lease!.turn,
-            expected.lease!.holder,
-            expected.lease!.epoch,
-            expiresAt
-        );
-        let currentIntent = expected.intentDigest;
-        const source = new (class extends TargetLeaseEvidenceSourcePort<MemoryTargetLeaseEvidenceTransaction> {
-            public current(
-                _transaction: MemoryTargetLeaseEvidenceTransaction,
-                actor: ActorRef,
-                run: RunId,
-                token: NonNullable<AuthorityPermitExpectationInit["lease"]>
-            ) {
-                if (
-                    !actor.equals(expected.source) ||
-                    !run.equals(expected.reservation.run) ||
-                    !currentLease.admits(token, issuedAt)
-                ) {
-                    return undefined;
-                }
-                return {
-                    run,
-                    lease: currentLease,
-                    watermark: InvalidationWatermark.empty(tenant, expected.source, token.holder),
-                    invocationIntent: currentIntent
-                };
-            }
-        })();
-        const issuer = new TargetLeaseEvidenceIssuer(store, source);
+        const store = new MemoryTargetLeaseSourceStore(expected.tenant, expected.source);
+        store.transaction((transaction) => {
+            store.claimTurn(
+                transaction,
+                expected.lease!.turn,
+                expected.lease!.holder,
+                expiresAt,
+                issuedAt
+            );
+            store.delegateInvocation(transaction, expected.reservation.run, expected.intentDigest);
+        });
+        const issuer = new TargetLeaseEvidenceIssuer(store, store.source);
         const attested = store.transaction((transaction) =>
             issuer.attest(transaction, request, issuedAt)
         );
@@ -873,17 +853,21 @@ test(
             )
         )).toBe(true);
 
-        currentLease = TurnLease.restore(
-            expected.lease!.turn,
-            expected.lease!.holder,
-            expected.lease!.epoch,
-            provisionalExpiry
+        // Renewal keeps the same Turn, holder, and epoch and only moves the expiry.
+        store.transaction((transaction) =>
+            store.renewTurn(transaction, expected.lease!, provisionalExpiry, issuedAt)
         );
         expect(() =>
             store.transaction((transaction) => issuer.attest(transaction, request, issuedAt))
         ).toThrow(/bound to another source attestation/);
 
-        currentIntent = Digest.sha256(new TextEncoder().encode("source-intent-substitution"));
+        store.transaction((transaction) =>
+            store.delegateInvocation(
+                transaction,
+                expected.reservation.run,
+                Digest.sha256(new TextEncoder().encode("source-intent-substitution"))
+            )
+        );
         const unrelated = targetRequestFor(expected, "source-issuer-unrelated", provisionalExpiry);
         expect(
             store.transaction((transaction) => issuer.attest(transaction, unrelated, issuedAt))
@@ -2825,7 +2809,8 @@ describe("MemoryAuthorityPermitStore mutation gates", () => {
             const aliasedRequest = caughtAgentCoreError(
                 () =>
                     new MemoryAuthorityPermitStore(targetActor, {
-                        version: 3,
+                        version: 4,
+                        projectedEvidence: [],
                         requested: [
                             { nonce: alias, bytes: TargetAuthorityPermitRequest.encode(request) }
                         ],
@@ -2840,8 +2825,9 @@ describe("MemoryAuthorityPermitStore mutation gates", () => {
             const aliasedDenial = caughtAgentCoreError(
                 () =>
                     new MemoryAuthorityPermitStore(targetActor, {
-                        version: 3,
+                        version: 4,
                         requested: [requestedRecord(request)],
+                        projectedEvidence: [],
                         issued: [],
                         denied: [
                             { nonce: alias, bytes: TargetAuthorityPermitDenial.encode(denial) }
@@ -2861,8 +2847,9 @@ describe("MemoryAuthorityPermitStore mutation gates", () => {
         const duplicatedRequest = caughtAgentCoreError(
             () =>
                 new MemoryAuthorityPermitStore(targetActor, {
-                    version: 3,
+                    version: 4,
                     requested: [requestedRecord(request), requestedRecord(request)],
+                    projectedEvidence: [],
                     issued: [],
                     denied: [],
                     consumed: []
@@ -2874,8 +2861,9 @@ describe("MemoryAuthorityPermitStore mutation gates", () => {
         const duplicatedDenial = caughtAgentCoreError(
             () =>
                 new MemoryAuthorityPermitStore(targetActor, {
-                    version: 3,
+                    version: 4,
                     requested: [requestedRecord(request)],
+                    projectedEvidence: [],
                     issued: [],
                     denied: [deniedRecord(denial), deniedRecord(denial)],
                     consumed: []
@@ -2896,8 +2884,9 @@ describe("MemoryAuthorityPermitStore mutation gates", () => {
             const orphanDenial = caughtAgentCoreError(
                 () =>
                     new MemoryAuthorityPermitStore(targetActor, {
-                        version: 3,
+                        version: 4,
                         requested: [],
+                        projectedEvidence: [],
                         issued: [],
                         denied: [deniedRecord(deniedTargetRequest(request))],
                         consumed: []
@@ -2909,8 +2898,9 @@ describe("MemoryAuthorityPermitStore mutation gates", () => {
             const orphanConsumed = caughtAgentCoreError(
                 () =>
                     new MemoryAuthorityPermitStore(targetActor, {
-                        version: 3,
+                        version: 4,
                         requested: [],
+                        projectedEvidence: [],
                         issued: [],
                         denied: [],
                         consumed: [
