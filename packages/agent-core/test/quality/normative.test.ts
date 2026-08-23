@@ -4,7 +4,11 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { promisify } from "node:util";
 import { afterEach, beforeAll, describe, expect, test } from "vitest";
-import { generateNormativeLock } from "../../scripts/check-normative.mjs";
+import {
+    generateNormativeLock,
+    parseStructuralPackageLine,
+    structuralPackage
+} from "../../scripts/check-normative.mjs";
 
 const execFileAsync = promisify(execFile);
 const packageRoot = resolve(import.meta.dirname, "../..");
@@ -422,6 +426,79 @@ end AgentCore.NormativeFixture
         expect(result.output).toBeUndefined();
         expect(result.stderr).toMatch(
             /project (?:theorem set depends on disallowed axiom .*ofReduceBool|declaration \S* is a forbidden custom axiom)/u
+        );
+    });
+});
+
+describe("structural package line selector", () => {
+    const base = {
+        allowedAxioms: ["propext"],
+        auditedModules: ["AgentCore"],
+        declarations: [{ name: "X", structure: [] }],
+        designations: [{ kind: "claim", name: "Y", axioms: [], type: {}, closure: [] }],
+        encodingVersion: "agent-core-lean-structure-v2"
+    };
+
+    test("accepts the canonical lexicographic package line", () => {
+        expect(() => parseStructuralPackageLine(JSON.stringify(base), "p")).not.toThrow();
+    });
+
+    test("rejects a non-JSON aaa line", () => {
+        expect(() => parseStructuralPackageLine("aaa", "p")).toThrow(/strict JSON/u);
+    });
+
+    test("rejects an unknown leading key", () => {
+        const line = JSON.stringify({ zzz: 1, ...base });
+        expect(() => parseStructuralPackageLine(line, "p")).toThrow(/key set/u);
+    });
+
+    test("rejects an unknown trailing key", () => {
+        const line = JSON.stringify({ ...base, zzz: 1 });
+        expect(() => parseStructuralPackageLine(line, "p")).toThrow(/key set/u);
+    });
+
+    test("rejects a missing semantic field", () => {
+        const { declarations: _dropped, ...rest } = base;
+        expect(() => parseStructuralPackageLine(JSON.stringify(rest), "p")).toThrow(/key set/u);
+    });
+
+    test("rejects a duplicate top-level key", () => {
+        const line =
+            '{"encodingVersion":"v","encodingVersion":"w","auditedModules":[],' +
+            '"allowedAxioms":[],"designations":[],"declarations":[]}';
+        expect(() => parseStructuralPackageLine(line, "p")).toThrow(/Duplicate key/u);
+    });
+
+    test("rejects a nested duplicate key inside designations", () => {
+        const line =
+            '{"encodingVersion":"v","auditedModules":[],"allowedAxioms":[],"designations":' +
+            '[{"kind":"claim","kind":"claim","name":"X","axioms":[],"type":{},"closure":[]}],' +
+            '"declarations":[]}';
+        expect(() => parseStructuralPackageLine(line, "p")).toThrow(
+            /Duplicate key "kind" at \$.designations\[0\]/u
+        );
+    });
+    test.each([
+        ["auditedModules", JSON.stringify({ ...base, auditedModules: "AgentCore" })],
+        ["allowedAxioms", JSON.stringify({ ...base, allowedAxioms: 7 })],
+        ["designations", JSON.stringify({ ...base, designations: true })],
+        ["declarations", JSON.stringify({ ...base, declarations: "none" })],
+        ["encodingVersion", JSON.stringify({ ...base, encodingVersion: 9 })]
+    ])("rejects a mis-typed %s", (_field, line) => {
+        let message = "";
+        try {
+            parseStructuralPackageLine(line, "p");
+        } catch (error) {
+            message = error instanceof Error ? error.message : String(error);
+        }
+        expect(message).toMatch(/must be an array of nonempty strings|must be an array|nonempty string/u);
+    });
+
+    test("selector isolates the single complete package line from noise", () => {
+        const good = JSON.stringify(base);
+        const source = `noise line\n{"unrelated":true}\n${good}\n`;
+        expect(structuralPackage(source).encodingVersion).toBe(
+            "agent-core-lean-structure-v2"
         );
     });
 });

@@ -72,20 +72,67 @@ function stringField(value, field, location) {
     return fieldValue;
 }
 
-function structuralPackage(source) {
-    const lines = source
-        .split(/\r?\n/u)
-        .filter((candidate) =>
-            candidate.startsWith('{"') && candidate.includes('"encodingVersion":'));
-    if (lines.length !== 1) {
+export const structuralPackageKeys = Object.freeze([
+    "auditedModules",
+    "allowedAxioms",
+    "declarations",
+    "designations",
+    "encodingVersion"
+]);
+
+export function parseStructuralPackageLine(line, location) {
+    let value;
+    try {
+        value = parseCanonicalJson(line, location);
+    } catch (error) {
         throw new TypeError(
-            `Lean emitted ${lines.length} normative structural packages; expected exactly one`
+            `${location} is not strict JSON: ${error instanceof Error ? error.message : String(error)}`
         );
     }
-    const value = parseCanonicalJson(lines[0], "Lean normative structural package");
-    if (!isJsonObject(value))
-        throw new TypeError("Lean normative structural package must be an object");
+    if (!isJsonObject(value)) {
+        throw new TypeError(`${location} must be an object`);
+    }
+    const expected = [...structuralPackageKeys].sort();
+    const keys = Object.keys(value).sort();
+    if (JSON.stringify(keys) !== JSON.stringify(expected)) {
+        throw new TypeError(
+            `${location} top-level key set must be exactly ${expected.join(", ")}`
+        );
+    }
+    strings(value.auditedModules, `${location}.auditedModules`);
+    strings(value.allowedAxioms, `${location}.allowedAxioms`);
+    objectArray(value.designations, `${location}.designations`);
+    objectArray(value.declarations, `${location}.declarations`);
+    stringField(value, "encodingVersion", location);
     return value;
+}
+
+
+export function structuralPackage(source) {
+    const candidates = [];
+    let lastError;
+    let candidateStarted = false;
+    for (const candidate of source.split(/\r?\n/u)) {
+        if (!candidate.startsWith('{"')) continue;
+        candidateStarted = true;
+        try {
+            candidates.push(
+                parseStructuralPackageLine(candidate, "Lean normative structural package")
+            );
+        } catch (error) {
+            lastError = error;
+        }
+    }
+    if (candidates.length !== 1) {
+        if (candidates.length === 0 && lastError !== undefined) throw lastError;
+        if (!candidateStarted) {
+            throw new TypeError("Lean emitted no normative structural package line");
+        }
+        throw new TypeError(
+            `Lean emitted ${candidates.length} normative structural packages; expected exactly one`
+        );
+    }
+    return candidates[0];
 }
 
 function dependencyIdentity(value, index) {
