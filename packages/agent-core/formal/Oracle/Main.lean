@@ -134,14 +134,14 @@ def parseCapability (json : Json) : Except String Capability := do
   let impactNames ← parseStringList (← json.getObjVal? "impacts")
   let impacts ← impactNames.mapM parseImpact
   let constraints ← parseProjection (← json.getObjVal? "constraints")
-  pure ⟨facetPattern.data, operations, impacts, constraints⟩
+  pure ⟨facetPattern.toList, operations, impacts, constraints⟩
 
 def parseCapabilityIntent (json : Json) : Except String CapabilityIntent := do
   let facet ← (← json.getObjVal? "facet").getStr?
   let operation ← (← json.getObjVal? "operation").getStr?
   let impact ← parseImpact (← (← json.getObjVal? "impact").getStr?)
   let arguments ← parseProjection (← json.getObjVal? "arguments")
-  pure ⟨facet.data, operation, impact, arguments⟩
+  pure ⟨facet.toList, operation, impact, arguments⟩
 
 /-! ## Canonical JSON
 
@@ -156,8 +156,8 @@ partial def parseJsonTree (json : Json) : Except String JsonTree := do
   match kind with
   | "null" => pure .null
   | "bool" => do pure (.bool (← (← json.getObjVal? "value").getBool?))
-  | "num" => do pure (.num (← (← json.getObjVal? "token").getStr?).data)
-  | "str" => do pure (.str (← (← json.getObjVal? "value").getStr?).data)
+  | "num" => do pure (.num (← (← json.getObjVal? "token").getStr?).toList)
+  | "str" => do pure (.str (← (← json.getObjVal? "value").getStr?).toList)
   | "arr" => do
       let items ← (← (← json.getObjVal? "items").getArr?).toList.mapM parseJsonTree
       pure (.arr items)
@@ -165,7 +165,7 @@ partial def parseJsonTree (json : Json) : Except String JsonTree := do
       let entries ← (← (← json.getObjVal? "entries").getArr?).toList.mapM fun entry => do
         let key ← (← entry.getObjVal? "key").getStr?
         let value ← parseJsonTree (← entry.getObjVal? "value")
-        pure (key.data, value)
+        pure (key.toList, value)
       pure (.obj entries)
   | other => throw s!"unknown JSON tree kind {other}"
 
@@ -173,27 +173,27 @@ def parseScopeRefText (json : Json) : Except String ScopeRefText := do
   let kind ← (← json.getObjVal? "kind").getStr?
   let tenant ← (← json.getObjVal? "tenant").getStr?
   match kind with
-  | "tenant" => pure (.tenant tenant.data)
+  | "tenant" => pure (.tenant tenant.toList)
   | "project" => do
-      pure (.project tenant.data (← (← json.getObjVal? "project").getStr?).data)
+      pure (.project tenant.toList (← (← json.getObjVal? "project").getStr?).toList)
   | "workspace" => do
       let projectField ← json.getObjVal? "project"
       let project ← if projectField.isNull then pure none
-        else do pure (some (← projectField.getStr?).data)
-      pure (.workspace tenant.data project (← (← json.getObjVal? "workspace").getStr?).data)
+        else do pure (some (← projectField.getStr?).toList)
+      pure (.workspace tenant.toList project (← (← json.getObjVal? "workspace").getStr?).toList)
   | other => throw s!"unknown scope kind {other}"
 
 def parseSubjectRefText (json : Json) : Except String SubjectRefText := do
   let kind ← (← json.getObjVal? "kind").getStr?
   match kind with
   | "principal" => do
-      pure (.principal (← (← json.getObjVal? "tenant").getStr?).data
-        (← (← json.getObjVal? "principal").getStr?).data)
-  | "team" => do pure (.team (← (← json.getObjVal? "team").getStr?).data)
+      pure (.principal (← (← json.getObjVal? "tenant").getStr?).toList
+        (← (← json.getObjVal? "principal").getStr?).toList)
+  | "team" => do pure (.team (← (← json.getObjVal? "team").getStr?).toList)
   | "foreign" => do
-      pure (.foreign (← (← json.getObjVal? "homeTenant").getStr?).data
-        (← (← json.getObjVal? "principal").getStr?).data
-        (← (← json.getObjVal? "verifiedVia").getStr?).data)
+      pure (.foreign (← (← json.getObjVal? "homeTenant").getStr?).toList
+        (← (← json.getObjVal? "principal").getStr?).toList
+        (← (← json.getObjVal? "verifiedVia").getStr?).toList)
   | other => throw s!"unknown subject kind {other}"
 
 /-! ## Deny precedence and Grant resolution

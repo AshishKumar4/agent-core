@@ -75,19 +75,19 @@ theorem pair_key_injective_of_free_left {delimiter : Char} :
       | nil => exact ⟨rfl, by simpa [pairKey] using equal⟩
       | cons head tail =>
           simp only [pairKey, List.nil_append, List.cons_append, List.cons.injEq] at equal
-          exact absurd (equal.1 ▸ List.mem_cons_self head tail) freeTwo
+          exact absurd (equal.1 ▸ List.mem_cons_self) freeTwo
   | cons head tail ih =>
       intro leftTwo rightOne rightTwo freeOne freeTwo equal
       cases leftTwo with
       | nil =>
           simp only [pairKey, List.nil_append, List.cons_append, List.cons.injEq] at equal
-          exact absurd (equal.1 ▸ List.mem_cons_self head tail) freeOne
+          exact absurd (equal.1 ▸ List.mem_cons_self) freeOne
       | cons otherHead otherTail =>
           simp only [pairKey, List.cons_append, List.cons.injEq] at equal
           obtain ⟨sameHead, sameTail⟩ := equal
           have inner := ih (leftTwo := otherTail)
-            (fun member => freeOne (List.mem_cons_of_mem head member))
-            (fun member => freeTwo (List.mem_cons_of_mem otherHead member)) sameTail
+            (fun member => freeOne (List.Mem.tail head member))
+            (fun member => freeTwo (List.Mem.tail otherHead member)) sameTail
           exact ⟨by rw [sameHead, inner.1], inner.2⟩
 
 /-- **A delimiter-free right component makes the join injective.** The join read backwards

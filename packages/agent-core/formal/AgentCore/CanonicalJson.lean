@@ -322,7 +322,7 @@ theorem numberToken_head {token : List Char} (valid : numberToken token = true) 
   | nil => simp [numberToken] at valid
   | cons head tail =>
       simp only [numberToken, Bool.and_eq_true, List.all_eq_true] at valid
-      exact ⟨head, tail, rfl, valid.2 head (List.mem_cons_self head tail)⟩
+      exact ⟨head, tail, rfl, valid.2 head (List.mem_cons_self)⟩
 
 theorem numberToken_chars {token : List Char} (valid : numberToken token = true) :
     ∀ character ∈ token, numberChar character = true := by
@@ -439,7 +439,7 @@ theorem numberToken_delimited : ∀ {left right suffixLeft suffixRight : List Ch
       | cons head tail =>
           simp only [List.nil_append, List.cons_append] at equal
           subst equal
-          have isNumber := numbersRight head (List.mem_cons_self head tail)
+          have isNumber := numbersRight head (List.mem_cons_self)
           simp only [Delimited] at delimitedLeft
           rcases delimitedLeft with rfl | rfl | rfl <;> simp [numberChar] at isNumber
   | cons head tail ih =>
@@ -448,16 +448,16 @@ theorem numberToken_delimited : ∀ {left right suffixLeft suffixRight : List Ch
       cases right with
       | nil =>
           simp only [List.nil_append, List.cons_append] at equal
-          have isNumber := numbersLeft head (List.mem_cons_self head tail)
+          have isNumber := numbersLeft head (List.mem_cons_self)
           rw [← equal] at delimitedRight
           simp only [Delimited] at delimitedRight
           rcases delimitedRight with rfl | rfl | rfl <;> simp [numberChar] at isNumber
       | cons otherHead otherTail =>
           simp only [List.cons_append, List.cons.injEq] at equal
           obtain ⟨same, inner⟩ := ih
-            (fun character member => numbersLeft character (List.mem_cons_of_mem head member))
+            (fun character member => numbersLeft character (List.Mem.tail head member))
             (fun character member =>
-              numbersRight character (List.mem_cons_of_mem otherHead member))
+              numbersRight character (List.Mem.tail otherHead member))
             delimitedLeft delimitedRight equal.2
           exact ⟨by rw [equal.1, same], inner⟩
 
@@ -753,7 +753,7 @@ theorem canonical_encode_injective {left right : JsonTree} (validLeft : numbersV
 component of a Scope or Subject key is a string or `null`, so the number-token obligation
 never arises and these keys are injective outright. -/
 
-def authorityKeyTag : List Char := "agent-core.authority-key.v1".data
+def authorityKeyTag : List Char := "agent-core.authority-key.v1".toList
 
 def authorityKey (kind : List Char) (component : JsonTree) : List Char :=
   encodeJson (.arr [.str authorityKeyTag, .str kind, component])
@@ -793,29 +793,29 @@ inductive SubjectRefText where
 
 def encodeScopeRefText : ScopeRefText → JsonTree
   | .tenant tenant =>
-      .obj [("kind".data, .str "tenant".data), ("tenant".data, .str tenant)]
+      .obj [("kind".toList, .str "tenant".toList), ("tenant".toList, .str tenant)]
   | .project tenant project =>
-      .obj [("kind".data, .str "project".data), ("project".data, .str project),
-        ("tenant".data, .str tenant)]
+      .obj [("kind".toList, .str "project".toList), ("project".toList, .str project),
+        ("tenant".toList, .str tenant)]
   | .workspace tenant project workspace =>
-      .obj [("kind".data, .str "workspace".data),
-        ("project".data, match project with | none => .null | some value => .str value),
-        ("tenant".data, .str tenant), ("workspace".data, .str workspace)]
+      .obj [("kind".toList, .str "workspace".toList),
+        ("project".toList, match project with | none => .null | some value => .str value),
+        ("tenant".toList, .str tenant), ("workspace".toList, .str workspace)]
 
 def encodeSubjectRefText : SubjectRefText → JsonTree
   | .principal tenant principal =>
-      .obj [("kind".data, .str "principal".data), ("principal".data, .str principal),
-        ("tenant".data, .str tenant)]
-  | .team team => .obj [("kind".data, .str "team".data), ("team".data, .str team)]
+      .obj [("kind".toList, .str "principal".toList), ("principal".toList, .str principal),
+        ("tenant".toList, .str tenant)]
+  | .team team => .obj [("kind".toList, .str "team".toList), ("team".toList, .str team)]
   | .foreign homeTenant principal verifiedVia =>
-      .obj [("homeTenant".data, .str homeTenant), ("kind".data, .str "foreign".data),
-        ("principal".data, .str principal), ("verifiedVia".data, .str verifiedVia)]
+      .obj [("homeTenant".toList, .str homeTenant), ("kind".toList, .str "foreign".toList),
+        ("principal".toList, .str principal), ("verifiedVia".toList, .str verifiedVia)]
 
 def scopeKeyText (scope : ScopeRefText) : List Char :=
-  authorityKey "scope".data (encodeScopeRefText scope)
+  authorityKey "scope".toList (encodeScopeRefText scope)
 
 def subjectKeyText (subject : SubjectRefText) : List Char :=
-  authorityKey "subject".data (encodeSubjectRefText subject)
+  authorityKey "subject".toList (encodeSubjectRefText subject)
 
 theorem encodeScopeRefText_numberless (scope : ScopeRefText) :
     numbersValid (encodeScopeRefText scope) = true := by
@@ -867,8 +867,8 @@ and a re-verified guest is the same who — so the deny sweep is not a compariso
 keys at all. -/
 theorem foreign_subject_key_separates_verification_schemes
     (homeTenant principal : List Char) :
-    subjectKeyText (.foreign homeTenant principal "token".data) ≠
-      subjectKeyText (.foreign homeTenant principal "callback".data) := by
+    subjectKeyText (.foreign homeTenant principal "token".toList) ≠
+      subjectKeyText (.foreign homeTenant principal "callback".toList) := by
   intro equal
   have same := subject_key_injective equal
   simp [SubjectRefText.foreign.injEq] at same

@@ -120,18 +120,18 @@ theorem ordered_schedule_unique {left right : List InterceptorContribution}
       cases right with
       | nil => rfl
       | cons rightHead rightTail =>
-          cases (sameMembers rightHead).mpr (List.mem_cons_self rightHead rightTail)
+          cases (sameMembers rightHead).mpr (List.mem_cons_self)
   | cons leftHead leftTail ih =>
       cases right with
-      | nil => cases (sameMembers leftHead).mp (List.mem_cons_self leftHead leftTail)
+      | nil => cases (sameMembers leftHead).mp (List.mem_cons_self)
       | cons rightHead rightTail =>
           have headsEqual : leftHead = rightHead := by
             rcases List.mem_cons.mp
-                ((sameMembers leftHead).mp (List.mem_cons_self leftHead leftTail)) with
+                ((sameMembers leftHead).mp (List.mem_cons_self)) with
               equal | leftInRightTail
             · exact equal
             rcases List.mem_cons.mp
-                ((sameMembers rightHead).mpr (List.mem_cons_self rightHead rightTail)) with
+                ((sameMembers rightHead).mpr (List.mem_cons_self)) with
               equal | rightInLeftTail
             · exact equal.symm
             exact absurd (ordered_schedule_head_least leftOrdered rightInLeftTail)
@@ -144,14 +144,14 @@ theorem ordered_schedule_unique {left right : List InterceptorContribution}
             constructor
             · intro inLeft
               rcases List.mem_cons.mp
-                  ((sameMembers contribution).mp (List.mem_cons_of_mem _ inLeft)) with
+                  ((sameMembers contribution).mp (List.Mem.tail _ inLeft)) with
                 rfl | inRight
               · exact absurd (ordered_schedule_head_least leftOrdered inLeft)
                   (interceptor_order_irrefl contribution)
               · exact inRight
             · intro inRight
               rcases List.mem_cons.mp
-                  ((sameMembers contribution).mpr (List.mem_cons_of_mem _ inRight)) with
+                  ((sameMembers contribution).mpr (List.Mem.tail _ inRight)) with
                 rfl | inLeft
               · exact absurd (ordered_schedule_head_least rightOrdered inRight)
                   (interceptor_order_irrefl contribution)
@@ -446,12 +446,12 @@ theorem lastRewrite_rewrites {trace : List InterceptorTransformation}
       split at found
       · next inner =>
           obtain ⟨member, rewrites⟩ := ih (inner.trans found)
-          exact ⟨List.mem_cons_of_mem _ member, rewrites⟩
+          exact ⟨List.Mem.tail _ member, rewrites⟩
       · split at found
         · cases found
         · next changed =>
             cases found
-            exact ⟨List.mem_cons_self .., changed⟩
+            exact ⟨List.mem_cons_self, changed⟩
 
 theorem lastRewrite_none_all_unchanged {trace : List InterceptorTransformation}
     (nothing : lastRewrite trace = none) :

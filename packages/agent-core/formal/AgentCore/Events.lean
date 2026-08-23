@@ -401,7 +401,7 @@ theorem effect_step_preserves_guarded_admissions {before after label}
         cases lookup
         obtain ⟨admission, admissionLookup, admissionMatches⟩ := admitted
         refine ⟨admission, _, admissionLookup, ?_, admissionMatches⟩
-        simpa [invocation] using intent
+        simpa [invocation, EffectLedger.addRetryAttempt, EffectLedger.addAttempt] using intent
       · exact guarded id attempt lookup
   | preReceipt fresh otherFresh intent item noAttempt noReceipt => exact guarded
   | firstAttemptReceipt fresh otherFresh attempt latest current previous => exact guarded
@@ -919,7 +919,7 @@ def EventStore.ReservationForConsistent (store : EventStore) : Prop :=
 
 theorem default_reservation_for_consistent :
     (default : EventStore).ReservationForConsistent :=
-  ⟨fun _ _ lookup => Option.noConfusion lookup, fun _ _ lookup => Option.noConfusion lookup⟩
+  ⟨fun _ _ lookup => (by cases lookup), fun _ _ lookup => (by cases lookup)⟩
 
 /-- **Reservation consistency is preserved.** Along every trace, the `reservationFor`
     index and the `reservations` table stay in bijective agreement — no step can

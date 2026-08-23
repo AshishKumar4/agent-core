@@ -276,35 +276,35 @@ private theorem pairwise_perm_eq {α : Type} {le : α → α → Bool} :
       cases right with
       | nil => rfl
       | cons b tail =>
-          have member : b ∈ ([] : List α) := perm.mem_iff.mpr (List.mem_cons_self b tail)
-          exact absurd member (List.not_mem_nil b)
+          have member : b ∈ ([] : List α) := perm.mem_iff.mpr (List.mem_cons_self)
+          exact absurd member List.not_mem_nil
   | a :: leftTail, right, antisymm, sortedLeft, sortedRight, perm => by
       cases right with
       | nil =>
-          have member : a ∈ ([] : List α) := perm.mem_iff.mp (List.mem_cons_self a leftTail)
-          exact absurd member (List.not_mem_nil a)
+          have member : a ∈ ([] : List α) := perm.mem_iff.mp (List.mem_cons_self)
+          exact absurd member List.not_mem_nil
       | cons b rightTail =>
           have heads : a = b := by
             by_cases equal : a = b
             · exact equal
             · have aMember : a ∈ rightTail := by
-                rcases List.mem_cons.mp (perm.mem_iff.mp (List.mem_cons_self a leftTail)) with
+                rcases List.mem_cons.mp (perm.mem_iff.mp (List.mem_cons_self)) with
                   head | tail
                 · exact absurd head equal
                 · exact tail
               have bMember : b ∈ leftTail := by
-                rcases List.mem_cons.mp (perm.mem_iff.mpr (List.mem_cons_self b rightTail)) with
+                rcases List.mem_cons.mp (perm.mem_iff.mpr (List.mem_cons_self)) with
                   head | tail
                 · exact absurd head.symm equal
                 · exact tail
               have leftLe : le a b = true := (List.pairwise_cons.mp sortedLeft).1 b bMember
               have rightLe : le b a = true := (List.pairwise_cons.mp sortedRight).1 a aMember
-              exact antisymm a (List.mem_cons_self a leftTail) b
-                (List.mem_cons_of_mem a bMember) leftLe rightLe
+              exact antisymm a (List.mem_cons_self) b
+                (List.Mem.tail a bMember) leftLe rightLe
           subst heads
           have tails := pairwise_perm_eq
             (fun x xMember y yMember =>
-              antisymm x (List.mem_cons_of_mem a xMember) y (List.mem_cons_of_mem a yMember))
+              antisymm x (List.Mem.tail a xMember) y (List.Mem.tail a yMember))
             (List.pairwise_cons.mp sortedLeft).2 (List.pairwise_cons.mp sortedRight).2
             perm.cons_inv
           rw [tails]
@@ -315,7 +315,7 @@ theorem resolution_is_complete_and_declared_order (ledger : SlotLedger) (slot : 
     (ledger.resolve slot).Perm (ledger.entries.filter fun entry => decide (entry.slot = slot)) ∧
       (ledger.resolve slot).Pairwise (fun a b => slotEntryLe a b = true) :=
   ⟨List.mergeSort_perm _ slotEntryLe,
-    List.sorted_mergeSort slotEntryLe_trans slotEntryLe_total _⟩
+    List.pairwise_mergeSort slotEntryLe_trans slotEntryLe_total _⟩
 
 /-- **Resolution ignores arrival order.** Two ledgers holding the same contributions —
     however their arrival orders differ — resolve every slot to the same sequence.
@@ -327,8 +327,8 @@ theorem resolution_ignores_arrival_order {left right : SlotLedger} {slot : SlotN
   have filterPerm : (left.entries.filter fun entry => decide (entry.slot = slot)).Perm
       (right.entries.filter fun entry => decide (entry.slot = slot)) := perm.filter _
   refine pairwise_perm_eq ?_
-    (List.sorted_mergeSort slotEntryLe_trans slotEntryLe_total _)
-    (List.sorted_mergeSort slotEntryLe_trans slotEntryLe_total _)
+    (List.pairwise_mergeSort slotEntryLe_trans slotEntryLe_total _)
+    (List.pairwise_mergeSort slotEntryLe_trans slotEntryLe_total _)
     (((List.mergeSort_perm _ slotEntryLe).trans filterPerm).trans
       (List.mergeSort_perm _ slotEntryLe).symm)
   intro a aMember b bMember leftLe rightLe
@@ -350,7 +350,7 @@ theorem resolution_is_unique_declared_order {ledger : SlotLedger} {slot : SlotNa
     (sorted : presented.Pairwise (fun a b => slotEntryLe a b = true)) :
     ledger.resolve slot = presented := by
   refine pairwise_perm_eq ?_
-    (List.sorted_mergeSort slotEntryLe_trans slotEntryLe_total _) sorted
+    (List.pairwise_mergeSort slotEntryLe_trans slotEntryLe_total _) sorted
     ((List.mergeSort_perm _ slotEntryLe).trans perm.symm)
   intro a aMember b bMember leftLe rightLe
   have aFiltered := (List.mergeSort_perm _ slotEntryLe).mem_iff.mp aMember

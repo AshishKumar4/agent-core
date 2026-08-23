@@ -136,7 +136,7 @@ def ActionsBacked (domain : DynamicDomain) : Prop :=
         capability.destination = some destination
 
 theorem fresh_actions_backed : ActionsBacked .fresh := fun action member =>
-  absurd member (List.not_mem_nil action)
+  absurd member List.not_mem_nil
 
 theorem isolate_step_preserves_actions_backed {domain label after}
     (backed : ActionsBacked domain) (step : IsolateStep domain label after) :

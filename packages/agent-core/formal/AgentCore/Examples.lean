@@ -2155,7 +2155,7 @@ theorem nonvacuous_stale_mediated_denial :
       (scope := scope) (evidence := ⟨scope, 0⟩)
     · exact actionPathComplete
     · change (⟨scope, 0⟩ : PathEpoch) ∈ [⟨tenantScope, 0⟩, ⟨scope, 0⟩]
-      exact List.mem_cons_of_mem _ (List.mem_cons_self _ _)
+      exact List.Mem.tail _ (List.mem_cons_self)
     · rfl
   · rfl
   · exact AuthorityLedger.AuthorityStep.observe
@@ -5215,7 +5215,7 @@ theorem nonvacuous_interception_replay_item_bridge :
       beforePhaseRun afterPhaseRun
   refine ⟨?_, valid, (replay_item_reuses_persisted_transformations valid).1,
     (replay_item_reuses_persisted_transformations valid).2⟩
-  exact List.mem_cons_self ..
+  exact List.mem_cons_self
 
 private def interceptionSite : InterceptionSite :=
   ⟨⟨⟨1⟩, "web.fetch", 1⟩, .workspace tenant workspace, true⟩
@@ -5329,7 +5329,7 @@ private theorem interceptedMediatedReady :
       by simp [interceptedState, interceptedGraph, graphWithTurn, runningTurn],
       rfl, rfl, rfl, interceptedRegistry, ?_, rfl, rfl, ?_, ?_⟩
     · simp [interceptedState, interceptedGraph, runId]
-    · exact List.mem_cons_self ..
+    · exact List.mem_cons_self
     · simp [interceptedRegistry]
   · change tableSet authorityBase.resolutions resolution.id resolution resolution.id =
       some resolution
@@ -5362,7 +5362,7 @@ theorem nonvacuous_intercepted_observe_escalates_to_mediated :
     (∀ before after, ¬ DirectStep before interceptedObservation after) ∧
     MediatedStep interceptedState (.persistIntent invocationId) interceptedIntentState := by
   refine ⟨rfl, rfl, rfl, .admit directReady, rfl, rfl, ?_, interceptedPersistIntent⟩
-  exact applicable_interceptor_forbids_direct_admission (List.mem_cons_self ..)
+  exact applicable_interceptor_forbids_direct_admission (List.mem_cons_self)
 
 /-! ## Dispatcher witnesses (SPEC §8.5) -/
 
@@ -5758,43 +5758,43 @@ theorem nonvacuous_materialize_then_reconcile_never_duplicates :
 
 /-! ## Capability matching and attenuation (SPEC §3.4 rule 2) -/
 
-private def anyFacetObserve : Capability := ⟨"*".data, [], [.observe, .mutate], []⟩
-private def acmeObserve : Capability := ⟨"acme.*".data, [], [.observe], []⟩
-private def acmeMailSend : Capability := ⟨"acme.mail".data, ["send"], [.observe], []⟩
-private def acmeMailSendMutate : Capability := ⟨"acme.mail".data, ["send"], [.observe, .mutate], []⟩
-private def prefixSuffixParent : Capability := ⟨"a*a".data, [], [.observe], []⟩
-private def literalChild : Capability := ⟨"a".data, [], [.observe], []⟩
+private def anyFacetObserve : Capability := ⟨"*".toList, [], [.observe, .mutate], []⟩
+private def acmeObserve : Capability := ⟨"acme.*".toList, [], [.observe], []⟩
+private def acmeMailSend : Capability := ⟨"acme.mail".toList, ["send"], [.observe], []⟩
+private def acmeMailSendMutate : Capability := ⟨"acme.mail".toList, ["send"], [.observe, .mutate], []⟩
+private def prefixSuffixParent : Capability := ⟨"a*a".toList, [], [.observe], []⟩
+private def literalChild : Capability := ⟨"a".toList, [], [.observe], []⟩
 
-private def mailObserveIntent : CapabilityIntent := ⟨"acme.mail".data, "send", .observe, []⟩
-private def mailMutateIntent : CapabilityIntent := ⟨"acme.mail".data, "send", .mutate, []⟩
-private def literalIntent : CapabilityIntent := ⟨"a".data, "send", .observe, []⟩
+private def mailObserveIntent : CapabilityIntent := ⟨"acme.mail".toList, "send", .observe, []⟩
+private def mailMutateIntent : CapabilityIntent := ⟨"acme.mail".toList, "send", .mutate, []⟩
+private def literalIntent : CapabilityIntent := ⟨"a".toList, "send", .observe, []⟩
 
 /-- The pattern decision separates Facet names for real, in both directions. -/
 theorem nonvacuous_glob_match_discriminates :
-    globMatch "acme.*".data "acme.mail".data = true ∧
-      globMatch "acme.*".data "other.mail".data = false := by decide
+    globMatch "acme.*".toList "acme.mail".toList = true ∧
+      globMatch "acme.*".toList "other.mail".toList = false := by decide
 
 /-- **The escalation a prefix/suffix approximation admits.** Parent `a*a` must not cover
 child `a`: the Facet name `a` is admitted by the child and refused by the parent, so
 approving that delegation would widen authority. The decision refuses it, and the
 containment it is deciding genuinely fails. -/
 theorem nonvacuous_glob_covering_refuses_widening :
-    globMatch "a*a".data "a".data = false ∧
-      GlobMatches "a".data "a".data ∧ ¬ GlobMatches "a*a".data "a".data :=
+    globMatch "a*a".toList "a".toList = false ∧
+      GlobMatches "a".toList "a".toList ∧ ¬ GlobMatches "a*a".toList "a".toList :=
   ⟨by decide, globMatch_sound (by decide),
     fun matched => absurd (globMatch_complete matched) (by decide)⟩
 
 /-- Covering is not merely refusal: a genuinely narrower pattern is admitted, and the
 containment it stands for holds over every Facet name. -/
 theorem nonvacuous_glob_covering_admits_narrowing :
-    globMatch "a*z".data "ab*yz".data = true ∧
-      ∀ value, GlobMatches "ab*yz".data value → GlobMatches "a*z".data value :=
+    globMatch "a*z".toList "ab*yz".toList = true ∧
+      ∀ value, GlobMatches "ab*yz".toList value → GlobMatches "a*z".toList value :=
   ⟨by decide, glob_covering_is_sound (globMatch_sound (by decide))⟩
 
 /-- Pattern validation, the side condition the completeness direction rests on, is itself
 discriminating. -/
 theorem nonvacuous_pattern_validity_discriminates :
-    PatternValid "acme.*".data ∧ ¬ PatternValid "acme.#".data := by decide
+    PatternValid "acme.*".toList ∧ ¬ PatternValid "acme.#".toList := by decide
 
 /-- Admission separates intents: the same capability admits one and refuses another. -/
 theorem nonvacuous_capability_matches_discriminates :
@@ -5857,13 +5857,13 @@ private def actingPrincipal : Subject := .principal ⟨homeTenant, ⟨5⟩⟩
 private def actingTeam : Subject := .team ⟨6⟩
 private def strangerPrincipal : Subject := .principal ⟨homeTenant, ⟨7⟩⟩
 
-private def mailIntent : CapabilityIntent := ⟨"acme.mail".data, "send", .observe, []⟩
-private def delegateIntent : CapabilityIntent := ⟨"acme.mail".data, "send", .delegate, []⟩
+private def mailIntent : CapabilityIntent := ⟨"acme.mail".toList, "send", .observe, []⟩
+private def delegateIntent : CapabilityIntent := ⟨"acme.mail".toList, "send", .delegate, []⟩
 
-private def broadCapability : Capability := ⟨"*".data, [], [.observe, .mutate, .delegate], []⟩
-private def mailCapability : Capability := ⟨"acme.*".data, [], [.observe], []⟩
-private def widerCapability : Capability := ⟨"*".data, [], [.observe, .administer], []⟩
-private def otherCapability : Capability := ⟨"other.*".data, [], [.observe], []⟩
+private def broadCapability : Capability := ⟨"*".toList, [], [.observe, .mutate, .delegate], []⟩
+private def mailCapability : Capability := ⟨"acme.*".toList, [], [.observe], []⟩
+private def widerCapability : Capability := ⟨"*".toList, [], [.observe, .administer], []⟩
+private def otherCapability : Capability := ⟨"other.*".toList, [], [.observe], []⟩
 
 private def rootGrant : AuthorityGrant :=
   ⟨.manual 1, actingPrincipal, rootScope, .allow, broadCapability, none, true⟩
@@ -6093,8 +6093,8 @@ theorem nonvacuous_canonical_scope_key_discriminates :
 /-- **A guest's verification stamp is inside its Subject key.** The same foreign Principal
 under two schemes is two subjects to every key comparison the resolver makes. -/
 theorem nonvacuous_canonical_subject_key_separates_schemes :
-    subjectKeyText (.foreign plainTenant plainTenant "token".data) ≠
-        subjectKeyText (.foreign plainTenant plainTenant "callback".data) ∧
+    subjectKeyText (.foreign plainTenant plainTenant "token".toList) ≠
+        subjectKeyText (.foreign plainTenant plainTenant "callback".toList) ∧
       subjectKeyText (.principal plainTenant plainTenant) ≠
         subjectKeyText (.team plainTenant) :=
   ⟨foreign_subject_key_separates_verification_schemes _ _,
@@ -6103,8 +6103,8 @@ theorem nonvacuous_canonical_subject_key_separates_schemes :
 /-- The encoder is not injective by accident: a number token really can sit beside a string
 that renders the same characters, and the two trees stay apart. -/
 theorem nonvacuous_canonical_encoding_discriminates :
-    encodeJson (.arr [.num ['1'], .num ['2']]) = "[1,2]".data ∧
-      encodeJson (.num ['1', '2']) = "12".data ∧
+    encodeJson (.arr [.num ['1'], .num ['2']]) = "[1,2]".toList ∧
+      encodeJson (.num ['1', '2']) = "12".toList ∧
       encodeJson (.str ['1', '2']) ≠ encodeJson (.num ['1', '2']) ∧
       numbersValid (.arr [.num ['1'], .num ['2']]) = true := by decide
 
