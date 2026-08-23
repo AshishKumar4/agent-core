@@ -1240,7 +1240,7 @@ private theorem outstanding_of_run_open {before after : GraphStore}
   by_cases same : candidate = runId
   · rw [same] at declared ⊢
     rw [openedCriteria] at declared
-    exact ⟨_, by rw [registries]; exact tableSet_self .., List.mem_map_of_mem _ declared, by simp⟩
+    exact ⟨_, by rw [registries]; exact tableSet_self .., List.mem_map_of_mem declared, by simp⟩
   · rw [otherCriteria candidate same] at declared
     obtain ⟨registry, registryLookup, reserved, notCompleted⟩ :=
       outstanding candidate criterion declared
@@ -1286,12 +1286,12 @@ private theorem criterion_eq_of_nodup {criteria : List AcceptanceCriterion}
       · rcases List.mem_cons.mp rightMem with rightHead | rightTail
         · rw [leftHead, rightHead]
         · have member : right.id ∈ tail.map AcceptanceCriterion.id :=
-            List.mem_map_of_mem AcceptanceCriterion.id rightTail
+            List.mem_map_of_mem rightTail
           rw [← sameId, leftHead] at member
           exact absurd member nodup.1
       · rcases List.mem_cons.mp rightMem with rightHead | rightTail
         · have member : left.id ∈ tail.map AcceptanceCriterion.id :=
-            List.mem_map_of_mem AcceptanceCriterion.id leftTail
+            List.mem_map_of_mem leftTail
           rw [sameId, rightHead] at member
           exact absurd member nodup.1
         · exact ih nodup.2 leftTail rightTail
@@ -1591,7 +1591,8 @@ theorem empty_graph_acceptance_is_outstanding :
 theorem empty_graph_acceptance_criteria_unique :
     AcceptanceCriteriaUnique (default : GraphStore) := by
   intro leftRun _ left _ leftMem _ _
-  simp [GraphStore.acceptanceCriteria] at leftMem
+  have runsEmpty : (default : GraphStore).runs leftRun = none := rfl
+  simp [GraphStore.acceptanceCriteria, runsEmpty] at leftMem
 
 theorem empty_graph_verdicts_earned {effects} :
     AcceptanceVerdictsEarned (default : GraphStore) effects := by
@@ -1689,7 +1690,7 @@ theorem graph_step_preserves_commits {effects events audit before after label id
     intro key added absent
     by_cases same : id = key
     · rw [same, absent] at present
-      exact Option.noConfusion present
+      exact (by cases present)
     · rw [tableSet_other _ _ _ same]
       exact present
   cases step with
@@ -1725,7 +1726,7 @@ private theorem written_commit_is_the_added_one {before : GraphStore} {key : Com
   · subst same
     exact Option.some.inj ((tableSet_self ..).symm.trans introduced)
   · rw [tableSet_other _ _ _ same, absent] at introduced
-    exact Option.noConfusion introduced
+    exact (by cases introduced)
 
 /-- C13-RUN-UNDO-FENCE. No transition, under any label, puts an undo commit into a graph whose
     target branch still has a held Turn. The refusal reads the holder and the status, never the
@@ -1742,7 +1743,7 @@ theorem undo_fences_held_turn {effects events audit before after label id commit
   | recordAcceptanceVerdict | beginTerminalization | forceCancelSibling =>
       have direct : before.commits id = some commit := introduced
       rw [fresh] at direct
-      exact Option.noConfusion direct
+      exact (by cases direct)
   | startRun _ _ _ _ _ _ _ _ _ _ _ _ _ _ rootKind =>
       rw [written_commit_is_the_added_one fresh introduced, kind] at rootKind
       exact RunCommitKind.noConfusion rootKind

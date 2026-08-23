@@ -163,7 +163,7 @@ theorem indexIn_cons {head : Scope} {tail : List Scope} {scope : Scope} {index :
   split at found
   · next same => exact Or.inl ⟨same, by simpa using found.symm⟩
   · next different =>
-      rw [Option.map_eq_some'] at found
+      rw [Option.map_eq_some_iff] at found
       obtain ⟨inner, innerFound, position⟩ := found
       exact Or.inr ⟨different, inner, innerFound, position.symm⟩
 
@@ -405,7 +405,7 @@ widening, so the asymmetry can only refuse more requests, never admit one the ex
 comparison would have refused. -/
 theorem matches_deny_of_matches_request {grant : AuthorityGrant} {request : AuthorityRequest}
     (matched : grant.MatchesRequest request) : grant.MatchesDeny request :=
-  ⟨List.mem_map_of_mem Subject.identity matched.1, matched.2.1, matched.2.2⟩
+  ⟨List.mem_map_of_mem matched.1, matched.2.1, matched.2.2⟩
 
 instance (grant : AuthorityGrant) (request : AuthorityRequest) :
     Decidable (grant.MatchesRequest request) :=
@@ -461,7 +461,7 @@ theorem deny_survives_verification_scheme_change {grants : List AuthorityGrant}
     ¬ EffectiveAuthority grants request := by
   intro effective
   refine effective.2 ⟨denyGrant, member, live, effect, ?_, reaches, admits⟩
-  simpa [stamped, Subject.identity] using List.mem_map_of_mem Subject.identity acting
+  simpa [stamped, Subject.identity] using List.mem_map_of_mem acting
 
 /-- **An allow is authority only under the scheme it was verified with.** The same foreign
 Principal stamped by another scheme is another subject to the allow side, which is what lets

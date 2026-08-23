@@ -1819,7 +1819,7 @@ theorem nonvacuous_request_approve_start_trace :
     · rfl
     · decide
   · have approvedReady : MediatedReady approvedState actionFirstRequest := by
-      simpa [approvedState, requestedState] using actionFirstReady
+      exact actionFirstReady
     constructor
     · apply MediatedStep.claimItem (request := actionFirstRequest) (claim := actionClaim)
         (effects' := claimedEffects) approvedReady
@@ -1844,7 +1844,7 @@ theorem nonvacuous_request_approve_start_trace :
         · rfl
         · rfl
     · have claimedReady : MediatedReady claimedState actionFirstRequest := by
-        simpa [claimedState] using approvedReady
+        exact approvedReady
       change MediatedStep claimedState
         (.approvalStart actionApproval actionPrepared.header.invocation ⟨50⟩ ⟨50⟩)
         startedState
@@ -1899,7 +1899,7 @@ theorem nonvacuous_approval_start_then_continue :
       (.approvalContinue actionApproval actionInvocation ⟨51⟩ ⟨51⟩) continuedState := by
   refine ⟨nonvacuous_request_approve_start_trace.2.2.2, ?_, ?_⟩
   · have ready : MediatedReady startedState actionSecondRequest := by
-      simpa [startedState, claimedState, approvedState, requestedState] using actionSecondReady
+      exact actionSecondReady
     apply MediatedStep.claimItem (request := actionSecondRequest) (claim := actionSecondClaim)
       (effects' := secondClaimedEffects) ready
     · change actionSecondRequest.ReservesItem 1
@@ -1929,9 +1929,8 @@ theorem nonvacuous_approval_start_then_continue :
       · decide
       · rfl
       · rfl
-  · have ready : MediatedReady secondClaimedState actionSecondRequest := by
-      simpa [secondClaimedState, startedState, claimedState, approvedState, requestedState]
-        using actionSecondReady
+  · have ready : MediatedReady secondClaimedState actionSecondRequest :=
+      (actionSecondReady : MediatedReady secondClaimedState actionSecondRequest)
     apply MediatedStep.approvalContinue (state := secondClaimedState)
       (request := actionSecondRequest)
       (approvalId := actionApproval) (attempt := actionSecondAttempt)
@@ -1946,7 +1945,7 @@ theorem nonvacuous_approval_start_then_continue :
         noTurnHeader,
         actionInvocation, EffectLedger.addAttempt, EffectLedger.recordAdmission,
         EffectLedger.setClaim, tableSet_self]
-    · simpa [secondClaimedState] using nonvacuous_persisted_approval_continuation
+    · exact nonvacuous_persisted_approval_continuation
     · simp [secondClaimedState, startedState, ApprovalLedger.consume, actionSecondRequest,
         actionRequest,
         actionPrepared, actionHeader, noTurnHeader, actionInvocation, tableSet_self]
@@ -2428,7 +2427,7 @@ theorem nonvacuous_distributed_permit_replay_after_restart :
   obtain ⟨reachable, authenticated, blocked⟩ :=
     CanonicalMediatedTrace.canonical_replay_after_restart_is_reauthenticated_but_cannot_reconsume
   refine ⟨_, _, reachable, authenticated, ?_⟩
-  simpa using blocked
+  exact blocked
 
 theorem nonvacuous_missing_target_request_authentication_fails_closed :
     ∃ state target nonce,
@@ -2844,8 +2843,8 @@ theorem nonvacuous_aggregation_chain :
     simpa using step
   refine ⟨chain, ?_⟩
   have := Representation.MixtureOfAgents.proposers_are_ancestors chain chainProposer
-    (List.mem_singleton.mpr rfl)
-  simpa using this
+  have headEq : chainProposerHeadId = chainProposer.head := rfl
+  simpa [headEq] using this
 
 /-- A disabled Subscription refuses to fire even with a fresh key. -/
 private def disabledLedger : SubscriptionLedger :=
@@ -2930,7 +2929,8 @@ private theorem acceptanceVerifierReceipt :
 private theorem defaultDeclaresNoAcceptance (accId : AcceptanceId) :
     ¬ (default : GraphStore).DeclaresAcceptance accId := by
   intro ⟨candidate, criterion, member, _⟩
-  simp [GraphStore.acceptanceCriteria] at member
+  have runsEmpty : (default : GraphStore).runs candidate = none := rfl
+  simp [GraphStore.acceptanceCriteria, runsEmpty] at member
 
 private theorem writerGraphDeclaresNoAcceptance (accId : AcceptanceId) :
     ¬ writerGraph.DeclaresAcceptance accId := by
@@ -2938,7 +2938,9 @@ private theorem writerGraphDeclaresNoAcceptance (accId : AcceptanceId) :
   by_cases same : candidate = runId
   · rw [same] at member
     simp [GraphStore.acceptanceCriteria, writerGraph, rootGraph, run] at member
-  · simp [GraphStore.acceptanceCriteria, writerGraph, rootGraph, tableSet, same] at member
+  · have runsEmpty : (default : GraphStore).runs candidate = none := rfl
+    simp [GraphStore.acceptanceCriteria, writerGraph, rootGraph, tableSet, same, runsEmpty]
+      at member
 
 private def acceptanceRunRecord : Run :=
   ⟨tenant, workspace, agent, pins, rootCommitId, branchId, none, .active, [acceptanceCriterion]⟩
@@ -3344,8 +3346,9 @@ theorem nonvacuous_acceptance_settlement_invariants :
       simpa [GraphStore.acceptanceCriteria, acceptanceSettledState,
         acceptanceSettlementRun [verdictAtHead], acceptanceTerminalRun] using declared
     · exact absurd declared (by
+        have runsEmpty : (default : GraphStore).runs candidate = none := rfl
         simp [GraphStore.acceptanceCriteria, acceptanceSettledState, acceptanceSettlementGraph,
-          settledGraph, terminalBefore, rootGraph, tableSet_other _ _ _ same, same])
+          settledGraph, terminalBefore, rootGraph, tableSet_other _ _ _ same, same, runsEmpty])
   refine ⟨?_, ?_, ?_, ?_⟩
   · intro candidate criterion declared
     obtain ⟨rfl, rfl⟩ := criteria candidate criterion declared
@@ -3538,7 +3541,7 @@ private theorem fencedBranchUnheld (store : GraphStore)
     rw [tableSet_other _ _ _ same] at lookup
     change tableSet (default : GraphStore).turns turnId runningTurn candidate = some record at lookup
     rw [tableSet_other _ _ _ same] at lookup
-    exact Option.noConfusion lookup
+    exact (by cases lookup)
 
 private theorem undoAllowed {store : GraphStore} {selected parent : CommitId}
     {parentRecord : RunCommit}
@@ -3931,7 +3934,7 @@ private theorem reachOnlyTurn (subject : TreeId) (candidate : TurnId) (record : 
       some record at lookup
     rw [tableSet_other _ _ _ same] at lookup
     rw [reachNoTurnYet subject candidate] at lookup
-    exact Option.noConfusion lookup
+    exact (by cases lookup)
 
 private theorem reachSiblingsTerminal (subject : TreeId) :
     SiblingTurnsTerminalAndUnheld (reachTerminalizingGraph subject) runId turnId := by
@@ -4881,7 +4884,7 @@ theorem nonvacuous_dynamic_isolate_provenance :
       rw [expected] at lookup
       exact (Option.some.inj lookup).symm
     subst destinationFree
-    exact Option.noConfusion named
+    exact (by cases named)
 
 /-- The §4.6 backend manifest admits only `dynamic`: with everything else permissive
 the selector places it dynamic, and with a substrate that cannot host dynamic it

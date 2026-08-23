@@ -312,7 +312,7 @@ theorem session_use_is_turn_owned_and_live {ledger label after use}
     | send admitted _ => exact Option.some.inj isUse ▸ admitted
     | snapshot admitted _ => exact Option.some.inj isUse ▸ admitted
     | expose admitted _ => exact Option.some.inj isUse ▸ admitted
-    | _ => exact Option.noConfusion isUse
+    | _ => exact (by cases isUse)
   exact admitted
 
 /-- **A stale Session admits nothing.** A session that is lost or closed, or a capability
@@ -357,7 +357,7 @@ theorem close_disposes_child_facets {ledger session after}
       · rw [if_neg inSession] at revoked'
         cases Option.some.inj revoked'
         exact absurd sameSession inSession
-    next => exact Option.noConfusion revoked'
+    next => exact (by cases revoked')
 
 /-- **A closed Session is terminal.** No transition of any kind changes a closed session
 record, so a disposed child Facet can never come back to life under its Session. -/
@@ -371,7 +371,7 @@ theorem closed_session_is_terminal {ledger label after session record}
     by_cases same : session = opened
     · subst same
       rw [lookup] at fresh
-      exact Option.noConfusion fresh
+      exact (by cases fresh)
     · exact Eq.trans (tableSet_other _ _ _ same _) lookup
   | markLost found live =>
     rename_i lost _lostRecord
@@ -432,7 +432,7 @@ theorem session_pin_is_immutable {ledger label after session record}
     by_cases same : session = opened
     · subst same
       rw [lookup] at fresh
-      exact Option.noConfusion fresh
+      exact (by cases fresh)
     · exact ⟨record, Eq.trans (tableSet_other _ _ _ same _) lookup, rfl, rfl, rfl, rfl⟩
   | markLost found _live =>
     rename_i lost _lostRecord
@@ -473,7 +473,7 @@ theorem unbound_send_is_refused {ledger use binding after}
   cases step with
   | send _admitted grantLookup =>
     rw [unbound] at grantLookup
-    exact Option.noConfusion grantLookup
+    exact (by cases grantLookup)
 
 /-- **The proxy send writes nothing into the Session.** The credential-carrying egress
 record is the only thing a send produces; session files and snapshots are untouched, so
@@ -494,7 +494,7 @@ def CredentialIsolated (ledger : EnvironmentLedger) : Prop :=
   (∀ id record, ledger.snapshots id = some record → FilesIsolated record.content)
 
 theorem boot_credential_isolated : CredentialIsolated .boot :=
-  ⟨fun _ _ _ leak => Option.noConfusion leak, fun _ _ lookup => Option.noConfusion lookup⟩
+  ⟨fun _ _ _ leak => (by cases leak), fun _ _ lookup => (by cases lookup)⟩
 
 /-- **Every transition preserves credential isolation.** Writes store agent-domain
 values, which carry refs but never plaintext; a snapshot copies already-isolated files;
@@ -516,14 +516,14 @@ theorem env_step_preserves_credential_isolation {ledger label after}
       cases restoreFrom with
       | none =>
           cases Option.some.inj restore
-          exact Option.noConfusion leak'
+          exact (by cases leak')
       | some snapshotId =>
           have restore' : Option.map SnapshotRecord.content (ledger.snapshots snapshotId)
               = some content := restore
           cases snapLookup : ledger.snapshots snapshotId with
           | none =>
               rw [snapLookup] at restore'
-              exact Option.noConfusion restore'
+              exact (by cases restore')
           | some record =>
               rw [snapLookup] at restore'
               cases Option.some.inj restore'
@@ -567,7 +567,7 @@ theorem env_step_preserves_credential_isolation {ledger label after}
     by_cases same : session = closing
     · subst same
       rw [setFiles_self] at leak'
-      exact Option.noConfusion leak'
+      exact (by cases leak')
     · rw [setFiles_other _ _ _ same] at leak'
       exact files session path secret leak'
   | _ => exact ⟨files, snapshots⟩

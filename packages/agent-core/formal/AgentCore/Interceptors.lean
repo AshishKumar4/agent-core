@@ -832,12 +832,12 @@ theorem run_trace_is_admitted {behave : InterceptorBehavior}
     | none =>
         simp only [blockedNow] at traced
         rw [← traced]
-        exact List.mem_map_of_mem _ member
+        exact List.mem_map_of_mem member
     | some blockedOn =>
         simp only [blockedNow] at traced
         obtain ⟨ran, blocker, shape, _, prefixTraced⟩ := traced
         rw [shape, List.map_append]
-        exact List.mem_append_left _ (prefixTraced ▸ List.mem_map_of_mem _ member)
+        exact List.mem_append_left _ (prefixTraced ▸ List.mem_map_of_mem member)
   obtain ⟨contribution, inConsumed, sameRef⟩ := List.mem_map.mp named
   have inSchedule : contribution ∈ schedule := by
     rw [split]
