@@ -242,6 +242,32 @@ function driverSource(designations, auditedModules) {
     ].join("\n");
 }
 
+export const originMarkers = Object.freeze(["sourced", "synthetic"]);
+
+/**
+ * Exact trailing provenance marker of an encoded declaration structure.
+ * Fails closed: the last element must be the literal string `sourced` or
+ * `synthetic`; missing, non-string, unknown, or non-tail markers are
+ * rejected instead of defaulting to sourced.
+ */
+export function parseOriginMarker(structure) {
+    if (!Array.isArray(structure) || structure.length === 0) {
+        throw new TypeError("declaration structure must be a nonempty array");
+    }
+    const tail = structure[structure.length - 1];
+    if (typeof tail !== "string" || !originMarkers.includes(tail)) {
+        throw new TypeError(
+            "declaration structure must end in origin marker sourced|synthetic"
+        );
+    }
+    if (structure.slice(0, -1).includes(tail)) {
+        throw new TypeError(
+            "declaration origin marker must appear exactly once, at the tail"
+        );
+    }
+    return tail;
+}
+
 function validateAndHash(raw, expectedDesignations, expectedModules) {
     const encoding = stringField(raw, "encoding", "structural package");
     const auditedModules = strings(raw.auditedModules, "structural package auditedModules");
@@ -270,10 +296,7 @@ function validateAndHash(raw, expectedDesignations, expectedModules) {
         if (declarations.has(name)) {
             throw new TypeError(`structural package contains duplicate declaration ${name}`);
         }
-        const synthetic =
-            Array.isArray(entry.structure) &&
-            entry.structure.length > 0 &&
-            entry.structure[entry.structure.length - 1] === "synthetic";
+        const synthetic = parseOriginMarker(entry.structure) === "synthetic";
         declarations.set(name, { sha: sha256(JSON.stringify(entry.structure)), synthetic });
     }
 

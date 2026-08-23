@@ -6,6 +6,7 @@ import { promisify } from "node:util";
 import { afterEach, beforeAll, describe, expect, test } from "vitest";
 import {
     generateNormativeLock,
+    parseOriginMarker,
     parseStructuralPackageLine,
     structuralPackage
 } from "../../scripts/check-normative.mjs";
@@ -158,6 +159,29 @@ def value : carrier (${proof}) := (0 : Nat)
 theorem claim : proposition (${proof}) ∧ value = value := ⟨True.intro, rfl⟩
 `);
 }
+
+describe("origin marker parser", () => {
+    test("accepts exact trailing sourced and synthetic markers", () => {
+        expect(parseOriginMarker(["tag", "sourced"])).toBe("sourced");
+        expect(parseOriginMarker(["tag", "x", "synthetic"])).toBe("synthetic");
+    });
+
+    test("fails closed on missing, non-string, and unknown tails", () => {
+        expect(() => parseOriginMarker([])).toThrow();
+        expect(() => parseOriginMarker(["tag"])).toThrow();
+        expect(() => parseOriginMarker(["tag", 7])).toThrow();
+        expect(() => parseOriginMarker(["tag", null])).toThrow();
+        expect(() => parseOriginMarker(["tag", {}])).toThrow();
+        expect(() => parseOriginMarker(undefined)).toThrow();
+        expect(() => parseOriginMarker(["tag", "sourcedd"])).toThrow();
+        expect(() => parseOriginMarker(["tag", "Sourced"])).toThrow();
+    });
+
+    test("rejects markers that are not exactly once at the tail", () => {
+        expect(() => parseOriginMarker(["sourced", "sourced"])).toThrow();
+        expect(() => parseOriginMarker(["sourced", "x", "synthetic", "sourced"])).toThrow();
+    });
+});
 
 describe("normative structural encoder", { timeout: 120_000 }, () => {
     test("regenerates the complete committed lock byte-identically", async () => {
