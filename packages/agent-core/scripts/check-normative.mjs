@@ -75,7 +75,8 @@ function stringField(value, field, location) {
 function structuralPackage(source) {
     const lines = source
         .split(/\r?\n/u)
-        .filter((candidate) => candidate.startsWith('{"encodingVersion":'));
+        .filter((candidate) =>
+            candidate.startsWith('{"') && candidate.includes('"encodingVersion":'));
     if (lines.length !== 1) {
         throw new TypeError(
             `Lean emitted ${lines.length} normative structural packages; expected exactly one`

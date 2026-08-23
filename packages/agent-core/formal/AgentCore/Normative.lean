@@ -291,10 +291,10 @@ private def isProjectModuleDeclaration (environment : Environment) (name : Name)
 private def isProjectDeclarationName (environment : Environment) (name : Name) : Bool :=
   !(userDeclarationName name).isInternal && isProjectModuleDeclaration environment name
 
-private def collectAxiomUnion (environment : Environment) (roots : List Name) : Array Name :=
-  let action := roots.forM CollectAxioms.collect
-  let (_, state) := (action.run environment).run {}
-  state.axioms
+private def collectAxiomUnion [Monad m] [MonadEnv m] (roots : List Name) : m (Array Name) :=
+  roots.foldlM (init := #[]) fun union root => do
+    let axioms ← collectAxioms root
+    pure (union ++ axioms)
 
 private def axiomIsAllowed (allowed : List String) (name : Name) : Bool :=
   let value := name.toString
@@ -324,7 +324,7 @@ private def auditProjectEnvironment (environment : Environment)
       | _ => pure ()
   let theoremNames := declarations.foldl (init := []) fun names (name, info) =>
     if isProjectDeclarationName environment name && info.isTheorem then name :: names else names
-  for axiomName in collectAxiomUnion environment theoremNames do
+  for axiomName in ← collectAxiomUnion theoremNames do
     unless axiomIsAllowed allowed axiomName do
       throwError "project theorem set depends on disallowed axiom {axiomName}"
   for (name, info) in declarations do
@@ -336,7 +336,7 @@ private def auditProjectEnvironment (environment : Environment)
         throwError "project declaration {userDeclarationName name} contains an open expression"
   let definitionNames := declarations.foldl (init := []) fun names (name, info) =>
     if isProjectDeclarationName environment name && !info.isTheorem then name :: names else names
-  for axiomName in collectAxiomUnion environment definitionNames do
+  for axiomName in ← collectAxiomUnion definitionNames do
     unless axiomIsAllowed allowed axiomName do
       throwError "project definition set depends on disallowed axiom {axiomName}"
 
