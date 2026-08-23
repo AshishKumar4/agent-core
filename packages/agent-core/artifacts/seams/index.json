@@ -6,6 +6,7 @@
     "authority-permit-target-store",
     "authority-mutation-store",
     "target-lease-evidence-store",
+    "target-lease-evidence-source",
     "content-retention",
     "content-store",
     "identity-repository",
@@ -36,6 +37,7 @@
   "pendingFragments": [],
   "pendingRequired": [],
   "discoveredDispositions": {
-    "src/actors/store.ts#ActorStore": "actor-local-store"
+    "src/actors/store.ts#ActorStore": "actor-local-store",
+    "src/authority/target-lease-evidence-store.ts#TargetLeaseEvidenceSourcePort": "target-lease-evidence-source"
   }
 }

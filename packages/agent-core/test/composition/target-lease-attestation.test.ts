@@ -14,7 +14,6 @@ import {
     TargetAuthorityPermitRequest,
     TargetLeaseEvidence,
     TargetLeaseEvidenceIssuer,
-    type MemoryTargetLeaseEvidenceTransaction
 } from "../../src/authority";
 import {
     StoredProjectedTargetLeaseEvidence,
@@ -242,12 +241,7 @@ describe("source-hosted target lease attestation across three distinct hosts", (
     const nonce = "lease-attest-nonce";
     const provisional = provisionalRequestFor(expected, nonce, provisionalExpiry);
 
-    function buildHosts(): {
-        source: MemoryTargetLeaseSourceStore;
-        tenantStore: MemoryAuthorityPermitStore;
-        channel: TenantProjectionChannel;
-        host: StoredProjectedTargetLeaseEvidence<MemoryTargetLeaseEvidenceTransaction>;
-    } {
+    function buildHosts() {
         const source = new MemoryTargetLeaseSourceStore(tenant, sourceActor);
         seedSource(source, expected.intentDigest);
         const tenantStore = new MemoryAuthorityPermitStore(tenantActor);
@@ -260,7 +254,6 @@ describe("source-hosted target lease attestation across three distinct hosts", (
         );
         return { source, tenantStore, channel, host };
     }
-
     test(
         "commits, self-projects, and returns only an immutable reference to the target",
         { tags: "p0" },
