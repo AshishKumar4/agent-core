@@ -3,6 +3,7 @@ import { describe, expect, test, vi } from "vitest";
 import { AgentCoreError } from "../../src/errors";
 import {
     RecordCodec,
+    canonicalTupleKey,
     decodeBase64,
     decodeCanonicalJson,
     encodeBase64,
@@ -92,6 +93,26 @@ describe("Canonical codecs", () => {
         const encoded = encodeCanonicalJson({ z: 1, nested: { y: 2, a: 3 }, a: 4 });
 
         expect(new TextDecoder().decode(encoded)).toBe('{"a":4,"nested":{"a":3,"y":2},"z":1}');
+    });
+
+    test("preserves every tuple boundary, including control characters", { tags: "p0" }, () => {
+        const left = canonicalTupleKey("test.tuple", ["a", "b\u0000c"]);
+        const right = canonicalTupleKey("test.tuple", ["a\u0000b", "c"]);
+
+        expect(left).not.toBe(right);
+        expect(decodeCanonicalJson(new TextEncoder().encode(left))).toEqual([
+            "test.tuple",
+            "a",
+            "b\u0000c"
+        ]);
+        expect(decodeCanonicalJson(new TextEncoder().encode(right))).toEqual([
+            "test.tuple",
+            "a\u0000b",
+            "c"
+        ]);
+        expect(() => canonicalTupleKey("", [])).toThrow(
+            "Canonical tuple key namespace must be nonblank"
+        );
     });
 
     test("orders composed and decomposed Unicode keys by UTF-16 code units", { tags: "p0" }, () => {

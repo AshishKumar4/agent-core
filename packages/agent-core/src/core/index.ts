@@ -2,6 +2,7 @@ export { TextId } from "./id";
 export {
     canonicalJsonCopy,
     canonicalJsonEqual,
+    canonicalTupleKey,
     compareCanonicalText,
     decodeCanonicalJson,
     encodeCanonicalJson,
