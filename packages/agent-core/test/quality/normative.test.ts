@@ -207,6 +207,7 @@ describe("normative structural encoder", { timeout: 120_000 }, () => {
         const committed = JSON.parse(
             await readFile(resolve(packageRoot, "artifacts/normative.lock"), "utf8")
         ) as {
+            declarations: { name: string; sha256: string }[];
             designations: { name: string; semanticClosureSha256: string }[];
             semanticClosures: { sha256: string; declarations: string[] }[];
         };
