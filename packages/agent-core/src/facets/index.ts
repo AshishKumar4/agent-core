@@ -20,6 +20,7 @@ export {
     OperationName,
     OperationRef,
     PromptSectionId,
+    SettingsLayerId,
     SlotEntryId,
     SlotName,
     SurfaceId
@@ -57,6 +58,9 @@ export { MemoryWorkspaceSlotStore } from "./slot-memory";
 export { SurfaceRegistration } from "./surface";
 export { SurfaceWithdrawalSet, WorkspaceSurfaceStore } from "./surface-store";
 export { MemoryWorkspaceSurfaceStore } from "./surface-memory";
+export { SettingsLayer, SettingsLayerOrigin } from "./settings";
+export { SettingsWithdrawalSet, WorkspaceSettingsStore } from "./settings-store";
+export { MemoryWorkspaceSettingsStore } from "./settings-memory";
 export {
     EventDeclaration,
     EventPattern,

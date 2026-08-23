@@ -119,6 +119,14 @@ export class PromptSectionId extends TextId {
     }
 }
 
+export class SettingsLayerId extends TextId {
+    public constructor(value: string) {
+        super(value, "Settings layer ID");
+        requireCanonicalId(value, "Settings layer ID");
+        Object.freeze(this);
+    }
+}
+
 function requireCanonicalId(value: string, subject: string): void {
     if (value.length === 0 || value !== value.trim()) {
         throw new TypeError(`${subject} must be a nonblank canonical string`);

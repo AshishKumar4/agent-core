@@ -42,6 +42,8 @@ export type {
     FacetSlotReadPort,
     PackageFacetRoots
 } from "./package-runtime";
+export { WorkspaceSettingsMaterializer } from "./settings-materializer";
+export type { SettingsMaterializationInit } from "./settings-materializer";
 export {
     AuthenticatedAuthorityPermitDenial,
     AuthorityPermitIssuanceTransport,
