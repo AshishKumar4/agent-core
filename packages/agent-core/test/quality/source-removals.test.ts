@@ -17,7 +17,8 @@ const expectedPaths = [
     "packages/agent-core/src/content/record.ts",
     "packages/agent-core/src/core/value.ts",
     "packages/agent-core/src/core/version.ts",
-    "packages/agent-core/src/substrates/sqlite/binding.ts"
+    "packages/agent-core/src/substrates/sqlite/binding.ts",
+    "packages/agent-core/src/substrates/sqlite/events/records.ts"
 ];
 
 let fixture: Awaited<ReturnType<typeof loadFixture>>;

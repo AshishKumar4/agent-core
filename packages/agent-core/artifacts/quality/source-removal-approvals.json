@@ -176,6 +176,32 @@
         "test/substrates/sqlite/tenant-control.test.ts#SQLite Tenant control storage stores the same Binding identity independently in two Workspaces"
       ],
       "digest": "530f7b7d8a15193a76164c4dfa05c429b5e22ea567b55f662fd7137b79f19a6f"
+    },
+    {
+      "path": "packages/agent-core/src/substrates/sqlite/events/records.ts",
+      "owner": "W7",
+      "replacements": ["packages/agent-core/src/substrates/sqlite/workspace-records.ts"],
+      "rationale": "The one Workspace Actor record store now persists every Workspace-owned record kind through one table and one transaction. Keeping the Event-only module path would misstate ownership and preserve a second name for the same storage plane.",
+      "original": {
+        "baseCommit": "1e5c2a5e534efdc0c338efc5a1eff94596eaf234",
+        "sha256": "894681ec9d03da96de35902d4db83862fe5082da8689f756c13723f13b7ab209"
+      },
+      "review": {
+        "disposition": {
+          "owner": "W7",
+          "commit": "96fbfc9b32ac0ee3705ccfe108ce04f22c83d18c"
+        },
+        "resolution": {
+          "source": "packages/agent-core/artifacts/requests/W7/dependencies.json",
+          "sha256": "dc3fa90b802f0800331140a6f4c4f968cd7b38465449238ac249cb1cbb500f8c"
+        },
+        "transition": "TRANSITION-WORKSPACE-RECORD-PLANE"
+      },
+      "tests": [
+        "test/substrates/sqlite/events-seam.test.ts#[workspace-record-storage] memory and SQLite satisfy the shared storage contract",
+        "test/substrates/sqlite/events-persistence.test.ts#SQLite workspace persistence [C13-FACET-CONTRIBUTION-ATTRIBUTION] [C13-FACET-WITHDRAWAL-EXACT] persists and withdraws every immutable contribution record by exact release"
+      ],
+      "digest": "5287ba59f7a2a0865c5a6be5a5def6f8e4777edbca6e61562ac963eb02ba7e4e"
     }
   ]
 }
