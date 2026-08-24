@@ -110,6 +110,32 @@ class LeaseRefusingHost extends FacetRuntimeHost {
 }
 
 describe("Facet runtime", () => {
+    test(
+        "settles idle and released runtime drains within finite microtask progress",
+        { tags: "p1" },
+        async () => {
+            const leaseManifest = manifest("acme.lease-watchdog", []);
+            const facet = new TestFacet(
+                "workspace:lease-watchdog",
+                leaseManifest,
+                [],
+                new Map(),
+                new Map()
+            );
+            const host = new FacetRuntimeHost([leaseManifest], [facet]);
+            await host.activate();
+            const validated = host.facet(facet.ref)!;
+            const lease = host.acquire(facet.ref, validated)!;
+            lease.release();
+            lease.release();
+            await settlesWithinMicrotasks(host.dispose(), "released runtime drain");
+
+            const idle = new FacetRuntimeHost([], []);
+            await idle.activate();
+            await settlesWithinMicrotasks(idle.dispose(), "idle runtime drain");
+        }
+    );
+
     test("rejects correspondence failures before lifecycle code runs", { tags: "p1" }, async () => {
         const descriptor = operationDescriptor("run");
         const expected = manifest("acme.runtime", [descriptor]);
@@ -1790,7 +1816,7 @@ describe("Protected Operation gateway", () => {
                     payload: { kind: "single", input: {} }
                 })
             ).rejects.toMatchObject({ code: "operation.missing" });
-            await host.dispose();
+            await settlesWithinMicrotasks(host.dispose(), "gateway lease release");
         }
     );
 
@@ -5572,4 +5598,29 @@ function forgedInterceptResult<TActual>(value: TActual): InterceptResult {
 
 function facetRef(value: string): FacetRef {
     return new FacetRef(value);
+}
+
+async function settlesWithinMicrotasks<Result>(
+    promise: Promise<Result>,
+    subject: string
+): Promise<Result> {
+    let outcome:
+        | { readonly kind: "resolved"; readonly value: Result }
+        | { readonly kind: "rejected"; readonly error: Error }
+        | undefined;
+    void promise.then(
+        (value) => {
+            outcome = { kind: "resolved", value };
+        },
+        (error: Error) => {
+            outcome = { kind: "rejected", error };
+        }
+    );
+    const microtaskLimit = 20;
+    for (let turn = 0; turn < microtaskLimit && outcome === undefined; turn += 1) {
+        await Promise.resolve();
+    }
+    if (outcome === undefined) throw new TypeError(`${subject} did not settle`);
+    if (outcome.kind === "rejected") throw outcome.error;
+    return outcome.value;
 }

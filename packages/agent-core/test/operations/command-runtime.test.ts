@@ -858,6 +858,15 @@ describe("CommandRuntime mapping validation", () => {
 });
 
 describe("CommandRuntime binding and invocation", () => {
+    test("preserves a scalar argument when no mapping is declared", { tags: "p1" }, () => {
+        const runtime = new CommandRuntime();
+        const command = makeCommand({
+            arguments: new JsonSchema({ type: "number" })
+        });
+
+        expect(runtime.bind(command, 3.5)).toBe(3.5);
+    });
+
     test(
         "binds arguments through nested and array pointers into a canonical input",
         { tags: "p1" },
