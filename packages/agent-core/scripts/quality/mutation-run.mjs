@@ -95,7 +95,11 @@ export async function measureArea(area, mutatePattern, run = runStryker) {
     if (reused === undefined && run === runStryker) {
         const timed = timeoutMutants(measured.report);
         if (timed.length > 0) {
-            const fallback = runStryker(`${area}-timeouts`, timed.map(timeoutPattern), false);
+            const fallback = runStryker(
+                `${area}-timeouts`,
+                [...new Set(timed.map(({ file }) => file))],
+                false
+            );
             measured = {
                 report: mergeTimeoutRerun(measured.report, fallback.report),
                 measuredAt: measured.measuredAt,
@@ -576,11 +580,6 @@ function timeoutMutants(report) {
             .filter((mutant) => mutant.status === "Timeout")
             .map((mutant) => ({ file, mutant }))
     );
-}
-
-function timeoutPattern({ file, mutant }) {
-    const { start, end } = mutant.location;
-    return `${file}:${start.line}:${start.column}-${end.line}:${end.column}`;
 }
 
 export function mergeTimeoutRerun(report, rerun) {
