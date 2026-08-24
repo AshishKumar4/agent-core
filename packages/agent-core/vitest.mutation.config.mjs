@@ -21,10 +21,17 @@
 // src/facets/contribution.ts lines 113 and 211, both also killed by other tests.
 import defaultConfig from "./vitest.config.mjs";
 
+const mutationTestTimeoutMs = 15_000;
+
 export default {
     ...defaultConfig,
     test: {
         ...defaultConfig.test,
+        // Per-test instrumentation pushed otherwise green SQLite and transcript cases past
+        // the default five-second ceiling under ordinary workstation load. This is only a
+        // dry-run ceiling: unresolved mutant timeouts are remeasured without bail and are
+        // still refused unless a named test kills them.
+        testTimeout: mutationTestTimeoutMs,
         exclude: [
             ...defaultConfig.test.exclude,
             "test/conformance/profile-base.test.ts",
