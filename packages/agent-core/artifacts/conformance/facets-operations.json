@@ -9,16 +9,11 @@
       "specTextSha256": "sha256:0ce875a21bef453c91cdcff24a1c6f4242f35de7620bce54990299dafb608a76",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/operations/interception.ts#OperationInterceptorRunner"
-      ],
+      "sourceSymbols": ["src/operations/interception.ts#OperationInterceptorRunner"],
       "testSelectors": [
         "test/operations/runtime.test.ts#Protected Operation gateway [C13-ADV-POST-PREPARATION-INTERCEPTOR] routes mediated effects through the invocation port with frozen interceptor traces"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -36,10 +31,7 @@
       "testSelectors": [
         "test/protocol/facet-commands.test.ts#Facet Slot protocol commands [C13-ADV-UNAUTHORIZED-SLOT] strictly decodes payloads and denies unauthorized contributions"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -49,16 +41,11 @@
       "specTextSha256": "sha256:d46d3ed2204dab22abdd968b0c216e5a792c11e70e8d7d42fd5c938ebf746d7e",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/operations/command-runtime.ts#CommandRuntime"
-      ],
+      "sourceSymbols": ["src/operations/command-runtime.ts#CommandRuntime"],
       "testSelectors": [
         "test/operations/runtime.test.ts#Protected Operation gateway [C13-COMMAND-ARGUMENT-BINDING] binds validated surface arguments before emitting command.invoked"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -68,17 +55,12 @@
       "specTextSha256": "sha256:5689e6d7f5f22e8b35afc4d9182ae7cb683363a3bc9fc1cc0e1e11101df3c6f7",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/operations/command-runtime.ts#CommandRuntime"
-      ],
+      "sourceSymbols": ["src/operations/command-runtime.ts#CommandRuntime"],
       "testSelectors": [
         "test/operations/command-runtime.test.ts#CommandRuntime installation [C13-COMMAND-COLLISION] keeps NUL-bearing surface and Command name tuples distinct within one scope",
         "test/operations/runtime.test.ts#Protected Operation gateway [C13-COMMAND-COLLISION] rejects later same-scope surface collisions atomically"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -95,10 +77,7 @@
       "testSelectors": [
         "test/operations/command-runtime.test.ts#CommandRuntime installation [C13-COMMAND-COMPLETION-IMPACT] admits a completion only at the impact that floors to direct"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -115,10 +94,7 @@
       "testSelectors": [
         "test/operations/runtime.test.ts#Protected Operation gateway [C13-COMMAND-INSTALL-MAPPING] rejects incompatible mappings before registering a command"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -135,10 +111,7 @@
       "testSelectors": [
         "test/operations/runtime.test.ts#Protected Operation gateway [C13-COMMAND-INVOCATION-CORRELATION] emits only an installed Surface's correlation and infers no Subscription relation"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -148,16 +121,11 @@
       "specTextSha256": "sha256:d114ebb2de07d827183a774b990f9392825aca9bf99bac8c3304ffd820b37f89",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/operations/command-runtime.ts#CommandRuntime"
-      ],
+      "sourceSymbols": ["src/operations/command-runtime.ts#CommandRuntime"],
       "testSelectors": [
         "test/operations/runtime.test.ts#Protected Operation gateway [C13-COMMAND-RESULT] emits command.invoked carrying the surface and run correlation for completion"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -167,16 +135,11 @@
       "specTextSha256": "sha256:8da2f56d262b6176e039ea113b9b5211f11dc25adfb73d9112021a7ac2783d5c",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/operations/command-runtime.ts#CommandRuntime"
-      ],
+      "sourceSymbols": ["src/operations/command-runtime.ts#CommandRuntime"],
       "testSelectors": [
         "test/operations/runtime.test.ts#Protected Operation gateway [C13-COMMAND-SUBSCRIPTION-DEFAULTS] derives only the fixed command Subscription defaults"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -185,10 +148,7 @@
       "specAnchor": "C13-FACET-CANCELLATION-REACH",
       "specTextSha256": "sha256:c0faa57e106a2408ffc25ed723c495872ab97d147bb7de3dc647fc5cf0c89253",
       "status": "implemented",
-      "prerequisites": [
-        "C13-TURN-CANCEL-INBOX",
-        "C13-RECEIPT-FAILURE-KIND"
-      ],
+      "prerequisites": ["C13-TURN-CANCEL-INBOX", "C13-RECEIPT-FAILURE-KIND"],
       "sourceSymbols": [
         "src/facets/runtime.ts#OperationContext",
         "src/composition/mediation.ts#ComposedTurnGatewaySource",
@@ -212,9 +172,7 @@
       "specAnchor": "C13-FACET-CAPABILITY-ABSENCE",
       "specTextSha256": "sha256:f24587b45b32f68bb19c6814fd0acc37b5cb8babb30c7928b4676017979b4d02",
       "status": "verified",
-      "prerequisites": [
-        "C13-FACET-INSTALL-VERIFICATION"
-      ],
+      "prerequisites": ["C13-FACET-INSTALL-VERIFICATION"],
       "sourceSymbols": [
         "src/facets/data.ts#requireOfferedCapability",
         "src/facets/contribution.ts#OperationDescriptor",
@@ -224,11 +182,7 @@
         "test/w3/capability-declaration.test.ts#W3 capability declarations [C13-FACET-CAPABILITY-ABSENCE] withholds a capability by absence and refuses every present negative form",
         "test/w3/capability-declaration.test.ts#W3 capability declarations [C13-FACET-CAPABILITY-ABSENCE] gives a withheld capability one manifest digest and refuses the negative form at install verification"
       ],
-      "checkerInvariants": [
-        "ACQ-PRESENCE",
-        "ACQ-CODEC",
-        "ACQ-IMMUTABLE"
-      ],
+      "checkerInvariants": ["ACQ-PRESENCE", "ACQ-CODEC", "ACQ-IMMUTABLE"],
       "remainingEvidence": []
     },
     {
@@ -278,15 +232,13 @@
       "testSelectors": [
         "test/facets/declarations.test.ts#Declarative facet vocabulary [C13-FACET-CONTRIBUTION-ATTRIBUTION] refuses to decode a SlotEntry that carries no source Package pin",
         "test/facets/declarations.test.ts#Declarative facet vocabulary [C13-FACET-CONTRIBUTION-ATTRIBUTION] refuses to register a Surface from a missing or forged attribution",
-        "test/composition/workspace-facet-materializer.test.ts#Workspace Facet materializer materializes every supported primitive atomically and replays as a no-op",
-        "test/composition/workspace-facet-materializer.test.ts#Workspace Facet materializer reconciles a new PackagePin without retaining the old attribution",
-        "test/events/persistence-memory.test.ts#memory Workspace Event persistence persists and withdraws every immutable contribution record by exact release",
-        "test/events/persistence-memory.test.ts#memory Workspace Event persistence persists revisioned ingress and retires only the exact release",
+        "test/composition/workspace-facet-materializer.test.ts#Workspace Facet materializer [C13-FACET-CONTRIBUTION-ATTRIBUTION] [C13-FACET-CONTRIBUTION-MATERIALIZATION] [facet.settings-layer] materializes every supported primitive atomically and replays as a no-op",
+        "test/composition/workspace-facet-materializer.test.ts#Workspace Facet materializer [C13-FACET-CONTRIBUTION-ATTRIBUTION] reconciles a new PackagePin without retaining the old attribution",
+        "test/events/persistence-memory.test.ts#memory workspace persistence [C13-FACET-CONTRIBUTION-ATTRIBUTION] [C13-FACET-WITHDRAWAL-EXACT] persists and withdraws every immutable contribution record by exact release",
+        "test/events/persistence-memory.test.ts#memory workspace persistence [C13-FACET-CONTRIBUTION-ATTRIBUTION] [C13-FACET-WITHDRAWAL-EXACT] persists revisioned ingress and retires only the exact release",
         "test/w3/facet-withdrawal.test.ts#Facet withdrawal across owning Actors [C13-FACET-CONTRIBUTION-ATTRIBUTION] refuses every later revision that rewrites, adds, or drops a Subscription's attribution"
       ],
-      "checkerInvariants": [
-        "ACQ-ATTRIBUTION"
-      ],
+      "checkerInvariants": ["ACQ-ATTRIBUTION"],
       "remainingEvidence": [
         "Interceptor pipeline entries and typed Event producer declarations still have no durable materialization record. This atom cannot promote until those two core contribution kinds carry the same exact FacetRef and PackagePin and join the same activation and withdrawal transaction.",
         "The unified materializer and Workspace record path have not passed their final mutation campaign or exact-head maintainer review. The row therefore remains implemented."
@@ -307,14 +259,11 @@
         "src/workspaces/persistence.ts#WorkspacePersistence"
       ],
       "testSelectors": [
-        "test/composition/behavior-branches.test.ts#composition lifecycle branch coverage PackageFacetRuntime activates, exposes, replaces, and disposes a loaded package host",
-        "test/composition/workspace-facet-materializer.test.ts#Workspace Facet materializer materializes every supported primitive atomically and replays as a no-op",
-        "test/composition/workspace-facet-materializer.test.ts#Workspace Facet materializer rolls back every primitive when one later record write fails"
+        "test/composition/behavior-branches.test.ts#composition lifecycle branch coverage [C13-FACET-CONTRIBUTION-MATERIALIZATION] [C13-FACET-START-ATOMIC] owns loaded package handles, rejects double activation, and preserves cleanup failures",
+        "test/composition/workspace-facet-materializer.test.ts#Workspace Facet materializer [C13-FACET-CONTRIBUTION-ATTRIBUTION] [C13-FACET-CONTRIBUTION-MATERIALIZATION] [facet.settings-layer] materializes every supported primitive atomically and replays as a no-op",
+        "test/composition/workspace-facet-materializer.test.ts#Workspace Facet materializer [C13-FACET-CONTRIBUTION-MATERIALIZATION] [C13-FACET-START-ATOMIC] rolls back every primitive when one later record write fails"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": [
         "Interceptor pipeline entries and typed Event producer declarations remain unmaterialized. Package activation is not a complete core-slot materializer until both use real primitive records.",
         "The Cloudflare composition package has not yet constructed WorkspacePackageFacetMaterialization against its deployed Workspace Actor transaction. Local core behavior is implemented, but live profile wiring and mutation evidence remain open."
@@ -326,10 +275,7 @@
       "specAnchor": "C13-FACET-DEPENDENCY-ORDER",
       "specTextSha256": "sha256:a40a5f1aed92083f9a8898bc271e2c164e77dc834d0bd45b7336b40046a9dfe4",
       "status": "planned",
-      "prerequisites": [
-        "C13-AUTH-BINDING-RESOLUTION",
-        "C13-FACET-WITHDRAWAL-EXACT"
-      ],
+      "prerequisites": ["C13-AUTH-BINDING-RESOLUTION", "C13-FACET-WITHDRAWAL-EXACT"],
       "sourceSymbols": [],
       "testSelectors": [],
       "checkerInvariants": [],
@@ -350,17 +296,12 @@
       "specTextSha256": "sha256:012f7c13ca9bf3819f0018dd4d0c94ddb8069b9fa694407c29af89c732e265b0",
       "status": "implemented",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/composition/mediation.ts#MediatedOperationPipeline"
-      ],
+      "sourceSymbols": ["src/composition/mediation.ts#MediatedOperationPipeline"],
       "testSelectors": [
         "test/composition/mediation-pipeline.test.ts#the published mediation composition root [C13-AUTH-RESOLUTION-LIFETIME] [C13-FACET-DISPOSAL] releases a provider resolution before resolving the next invocation",
         "test/composition/mediation-pipeline.test.ts#the published mediation composition root [C13-AUTH-RESOLUTION-LIFETIME] [C13-FACET-DISPOSAL] releases a dynamic resolution before resolving the next invocation"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": [
         "The W9 mediation pipeline releases provider and dynamic resolutions after each invocation, and the W5 executor behavior covers Turn completion, failure, cancellation, suspension, thrown execution, and authority loss; W9-owned cancellation and authority-loss selectors plus fresh mutation attribution must discriminate those disposal paths before verification"
       ]
@@ -379,10 +320,7 @@
       "testSelectors": [
         "test/facets/declarations.test.ts#Impact is derived from the seam, not declared by the callee [C13-FACET-IMPACT-BOUNDARY] admits a claim only where it never buys a tier the derived impact was denied"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -402,10 +340,7 @@
         "test/operations/runtime.test.ts#Facet runtime [C13-FACET-INSTALL-VERIFICATION] rejects a runtime declaration that differs from its pinned bytes at a single position",
         "test/operations/runtime.test.ts#Protected Operation gateway [C13-FACET-INSTALL-VERIFICATION] executes direct only after synchronous authorization and rejects hidden handlers"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -415,16 +350,11 @@
       "specTextSha256": "sha256:fc67d792035e31bff8dd0d78e62a445cb24d8642e4003fa5c6bea392a7bd2bf9",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/facets/manifest.ts#FacetManifest"
-      ],
+      "sourceSymbols": ["src/facets/manifest.ts#FacetManifest"],
       "testSelectors": [
         "test/facets/declarations.test.ts#Declarative facet vocabulary [C13-FACET-MANIFEST] canonicalizes manifests without changing ordered mapping semantics"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -434,17 +364,11 @@
       "specTextSha256": "sha256:fa4f2e2944828923b1e5fb71d9be5c2fc176525a3eaa62f1f3756da0eaa7112e",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/facets/id.ts#FacetRef",
-        "src/facets/id.ts#requireFacetRef"
-      ],
+      "sourceSymbols": ["src/facets/id.ts#FacetRef", "src/facets/id.ts#requireFacetRef"],
       "testSelectors": [
         "test/facets/declarations.test.ts#Declarative facet vocabulary [C13-FACET-REF-CANONICAL] uses canonical instance, bound, and Facet operation references"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -454,16 +378,11 @@
       "specTextSha256": "sha256:4cd2f1e0f79fc0e16164d53e4a24f5f7da2c5280fad9fd7bf138dbe26058da87",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/protocol/facet-commands.ts#FacetSlotContributeCommand"
-      ],
+      "sourceSymbols": ["src/protocol/facet-commands.ts#FacetSlotContributeCommand"],
       "testSelectors": [
         "test/protocol/facet-commands.test.ts#Facet Slot protocol commands [C13-FACET-SLOT-AUTHORITY] derives contributor provenance and enforces Slot authority through the closed authenticated dispatcher"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -480,10 +399,7 @@
       "testSelectors": [
         "test/facets/slot-memory.test.ts#MemoryWorkspaceSlotStore snapshots [C13-FACET-SLOT-VISIBILITY] binds SlotCatalog to an authenticated Workspace viewer and filters every entry"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -492,10 +408,7 @@
       "specAnchor": "C13-FACET-START-ATOMIC",
       "specTextSha256": "sha256:2abf749e076815e9f28e7e30e36c13c276c9f3cda45889fad5d168c244e0fa7b",
       "status": "implemented",
-      "prerequisites": [
-        "C13-FACET-CONTRIBUTION-ATTRIBUTION",
-        "C13-FACET-WITHDRAWAL-EXACT"
-      ],
+      "prerequisites": ["C13-FACET-CONTRIBUTION-ATTRIBUTION", "C13-FACET-WITHDRAWAL-EXACT"],
       "sourceSymbols": [
         "src/composition/facet-withdrawal.ts#FacetActivation",
         "src/composition/package-runtime.ts#PackageFacetRuntime",
@@ -503,8 +416,8 @@
         "src/composition/workspace-facet-materializer.ts#WorkspacePackageFacetMaterialization"
       ],
       "testSelectors": [
-        "test/composition/behavior-branches.test.ts#composition lifecycle branch coverage PackageFacetRuntime activates, exposes, replaces, and disposes a loaded package host",
-        "test/composition/workspace-facet-materializer.test.ts#Workspace Facet materializer rolls back every primitive when one later record write fails",
+        "test/composition/behavior-branches.test.ts#composition lifecycle branch coverage [C13-FACET-CONTRIBUTION-MATERIALIZATION] [C13-FACET-START-ATOMIC] owns loaded package handles, rejects double activation, and preserves cleanup failures",
+        "test/composition/workspace-facet-materializer.test.ts#Workspace Facet materializer [C13-FACET-CONTRIBUTION-MATERIALIZATION] [C13-FACET-START-ATOMIC] rolls back every primitive when one later record write fails",
         "test/w3/facet-withdrawal.test.ts#Facet activation atomicity [C13-FACET-START-ATOMIC] leaves nothing behind when start does not complete",
         "test/w3/facet-withdrawal.test.ts#Facet activation atomicity [C13-FACET-START-ATOMIC] refuses a retry against a Scope whose prior partial effect was not retired"
       ],
@@ -520,9 +433,7 @@
       "specAnchor": "C13-FACET-WITHDRAWAL-DRAIN",
       "specTextSha256": "sha256:af3140ee57811ba0d8bfed689e392a2d298d2f56a06070bf9c19694f1c2437dc",
       "status": "planned",
-      "prerequisites": [
-        "C13-FACET-WITHDRAWAL-EXACT"
-      ],
+      "prerequisites": ["C13-FACET-WITHDRAWAL-EXACT"],
       "sourceSymbols": [],
       "testSelectors": [],
       "checkerInvariants": [],
@@ -539,16 +450,14 @@
       "specAnchor": "C13-FACET-WITHDRAWAL-EXACT",
       "specTextSha256": "sha256:e4ad430bb9d9e8d03e69b14dbaaab97c41c051c0cc78518174a2cb097e48775d",
       "status": "implemented",
-      "prerequisites": [
-        "C13-FACET-CONTRIBUTION-ATTRIBUTION"
-      ],
+      "prerequisites": ["C13-FACET-CONTRIBUTION-ATTRIBUTION"],
       "sourceSymbols": [
         "src/composition/facet-withdrawal.ts#FacetWithdrawal",
         "src/facets/slot-store.ts#WorkspaceSlotStore"
       ],
       "testSelectors": [
-        "test/events/persistence-memory.test.ts#memory Workspace Event persistence persists and withdraws every immutable contribution record by exact release",
-        "test/events/persistence-memory.test.ts#memory Workspace Event persistence persists revisioned ingress and retires only the exact release",
+        "test/events/persistence-memory.test.ts#memory workspace persistence [C13-FACET-CONTRIBUTION-ATTRIBUTION] [C13-FACET-WITHDRAWAL-EXACT] persists and withdraws every immutable contribution record by exact release",
+        "test/events/persistence-memory.test.ts#memory workspace persistence [C13-FACET-CONTRIBUTION-ATTRIBUTION] [C13-FACET-WITHDRAWAL-EXACT] persists revisioned ingress and retires only the exact release",
         "test/protocol/facet-commands.test.ts#Facet Slot protocol commands [C13-FACET-WITHDRAWAL-EXACT] retires a Facet's contributions through one administer control transaction",
         "test/w3/facet-withdrawal.test.ts#Facet withdrawal across owning Actors [C13-FACET-WITHDRAWAL-EXACT] retires a contributed Subscription and drives its unprepared reservation to a terminal rejected delivery",
         "test/w3/facet-withdrawal.test.ts#Facet withdrawal across owning Actors [C13-FACET-WITHDRAWAL-EXACT] refuses the whole withdrawal when a plane cannot answer the attribution query"
@@ -568,16 +477,11 @@
       "specTextSha256": "sha256:90d34373dfad90f82504cd2069eb9b398a57cea21c736270bd8bb01512d32f17",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/operations/interception.ts#OperationInterceptorRunner"
-      ],
+      "sourceSymbols": ["src/operations/interception.ts#OperationInterceptorRunner"],
       "testSelectors": [
         "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-ATTRIBUTION] persists attributable pre-preparation rewrite evidence"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -587,16 +491,11 @@
       "specTextSha256": "sha256:edc6171cebcf332992847529b36c54504676d02137b492811e942c0ebc368771",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/operations/interception.ts#OperationInterceptorRunner"
-      ],
+      "sourceSymbols": ["src/operations/interception.ts#OperationInterceptorRunner"],
       "testSelectors": [
         "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-CROSS-FACET] denies cross-Facet interception without explicit authority"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -613,10 +512,7 @@
       "testSelectors": [
         "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-DOMAIN-CONFINEMENT] refuses an out-of-domain interceptor and admits the same contributor's asynchronous Event"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -634,10 +530,7 @@
         "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-FROZEN-RETRY] retries a frozen intent without rerunning its mutating interceptor",
         "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-FROZEN-RETRY] binds payload shape into direct and mediated identities and returns replay without rerunning interceptors"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -656,10 +549,7 @@
         "test/operations/runtime.test.ts#Facet runtime [C13-INTERCEPTOR-MODE-DECLARED] refuses an undeclared mode before any Facet starts, admitting no partial manifest",
         "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-MODE-DECLARED] realizes the banded ordering relation rather than one permutation of it"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": [
         "Recorded discrimination is the only thing left between this row and verified, and it is not this row's to write. Eleven mutants were run in an isolated worktree and every cited selector is killed by a mutant inside a cited symbol: making mode optional in the exact-field gate and replacing requireMode with a constant both kill the two mode-refusal selectors from inside InterceptorDeclaration, collapsing modeRank to a constant kills the schedule selector from inside it, and making priority dominate mode or dropping the facetId comparison kills the schedule selector from inside OperationInterceptorRunner. That measurement is by hand. artifacts/quality/discrimination/facets.json is W0-owned, is stale against src/facets/interceptor.ts, and records none of the three cited selectors, so scripts/quality/discrimination.mjs classifies a verified row here as DISC-STALE. The facets and operations areas must be re-measured by the mutation campaign; nothing in this row's own source or tests is outstanding",
         "The refinement the previous revision owed is now witnessed executably rather than by the model: the schedule selector transcribes AgentCore.InterceptorOrder's four clauses as a predicate, asserts the observed order satisfies it, and asserts that exactly one of the 120 permutations of the contributed set does, which is AgentCore.ordered_schedule_unique in executable form and pins the order completely. It also asserts the contributed order is not admitted, so the host cannot pass by leaving candidates alone. What remains is documentary and W0-owned: artifacts/traceability.yaml and formal/AgentCore/Interceptors.lean record no link between OperationInterceptorRunner and the relation, and AC-INTERCEPTOR-001's own boundary declares runtime candidate discovery unmodelled, so the recorded model-to-implementation edge is the formal owner's to add",
@@ -683,10 +573,7 @@
         "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-MODE-FIDELITY] attributes the rewrite to its exact rewriter, not to the interceptor that ran last",
         "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-MODE-FIDELITY] persists no trace and no partial chain when it refuses a rewriting gate"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": [
         "Recorded discrimination is the only thing left between this row and verified, and it is not this row's to write. Measured by hand over eleven mutants in an isolated worktree, every cited selector is killed from inside a cited symbol: disabling the gate comparison and inverting the policed mode each kill the two refusal selectors from inside OperationInterceptorRunner, forcing every trace entry to read rewritten and forcing none to kills the attribution and no-trace selectors from inside it, and admitting unhosted cut points kills the cut-point selector from inside validateImplementations. artifacts/quality/discrimination/operations.json is W0-owned and records none of the four cited selectors, so scripts/quality/discrimination.mjs classifies a verified row here as DISC-STALE. The operations and facets areas must be re-measured by the mutation campaign",
         "What the cut-point selector establishes now that every cut point has a runtime. It used to record the weaker property that a gate could not be admitted where its read-only claim would go unenforced, because only the two operation cut points had a runner. All five are executed, so the selector states the property directly: over the whole Turn-bound cut point by mode domain, a rewrite returning a changed value is admitted and traced as rewritten while a gate returning the identical changed value is refused by name. Both halves are asserted in one run because the two interceptors differ only in declared mode, so a host that admitted both, or refused both, would be indistinguishable from one that policed neither. The install-time refusal this selector previously carried is gone with the hole it covered, and src/operations/correspondence.ts#validateImplementations is no longer cited here; admission at the Turn-bound cut points is C13-INTERCEPTOR-TURN-HOSTED's claim.",
@@ -700,17 +587,12 @@
       "specTextSha256": "sha256:7a8430d3dced3bb4ecac1193092fde0d9a820b1394af515c2c9f433b9cc601fa",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/operations/interception.ts#OperationInterceptorRunner"
-      ],
+      "sourceSymbols": ["src/operations/interception.ts#OperationInterceptorRunner"],
       "testSelectors": [
         "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-ORDER] orders interceptors by priority before contributor and id",
         "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-ORDER] runs every rewrite ahead of every gate whatever the local priorities say"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -727,10 +609,7 @@
       "testSelectors": [
         "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-POST-PREPARATION] refuses a post-preparation rewrite instead of dropping it"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -747,10 +626,7 @@
       "testSelectors": [
         "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-REPLAY] reuses durable pre-effect and post-effect transformations without rerunning either"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -760,16 +636,11 @@
       "specTextSha256": "sha256:7fda97d23891d3144f0079f229cc298b40f2753d55a0a662dde1be3e759ddd57",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/operations/interception.ts#OperationInterceptorRunner"
-      ],
+      "sourceSymbols": ["src/operations/interception.ts#OperationInterceptorRunner"],
       "testSelectors": [
         "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-SELF-SCOPE] defaults an omitted selector to only the contributing Facet"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -779,90 +650,76 @@
       "specTextSha256": "sha256:da39558f51ff7b9bb8ee03ed057980c47b3a76797ab6732081cfbdbf71a50ad9",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/operations/interception.ts#OperationInterceptorRunner"
-      ],
+      "sourceSymbols": ["src/operations/interception.ts#OperationInterceptorRunner"],
       "testSelectors": [
         "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-THROW-BLOCK] fails closed on invalid interceptor results, throws, non-interceptable cross targets, and unknown mediated items"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
-        "id": "C13-INTERCEPTOR-TURN-CONTEXT",
-        "owner": "W3",
-        "specAnchor": "C13-INTERCEPTOR-TURN-CONTEXT",
-        "specTextSha256": "sha256:0e7dac0971697cb52560544700553a7bfa08953ad6054f533f420dab0139a8df",
-        "status": "implemented",
-        "prerequisites": [],
-        "sourceSymbols": [
-            "src/facets/interceptor.ts#InterceptorDeclaration",
-            "src/facets/interceptor.ts#isTurnBoundCutPoint"
-        ],
-        "testSelectors": [
-            "test/operations/runtime.test.ts#Facet runtime [C13-INTERCEPTOR-TURN-CONTEXT] refuses an operation selector at a Turn-bound cut point and keeps one at an operation cut point"
-        ],
-        "checkerInvariants": [
-            "ACQ-IMPORT",
-            "ACQ-TEST"
-        ],
-        "remainingEvidence": [
-            "Recorded discrimination, which is not this row's to write. Measured by hand in a detached worktree: deleting the isTurnBoundCutPoint conjunct from the InterceptorDeclaration constructor guard, and replacing isTurnBoundCutPoint's body with `return false`, each kill the cited selector from inside a cited symbol -- the fifteen-cell cut point x selector table then reports the three Turn-bound cut points admitting a narrowed selector. artifacts/quality/discrimination/facets.json is W0-owned and carries no attribution for a selector added after the last mutation run, so scripts/quality/discrimination.mjs would classify a verified row as DISC-STALE and fail the gate as a new addition; the row therefore stands at implemented rather than claiming a green it cannot yet evidence.",
-            "The claim's negative half is in the same test rather than a neighbouring one: the two operation cut points keep all three selectors, so the refusal is evidenced as a property of the cut point and not of the selector. A guard that refused every narrowed selector everywhere would pass a Turn-only assertion and fail this one."
-        ]
+      "id": "C13-INTERCEPTOR-TURN-CONTEXT",
+      "owner": "W3",
+      "specAnchor": "C13-INTERCEPTOR-TURN-CONTEXT",
+      "specTextSha256": "sha256:0e7dac0971697cb52560544700553a7bfa08953ad6054f533f420dab0139a8df",
+      "status": "implemented",
+      "prerequisites": [],
+      "sourceSymbols": [
+        "src/facets/interceptor.ts#InterceptorDeclaration",
+        "src/facets/interceptor.ts#isTurnBoundCutPoint"
+      ],
+      "testSelectors": [
+        "test/operations/runtime.test.ts#Facet runtime [C13-INTERCEPTOR-TURN-CONTEXT] refuses an operation selector at a Turn-bound cut point and keeps one at an operation cut point"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": [
+        "Recorded discrimination, which is not this row's to write. Measured by hand in a detached worktree: deleting the isTurnBoundCutPoint conjunct from the InterceptorDeclaration constructor guard, and replacing isTurnBoundCutPoint's body with `return false`, each kill the cited selector from inside a cited symbol -- the fifteen-cell cut point x selector table then reports the three Turn-bound cut points admitting a narrowed selector. artifacts/quality/discrimination/facets.json is W0-owned and carries no attribution for a selector added after the last mutation run, so scripts/quality/discrimination.mjs would classify a verified row as DISC-STALE and fail the gate as a new addition; the row therefore stands at implemented rather than claiming a green it cannot yet evidence.",
+        "The claim's negative half is in the same test rather than a neighbouring one: the two operation cut points keep all three selectors, so the refusal is evidenced as a property of the cut point and not of the selector. A guard that refused every narrowed selector everywhere would pass a Turn-only assertion and fail this one."
+      ]
     },
     {
-        "id": "C13-INTERCEPTOR-TURN-HOSTED",
-        "owner": "W3",
-        "specAnchor": "C13-INTERCEPTOR-TURN-HOSTED",
-        "specTextSha256": "sha256:770ab3cd2dcdfe6a3bafa4c1b8d7ac755df5d9aad8a3fe95641429f0e53227ce",
-        "status": "implemented",
-        "prerequisites": [],
-        "sourceSymbols": [
-            "src/operations/correspondence.ts#validateImplementations",
-            "src/operations/interception.ts#TurnInterceptorRunner",
-            "src/operations/interception.ts#orderSchedule"
-        ],
-        "testSelectors": [
-            "test/operations/runtime.test.ts#Facet runtime [C13-INTERCEPTOR-TURN-HOSTED] admits an interceptor at every Turn-bound cut point and still refuses one with no implementation",
-            "test/operations/runtime.test.ts#Facet runtime [C13-INTERCEPTOR-TURN-HOSTED] orders two contributing Facets at one Turn-bound cut point by the same banded key as an operation cut point",
-            "test/operations/runtime.test.ts#Facet runtime [C13-INTERCEPTOR-TURN-HOSTED] returns a turn.step refusal as an attributed stop request and blocks the other Turn-bound cut points outright"
-        ],
-        "checkerInvariants": [
-            "ACQ-IMPORT",
-            "ACQ-TEST"
-        ],
-        "remainingEvidence": [
-            "Recorded discrimination, which is not this row's to write; the same W0-owned staleness that caps the sibling Turn-bound rows caps this one. Measured by hand in a detached worktree: collapsing orderSchedule's modeRank term kills the ordering selector from inside orderSchedule (the observed schedule becomes alpha/early/gate first), dropping its facetId comparison kills the same selector, restoring the unhosted-cut-point refusal in validateImplementations kills the admission selector from inside validateImplementations, and inverting the `cutPoint !== \"turn.step\"` test in TurnInterceptorRunner kills the stop-shape selector from inside TurnInterceptorRunner.",
-            "What the admission selector does and does not establish. It shows that a declaration at each Turn-bound cut point is admitted with its interceptor resolved, and -- in the same run -- that a declaration with no implementation behind it is still refused at each of them. So admission is the host executing these cut points rather than the correspondence check having stopped asking, which is the reading a bare admission assertion would leave open."
-        ]
+      "id": "C13-INTERCEPTOR-TURN-HOSTED",
+      "owner": "W3",
+      "specAnchor": "C13-INTERCEPTOR-TURN-HOSTED",
+      "specTextSha256": "sha256:770ab3cd2dcdfe6a3bafa4c1b8d7ac755df5d9aad8a3fe95641429f0e53227ce",
+      "status": "implemented",
+      "prerequisites": [],
+      "sourceSymbols": [
+        "src/operations/correspondence.ts#validateImplementations",
+        "src/operations/interception.ts#TurnInterceptorRunner",
+        "src/operations/interception.ts#orderSchedule"
+      ],
+      "testSelectors": [
+        "test/operations/runtime.test.ts#Facet runtime [C13-INTERCEPTOR-TURN-HOSTED] admits an interceptor at every Turn-bound cut point and still refuses one with no implementation",
+        "test/operations/runtime.test.ts#Facet runtime [C13-INTERCEPTOR-TURN-HOSTED] orders two contributing Facets at one Turn-bound cut point by the same banded key as an operation cut point",
+        "test/operations/runtime.test.ts#Facet runtime [C13-INTERCEPTOR-TURN-HOSTED] returns a turn.step refusal as an attributed stop request and blocks the other Turn-bound cut points outright"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": [
+        "Recorded discrimination, which is not this row's to write; the same W0-owned staleness that caps the sibling Turn-bound rows caps this one. Measured by hand in a detached worktree: collapsing orderSchedule's modeRank term kills the ordering selector from inside orderSchedule (the observed schedule becomes alpha/early/gate first), dropping its facetId comparison kills the same selector, restoring the unhosted-cut-point refusal in validateImplementations kills the admission selector from inside validateImplementations, and inverting the `cutPoint !== \"turn.step\"` test in TurnInterceptorRunner kills the stop-shape selector from inside TurnInterceptorRunner.",
+        "What the admission selector does and does not establish. It shows that a declaration at each Turn-bound cut point is admitted with its interceptor resolved, and -- in the same run -- that a declaration with no implementation behind it is still refused at each of them. So admission is the host executing these cut points rather than the correspondence check having stopped asking, which is the reading a bare admission assertion would leave open."
+      ]
     },
     {
-        "id": "C13-INTERCEPTOR-TURN-REWRITE",
-        "owner": "W3",
-        "specAnchor": "C13-INTERCEPTOR-TURN-REWRITE",
-        "specTextSha256": "sha256:119b1a88661f9def845043f7f64cc84a6640ac1d67760a5201b910a1db82b181",
-        "status": "implemented",
-        "prerequisites": [],
-        "sourceSymbols": [
-            "src/operations/interception.ts#TurnInterceptorRunner",
-            "src/operations/interception.ts#TurnCutPointPort"
-        ],
-        "testSelectors": [
-            "test/operations/runtime.test.ts#Facet runtime [C13-INTERCEPTOR-TURN-REWRITE] applies the cut point's rewrite rule to each rewriter's own answer rather than to the final value"
-        ],
-        "checkerInvariants": [
-            "ACQ-IMPORT",
-            "ACQ-TEST"
-        ],
-        "remainingEvidence": [
-            "Recorded discrimination, which is not this row's to write; W0 owns artifacts/quality/discrimination/operations.json and it carries no attribution for selectors newer than the last mutation run. Measured by hand in a detached worktree: moving the admit call after the loop so it sees only the final value kills the per-rewriter selector from inside TurnInterceptorRunner, and deleting the gate-fidelity comparison kills the mode-fidelity selector from inside the same symbol.",
-            "The per-rewriter selector is a join rather than two facts side by side: the refusal names the FIRST rewriter, and the recorded sequence of values offered to the rule is exactly one entry, so a runner that checked only the value it ended with would have admitted the illegal answer that the second rewriter overwrote. A test asserting only that the illegal answer was refused would pass against that defect.",
-            "This row's anchoring paragraph closes by restating rule 10 at the Turn-bound cut points -- a gate whose result differs from the value it received is refused here too -- and that clause is evidenced under C13-INTERCEPTOR-MODE-FIDELITY rather than here, by test/operations/runtime.test.ts#Facet runtime [C13-INTERCEPTOR-MODE-FIDELITY] polices a rewriting gate at every Turn-bound cut point instead of refusing the declaration it could not police. This row cited that test as a second selector and should not have: the label join is what proves a citation, and that test runs one interceptor per cell, so it can show gate fidelity and nothing per-rewriter. Adding this row's label to its title would have made the join claim the opposite. The clause is recorded here as cross-referenced, not as demonstrated by this row's own evidence."
-        ]
+      "id": "C13-INTERCEPTOR-TURN-REWRITE",
+      "owner": "W3",
+      "specAnchor": "C13-INTERCEPTOR-TURN-REWRITE",
+      "specTextSha256": "sha256:119b1a88661f9def845043f7f64cc84a6640ac1d67760a5201b910a1db82b181",
+      "status": "implemented",
+      "prerequisites": [],
+      "sourceSymbols": [
+        "src/operations/interception.ts#TurnInterceptorRunner",
+        "src/operations/interception.ts#TurnCutPointPort"
+      ],
+      "testSelectors": [
+        "test/operations/runtime.test.ts#Facet runtime [C13-INTERCEPTOR-TURN-REWRITE] applies the cut point's rewrite rule to each rewriter's own answer rather than to the final value"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": [
+        "Recorded discrimination, which is not this row's to write; W0 owns artifacts/quality/discrimination/operations.json and it carries no attribution for selectors newer than the last mutation run. Measured by hand in a detached worktree: moving the admit call after the loop so it sees only the final value kills the per-rewriter selector from inside TurnInterceptorRunner, and deleting the gate-fidelity comparison kills the mode-fidelity selector from inside the same symbol.",
+        "The per-rewriter selector is a join rather than two facts side by side: the refusal names the FIRST rewriter, and the recorded sequence of values offered to the rule is exactly one entry, so a runner that checked only the value it ended with would have admitted the illegal answer that the second rewriter overwrote. A test asserting only that the illegal answer was refused would pass against that defect.",
+        "This row's anchoring paragraph closes by restating rule 10 at the Turn-bound cut points -- a gate whose result differs from the value it received is refused here too -- and that clause is evidenced under C13-INTERCEPTOR-MODE-FIDELITY rather than here, by test/operations/runtime.test.ts#Facet runtime [C13-INTERCEPTOR-MODE-FIDELITY] polices a rewriting gate at every Turn-bound cut point instead of refusing the declaration it could not police. This row cited that test as a second selector and should not have: the label join is what proves a citation, and that test runs one interceptor per cell, so it can show gate fidelity and nothing per-rewriter. Adding this row's label to its title would have made the join claim the opposite. The clause is recorded here as cross-referenced, not as demonstrated by this row's own evidence."
+      ]
     }
   ]
 }

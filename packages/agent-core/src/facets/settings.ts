@@ -2,6 +2,7 @@ import {
     Digest,
     JsonSchema,
     SemVer,
+    StrictJsonSchemaValidator,
     TextId,
     canonicalTupleKey,
     encodeCanonicalJson
@@ -106,10 +107,12 @@ export class SettingsLayer {
     public static fromData(payload: FacetData): SettingsLayer {
         const object = requireDataObject(payload, "Settings layer");
         requireExactFields(object, ["contributor", "ordinal", "package", "schema"]);
+        const schema = object["schema"];
+        if (schema === undefined) throw new TypeError("Settings layer schema is absent");
         return new SettingsLayer(
             ContributionAttribution.decodeFields(object, "Settings layer"),
             requireSafeInteger(object["ordinal"], "Settings layer ordinal"),
-            object["schema"]!
+            schema
         );
     }
 
@@ -132,6 +135,7 @@ const settingsLayerCodec = new DataRecordCodec(
         Digest,
         SettingsLayerId,
         JsonSchema,
+        StrictJsonSchemaValidator,
         FacetPackageId,
         SemVer,
         PackageId,

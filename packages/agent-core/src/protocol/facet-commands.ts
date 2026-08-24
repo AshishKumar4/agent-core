@@ -196,8 +196,7 @@ export class FacetSlotWithdrawCommand<Transaction, Read> implements ProtocolComm
     public readonly caller: CommandCallerPolicy;
     public readonly expectedRevision = "required" as const;
     public readonly lease = "forbidden" as const;
-    public readonly payload: CommandPayloadCodec<ContributionAttribution> =
-        new SlotWithdrawalPayloadCodec();
+    public readonly payload = new SlotWithdrawalPayloadCodec();
     public readonly replyCodec = facetSlotReplyCodec;
 
     public constructor(

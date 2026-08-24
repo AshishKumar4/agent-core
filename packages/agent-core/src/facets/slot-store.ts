@@ -2,7 +2,7 @@ import type { SynchronousResultGuard, TransactionOperation } from "../actors";
 import { Revision } from "../core";
 import { AgentCoreError } from "../errors";
 import type { WorkspaceId } from "../identity";
-import type { ContributionAttribution } from "./attribution";
+import { ContributionAttribution } from "./attribution";
 import { equalBytes } from "./record-map";
 import { InstalledSlot } from "./slot";
 import { SlotEntry, type SlotContributionOrigin } from "./slot-entry";
@@ -25,6 +25,9 @@ export class SlotWithdrawalSet {
         slots: readonly SlotName[],
         entries: readonly SlotEntryId[]
     ) {
+        if (!(attribution instanceof ContributionAttribution)) {
+            throw new TypeError("Slot withdrawal set requires contribution attribution");
+        }
         this.slots = Object.freeze([...slots]);
         this.entries = Object.freeze([...entries]);
         Object.freeze(this);

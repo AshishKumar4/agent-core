@@ -3111,7 +3111,7 @@
     },
     {
       "file": "src/workspaces/memory.ts",
-      "symbol": "MemoryWorkspaceRecords.deleteCompactedRecords",
+      "symbol": "MemoryWorkspaceRecords.deleteRecords",
       "mutator": "ConditionalExpression",
       "replacement": "false",
       "mutated": "records.size === 0",

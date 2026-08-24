@@ -18,11 +18,14 @@ import {
     ContentRef,
     Digest,
     JsonSchema,
+    decodeCanonicalJson,
+    canonicalTupleKey,
     Revision,
     type JsonValue,
     compareCanonicalText,
+    isJsonObject,
     isMember,
-    isJsonObject
+    jsonDataParser
 } from "../core";
 import type { TenantId } from "../identity";
 import type {
@@ -37,11 +40,8 @@ import {
     RetainedRecordKind,
     type ContentRetentionPort
 } from "./retention";
-import {
-    IngressEndpoint,
-    type IngressEndpointId,
-    type IngressEndpointMaterializationInit
-} from "./ingress-endpoint";
+import { IngressEndpoint, type IngressEndpointMaterializationInit } from "./ingress-endpoint";
+import type { IngressEndpointId } from "./id";
 import {
     AuthenticatedRouteProjection,
     RouteDelivery,
@@ -377,10 +377,16 @@ export class WorkspacePersistence<Transaction> {
             else fragments.push(layer.schema.document);
         }
         const properties = Object.fromEntries(
-            [...groups.entries()].map(([group, fragments]) => [
-                group,
-                fragments.length === 1 ? fragments[0]! : { allOf: fragments }
-            ])
+            [...groups.entries()].map(([group, fragments]) => {
+                const first = fragments[0];
+                if (first === undefined) {
+                    throw new AgentCoreError(
+                        "protocol.invalid-state",
+                        "Settings composition group is empty"
+                    );
+                }
+                return [group, fragments.length === 1 ? first : { allOf: fragments }];
+            })
         );
         return new JsonSchema({
             allOf: [
@@ -1607,9 +1613,11 @@ export function validateWorkspacePointerAdvance(
         case "subscription.current":
         case "view.current":
         case "ingress.current": {
-            const nextRevision = pointerRevision(pointer.recordKey);
+            const nextRevision = pointerRevision(pointer.recordKey, pointer.namespace);
             const expectedRevision =
-                expectedRecordKey === undefined ? undefined : pointerRevision(expectedRecordKey);
+                expectedRecordKey === undefined
+                    ? undefined
+                    : pointerRevision(expectedRecordKey, pointer.namespace);
             if (
                 (expectedRevision === undefined && nextRevision !== 0) ||
                 (expectedRevision !== undefined && nextRevision !== expectedRevision + 1)
@@ -1659,7 +1667,16 @@ function validateStorageText(value: string, maximum: number, subject: string): v
     }
 }
 
-function pointerRevision(recordKey: string): number {
+function pointerRevision(recordKey: string, namespace: string): number {
+    if (namespace === "ingress.current") {
+        const tuple = decodeCanonicalJson(new TextEncoder().encode(recordKey));
+        if (!Array.isArray(tuple) || tuple.length !== 3 || tuple[0] !== "ingress-endpoint.record") {
+            throw new AgentCoreError("codec.invalid", "Ingress endpoint pointer key is malformed");
+        }
+        const parser = jsonDataParser((message) => new AgentCoreError("codec.invalid", message));
+        parser.nonemptyString(tuple[1], "Ingress endpoint ID");
+        return parser.safeInteger(tuple[2], "Ingress endpoint revision");
+    }
     const separator = recordKey.lastIndexOf("@");
     const revision = separator < 0 ? Number.NaN : Number(recordKey.slice(separator + 1));
     if (!Number.isSafeInteger(revision) || revision < 0) {
@@ -1759,13 +1776,15 @@ function sameIngressDesired(current: IngressEndpoint, desired: IngressEndpoint):
 function isStringValue(value: JsonValue): value is string {
     return typeof value === "string";
 }
-
 function subscriptionRecordId(subscription: Subscription): string {
     return `${subscription.id.value}@${subscription.revision.value}`;
 }
 
 function ingressEndpointRecordId(endpoint: IngressEndpoint): string {
-    return `${endpoint.id.value}@${endpoint.revision.value}`;
+    return canonicalTupleKey("ingress-endpoint.record", [
+        endpoint.id.value,
+        endpoint.revision.value
+    ]);
 }
 
 function viewRecordId(view: View): string {

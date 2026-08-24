@@ -69,7 +69,7 @@ function reencoded(bytes: Uint8Array, field: string, value: JsonValue): Uint8Arr
 }
 
 describe("ingress endpoint record", () => {
-    test("round-trips byte-identically and encodes attribution and retirement by presence", () => {
+    test("[workspace.ingress-endpoint] round-trips byte-identically and encodes attribution and retirement by presence", () => {
         const contribution = attribution("workspace:ingress");
         const contributed = endpointFixture("wire", { contribution });
         const contributedBytes = IngressEndpoint.encode(contributed);

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { Digest, SemVer, encodeCanonicalJson, type JsonValue } from "../../src/core";
+import { Digest, SemVer, encodeCanonicalJson, isJsonObject } from "../../src/core";
 import { PackageId, PackagePin } from "../../src/definition-references";
 import {
     ContributionAttribution,
@@ -20,7 +20,7 @@ const attribution = new ContributionAttribution(new FacetRef("workspace:codec.fa
 
 describe("PromptSection record and codec", () => {
     test(
-        "round-trips through bytes and canonical data with its identity intact",
+        "[facet.prompt-section] round-trips through bytes and canonical data with its identity intact",
         { tags: "p0" },
         () => {
             const section = new PromptSection(
@@ -84,37 +84,33 @@ describe("PromptSection record and codec", () => {
         () => {
             const section = new PromptSection("Title", "Body", 1, attribution, 0);
 
-            expect(() =>
-                new PromptSection(
-                    "Title",
-                    "Body",
-                    1,
-                    attribution,
-                    0,
-                    forgedId<PromptSectionId>("prompt:forged")
-                )
+            expect(
+                () =>
+                    new PromptSection(
+                        "Title",
+                        "Body",
+                        1,
+                        attribution,
+                        0,
+                        forgedId<PromptSectionId>("prompt:forged")
+                    )
             ).toThrow(TypeError);
-            expect(() =>
-                new PromptSection("Title", "Body", 1, malformed("no attribution"), 0)
+            expect(
+                () => new PromptSection("Title", "Body", 1, malformed("no attribution"), 0)
             ).toThrow(/requires its contribution attribution/);
             expect(() => new PromptSection("Title", "Body", 1, attribution, -1)).toThrow(
                 /non-negative safe integer/
             );
 
-            const withExtra = {
-                ...(section.toData() as Record<string, JsonValue>),
-                extra: true
-            };
-            expect(() => PromptSection.fromData(withExtra)).toThrow(
-                /missing or unknown fields/
-            );
+            const data = section.toData();
+            if (!isJsonObject(data)) throw new TypeError("Prompt section data is not an object");
+            const withExtra = { ...data, extra: true };
+            expect(() => PromptSection.fromData(withExtra)).toThrow(/missing or unknown fields/);
             // Exact-field checking refuses a payload with no package field at all; the
             // attribution seam owns the deeper refusal for a payload that names no pin.
-            const withoutPin = section.toData() as Record<string, JsonValue>;
+            const withoutPin = { ...data };
             delete withoutPin["package"];
-            expect(() => PromptSection.fromData(withoutPin)).toThrow(
-                /missing or unknown fields/
-            );
+            expect(() => PromptSection.fromData(withoutPin)).toThrow(/missing or unknown fields/);
             expect(() =>
                 ContributionAttribution.decodeFields(
                     { contributor: "workspace:codec.facet" },

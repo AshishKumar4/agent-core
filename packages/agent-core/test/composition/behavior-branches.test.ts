@@ -429,7 +429,7 @@ describe("W9 composition behavior branches", () => {
     );
 
     test(
-        "owns loaded package handles, rejects double activation, and preserves cleanup failures",
+        "[C13-FACET-CONTRIBUTION-MATERIALIZATION] [C13-FACET-START-ATOMIC] owns loaded package handles, rejects double activation, and preserves cleanup failures",
         { tags: "p1" },
         async () => {
             const manifest = emptyManifest("composition.runtime");

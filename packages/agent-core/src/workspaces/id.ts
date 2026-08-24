@@ -35,6 +35,13 @@ export class EventCursor extends TextId {
     }
 }
 
+export class IngressEndpointId extends TextId {
+    public constructor(value: string) {
+        super(value, "Ingress endpoint ID");
+        Object.freeze(this);
+    }
+}
+
 export class InboxReferenceId extends TextId {
     public constructor(value: string) {
         super(value, "Inbox reference ID");

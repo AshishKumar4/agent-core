@@ -59,8 +59,7 @@
       "codec": "src/workspaces/ingress-endpoint.ts#IngressEndpoint.codec",
       "store": "src/workspaces/persistence.ts#WorkspacePersistence",
       "tests": [
-        "test/workspaces/ingress.test.ts#ingress endpoint record round-trips byte-identically and encodes attribution and retirement by presence",
-        "test/events/persistence-memory.test.ts#memory Workspace Event persistence persists revisioned ingress and retires only the exact release"
+        "test/workspaces/ingress.test.ts#ingress endpoint record [workspace.ingress-endpoint] round-trips byte-identically and encodes attribution and retirement by presence"
       ]
     },
     {

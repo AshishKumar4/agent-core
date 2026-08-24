@@ -121,7 +121,7 @@ export function workspacePersistenceContract<Transaction>(
 ): void {
     describe(`${name} workspace persistence`, () => {
         test(
-            "persists and withdraws every immutable contribution record by exact release",
+            "[C13-FACET-CONTRIBUTION-ATTRIBUTION] [C13-FACET-WITHDRAWAL-EXACT] persists and withdraws every immutable contribution record by exact release",
             { tags: "p0" },
             () => {
                 const harness = create();
@@ -266,7 +266,7 @@ export function workspacePersistenceContract<Transaction>(
             }
         );
         test(
-            "persists revisioned ingress and retires only the exact release",
+            "[C13-FACET-CONTRIBUTION-ATTRIBUTION] [C13-FACET-WITHDRAWAL-EXACT] persists revisioned ingress and retires only the exact release",
             { tags: "p0" },
             () => {
                 const harness = create();

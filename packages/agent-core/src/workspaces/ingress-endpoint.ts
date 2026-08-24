@@ -33,18 +33,7 @@ import {
     requireObject,
     requireString
 } from "./codec";
-
-/**
- * The durable identity of one target-bound ingress endpoint. It lives beside its record
- * so the whole ingress plane stays one slice until the owning context wires it into the
- * shared workspace storage.
- */
-export class IngressEndpointId extends TextId {
-    public constructor(value: string) {
-        super(value, "Ingress endpoint ID");
-        Object.freeze(this);
-    }
-}
+import { IngressEndpointId } from "./id";
 
 export interface IngressEndpointInit {
     readonly id: IngressEndpointId;
@@ -86,6 +75,7 @@ class IngressEndpointCodecV1 extends RecordCodec<IngressEndpoint> {
         super(
             [
                 IngressEndpoint,
+                IngressEndpointId,
                 ContributionAttribution,
                 Revision,
                 TextId,

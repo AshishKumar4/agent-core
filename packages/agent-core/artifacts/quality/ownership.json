@@ -197,6 +197,7 @@
       "packages/agent-core/src/interaction-references/**",
       "packages/agent-core/src/substrates/sqlite/events/**",
       "packages/agent-core/src/substrates/sqlite/workspaces/**",
+      "packages/agent-core/src/substrates/sqlite/workspace-records.ts",
       "packages/agent-core/test/events/**",
       "packages/agent-core/test/interaction-references/**",
       "packages/agent-core/test/substrates/sqlite/events-*.test.ts",

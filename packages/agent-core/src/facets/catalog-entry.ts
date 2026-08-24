@@ -1,4 +1,11 @@
-import { Digest, SemVer, TextId, canonicalTupleKey, encodeCanonicalJson } from "../core";
+import {
+    Digest,
+    JsonSchema,
+    SemVer,
+    TextId,
+    canonicalTupleKey,
+    encodeCanonicalJson
+} from "../core";
 import { PackageId, PackagePin } from "../definition-references";
 import { ContributionAttribution } from "./attribution";
 import { Command } from "./command";
@@ -11,7 +18,17 @@ import {
     requireExactFields,
     requireString
 } from "./data";
-import { CatalogEntryId, FacetPackageId, FacetRef } from "./id";
+import {
+    BindingName,
+    CatalogEntryId,
+    FacetPackageId,
+    FacetRef,
+    OperationName,
+    OperationRef,
+    SlotName
+} from "./id";
+import { FieldMapping, FieldMove, JsonPointer, MappingRecord } from "./mapping";
+import { BoundOperationRef } from "./operation";
 
 /**
  * The §4.1 contribution kinds whose materialization is a catalog entry: an `operations`
@@ -217,6 +234,17 @@ const catalogEntryCodec = new DataRecordCodec(
         ContributionAttribution,
         OperationDescriptor,
         Command,
+        BindingName,
+        SlotName,
+        JsonSchema,
+        JsonPointer,
+        OperationName,
+        OperationRef,
+        BoundOperationRef,
+        MappingRecord,
+        FieldMapping,
+        FieldMove,
+        CatalogEntryId,
         TextId,
         FacetRef,
         FacetPackageId,

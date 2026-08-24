@@ -10,7 +10,7 @@ export {
 } from "../interaction-references";
 export { Event } from "./event";
 export type { EventInit } from "./event";
-export { IngressEndpoint, IngressEndpointId } from "./ingress-endpoint";
+export { IngressEndpoint } from "./ingress-endpoint";
 export type { IngressEndpointInit, IngressEndpointMaterializationInit } from "./ingress-endpoint";
 export {
     CoherenceFinding,
@@ -35,6 +35,7 @@ export {
     CoherenceFindingId,
     ContentRetentionId,
     EventCursor,
+    IngressEndpointId,
     InboxReferenceId,
     RetainedRecordRef
 } from "./id";

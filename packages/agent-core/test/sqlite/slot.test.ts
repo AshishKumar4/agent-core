@@ -88,8 +88,8 @@ describe("SqliteWorkspaceSlotStore persistence", () => {
     test("rejects a transaction from another database", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const store = new SqliteWorkspaceSlotStore(new WorkspaceId("workspace"), database);
-        expect(() => store.loadRevision(new TestSqlite())).toThrow(/owning transaction/);
-        expect(() => store.loadRevision(database)).toThrow(/owning transaction/);
+        expect(() => store.loadRevision(new TestSqlite())).toThrow(/owning database/);
+        expect(store.loadRevision(database).value).toBe(0);
     });
 
     test("rejects precreated weak schemas and broken entry closure", { tags: "p1" }, () => {
