@@ -34,6 +34,8 @@ describe("Declarative facet vocabulary [facet.catalog-entry]", () => {
         expect(decoded.kind).toBe("operation");
         expect(decoded.name).toBe("resize");
         expect(decoded.origin.key).toBe(entry.origin.key);
+        expect(decoded.origin.equals(entry.origin)).toBe(true);
+        expect(decoded.origin.toData()).toEqual(entry.origin.toData());
         expect(decoded.id.equals(entry.id)).toBe(true);
         expect(decoded.attribution?.equals(goldenAttribution)).toBe(true);
         expect(decoded.declaration instanceof OperationDescriptor).toBe(true);
@@ -102,9 +104,9 @@ describe("Declarative facet vocabulary [facet.catalog-entry]", () => {
 
     test("refuses a stored id that does not match its canonical contents", () => {
         const fields = fieldsOf(operationEntry());
-        expect(() =>
-            CatalogEntry.fromData({ ...fields, id: `catalog:${"0".repeat(64)}` })
-        ).toThrow(/does not match its canonical contents/);
+        expect(() => CatalogEntry.fromData({ ...fields, id: `catalog:${"0".repeat(64)}` })).toThrow(
+            /does not match its canonical contents/
+        );
         // A tampered pin moves the digest with it, so rewriting a stored record's release
         // in place cannot keep the identity it was stored under.
         expect(() =>
@@ -131,11 +133,16 @@ describe("Declarative facet vocabulary [facet.catalog-entry]", () => {
         expect(() => new CatalogEntry("operation", "resize", command, undefined)).toThrow(
             /declares a different record/
         );
-        expect(() =>
-            CatalogEntry.fromData({ ...fieldsOf(directEntry()), kind: "macro" })
-        ).toThrow(/must be one of operation, command/);
-        expect(() =>
-            new CatalogEntry("operation", "resize", structuredClone(descriptor_), undefined)
+        expect(() => CatalogEntry.fromData({ ...fieldsOf(directEntry()), kind: "macro" })).toThrow(
+            /must be one of operation, command/
+        );
+        const missingDeclaration = { ...fieldsOf(directEntry()) };
+        delete missingDeclaration["declaration"];
+        expect(() => CatalogEntry.fromData(missingDeclaration)).toThrow(
+            /missing or unknown fields/
+        );
+        expect(
+            () => new CatalogEntry("operation", "resize", structuredClone(descriptor_), undefined)
         ).toThrow(TypeError);
         expect(
             () =>

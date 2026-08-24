@@ -5,6 +5,7 @@ import {
     ContributionAttribution,
     FacetRef,
     PromptSection,
+    PromptSectionContributionOrigin,
     type PromptSectionId
 } from "../../src/facets";
 import { malformed } from "../helpers/malformed";
@@ -126,6 +127,40 @@ describe("PromptSection record and codec", () => {
             expectAgentCoreError(() => PromptSection.decode(bytes), "codec.unknown-major");
         }
     );
+
+    test("orders every declared tie-breaker and validates direct origins", { tags: "p1" }, () => {
+        const base = new PromptSection("A", "A", 0, attribution, 0);
+        expect(
+            PromptSection.compare(base, new PromptSection("A", "A", 1, attribution, 0))
+        ).toBeLessThan(0);
+        expect(
+            PromptSection.compare(base, new PromptSection("B", "A", 0, attribution, 0))
+        ).toBeLessThan(0);
+        expect(
+            PromptSection.compare(base, new PromptSection("A", "B", 0, attribution, 0))
+        ).toBeLessThan(0);
+        expect(
+            PromptSection.compare(
+                base,
+                new PromptSection(
+                    "A",
+                    "A",
+                    0,
+                    new ContributionAttribution(new FacetRef("workspace:other"), pin),
+                    0
+                )
+            )
+        ).toBeLessThan(0);
+        expect(
+            PromptSection.compare(base, new PromptSection("A", "A", 0, attribution, 1))
+        ).toBeLessThan(0);
+        expect(
+            () => new PromptSectionContributionOrigin(malformed<FacetRef>("not-a-facet"), 0)
+        ).toThrow(/names its contributor/);
+        expect(() => new PromptSectionContributionOrigin(attribution.contributor, -1)).toThrow(
+            /non-negative safe integer/
+        );
+    });
 });
 
 function upgradedPin(): PackagePin {

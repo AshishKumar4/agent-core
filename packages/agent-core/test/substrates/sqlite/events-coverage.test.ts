@@ -845,6 +845,11 @@ describe("SQLite workspace record coverage", () => {
                     "key@1"
                 )
             ).toThrow(expect.objectContaining({ code: "protocol.revision-conflict" }));
+            expect(() => records.deletePointer("view.current", "key", "wrong@1")).toThrow(
+                expect.objectContaining({ code: "protocol.revision-conflict" })
+            );
+            records.deletePointer("view.current", "key", "key@1");
+            expect(records.findPointer("view.current", "key")).toBeUndefined();
         }
     );
 
@@ -878,6 +883,29 @@ describe("SQLite workspace record coverage", () => {
                     })
                 )
             ).toBe("protocol.invalid-state");
+        }
+    );
+
+    test(
+        "rejects ignored record and unique writes by their exact postconditions",
+        { tags: "p1" },
+        () => {
+            const database = new SuppressingWorkspaceSqlite();
+            const records = new SqliteWorkspaceRecords(database);
+            database.suppressRecordInsert = true;
+            expect(() => records.insertRecord(stored("view", "ignored", Uint8Array.of(1)))).toThrow(
+                /did not persist exact bytes/
+            );
+
+            database.suppressRecordInsert = false;
+            database.suppressUniqueInsert = true;
+            expect(() =>
+                records.insertUnique({
+                    namespace: "unique",
+                    key: "ignored",
+                    recordKey: "record"
+                })
+            ).toThrow(/unique insert did not persist/);
         }
     );
 
@@ -2097,5 +2125,20 @@ class RowMutatingSqlite extends TestSqlite {
         bindings: readonly SqliteValue[]
     ): readonly SqliteRow[] {
         return super.query(statement, bindings).map((row) => this.mutate?.(statement, row) ?? row);
+    }
+}
+
+class SuppressingWorkspaceSqlite extends TestSqlite {
+    public suppressRecordInsert = false;
+    public suppressUniqueInsert = false;
+
+    protected override execute(statement: string, bindings: readonly SqliteValue[]): void {
+        if (
+            (this.suppressRecordInsert && statement.startsWith("INSERT INTO workspace_records")) ||
+            (this.suppressUniqueInsert && statement.startsWith("INSERT INTO workspace_uniques"))
+        ) {
+            return;
+        }
+        super.execute(statement, bindings);
     }
 }

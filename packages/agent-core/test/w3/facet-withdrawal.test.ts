@@ -1,13 +1,26 @@
 import { describe, expect, test } from "vitest";
+import type { SynchronousResultGuard } from "../../src/actors";
 import { Digest } from "../../src/core";
 import { AuditRecordId } from "../../src/interaction-references";
 import {
-    FacetRef,
+    CatalogEntry,
+    CatalogEntryId,
     FacetManifest,
+    FacetRef,
+    PromptSection,
+    PromptSectionId,
+    PackageInstallationRef,
+    SettingsLayer,
+    SettingsLayerId,
     SlotEntry,
     SlotName,
+    SlotWithdrawalSet,
+    SurfaceDescriptor,
+    SurfaceId,
+    SurfaceRegistration,
     type ContributionAttribution,
-    type Facet
+    type Facet,
+    type WorkspaceSlotStore
 } from "../../src/facets";
 import { ScopeRef, WorkspaceId } from "../../src/identity";
 import { AgentCoreError } from "../../src/errors";
@@ -18,6 +31,8 @@ import {
 } from "../../src/composition";
 import { FacetCorrespondenceValidator, type ValidatedFacetRuntime } from "../../src/operations";
 import {
+    IngressEndpoint,
+    IngressEndpointId,
     MemoryWorkspaceRecords,
     RouteDeliveryState,
     WITHDRAWN_TARGET_REASON,
@@ -45,9 +60,18 @@ import {
     tenant
 } from "../workspaces/fixtures";
 
+import { reaching } from "../composition/fixture";
 import { attribution, contribute, declarerSlot, entry } from "./slot-store-contract";
 import { activationFacet } from "./facet-activation-fixture";
 type CorrespondentFacet = ValidatedFacetRuntime["facets"][number];
+
+interface TestWorkspaceTransaction {
+    readonly kind: "test-workspace-transaction";
+}
+
+const testWorkspaceTransaction: TestWorkspaceTransaction = Object.freeze({
+    kind: "test-workspace-transaction"
+});
 
 class DurableRetention<Transaction> implements ContentRetentionPort<Transaction> {
     public verify(): boolean {
@@ -427,6 +451,123 @@ describe("Facet withdrawal across owning Actors", () => {
             ).toEqual(["subscription-refused"]);
         }
     );
+    test(
+        "retires every Workspace contribution record from the queried exact set",
+        { tags: "p1" },
+        () => {
+            const contribution = attribution("workspace:all-records");
+            const catalog = new CatalogEntryId("catalog:all-records");
+            const ingress = new IngressEndpointId("ingress-all-records");
+            const prompt = new PromptSectionId("prompt:all-records");
+            const settings = new SettingsLayerId("settings:all-records");
+            const surface = new SurfaceId("surface.all-records");
+            const retired: string[] = [];
+            const persistence = reaching<WorkspacePersistence<TestWorkspaceTransaction>>({
+                listContributedCatalogEntries: () => [reaching<CatalogEntry>({ id: catalog })],
+                listContributedIngressEndpoints: () => [reaching<IngressEndpoint>({ id: ingress })],
+                listContributedPromptSections: () => [reaching<PromptSection>({ id: prompt })],
+                listContributedSettingsLayers: () => [reaching<SettingsLayer>({ id: settings })],
+                listContributedSurfaceRegistrations: () => [
+                    reaching<SurfaceRegistration>({
+                        descriptor: reaching<SurfaceDescriptor>({ id: surface })
+                    })
+                ],
+                retireCatalogEntry: () => {
+                    retired.push(catalog.value);
+                },
+                retireIngressEndpoint: () => {
+                    retired.push(ingress.value);
+                },
+                retirePromptSection: () => {
+                    retired.push(prompt.value);
+                },
+                retireSettingsLayer: () => {
+                    retired.push(settings.value);
+                },
+                retireSurfaceRegistration: () => {
+                    retired.push(surface.value);
+                }
+            });
+            const slots = reaching<WorkspaceSlotStore<TestWorkspaceTransaction>>({
+                withdrawalSet: () => new SlotWithdrawalSet(contribution, [], []),
+                requireWithdrawable: () => undefined,
+                retireWithdrawalSet: () => {
+                    retired.push("slots");
+                    return true;
+                }
+            });
+            const routing = reaching<WorkspaceRoutingWithdrawal<TestWorkspaceTransaction>>({
+                contributed: () => [],
+                retire: () => ({ subscriptions: [], rejected: [] })
+            });
+            const withdrawal = new FacetWithdrawal(slots, routing, persistence, objectTransaction);
+
+            const result = withdrawal.withdraw(contribution);
+            expect(result.records).toEqual({
+                catalogEntries: [catalog],
+                ingressEndpoints: [ingress],
+                promptSections: [prompt],
+                settingsLayers: [settings],
+                surfaces: [surface]
+            });
+            expect(retired).toEqual([
+                "slots",
+                catalog.value,
+                ingress.value,
+                prompt.value,
+                settings.value,
+                surface.value
+            ]);
+        }
+    );
+
+    test(
+        "wraps record query failures and non-Error withdrawal transaction failures",
+        { tags: "p1" },
+        () => {
+            const contribution = attribution("workspace:failure");
+            const slots = reaching<WorkspaceSlotStore<TestWorkspaceTransaction>>({
+                withdrawalSet: () => {
+                    throw new TypeError("record decode failed");
+                }
+            });
+            const routing = reaching<WorkspaceRoutingWithdrawal<TestWorkspaceTransaction>>({});
+            const persistence = reaching<WorkspacePersistence<TestWorkspaceTransaction>>({});
+            const queryFailure = new FacetWithdrawal(
+                slots,
+                routing,
+                persistence,
+                objectTransaction
+            );
+            expect(() => queryFailure.plan(contribution)).toThrow(
+                /not computable from Workspace records: record decode failed/
+            );
+
+            const controlFailure = new FacetWithdrawal(
+                reaching<WorkspaceSlotStore<TestWorkspaceTransaction>>({}),
+                routing,
+                persistence,
+                () => {
+                    throw "control rejected";
+                }
+            );
+            expect(() => controlFailure.withdraw(contribution)).toThrow(
+                /Workspace Actor transaction: control rejected/
+            );
+
+            const errorControl = new FacetWithdrawal(
+                reaching<WorkspaceSlotStore<TestWorkspaceTransaction>>({}),
+                routing,
+                persistence,
+                () => {
+                    throw new TypeError("control failed");
+                }
+            );
+            expect(() => errorControl.plan(contribution)).toThrow(
+                /Workspace Actor transaction: control failed/
+            );
+        }
+    );
 });
 
 describe("Facet activation atomicity", () => {
@@ -553,6 +694,91 @@ describe("Facet activation atomicity", () => {
             ).rejects.toThrow(/names another Facet/);
         }
     );
+
+    test(
+        "refuses absent provenance and reports materialization plus stop failures",
+        { tags: "p1" },
+        async () => {
+            const contribution = attribution("workspace:activation-failure");
+            const raw = activationFacet(
+                contribution.contributor,
+                () => undefined,
+                () => {
+                    throw "stop rejected";
+                }
+            );
+            const facet = validatedActivationFacet(raw);
+            const emptyPlan = {
+                attribution: contribution,
+                records: {
+                    catalogEntries: [],
+                    ingressEndpoints: [],
+                    promptSections: [],
+                    settingsLayers: [],
+                    surfaces: []
+                },
+                slots: new SlotWithdrawalSet(contribution, [], []),
+                subscriptions: 0
+            };
+            const withdrawal = reaching<FacetWithdrawal<TestWorkspaceTransaction>>({
+                plan: () => emptyPlan
+            });
+            const missing = new FacetActivation(
+                withdrawal,
+                reaching<
+                    WorkspaceFacetMaterializer<
+                        TestWorkspaceTransaction,
+                        TestWorkspaceTransaction,
+                        TestWorkspaceTransaction
+                    >
+                >({
+                    prepareContribution: () => undefined
+                }),
+                objectTransaction
+            );
+            await expect(
+                missing.activate(facet, testWorkspaceTransaction, testWorkspaceTransaction, {
+                    signal: new AbortController().signal
+                })
+            ).rejects.toThrow(/requires current package installation provenance/);
+
+            const installation = authenticatedInstallationFixture(
+                contribution.contributor.value,
+                contribution.package,
+                Digest.sha256(FacetManifest.encode(facet.manifest))
+            );
+            const prepared = {
+                reference: new PackageInstallationRef(contribution, installation.packageFacet),
+                manifestDigest: installation.manifestDigest,
+                materialization: installation.materialization,
+                stamp: Object.freeze({})
+            };
+            const failing = new FacetActivation(
+                withdrawal,
+                reaching<
+                    WorkspaceFacetMaterializer<
+                        TestWorkspaceTransaction,
+                        TestWorkspaceTransaction,
+                        TestWorkspaceTransaction
+                    >
+                >({
+                    prepareContribution: () => prepared,
+                    materialize: () => {
+                        throw "materialization rejected";
+                    }
+                }),
+                objectTransaction
+            );
+            await expect(
+                failing.activate(facet, testWorkspaceTransaction, testWorkspaceTransaction, {
+                    signal: new AbortController().signal
+                })
+            ).resolves.toMatchObject({
+                kind: "failed",
+                reason: "materialization rejected; Facet stop failed: stop rejected"
+            });
+        }
+    );
 });
 
 interface RoutingHarness {
@@ -647,4 +873,11 @@ function validatedActivationFacet(facet: Facet): CorrespondentFacet {
         .facets[0];
     if (validated === undefined) throw new TypeError("Expected validated activation Facet");
     return validated;
+}
+
+function objectTransaction<Result>(
+    operation: (transaction: TestWorkspaceTransaction) => Result,
+    ..._guard: SynchronousResultGuard<Result>
+): Result {
+    return operation(testWorkspaceTransaction);
 }

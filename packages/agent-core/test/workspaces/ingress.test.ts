@@ -109,6 +109,27 @@ describe("ingress endpoint record", () => {
                     })
                 })
         ).toThrow(new TypeError("Ingress endpoint contribution must carry canonical attribution"));
+        expect(
+            () =>
+                new IngressEndpoint({
+                    ...live,
+                    scope: malformed<ScopeRef>(null)
+                })
+        ).toThrow(/bind its target Scope/);
+        expect(
+            () =>
+                new IngressEndpoint({
+                    ...live,
+                    declared: malformed<IngressDeclaration>(null)
+                })
+        ).toThrow(/canonical declaration/);
+        expect(
+            () =>
+                new IngressEndpoint({
+                    ...live,
+                    retired: malformed<true>(false)
+                })
+        ).toThrow(/declared by presence/);
 
         const bytes = IngressEndpoint.encode(
             endpointFixture("halved", { contribution: attribution("workspace:halved") })

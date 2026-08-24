@@ -75,7 +75,7 @@ export interface WorkspacePersistenceHarness<Transaction> {
 
 function ingressEndpoint(
     suffix: string,
-    contribution: ContributionAttribution,
+    contribution: ContributionAttribution | undefined,
     path: string
 ): IngressEndpoint {
     return new IngressEndpoint({
@@ -235,6 +235,16 @@ export function workspacePersistenceContract<Transaction>(
                                 firstAttribution
                             )
                         ).toEqual([]);
+                        expect(() =>
+                            persistence.retireSurfaceRegistration(
+                                transaction,
+                                new SurfaceId("missing.surface")
+                            )
+                        ).toThrow(
+                            expect.objectContaining({
+                                code: "protocol.invalid-state"
+                            })
+                        );
                         expect(
                             persistence
                                 .listContributedCatalogEntries(transaction, secondAttribution)
@@ -284,7 +294,25 @@ export function workspacePersistenceContract<Transaction>(
                         secondAttribution,
                         `/${name}/second`
                     );
+                    const direct = ingressEndpoint(`${name}-direct`, undefined, `/${name}/direct`);
                     harness.transaction((transaction) => {
+                        expect(() =>
+                            harness.persistence.createIngressEndpoint(transaction, first)
+                        ).toThrow(expect.objectContaining({ code: "authority.denied" }));
+                        harness.persistence.createIngressEndpoint(transaction, direct);
+                        expect(() =>
+                            harness.persistence.putManagedIngressEndpoint(transaction, direct)
+                        ).toThrow(expect.objectContaining({ code: "authority.denied" }));
+                        expect(() =>
+                            harness.persistence.retireIngressEndpoint(
+                                transaction,
+                                new IngressEndpointId("missing-ingress")
+                            )
+                        ).toThrow(
+                            expect.objectContaining({
+                                code: "protocol.invalid-state"
+                            })
+                        );
                         expect(
                             harness.persistence.putManagedIngressEndpoint(transaction, first)
                         ).toBe(true);
@@ -294,6 +322,30 @@ export function workspacePersistenceContract<Transaction>(
                         expect(
                             harness.persistence.putManagedIngressEndpoint(transaction, second)
                         ).toBe(false);
+                        expect(() =>
+                            harness.persistence.replaceIngressEndpoint(transaction, first, first)
+                        ).toThrow(
+                            expect.objectContaining({
+                                code: "protocol.revision-conflict"
+                            })
+                        );
+                        expect(() =>
+                            harness.persistence.replaceIngressEndpoint(
+                                transaction,
+                                new IngressEndpoint({
+                                    id: first.id,
+                                    revision: first.revision.next(),
+                                    scope: first.scope,
+                                    declared: first.declared,
+                                    contribution: secondAttribution
+                                }),
+                                first
+                            )
+                        ).toThrow(
+                            expect.objectContaining({
+                                code: "protocol.invalid-state"
+                            })
+                        );
                         expect(() =>
                             harness.persistence.putManagedIngressEndpoint(
                                 transaction,
@@ -325,6 +377,13 @@ export function workspacePersistenceContract<Transaction>(
                             )
                         ).toHaveLength(1);
                         harness.persistence.retireIngressEndpoint(transaction, first.id);
+                        expect(() =>
+                            harness.persistence.retireIngressEndpoint(transaction, first.id)
+                        ).toThrow(
+                            expect.objectContaining({
+                                code: "protocol.invalid-state"
+                            })
+                        );
                     });
 
                     harness.restart();

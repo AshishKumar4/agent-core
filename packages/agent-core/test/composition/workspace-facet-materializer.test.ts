@@ -1,8 +1,14 @@
 import { CompatRange, Digest, JsonSchema, SecretRef, SemVer } from "../../src/core";
-import { ManagedOrigin, type PreparedPackageContribution } from "../../src/definition";
+import {
+    ManagedOrigin,
+    type LoadedBlueprint,
+    type PreparedPackageContribution
+} from "../../src/definition";
 import {
     Automation,
     Command,
+    EventDeclaration,
+    EventKind,
     BindingName,
     Contribution,
     Contributions,
@@ -35,7 +41,10 @@ import {
     type OperationContext
 } from "../../src/facets";
 import { ScopeRef, WorkspaceId } from "../../src/identity";
-import { WorkspaceFacetMaterializer } from "../../src/composition";
+import {
+    WorkspaceFacetMaterializer,
+    WorkspacePackageFacetMaterialization
+} from "../../src/composition";
 import { FacetCorrespondenceValidator, type ValidatedFacetRuntime } from "../../src/operations";
 import {
     SqliteWorkspaceRecords,
@@ -201,6 +210,14 @@ function manifest(): FacetManifest {
         contributions: new Contributions([
             new Contribution(new SlotName("automations"), [automation.toData()]),
             new Contribution(new SlotName("commands"), [commandDeclaration().toData()]),
+            new Contribution(new SlotName("events"), [
+                new EventDeclaration(
+                    new EventKind("materialized.event"),
+                    "Materialized event",
+                    new JsonSchema({ type: "object" }),
+                    "workspace"
+                ).toData()
+            ]),
             new Contribution(new SlotName("ingress"), [ingress.toData()]),
             new Contribution(new SlotName("operations"), [operation.toData()]),
             new Contribution(new SlotName("prompt"), [
@@ -223,13 +240,16 @@ function prepare(harness: Harness): PreparedPackageContribution {
     return prepared;
 }
 
+function validated(facet = new MaterializedFacet()): CorrespondentFacet {
+    const result = new FacetCorrespondenceValidator().validate([facet.manifest], [facet]).facets[0];
+    if (result === undefined) throw new TypeError("Expected validated Facet");
+    return result;
+}
+
 function apply(harness: Harness, facet = new MaterializedFacet()) {
     const prepared = prepare(harness);
-    const validated = new FacetCorrespondenceValidator().validate([facet.manifest], [facet])
-        .facets[0];
-    if (validated === undefined) throw new TypeError("Expected validated Facet");
     return harness.database.transaction(() =>
-        harness.materializer.materialize(harness.database, context, prepared, validated)
+        harness.materializer.materialize(harness.database, context, prepared, validated(facet))
     );
 }
 
@@ -373,6 +393,31 @@ describe("Workspace Facet materializer", () => {
         }
     );
 
+    test(
+        "materializes the package's complete validated Facet set in one transaction",
+        { tags: "p1" },
+        () => {
+            const packageMaterialization = new WorkspacePackageFacetMaterialization(
+                harness.materializer,
+                (operation, ...guard) =>
+                    harness.database.transaction(() => operation(harness.database), ...guard),
+                harness.database,
+                () => context
+            );
+            packageMaterialization.materialize(reaching<LoadedBlueprint<unknown>>({}), [
+                validated()
+            ]);
+            expect(harness.persistence.listCatalogEntries(harness.database)).toHaveLength(2);
+
+            harness.provenance.installation = undefined;
+            expect(() =>
+                packageMaterialization.materialize(reaching<LoadedBlueprint<unknown>>({}), [
+                    validated()
+                ])
+            ).toThrow(/has no current installation provenance/);
+        }
+    );
+
     test("refuses unvalidated or manifest-substituted Facet instances", { tags: "p0" }, () => {
         const prepared = prepare(harness);
         expect(() =>
@@ -394,6 +439,14 @@ describe("Workspace Facet materializer", () => {
         if (installation === undefined) {
             throw new TypeError("Expected authenticated installation");
         }
+        const stale = prepare(harness);
+        harness.provenance.installation = undefined;
+        expect(() =>
+            harness.database.transaction(() =>
+                harness.materializer.materialize(harness.database, context, stale, validated())
+            )
+        ).toThrow(/provenance changed before materialization/);
+        harness.provenance.installation = installation;
         harness.provenance.installation = {
             ...installation,
             manifestDigest: new Digest("f".repeat(64))
