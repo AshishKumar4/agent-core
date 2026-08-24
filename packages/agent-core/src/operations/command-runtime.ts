@@ -252,7 +252,7 @@ function schemaAtPointer(
 ): JsonSchemaDocument | undefined {
     let current: JsonSchemaDocument | undefined = document;
     for (const segment of pointerSegments(pointer)) {
-        if (current === undefined || current === true || current === false) return undefined;
+        if (current === undefined) return undefined;
         const properties = schemaMap(current["properties"]);
         if (properties !== undefined && Object.hasOwn(properties, segment)) {
             current = schemaDocument(properties[segment]);
