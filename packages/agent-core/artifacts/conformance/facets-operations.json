@@ -223,19 +223,11 @@
         "src/facets/settings.ts#SettingsLayer",
         "src/facets/slot-entry.ts#SlotEntry",
         "src/facets/slot.ts#InstalledSlot",
-        "src/facets/surface.ts#SurfaceRegistration",
-        "src/workspaces/ingress-endpoint.ts#IngressEndpoint",
-        "src/workspaces/subscription.ts#Subscription",
-        "src/workspaces/persistence.ts#WorkspacePersistence",
-        "src/composition/workspace-facet-materializer.ts#WorkspaceFacetMaterializer"
+        "src/facets/surface.ts#SurfaceRegistration"
       ],
       "testSelectors": [
         "test/facets/declarations.test.ts#Declarative facet vocabulary [C13-FACET-CONTRIBUTION-ATTRIBUTION] refuses to decode a SlotEntry that carries no source Package pin",
         "test/facets/declarations.test.ts#Declarative facet vocabulary [C13-FACET-CONTRIBUTION-ATTRIBUTION] refuses to register a Surface from a missing or forged attribution",
-        "test/composition/workspace-facet-materializer.test.ts#Workspace Facet materializer [C13-FACET-CONTRIBUTION-ATTRIBUTION] [C13-FACET-CONTRIBUTION-MATERIALIZATION] [facet.settings-layer] materializes every supported primitive atomically and replays as a no-op",
-        "test/composition/workspace-facet-materializer.test.ts#Workspace Facet materializer [C13-FACET-CONTRIBUTION-ATTRIBUTION] reconciles a new PackagePin without retaining the old attribution",
-        "test/events/persistence-memory.test.ts#memory workspace persistence [C13-FACET-CONTRIBUTION-ATTRIBUTION] [C13-FACET-WITHDRAWAL-EXACT] persists and withdraws every immutable contribution record by exact release",
-        "test/events/persistence-memory.test.ts#memory workspace persistence [C13-FACET-CONTRIBUTION-ATTRIBUTION] [C13-FACET-WITHDRAWAL-EXACT] persists revisioned ingress and retires only the exact release",
         "test/w3/facet-withdrawal.test.ts#Facet withdrawal across owning Actors [C13-FACET-CONTRIBUTION-ATTRIBUTION] refuses every later revision that rewrites, adds, or drops a Subscription's attribution"
       ],
       "checkerInvariants": ["ACQ-ATTRIBUTION"],
@@ -252,17 +244,14 @@
       "status": "implemented",
       "prerequisites": [],
       "sourceSymbols": [
-        "src/composition/package-runtime.ts#PackageFacetRuntime",
-        "src/composition/workspace-facet-materializer.ts#WorkspaceFacetMaterializer",
-        "src/composition/workspace-facet-materializer.ts#WorkspacePackageFacetMaterialization",
+        "src/facets/catalog-entry.ts#CatalogEntry",
+        "src/facets/prompt-section.ts#PromptSection",
+        "src/facets/settings.ts#SettingsLayer",
         "src/facets/slot-store.ts#WorkspaceSlotStore",
-        "src/workspaces/persistence.ts#WorkspacePersistence"
+        "src/facets/surface.ts#SurfaceRegistration"
       ],
       "testSelectors": [
-        "test/composition/behavior-branches.test.ts#composition lifecycle branch coverage [C13-FACET-CONTRIBUTION-MATERIALIZATION] [C13-FACET-START-ATOMIC] owns loaded package handles, rejects double activation, and preserves cleanup failures",
-        "test/composition/behavior-branches.test.ts#composition lifecycle branch coverage [C13-FACET-CONTRIBUTION-MATERIALIZATION] materializes every validated child Facet before host publication",
-        "test/composition/workspace-facet-materializer.test.ts#Workspace Facet materializer [C13-FACET-CONTRIBUTION-ATTRIBUTION] [C13-FACET-CONTRIBUTION-MATERIALIZATION] [facet.settings-layer] materializes every supported primitive atomically and replays as a no-op",
-        "test/composition/workspace-facet-materializer.test.ts#Workspace Facet materializer [C13-FACET-CONTRIBUTION-MATERIALIZATION] [C13-FACET-START-ATOMIC] rolls back every primitive when one later record write fails"
+        "test/facets/slot-memory.test.ts#MemoryWorkspaceSlotStore snapshots [C13-FACET-CONTRIBUTION-MATERIALIZATION] supports idempotent high-level install and contribution operations"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": [
@@ -410,15 +399,8 @@
       "specTextSha256": "sha256:2abf749e076815e9f28e7e30e36c13c276c9f3cda45889fad5d168c244e0fa7b",
       "status": "implemented",
       "prerequisites": ["C13-FACET-CONTRIBUTION-ATTRIBUTION", "C13-FACET-WITHDRAWAL-EXACT"],
-      "sourceSymbols": [
-        "src/composition/facet-withdrawal.ts#FacetActivation",
-        "src/composition/package-runtime.ts#PackageFacetRuntime",
-        "src/composition/workspace-facet-materializer.ts#WorkspaceFacetMaterializer",
-        "src/composition/workspace-facet-materializer.ts#WorkspacePackageFacetMaterialization"
-      ],
+      "sourceSymbols": ["src/facets/runtime.ts#Facet"],
       "testSelectors": [
-        "test/composition/behavior-branches.test.ts#composition lifecycle branch coverage [C13-FACET-CONTRIBUTION-MATERIALIZATION] [C13-FACET-START-ATOMIC] owns loaded package handles, rejects double activation, and preserves cleanup failures",
-        "test/composition/workspace-facet-materializer.test.ts#Workspace Facet materializer [C13-FACET-CONTRIBUTION-MATERIALIZATION] [C13-FACET-START-ATOMIC] rolls back every primitive when one later record write fails",
         "test/w3/facet-withdrawal.test.ts#Facet activation atomicity [C13-FACET-START-ATOMIC] leaves nothing behind when start does not complete",
         "test/w3/facet-withdrawal.test.ts#Facet activation atomicity [C13-FACET-START-ATOMIC] refuses a retry against a Scope whose prior partial effect was not retired"
       ],
@@ -452,13 +434,8 @@
       "specTextSha256": "sha256:e4ad430bb9d9e8d03e69b14dbaaab97c41c051c0cc78518174a2cb097e48775d",
       "status": "implemented",
       "prerequisites": ["C13-FACET-CONTRIBUTION-ATTRIBUTION"],
-      "sourceSymbols": [
-        "src/composition/facet-withdrawal.ts#FacetWithdrawal",
-        "src/facets/slot-store.ts#WorkspaceSlotStore"
-      ],
+      "sourceSymbols": ["src/facets/slot-store.ts#WorkspaceSlotStore"],
       "testSelectors": [
-        "test/events/persistence-memory.test.ts#memory workspace persistence [C13-FACET-CONTRIBUTION-ATTRIBUTION] [C13-FACET-WITHDRAWAL-EXACT] persists and withdraws every immutable contribution record by exact release",
-        "test/events/persistence-memory.test.ts#memory workspace persistence [C13-FACET-CONTRIBUTION-ATTRIBUTION] [C13-FACET-WITHDRAWAL-EXACT] persists revisioned ingress and retires only the exact release",
         "test/protocol/facet-commands.test.ts#Facet Slot protocol commands [C13-FACET-WITHDRAWAL-EXACT] retires a Facet's contributions through one administer control transaction",
         "test/w3/facet-withdrawal.test.ts#Facet withdrawal across owning Actors [C13-FACET-WITHDRAWAL-EXACT] retires a contributed Subscription and drives its unprepared reservation to a terminal rejected delivery",
         "test/w3/facet-withdrawal.test.ts#Facet withdrawal across owning Actors [C13-FACET-WITHDRAWAL-EXACT] refuses the whole withdrawal when a plane cannot answer the attribution query"

@@ -432,7 +432,7 @@ describe("W9 composition behavior branches", () => {
     );
 
     test(
-        "[C13-FACET-CONTRIBUTION-MATERIALIZATION] [C13-FACET-START-ATOMIC] owns loaded package handles, rejects double activation, and preserves cleanup failures",
+        "owns loaded package handles, rejects double activation, and preserves cleanup failures",
         { tags: "p1" },
         async () => {
             const manifest = emptyManifest("composition.runtime");
@@ -540,7 +540,7 @@ describe("W9 composition behavior branches", () => {
     );
 
     test(
-        "[C13-FACET-CONTRIBUTION-MATERIALIZATION] materializes every validated child Facet before host publication",
+        "materializes every validated child Facet before host publication",
         { tags: "p0" },
         async () => {
             const parentManifest = emptyManifest("composition.parent");

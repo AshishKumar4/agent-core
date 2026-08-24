@@ -121,7 +121,7 @@ export function workspacePersistenceContract<Transaction>(
 ): void {
     describe(`${name} workspace persistence`, () => {
         test(
-            "[C13-FACET-CONTRIBUTION-ATTRIBUTION] [C13-FACET-WITHDRAWAL-EXACT] persists and withdraws every immutable contribution record by exact release",
+            "persists and withdraws every immutable contribution record by exact release",
             { tags: "p0" },
             () => {
                 const harness = create();
@@ -266,7 +266,7 @@ export function workspacePersistenceContract<Transaction>(
             }
         );
         test(
-            "[C13-FACET-CONTRIBUTION-ATTRIBUTION] [C13-FACET-WITHDRAWAL-EXACT] persists revisioned ingress and retires only the exact release",
+            "persists revisioned ingress and retires only the exact release",
             { tags: "p0" },
             () => {
                 const harness = create();
@@ -708,7 +708,7 @@ export function workspacePersistenceContract<Transaction>(
         );
 
         test(
-            "[C13-SUBSCRIPTION-ATTRIBUTION-FIXED] [C13-FACET-WITHDRAWAL-EXACT] selects the exact release across codec restart and replay",
+            "[C13-SUBSCRIPTION-ATTRIBUTION-FIXED] selects the exact release across codec restart and replay",
             { tags: "p0" },
             () => {
                 const harness = create();

@@ -383,7 +383,7 @@
       "codec": "src/facets/settings.ts#SettingsLayer.codec",
       "store": "src/workspaces/persistence.ts#WorkspacePersistence",
       "tests": [
-        "test/composition/workspace-facet-materializer.test.ts#Workspace Facet materializer [C13-FACET-CONTRIBUTION-ATTRIBUTION] [C13-FACET-CONTRIBUTION-MATERIALIZATION] [facet.settings-layer] materializes every supported primitive atomically and replays as a no-op"
+        "test/composition/workspace-facet-materializer.test.ts#Workspace Facet materializer [facet.settings-layer] materializes every supported primitive atomically and replays as a no-op"
       ]
     },
     {

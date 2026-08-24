@@ -241,7 +241,7 @@ describe("Workspace Facet materializer", () => {
     });
 
     test(
-        "[C13-FACET-CONTRIBUTION-ATTRIBUTION] [C13-FACET-CONTRIBUTION-MATERIALIZATION] [facet.settings-layer] materializes every supported primitive atomically and replays as a no-op",
+        "[facet.settings-layer] materializes every supported primitive atomically and replays as a no-op",
         { tags: "p0" },
         () => {
             const first = apply(harness);
@@ -282,7 +282,7 @@ describe("Workspace Facet materializer", () => {
     );
 
     test(
-        "[C13-FACET-CONTRIBUTION-ATTRIBUTION] reconciles a new PackagePin without retaining the old attribution",
+        "reconciles a new PackagePin without retaining the old attribution",
         { tags: "p0" },
         () => {
             const first = apply(harness).attribution;
@@ -405,28 +405,24 @@ describe("Workspace Facet materializer", () => {
         expect(harness.slots.revision().value).toBe(0);
     });
 
-    test(
-        "[C13-FACET-CONTRIBUTION-MATERIALIZATION] [C13-FACET-START-ATOMIC] rolls back every primitive when one later record write fails",
-        { tags: "p0" },
-        () => {
-            harness.database.run(
-                `CREATE TRIGGER fail_prompt_materialization
+    test("rolls back every primitive when one later record write fails", { tags: "p0" }, () => {
+        harness.database.run(
+            `CREATE TRIGGER fail_prompt_materialization
              BEFORE INSERT ON workspace_records
              WHEN NEW.kind = 'promptSection'
              BEGIN SELECT RAISE(ABORT, 'injected prompt failure'); END`,
-                []
-            );
+            []
+        );
 
-            expect(() => apply(harness)).toThrow(/injected prompt failure/);
-            expect(harness.slots.revision().value).toBe(0);
-            expect(harness.slots.listSlots(harness.database)).toEqual([]);
-            expect(harness.slots.listAllEntries(harness.database)).toEqual([]);
-            expect(harness.persistence.listCatalogEntries(harness.database)).toEqual([]);
-            expect(harness.persistence.listPromptSections(harness.database)).toEqual([]);
-            expect(harness.persistence.listSettingsLayers(harness.database)).toEqual([]);
-            expect(harness.persistence.listIngressEndpoints(harness.database)).toEqual([]);
-            expect(harness.persistence.listSurfaceRegistrations(harness.database)).toEqual([]);
-            expect(harness.persistence.listSubscriptions(harness.database)).toEqual([]);
-        }
-    );
+        expect(() => apply(harness)).toThrow(/injected prompt failure/);
+        expect(harness.slots.revision().value).toBe(0);
+        expect(harness.slots.listSlots(harness.database)).toEqual([]);
+        expect(harness.slots.listAllEntries(harness.database)).toEqual([]);
+        expect(harness.persistence.listCatalogEntries(harness.database)).toEqual([]);
+        expect(harness.persistence.listPromptSections(harness.database)).toEqual([]);
+        expect(harness.persistence.listSettingsLayers(harness.database)).toEqual([]);
+        expect(harness.persistence.listIngressEndpoints(harness.database)).toEqual([]);
+        expect(harness.persistence.listSurfaceRegistrations(harness.database)).toEqual([]);
+        expect(harness.persistence.listSubscriptions(harness.database)).toEqual([]);
+    });
 });

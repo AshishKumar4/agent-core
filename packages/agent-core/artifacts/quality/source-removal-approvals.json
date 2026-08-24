@@ -198,10 +198,9 @@
         "transition": "TRANSITION-W9-INTEGRATION-CANDIDATE"
       },
       "tests": [
-        "test/substrates/sqlite/events-seam.test.ts#[workspace-record-storage] memory and SQLite satisfy the shared storage contract",
-        "test/substrates/sqlite/events-persistence.test.ts#SQLite workspace persistence [C13-FACET-CONTRIBUTION-ATTRIBUTION] [C13-FACET-WITHDRAWAL-EXACT] persists and withdraws every immutable contribution record by exact release"
+        "test/substrates/sqlite/events-seam.test.ts#[workspace-record-storage] memory and SQLite satisfy the shared storage contract"
       ],
-      "digest": "bd5d99caf17e22c99b9ae28b494e2543716b387178d231b4116b42929c34f648"
+      "digest": "9dbecebb659929fb2dd5207dcd88aa36cb8d8796753c79c3fec20c767d49f32d"
     }
   ]
 }

@@ -4839,7 +4839,8 @@
     ],
     "tests": [
       "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition uses canonical constructors and keeps composition off the package surface"
-    ]
+    ],
+    "checks": ["exports"]
   },
   "closureManifest": {
     "base": "38872d38a5bc4077f048031680f6db90da49d0ee",
