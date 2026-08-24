@@ -91,7 +91,18 @@ export async function measureArea(area, mutatePattern, run = runStryker) {
     const identity = mutationRunIdentity();
     const runKey = mutationRunKey(area);
     const { reused, rejected } = readRunCache(area, runKey);
-    const measured = reused ?? run(area, mutatePattern);
+    let measured = reused ?? run(area, mutatePattern);
+    if (reused === undefined && run === runStryker) {
+        const timed = timeoutMutants(measured.report);
+        if (timed.length > 0) {
+            const fallback = runStryker(`${area}-timeouts`, timed.map(timeoutPattern), false);
+            measured = {
+                report: mergeTimeoutRerun(measured.report, fallback.report),
+                measuredAt: measured.measuredAt,
+                strykerMs: measured.strykerMs + fallback.strykerMs
+            };
+        }
+    }
     requireAreaReport(measured.report, area);
     // After, not only before. A measurement takes minutes, and a key checked once at the
     // start says nothing about the tree the run actually read. Publishing under either
@@ -345,10 +356,10 @@ function requireSpan(at, location) {
 }
 
 /**
- * A verdict must run every test its coverage filter names. Some runner editions also
- * execute a setup or noncovering test and report `testsCompleted` above `coveredBy`.
- * Extra execution cannot hide a survivor or invent a kill; executing fewer covering
- * tests can. The lower bound is therefore the invariant.
+ * A surviving verdict must run every test its coverage filter names. A killed verdict
+ * needs one named covering test that actually failed; running the rest cannot make the
+ * mutant alive again. This distinction lets a no-bail fallback settle deadlocking mutants
+ * without weakening the complete evidence required for survivors.
  */
 function requireEvidence(at, mutant) {
     if (mutant.status !== "Killed" && mutant.status !== "Survived") return;
@@ -358,14 +369,24 @@ function requireEvidence(at, mutant) {
     if (mutant.status === "Killed" && (mutant.killedBy ?? []).length === 0) {
         throw new TypeError(`Mutant ${at} is reported Killed and names no test that killed it`);
     }
-    const covering = (mutant.coveredBy ?? []).length;
+    const coveredBy = mutant.coveredBy ?? [];
+    const covering = coveredBy.length;
     const completed = mutant.testsCompleted ?? 0;
     if (covering === 0) {
         throw new TypeError(`Mutant ${at} is reported ${mutant.status} and no test covers it`);
     }
+    if (mutant.status === "Killed") {
+        if (!(mutant.killedBy ?? []).every((id) => coveredBy.includes(id))) {
+            throw new TypeError(`Mutant ${at} names a killer outside its coverage filter`);
+        }
+        if (completed < 1) {
+            throw new TypeError(`Mutant ${at} is reported Killed without executing a test`);
+        }
+        return;
+    }
     if (completed < covering) {
         throw new TypeError(
-            `Mutant ${at} is reported ${mutant.status} having executed ${completed} of the ` +
+            `Mutant ${at} is reported Survived having executed ${completed} of the ` +
                 `${covering} tests that cover it`
         );
     }
@@ -496,22 +517,27 @@ function requireOwnedDirectory(directory) {
     }
 }
 
-function runStryker(area, mutatePattern) {
+function runStryker(area, mutatePattern, disableBail = true) {
     const startedAt = process.hrtime.bigint();
     requireOwnedDirectory(scratchRoot);
     const scratch = mkdtempSync(join(scratchRoot, `${area}-`));
     try {
         const reportPath = join(scratch, "report.json");
         const configPath = join(scratch, "stryker.conf.mjs");
-        writeFileSync(configPath, privateOutputConfig(reportPath, join(scratch, "tmp")), {
-            mode: 0o600
-        });
+        writeFileSync(
+            configPath,
+            privateOutputConfig(reportPath, join(scratch, "tmp"), disableBail),
+            { mode: 0o600 }
+        );
         // `process.execPath`, not `node`: the key binds `process.version`, and a `node`
         // resolved off PATH is free to be a different interpreter than the one that
         // hashed it.
+        const mutateArguments = (
+            Array.isArray(mutatePattern) ? mutatePattern : [mutatePattern]
+        ).flatMap((pattern) => ["--mutate", pattern]);
         const stryker = spawnSync(
             process.execPath,
-            [strykerBin, "run", configPath, "--mutate", mutatePattern],
+            [strykerBin, "run", configPath, ...mutateArguments],
             { cwd: packageRoot, encoding: "utf8", stdio: ["ignore", "inherit", "inherit"] }
         );
         if (stryker.status !== 0) throw new TypeError(`Stryker failed for area ${area}`);
@@ -532,17 +558,78 @@ function runStryker(area, mutatePattern) {
  * status. Without it, two areas measured at once write one report file and `cleanTempDir`
  * deletes one another's sandbox.
  */
-function privateOutputConfig(reportPath, tempDirName) {
+function privateOutputConfig(reportPath, tempDirName, disableBail) {
     return [
         `import committed from ${JSON.stringify(pathToFileURL(strykerConfig).href)};`,
         "",
         "export default {",
         "    ...committed,",
         `    jsonReporter: { fileName: ${JSON.stringify(reportPath)} },`,
-        `    tempDirName: ${JSON.stringify(tempDirName)}`,
+        `    tempDirName: ${JSON.stringify(tempDirName)},`,
+        `    disableBail: ${JSON.stringify(disableBail)}`,
         "};",
         ""
     ].join("\n");
+}
+
+function timeoutMutants(report) {
+    return Object.entries(report.files ?? {}).flatMap(([file, result]) =>
+        result.mutants
+            .filter((mutant) => mutant.status === "Timeout")
+            .map((mutant) => ({ file, mutant }))
+    );
+}
+
+function timeoutPattern({ file, mutant }) {
+    const { start, end } = mutant.location;
+    return `${file}:${start.line}:${start.column}-${end.line}:${end.column}`;
+}
+
+export function mergeTimeoutRerun(report, rerun) {
+    const rerunMutants = new Map(
+        Object.entries(rerun.files ?? {}).flatMap(([file, result]) =>
+            result.mutants.map((mutant) => [mutantKey(file, mutant), mutant])
+        )
+    );
+    let merged = 0;
+    const files = Object.fromEntries(
+        Object.entries(report.files ?? {}).map(([file, result]) => [
+            file,
+            {
+                ...result,
+                mutants: result.mutants.map((mutant) => {
+                    if (mutant.status !== "Timeout") return mutant;
+                    const replacement = rerunMutants.get(mutantKey(file, mutant));
+                    if (replacement === undefined) {
+                        throw new TypeError(`Timeout fallback omitted ${file}#${mutant.id}`);
+                    }
+                    merged += 1;
+                    return replacement;
+                })
+            }
+        ])
+    );
+    const expected = timeoutMutants(report).length;
+    if (merged !== expected) {
+        throw new TypeError(`Timeout fallback replaced ${merged} of ${expected} mutants`);
+    }
+    return {
+        ...report,
+        files,
+        testFiles: { ...report.testFiles, ...rerun.testFiles }
+    };
+}
+
+function mutantKey(file, mutant) {
+    return JSON.stringify([
+        file,
+        mutant.location.start.line,
+        mutant.location.start.column,
+        mutant.location.end.line,
+        mutant.location.end.column,
+        mutant.mutatorName,
+        mutant.replacement
+    ]);
 }
 
 /**
