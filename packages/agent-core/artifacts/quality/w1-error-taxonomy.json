@@ -599,6 +599,20 @@
             ]
         },
         {
+            "id": "w1.core.canonical.canonicaltuplekey.e394f44967",
+            "source": "src/core/canonical.ts",
+            "sourceAnchor": {
+                "container": "canonicalTupleKey",
+                "guard": "namespace.length === 0 || namespace !== namespace.trim()",
+                "expression": "new TypeError(\"Canonical tuple key namespace must be nonblank\")"
+            },
+            "classification": "codec-input-shape",
+            "rationale": "Rejects malformed codec, schema, or byte input before it becomes domain state.",
+            "testedBy": [
+                "test/core/codec.test.ts"
+            ]
+        },
+        {
             "id": "w1.core.canonical.decodecanonicaljson.91d8d2f8f3",
             "source": "src/core/canonical.ts",
             "sourceAnchor": {

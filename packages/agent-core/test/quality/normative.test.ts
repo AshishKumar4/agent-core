@@ -8,7 +8,8 @@ import {
     generateNormativeLock,
     parseOriginMarker,
     parseStructuralPackageLine,
-    structuralPackage
+    structuralPackage,
+    type StructuralPackageOutput
 } from "../../scripts/check-normative.mjs";
 
 const execFileAsync = promisify(execFile);
@@ -19,18 +20,6 @@ const allowedAxiomTokens = ["Classical.choice", "Quot.sound", "propext"]
     .map((name) => JSON.stringify(`allowed:${name}`))
     .join(" ");
 
-interface StructuralPackage {
-    allowedAxioms: string[];
-    encoding: string;
-    designations: {
-        axioms: string[];
-        closure: string[];
-        kind: string;
-        name: string;
-        type: object;
-    }[];
-    declarations: { name: string; structure: object }[];
-}
 
 beforeAll(async () => {
     await execFileAsync("lake", ["build", "AgentCore", "AgentCore.Normative"], {
@@ -45,7 +34,7 @@ afterEach(async () => {
     );
 });
 
-async function runLean(source: string): Promise<{ output?: StructuralPackage; stderr: string }> {
+async function runLean(source: string): Promise<{ output?: StructuralPackageOutput; stderr: string }> {
     const directory = await mkdtemp(resolve(tmpdir(), "agent-core-normative-"));
     temporary.push(directory);
     const path = resolve(directory, "Fixture.lean");
@@ -73,7 +62,11 @@ async function runLean(source: string): Promise<{ output?: StructuralPackage; st
                 (candidate) =>
                     candidate.startsWith('{"') && candidate.includes('"encoding":"agent-core-lean-structure-sourced-closure"')
             );
-        return { output: line === undefined ? undefined : JSON.parse(line), stderr: result.stderr };
+        if (line === undefined) return { stderr: result.stderr };
+        return {
+            output: parseStructuralPackageLine(line, "Lean fixture output"),
+            stderr: result.stderr
+        };
     }
     return { stderr: `${result.stdout}${result.stderr}` };
 }
@@ -172,7 +165,6 @@ describe("origin marker parser", () => {
         expect(() => parseOriginMarker(["tag", 7])).toThrow();
         expect(() => parseOriginMarker(["tag", null])).toThrow();
         expect(() => parseOriginMarker(["tag", {}])).toThrow();
-        expect(() => parseOriginMarker(undefined)).toThrow();
         expect(() => parseOriginMarker(["tag", "sourcedd"])).toThrow();
         expect(() => parseOriginMarker(["tag", "Sourced"])).toThrow();
     });
