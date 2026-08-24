@@ -601,7 +601,7 @@ export function mergeTimeoutRerun(report, rerun) {
                         throw new TypeError(`Timeout fallback omitted ${file}#${mutant.id}`);
                     }
                     merged += 1;
-                    return replacement;
+                    return { ...replacement, id: mutant.id };
                 })
             }
         ])
