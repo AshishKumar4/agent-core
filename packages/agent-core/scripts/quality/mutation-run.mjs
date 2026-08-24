@@ -345,12 +345,10 @@ function requireSpan(at, location) {
 }
 
 /**
- * That a verdict ran the tests it claims. `disableBail` is committed, so every covering
- * test runs and the count that ran equals the count that covers — measured across every
- * retained report, 228 survivors and 2,646 kills, with no mutant differing. A run that
- * executed some of its filter settles no more than one that executed none of it: the
- * survivor might have been killed by a test that never ran, and the kill's `killedBy` is
- * what the committed discrimination artifact takes as complete.
+ * A verdict must run every test its coverage filter names. Some runner editions also
+ * execute a setup or noncovering test and report `testsCompleted` above `coveredBy`.
+ * Extra execution cannot hide a survivor or invent a kill; executing fewer covering
+ * tests can. The lower bound is therefore the invariant.
  */
 function requireEvidence(at, mutant) {
     if (mutant.status !== "Killed" && mutant.status !== "Survived") return;
@@ -365,7 +363,7 @@ function requireEvidence(at, mutant) {
     if (covering === 0) {
         throw new TypeError(`Mutant ${at} is reported ${mutant.status} and no test covers it`);
     }
-    if (completed !== covering) {
+    if (completed < covering) {
         throw new TypeError(
             `Mutant ${at} is reported ${mutant.status} having executed ${completed} of the ` +
                 `${covering} tests that cover it`

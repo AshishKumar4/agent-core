@@ -1852,6 +1852,23 @@ describe("mutation run reuse", () => {
         expect(requireAreaReport(probeReport("Killed"), probe)).toBeDefined();
     });
 
+    test("accepts a complete filter that also executed a noncovering test", () => {
+        const report = reportFor(
+            guardModule,
+            [
+                {
+                    ...guardMutant,
+                    status: "Killed",
+                    coveredBy: ["t1"],
+                    killedBy: ["t1"],
+                    testsCompleted: 2
+                }
+            ],
+            probeFile
+        );
+        expect(requireAreaReport(report, probe)).toBeDefined();
+    });
+
     // The race the key alone cannot settle: two runs of identical inputs finish at once.
     // Agreeing is fine and must be idempotent; disagreeing is a finding, and resolving it
     // by whoever renamed last would bury it.

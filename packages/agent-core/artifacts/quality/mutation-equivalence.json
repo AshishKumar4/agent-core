@@ -1139,38 +1139,6 @@
     },
     {
       "file": "src/composition/authority-commands.ts",
-      "symbol": "AuthorityCheckCommand.currentRevision",
-      "mutator": "BlockStatement",
-      "replacement": "{}",
-      "mutated": "{ return undefined; }",
-      "proof": "AuthorityCheckCommand answers whether an intent is permitted; it revises no record, so the revision it reports is none, written as an explicit `return undefined;` against an `undefined` return type. Deleting that statement leaves a function that falls off its end, which evaluates to undefined as well, and the body holds nothing else that deletion could remove. The entry is anchored to this class rather than shared with the identically-worded methods on the other two registrations, because each is a separate declaration whose reachability and role stand on their own even though the text coincides."
-    },
-    {
-      "file": "src/composition/authority-commands.ts",
-      "symbol": "AuthorityPermitIssuanceCommand.currentRevision",
-      "mutator": "BlockStatement",
-      "replacement": "{}",
-      "mutated": "{ return undefined; }",
-      "proof": "Permit issuance mints a permit rather than advancing a versioned record, so this registration reports no current revision and says so with a lone `return undefined;`. The declared return type is `undefined`, and an empty body returns undefined by falling off its end, so every call yields the same value under the mutation. Nothing else is in the body: no read of the transaction or envelope, no write, no throw. Three registrations in this file carry a textually identical method and each is registered separately, since one proof may bless only one site."
-    },
-    {
-      "file": "src/composition/authority-commands.ts",
-      "symbol": "BindingValidationCommand.currentLease",
-      "mutator": "BlockStatement",
-      "replacement": "{}",
-      "mutated": "{ return undefined; }",
-      "proof": "This is the lease half of the same registration's optional-evidence pair, and like its sibling its whole body is `return undefined;` against a declared `undefined` return. An empty body yields undefined by falling off the end, so the two forms produce the same value for every call, and the body contains nothing else — no parameter is read and no effect is performed — so there is no second observation to differ on. Binding validation takes no Turn lease, and reporting no lease is the honest answer rather than a stub awaiting implementation; the emptied body gives the identical answer."
-    },
-    {
-      "file": "src/composition/authority-commands.ts",
-      "symbol": "BindingValidationCommand.currentRevision",
-      "mutator": "BlockStatement",
-      "replacement": "{}",
-      "mutated": "{ return undefined; }",
-      "proof": "The body is a single `return undefined;` and the declared return type is `undefined`, so emptying it changes nothing a caller can observe: a JavaScript function that falls off its end and one that returns undefined explicitly both evaluate to undefined, and there is no other statement here to lose — no argument is read, no field is written, nothing is thrown. The method exists because ProtocolCommandRegistration requires it, and this registration deliberately has no revision to report: Binding validation is a read-only check that pins no record revision, which is exactly what returning undefined states. Emptying the body states the same thing less legibly and no test can tell the two apart."
-    },
-    {
-      "file": "src/composition/authority-commands.ts",
       "symbol": "ClosedTenantAuthorityComposition.constructor",
       "mutator": "ConditionalExpression",
       "replacement": "false",
