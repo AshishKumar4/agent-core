@@ -171,7 +171,7 @@ const measured = await measurement();
 const reportCandidate = measured.barrel
     ? requireNothingToMutate(measured.report)
     : requireAreaReport(measured.report, options.area);
-writeCanonicalJson(
+await writeCanonicalJson(
     join(packageRoot, "reports", "mutation", `latest-${options.area}.json`),
     reportCandidate
 );
