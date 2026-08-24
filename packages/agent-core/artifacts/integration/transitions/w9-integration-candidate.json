@@ -67,7 +67,7 @@
   ],
   "acceptance": [
     "Building quality completes for owner W9 from checkpoint aedf0d7",
-    "Core and Cloudflare structural, workerd, generated-type, and consumer lanes pass",
+    "Packed core and Cloudflare consumer lanes plus structural, workerd, and generated-type lanes pass",
     "Global raw coverage, records, seams, migrations, ledger, traceability, and integration pass",
     "Post-candidate closure records the exact commit, tree, artifact blobs, and completed W9 disposition"
   ],

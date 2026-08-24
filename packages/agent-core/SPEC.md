@@ -894,7 +894,7 @@ approval, and audit machinery applies to it automatically.
 
 ```ts
 interface Command {
-  readonly name: string;                    // canonical id is `${facetId}:${name}`
+  readonly name: string;                    // command name; source identity is derived below
   readonly title: string;                   // localizable (string or i18n key)
   readonly help?: string;
   readonly arguments: JsonSchema;           // validation + autocomplete

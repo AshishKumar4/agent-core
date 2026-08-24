@@ -195,13 +195,13 @@
           "source": "packages/agent-core/artifacts/requests/W7/dependencies.json",
           "sha256": "dc3fa90b802f0800331140a6f4c4f968cd7b38465449238ac249cb1cbb500f8c"
         },
-        "transition": "TRANSITION-WORKSPACE-RECORD-PLANE"
+        "transition": "TRANSITION-W9-INTEGRATION-CANDIDATE"
       },
       "tests": [
         "test/substrates/sqlite/events-seam.test.ts#[workspace-record-storage] memory and SQLite satisfy the shared storage contract",
         "test/substrates/sqlite/events-persistence.test.ts#SQLite workspace persistence [C13-FACET-CONTRIBUTION-ATTRIBUTION] [C13-FACET-WITHDRAWAL-EXACT] persists and withdraws every immutable contribution record by exact release"
       ],
-      "digest": "5287ba59f7a2a0865c5a6be5a5def6f8e4777edbca6e61562ac963eb02ba7e4e"
+      "digest": "bd5d99caf17e22c99b9ae28b494e2543716b387178d231b4116b42929c34f648"
     }
   ]
 }
