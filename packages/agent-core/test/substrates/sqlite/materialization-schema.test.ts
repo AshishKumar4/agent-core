@@ -45,6 +45,7 @@ describe("SQLite materialization schema", () => {
         () => {
             const database = new TestSqlite();
             new SqliteMaterializationStore(database, actorRef("schema"));
+            const markedVersion = markerVersion(database);
 
             const tables = database.all(
                 `SELECT name, sql FROM sqlite_master
@@ -73,10 +74,12 @@ describe("SQLite materialization schema", () => {
              FROM definition_materialization_schema`,
                     []
                 )
-            ).toEqual([{ owner_id: "schema", owner_kind: "tenant", version: 2 }]);
+            ).toEqual([{ owner_id: "schema", owner_kind: "tenant", version: markedVersion }]);
 
             const schemaSql = normalizedSql(tables, "definition_materialization_schema");
-            expect(schemaSql).toContain("version INTEGER PRIMARY KEY CHECK (version = 2)");
+            expect(schemaSql).toContain(
+                `version INTEGER PRIMARY KEY CHECK (version = ${markedVersion})`
+            );
             expect(schemaSql).toContain(
                 "owner_kind IN ('tenant', 'workspace', 'run', 'environment', 'slate')"
             );
@@ -191,8 +194,9 @@ describe("SQLite materialization schema", () => {
             const database = new TestSqlite();
             const actor = actorRef("future-schema");
             new SqliteMaterializationStore(database, actor);
+            const marked = markerVersion(database);
             database.run("PRAGMA ignore_check_constraints = ON", []);
-            database.run("UPDATE definition_materialization_schema SET version = 3", []);
+            database.run("UPDATE definition_materialization_schema SET version = version + 1", []);
             database.run("PRAGMA ignore_check_constraints = OFF", []);
 
             expect(() => new SqliteMaterializationStore(database, actor)).toThrow(
@@ -200,7 +204,7 @@ describe("SQLite materialization schema", () => {
             );
             expect(
                 database.all("SELECT version FROM definition_materialization_schema", [])
-            ).toEqual([{ version: 3 }]);
+            ).toEqual([{ version: marked + 1 }]);
         }
     );
 
@@ -674,11 +678,12 @@ describe("SQLite materialization schema", () => {
             const database = new TestSqlite();
             const actor = actorRef("marker-duplicate");
             new SqliteMaterializationStore(database, actor);
+            const marked = markerVersion(database);
             database.run("PRAGMA ignore_check_constraints = ON", []);
             database.run(
                 `INSERT INTO definition_materialization_schema (version, owner_kind, owner_id)
              VALUES (?, ?, ?)`,
-                [3, actor.kind, actor.id.value]
+                [marked + 1, actor.kind, actor.id.value]
             );
             database.run("PRAGMA ignore_check_constraints = OFF", []);
 
@@ -695,7 +700,7 @@ describe("SQLite materialization schema", () => {
                     "SELECT version FROM definition_materialization_schema ORDER BY version",
                     []
                 )
-            ).toEqual([{ version: 2 }, { version: 3 }]);
+            ).toEqual([{ version: marked }, { version: marked + 1 }]);
         }
     );
 
@@ -755,7 +760,10 @@ describe("SQLite materialization schema", () => {
 class MarkerReadFaultSqlite extends TestSqlite {
     public fault = false;
 
-    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+    protected override query(
+        statement: string,
+        bindings: readonly SqliteValue[]
+    ): readonly SqliteRow[] {
         if (
             this.fault &&
             /FROM definition_materialization_schema ORDER BY version/u.test(statement)
@@ -769,7 +777,10 @@ class MarkerReadFaultSqlite extends TestSqlite {
 class SchemaRowFaultSqlite extends TestSqlite {
     public rows: readonly SqliteRow[] | undefined;
 
-    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+    protected override query(
+        statement: string,
+        bindings: readonly SqliteValue[]
+    ): readonly SqliteRow[] {
         return this.rows !== undefined && /FROM sqlite_master/u.test(statement)
             ? this.rows
             : super.query(statement, bindings);
@@ -917,3 +928,17 @@ function normalizedSql(rows: readonly SqliteRow[], table: string): string {
 
 /** A decoded JSON object this module owns outright and may write through. */
 type MutableJsonObject = { [key: string]: JsonValue };
+
+/**
+ * The schema version the build marks, so a future bump does not break these tests. The row
+ * comes back from SQLite as untyped columns, so it is parsed here at that boundary and the
+ * callers receive a number.
+ */
+function markerVersion(database: TestSqlite): number {
+    const rows = database.all("SELECT version FROM definition_materialization_schema", []);
+    const version = Number(rows[0]?.["version"]);
+    if (!Number.isSafeInteger(version) || version <= 0) {
+        throw new TypeError("Expected one schema marker row carrying its version");
+    }
+    return version;
+}

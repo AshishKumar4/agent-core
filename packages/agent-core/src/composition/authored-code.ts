@@ -72,10 +72,14 @@ export class TenantAuthoredCodeDelegationPort extends AuthoredCodeDelegationPort
                 );
                 const delegated = this.delegateOne(request.isolate, capability, domain);
                 minted.push(delegated.id);
+                // The declared Operations travel with the capability, so the §4.7
+                // availability screen runs on the set the backing actually receives rather
+                // than on the set the caller asked for.
                 return new AuthoredCodeCapability(
                     capability.name,
                     capability.facet,
-                    delegated.capability
+                    delegated.capability,
+                    capability.operations
                 );
             });
             return new MintedAuthoredCodeDelegation(

@@ -12,9 +12,11 @@ import {
     CatalogEntry,
     Command,
     ContributionAttribution,
+    EventDeclaration,
     FacetManifest,
     IngressDeclaration,
     InstalledSlot,
+    InterceptorDeclaration,
     OperationDescriptor,
     PayloadMapping,
     PromptContribution,
@@ -40,10 +42,20 @@ import type { ControlTransaction } from "./facet-withdrawal";
 
 type CorrespondentFacet = ValidatedFacetRuntime["facets"][number];
 
+/**
+ * The two §4.2 core slots whose contribution materializes as a catalog entry rather than
+ * as a primitive of its own. Naming them once keeps the derivation and the reported counts
+ * reading the same fact.
+ */
+const EVENT_KIND = "event";
+const INTERCEPTOR_KIND = "interceptor";
+
 export interface WorkspaceFacetMaterializationResult {
     readonly attribution: ContributionAttribution;
     readonly catalogEntries: number;
+    readonly eventProducers: number;
     readonly ingressEndpoints: number;
+    readonly interceptorEntries: number;
     readonly promptSections: number;
     readonly settingsLayers: number;
     readonly slotDeclarations: number;
@@ -395,9 +407,31 @@ function deriveContributionRecords(
                         new SurfaceRegistration(SurfaceDescriptor.fromData(value), attribution)
                     );
                     break;
-                case "events":
-                case "interceptors":
+                // SPEC §4.2: these two kinds target no Slot declaration and compile to no
+                // primitive of their own, so the catalog entry every declared record kind
+                // already uses is what carries them. Decoding first refuses a malformed
+                // declaration here rather than storing manifest bytes, so one declaration is
+                // one entry however the manifest spelled it, and the entry joins the same
+                // attribution query the §4.1 withdrawal set is computed from.
+                case "events": {
+                    const event = EventDeclaration.fromData(value);
+                    catalogs.push(
+                        new CatalogEntry(EVENT_KIND, event.kind.value, event, attribution)
+                    );
                     break;
+                }
+                case "interceptors": {
+                    const interceptor = InterceptorDeclaration.fromData(value);
+                    catalogs.push(
+                        new CatalogEntry(
+                            INTERCEPTOR_KIND,
+                            interceptor.id.value,
+                            interceptor,
+                            attribution
+                        )
+                    );
+                    break;
+                }
                 default:
                     entries.push(new SlotEntry(contribution.slot, attribution, ordinal, value));
                     break;
@@ -529,7 +563,10 @@ function freezeResult(
     return Object.freeze({
         attribution,
         catalogEntries: records.catalogs.length,
+        eventProducers: records.catalogs.filter((entry) => entry.kind === EVENT_KIND).length,
         ingressEndpoints: records.ingress.length,
+        interceptorEntries: records.catalogs.filter((entry) => entry.kind === INTERCEPTOR_KIND)
+            .length,
         promptSections: records.prompts.length,
         settingsLayers: records.settings.length,
         slotDeclarations: records.slots.length,

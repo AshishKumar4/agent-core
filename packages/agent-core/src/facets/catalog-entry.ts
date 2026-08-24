@@ -8,6 +8,7 @@ import {
 } from "../core";
 import { PackageId, PackagePin } from "../definition-references";
 import { ContributionAttribution } from "./attribution";
+import { OperationAvailability } from "./authored-code";
 import { Command } from "./command";
 import { OperationDescriptor } from "./contribution";
 import type { FacetData } from "./data";
@@ -18,26 +19,44 @@ import {
     requireExactFields,
     requireString
 } from "./data";
+import { EventDeclaration } from "./event";
+import { InterceptorDeclaration } from "./interceptor";
 import {
     BindingName,
     CatalogEntryId,
+    EventKind,
     FacetPackageId,
     FacetRef,
+    InterceptorId,
     OperationName,
     OperationRef,
     SlotName
 } from "./id";
-import { FieldMapping, FieldMove, JsonPointer, MappingRecord } from "./mapping";
+import {
+    FieldMapping,
+    FieldMove,
+    JsonPointer,
+    MappingRecord,
+    OperationPattern,
+    OperationSelector
+} from "./mapping";
 import { BoundOperationRef } from "./operation";
 
 /**
- * The §4.1 contribution kinds whose materialization is a catalog entry: an `operations`
- * entry contributes its `OperationDescriptor` and a `commands` entry contributes the
- * `Command` that compiles to a catalog entry plus a derived Subscription (§4.3).
+ * The §4.2 contribution kinds whose materialization is a catalog entry. An `operations`
+ * entry contributes its `OperationDescriptor`, a `commands` entry the `Command` that
+ * compiles to a catalog entry plus a derived Subscription (§4.3), an `events` entry the
+ * `EventDeclaration` naming an accepted Event kind and its visibility, and an
+ * `interceptors` entry the `InterceptorDeclaration` that is one position in the §4.4
+ * pipeline. The last two reach no primitive of their own and target no Slot declaration,
+ * so the catalog entry is what carries their attribution into the §4.1 withdrawal set.
  */
-export type CatalogKind = "operation" | "command";
+export type CatalogKind = "command" | "event" | "interceptor" | "operation";
 
-const CATALOG_KINDS: readonly CatalogKind[] = ["operation", "command"];
+export type CatalogDeclaration =
+    Command | EventDeclaration | InterceptorDeclaration | OperationDescriptor;
+
+const CATALOG_KINDS: readonly CatalogKind[] = ["command", "event", "interceptor", "operation"];
 
 /**
  * SPEC §4.2: the position one catalog entry occupies — the declaring Facet, or no Facet
@@ -97,20 +116,25 @@ export class CatalogEntry {
     public constructor(
         public readonly kind: CatalogKind,
         public readonly name: string,
-        public readonly declaration: OperationDescriptor | Command,
+        public readonly declaration: CatalogDeclaration,
         public readonly attribution: ContributionAttribution | undefined
     ) {
-        if (!(declaration instanceof OperationDescriptor) && !(declaration instanceof Command)) {
-            throw new TypeError("A catalog entry carries an operation or command declaration");
-        }
-        if (!CATALOG_KINDS.includes(kind)) {
-            throw new TypeError(`Catalog entry kind must be one of ${CATALOG_KINDS.join(", ")}`);
-        }
-        requireKindDeclaration(kind, declaration);
-        const declared = declaredName(declaration);
-        if (name !== declared) {
+        // One lookup answers both questions the two checks used to ask separately: a value
+        // that is no declaration has no kind, and a declaration whose kind is not the one
+        // claimed is the same defect said differently.
+        const declared = declarationKind(declaration);
+        if (declared === undefined) {
             throw new TypeError(
-                `Catalog entry name must be its declaration's own name ${declared}`
+                `A catalog entry carries one of ${CATALOG_KINDS.join(", ")} declarations`
+            );
+        }
+        if (declared !== kind) {
+            throw new TypeError(`A ${kind} catalog entry declares a different record`);
+        }
+        const declaredName = catalogName(declaration);
+        if (name !== declaredName) {
+            throw new TypeError(
+                `Catalog entry name must be its declaration's own name ${declaredName}`
             );
         }
         if (attribution !== undefined && !(attribution instanceof ContributionAttribution)) {
@@ -177,43 +201,55 @@ export class CatalogEntry {
 }
 
 function requireKind(value: FacetData | undefined): CatalogKind {
-    if (value !== "operation" && value !== "command") {
+    const kind = CATALOG_KINDS.find((candidate) => candidate === value);
+    if (kind === undefined) {
         throw new TypeError(`Catalog entry kind must be one of ${CATALOG_KINDS.join(", ")}`);
     }
-    return value;
+    return kind;
 }
 
-function requireKindDeclaration(
-    kind: CatalogKind,
-    declaration: OperationDescriptor | Command
-): void {
-    if (declaresOperation(kind, declaration)) return;
-    throw new TypeError(`A ${kind} catalog entry declares a different record`);
+/** The kind a declaration is, or nothing when the value declares no catalog record. */
+function declarationKind(declaration: CatalogDeclaration): CatalogKind | undefined {
+    if (declaration instanceof Command) return "command";
+    if (declaration instanceof EventDeclaration) return "event";
+    if (declaration instanceof InterceptorDeclaration) return "interceptor";
+    if (declaration instanceof OperationDescriptor) return "operation";
+    return undefined;
 }
 
-function declaresOperation(kind: CatalogKind, declaration: OperationDescriptor | Command): boolean {
-    const operation = declaration instanceof OperationDescriptor;
-    return kind === "operation" ? operation : !operation;
+/**
+ * The name a declaration answers to inside its kind. Each kind carries its own declared
+ * identity — an Event kind, an interceptor id, an Operation or Command name — so the
+ * catalog never invents one and an entry cannot be filed under a name its declaration
+ * does not state.
+ */
+function catalogName(declaration: CatalogDeclaration): string {
+    if (declaration instanceof Command) return declaration.name;
+    if (declaration instanceof EventDeclaration) return declaration.kind.value;
+    if (declaration instanceof InterceptorDeclaration) return declaration.id.value;
+    return declaration.name.value;
 }
 
-function declaredName(declaration: OperationDescriptor | Command): string {
-    return declaration instanceof Command ? declaration.name : declaration.name.value;
-}
-
-function decodeDeclaration(
-    kind: CatalogKind,
-    payload: FacetData | undefined
-): OperationDescriptor | Command {
+function decodeDeclaration(kind: CatalogKind, payload: FacetData | undefined): CatalogDeclaration {
     if (payload === undefined) {
         throw new TypeError("Catalog entry carries no declaration");
     }
-    return kind === "operation" ? OperationDescriptor.fromData(payload) : Command.fromData(payload);
+    switch (kind) {
+        case "command":
+            return Command.fromData(payload);
+        case "event":
+            return EventDeclaration.fromData(payload);
+        case "interceptor":
+            return InterceptorDeclaration.fromData(payload);
+        case "operation":
+            return OperationDescriptor.fromData(payload);
+    }
 }
 
 function catalogEntryId(
     kind: CatalogKind,
     name: string,
-    declaration: OperationDescriptor | Command,
+    declaration: CatalogDeclaration,
     attribution: ContributionAttribution | undefined
 ): CatalogEntryId {
     const digest = Digest.sha256(
@@ -233,7 +269,14 @@ const catalogEntryCodec = new DataRecordCodec(
         CatalogOrigin,
         ContributionAttribution,
         OperationDescriptor,
+        OperationAvailability,
         Command,
+        EventDeclaration,
+        EventKind,
+        InterceptorDeclaration,
+        InterceptorId,
+        OperationPattern,
+        OperationSelector,
         BindingName,
         SlotName,
         JsonSchema,

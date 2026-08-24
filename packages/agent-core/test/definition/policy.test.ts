@@ -5,6 +5,7 @@ import type { Impact, IsolationMode } from "../../src/facets";
 import {
     POLICY_IMPACTS,
     PolicySet,
+    TreeMergePolicy,
     enforcementFloor,
     evaluatePolicy,
     mergePolicySets,
@@ -276,7 +277,8 @@ describe("policy declaration codec", () => {
                     approvals: [],
                     maxDirectRevocationWindowMs: "250",
                     placement: { allowed: ["bundled"], backings: {}, trusted: ["*"] },
-                    tiers: {}
+                    tiers: {},
+                    treeMerge: null
                 })
             ).toThrow(/revocation window is invalid/);
         }
@@ -320,7 +322,8 @@ describe("policy declaration codec", () => {
                 backings: {},
                 trusted: ["*"]
             },
-            tiers: {}
+            tiers: {},
+            treeMerge: null
         };
 
         expect(() => PolicySet.fromData({ ...payload, approvals: ["bogus"] })).toThrow(
@@ -329,9 +332,9 @@ describe("policy declaration codec", () => {
         expect(() => PolicySet.fromData({ ...payload, tiers: null })).toThrow(
             "Policy tiers must be an object"
         );
-        expect(() => PolicySet.fromData({ ...payload, tiers: forged<JsonValue>(undefined) })).toThrow(
-            "Policy tiers must be an object"
-        );
+        expect(() =>
+            PolicySet.fromData({ ...payload, tiers: forged<JsonValue>(undefined) })
+        ).toThrow("Policy tiers must be an object");
         expect(() => PolicySet.fromData(null)).toThrow("Policy set must be an object");
         expect(() => PolicySet.fromData([])).toThrow("Policy set must be an object");
         expect(() => PolicySet.fromData("payload")).toThrow("Policy set must be an object");
@@ -353,11 +356,9 @@ describe("policy declaration codec", () => {
         { tags: "p0" },
         () => {
             expect(() => new PolicySet({ approvals: ["observe", "observe"] })).toThrow(/unique/);
-            expect(() =>
-            new PolicySet({ tiers: { observe: forged<EnforcementTier>("lower") } })
-        ).toThrow(
-                /tier/
-            );
+            expect(
+                () => new PolicySet({ tiers: { observe: forged<EnforcementTier>("lower") } })
+            ).toThrow(/tier/);
 
             const policy = new PolicySet({ approvals: ["observe"] });
             const envelope = requireObject(decodeCanonicalJson(PolicySet.encode(policy)));
@@ -387,11 +388,70 @@ describe("policy declaration codec", () => {
                     PolicySet.decode(
                         encodeCanonicalJson({
                             ...envelope,
-                            version: { major: 3, minor: 0 }
+                            version: { major: 4, minor: 0 }
                         })
                     ),
                 "codec.unknown-major"
             );
+        }
+    );
+
+    test(
+        "[definition.policy-set] declares a tree merge setting or declares none, never a silent one",
+        { tags: "p1" },
+        () => {
+            for (const policy of [
+                TreeMergePolicy.ours,
+                TreeMergePolicy.theirs,
+                TreeMergePolicy.perPath
+            ]) {
+                const decoded = PolicySet.decode(
+                    PolicySet.encode(new PolicySet({ treeMerge: policy }))
+                );
+                expect(decoded.treeMerge?.equals(policy)).toBe(true);
+            }
+
+            expect(TreeMergePolicy.ours.side).toBe("ours");
+            expect(TreeMergePolicy.theirs.side).toBe("theirs");
+            expect(TreeMergePolicy.perPath.side).toBeUndefined();
+            expect(TreeMergePolicy.ours.surfacesConflicts).toBe(false);
+            expect(TreeMergePolicy.theirs.surfacesConflicts).toBe(false);
+            expect(TreeMergePolicy.perPath.surfacesConflicts).toBe(true);
+
+            // Omission is the declaration that this platform never merges over one shared
+            // Environment. It must survive a round trip as absence rather than acquire a
+            // default, because the merge rule refuses on absence.
+            const omitted = PolicySet.decode(PolicySet.encode(new PolicySet()));
+            expect(omitted.treeMerge).toBeUndefined();
+            expect(requireObject(PolicySet.empty().toData())["treeMerge"]).toBeNull();
+
+            expect(() => TreeMergePolicy.fromData("mine")).toThrow(
+                /Tree merge policy must be one of/
+            );
+        }
+    );
+
+    test(
+        "[definition.policy-set] freezes every tree merge singleton the codec tuples reach",
+        { tags: "p1" },
+        () => {
+            // The PolicySet codec reaches these three, and so do the Blueprint, managed
+            // state, Actor plan, materialization plan and rollout codecs that carry a
+            // PolicySet, so a decoded policy hands out the same shared instances. A mutable
+            // one would let one holder rewrite every other holder's setting.
+            for (const policy of [
+                TreeMergePolicy.ours,
+                TreeMergePolicy.theirs,
+                TreeMergePolicy.perPath
+            ]) {
+                expect(Object.isFrozen(policy)).toBe(true);
+                expect(() => {
+                    Object.defineProperty(policy, "label", { value: "tampered" });
+                }).toThrow(TypeError);
+                expect(TreeMergePolicy.fromData(policy.toData())).toBe(policy);
+            }
+            expect(TreeMergePolicy.ours.label).toBe("ours");
+            expect(TreeMergePolicy.perPath.label).toBe("perPath");
         }
     );
 });
@@ -399,7 +459,6 @@ describe("policy declaration codec", () => {
 function maximumTier(...tiers: readonly EnforcementTier[]): EnforcementTier {
     return tiers.includes("mediated") ? "mediated" : "direct";
 }
-
 
 function expectCodecError(action: () => void, code: AgentCoreError["code"]): void {
     try {

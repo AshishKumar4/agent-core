@@ -19,7 +19,7 @@ import {
 } from "../../../src/definition";
 import { TenantId } from "../../../src/identity";
 import { SqliteMaterializationStore, type TransactionalSqlite } from "../../../src/substrates";
-import { TestSqlite } from "../../helpers/sqlite";
+import { TestSqlite, sqliteInteger } from "../../helpers/sqlite";
 import type { SqliteRow, SqliteValue } from "../../../src/substrates";
 
 const encoder = new TextEncoder();
@@ -893,7 +893,12 @@ describe("SQLite materialization rollout control corruption and lineage", () => 
         const wrongVersion = new TestSqlite();
         SqliteMaterializationStore.control(wrongVersion, tenantActor);
         wrongVersion.run("PRAGMA ignore_check_constraints = ON", []);
-        wrongVersion.run("UPDATE definition_materialization_control_schema SET version = 2", []);
+        // Derived from the marker this build wrote, so the case stays "a version this build
+        // does not support" across every schema bump rather than naming one stale number.
+        wrongVersion.run(
+            "UPDATE definition_materialization_control_schema SET version = version + 1",
+            []
+        );
         wrongVersion.run("PRAGMA ignore_check_constraints = OFF", []);
         expect(() => SqliteMaterializationStore.control(wrongVersion, tenantActor)).toThrowError(
             ownerOrVersion
@@ -913,11 +918,19 @@ describe("SQLite materialization rollout control corruption and lineage", () => 
 
             const extraRow = new TestSqlite();
             SqliteMaterializationStore.control(extraRow, tenantActor);
+            const marker = sqliteInteger(
+                extraRow.all(
+                    "SELECT version FROM definition_materialization_control_schema",
+                    []
+                )[0],
+                "version",
+                "control marker version"
+            );
             extraRow.run("PRAGMA ignore_check_constraints = ON", []);
             extraRow.run(
                 `INSERT INTO definition_materialization_control_schema (version, owner_kind, owner_id)
              VALUES (?, ?, ?)`,
-                [2, tenantActor.kind, tenantActor.id.value]
+                [marker + 1, tenantActor.kind, tenantActor.id.value]
             );
             extraRow.run("PRAGMA ignore_check_constraints = OFF", []);
             expect(() => SqliteMaterializationStore.control(extraRow, tenantActor)).toThrowError(
@@ -928,7 +941,7 @@ describe("SQLite materialization rollout control corruption and lineage", () => 
                     "SELECT version FROM definition_materialization_control_schema ORDER BY version",
                     []
                 )
-            ).toEqual([{ version: 1 }, { version: 2 }]);
+            ).toEqual([{ version: marker }, { version: marker + 1 }]);
 
             const foreignKind = new TestSqlite();
             SqliteMaterializationStore.control(foreignKind, tenantActor);

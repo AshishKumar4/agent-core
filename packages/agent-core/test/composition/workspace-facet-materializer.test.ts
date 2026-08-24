@@ -20,6 +20,9 @@ import {
     FieldMove,
     IngressDeclaration,
     IngressVerification,
+    Interceptor,
+    InterceptorDeclaration,
+    InterceptorId,
     Operation,
     OperationDescriptor,
     OperationName,
@@ -37,7 +40,8 @@ import {
     SurfaceId,
     type FacetData,
     type FacetLifecycleContext,
-    type Interceptor,
+    type InterceptContext,
+    type InterceptResult,
     type OperationContext
 } from "../../src/facets";
 import { ScopeRef, WorkspaceId } from "../../src/identity";
@@ -115,9 +119,31 @@ class MaterializedSurface extends Surface {
     }
 }
 
+function interceptorDeclaration(): InterceptorDeclaration {
+    return new InterceptorDeclaration(
+        new InterceptorId("materialized.interceptor"),
+        "operation.before",
+        "gate",
+        10
+    );
+}
+
+class MaterializedInterceptor extends Interceptor {
+    public readonly declaration = interceptorDeclaration();
+
+    public intercept(_context: InterceptContext, value: FacetData): InterceptResult {
+        return { proceed: true, value };
+    }
+}
+
 class MaterializedFacet extends Facet {
     public readonly ref = facetRef;
-    public readonly manifest = manifest();
+    public readonly manifest: FacetManifest;
+
+    public constructor(declared?: FacetManifest) {
+        super();
+        this.manifest = declared ?? manifest();
+    }
 
     public operation(name: OperationName): Operation | undefined {
         return name.equals(new OperationName("execute")) ? new MaterializedOperation() : undefined;
@@ -129,8 +155,10 @@ class MaterializedFacet extends Facet {
             : undefined;
     }
 
-    public interceptor(): Interceptor | undefined {
-        return undefined;
+    public interceptor(id: InterceptorId): Interceptor | undefined {
+        return id.equals(new InterceptorId("materialized.interceptor"))
+            ? new MaterializedInterceptor()
+            : undefined;
     }
 
     public children(): readonly Facet[] {
@@ -155,8 +183,7 @@ interface Harness {
     >;
 }
 
-function createHarness(version = "1.0.0"): Harness {
-    const expectedManifest = manifest();
+function createHarness(version = "1.0.0", expectedManifest = manifest()): Harness {
     const database = new TestSqlite();
     const records = new SqliteWorkspaceRecords(database);
     const persistence = new WorkspacePersistence<TransactionalSqlite>(
@@ -210,15 +237,9 @@ function manifest(): FacetManifest {
         contributions: new Contributions([
             new Contribution(new SlotName("automations"), [automation.toData()]),
             new Contribution(new SlotName("commands"), [commandDeclaration().toData()]),
-            new Contribution(new SlotName("events"), [
-                new EventDeclaration(
-                    new EventKind("materialized.event"),
-                    "Materialized event",
-                    new JsonSchema({ type: "object" }),
-                    "workspace"
-                ).toData()
-            ]),
+            new Contribution(new SlotName("events"), [eventDeclaration().toData()]),
             new Contribution(new SlotName("ingress"), [ingress.toData()]),
+            new Contribution(new SlotName("interceptors"), [interceptorDeclaration().toData()]),
             new Contribution(new SlotName("operations"), [operation.toData()]),
             new Contribution(new SlotName("prompt"), [
                 new PromptContribution([
@@ -231,6 +252,32 @@ function manifest(): FacetManifest {
             new Contribution(new SlotName("surfaces"), [surfaceDescriptor().toData()]),
             new Contribution(new SlotName("custom.cards"), [{ title: "Card" }])
         ])
+    });
+}
+
+function eventDeclaration(): EventDeclaration {
+    return new EventDeclaration(
+        new EventKind("materialized.event"),
+        "Materialized event",
+        new JsonSchema({ type: "object" }),
+        "workspace"
+    );
+}
+
+/** The fixture manifest with one core slot's contribution replaced. */
+function manifestWith(replacement: Contribution): FacetManifest {
+    const base = manifest();
+    return new FacetManifest({
+        id: base.id,
+        version: base.version,
+        compat: base.compat,
+        isolation: base.isolation,
+        bindings: base.bindings,
+        contributions: new Contributions(
+            base.contributions.entries.map((contribution) =>
+                contribution.slot.equals(replacement.slot) ? replacement : contribution
+            )
+        )
     });
 }
 
@@ -266,8 +313,10 @@ describe("Workspace Facet materializer", () => {
         () => {
             const first = apply(harness);
             expect(first).toMatchObject({
-                catalogEntries: 2,
+                catalogEntries: 4,
+                eventProducers: 1,
                 ingressEndpoints: 1,
+                interceptorEntries: 1,
                 promptSections: 2,
                 settingsLayers: 1,
                 slotDeclarations: 1,
@@ -278,7 +327,7 @@ describe("Workspace Facet materializer", () => {
             expect(harness.slots.revision().value).toBe(1);
             expect(apply(harness)).toMatchObject(first);
             expect(harness.slots.revision().value).toBe(1);
-            expect(harness.persistence.listCatalogEntries(harness.database)).toHaveLength(2);
+            expect(harness.persistence.listCatalogEntries(harness.database)).toHaveLength(4);
             expect(harness.persistence.listPromptSections(harness.database)).toHaveLength(2);
             expect(harness.persistence.listSettingsLayers(harness.database)).toHaveLength(1);
             expect(harness.persistence.listIngressEndpoints(harness.database)).toHaveLength(1);
@@ -298,6 +347,110 @@ describe("Workspace Facet materializer", () => {
                 PayloadMapping.identity.toData()
             );
             expect(harness.slots.listAllEntries(harness.database)).toHaveLength(1);
+        }
+    );
+
+    test(
+        "[C13-FACET-CONTRIBUTION-ATTRIBUTION] materializes an interceptor pipeline entry and a typed Event producer under the exact FacetRef and PackagePin",
+        { tags: "p0" },
+        () => {
+            const result = apply(harness);
+            const catalog = harness.persistence.listCatalogEntries(harness.database);
+            const interceptorEntry = catalog.find((entry) => entry.kind === "interceptor");
+            const eventEntry = catalog.find((entry) => entry.kind === "event");
+            if (interceptorEntry === undefined || eventEntry === undefined) {
+                throw new TypeError("Expected durable interceptor and Event producer records");
+            }
+
+            for (const entry of [interceptorEntry, eventEntry]) {
+                expect(entry.attribution?.equals(result.attribution)).toBe(true);
+                expect(entry.attribution?.contributor.equals(facetRef)).toBe(true);
+                expect(entry.attribution?.package.equals(pin("subscription.package"))).toBe(true);
+            }
+            expect(interceptorEntry.name).toBe("materialized.interceptor");
+            expect(interceptorEntry.declaration.toData()).toEqual(
+                interceptorDeclaration().toData()
+            );
+            expect(eventEntry.name).toBe("materialized.event");
+            expect(eventEntry.declaration.toData()).toEqual(eventDeclaration().toData());
+
+            apply(harness);
+            expect(
+                harness.persistence
+                    .listCatalogEntries(harness.database)
+                    .map((entry) => entry.id.value)
+                    .sort()
+            ).toEqual(catalog.map((entry) => entry.id.value).sort());
+        }
+    );
+
+    test(
+        "[C13-FACET-CONTRIBUTION-MATERIALIZATION] gives one interceptor declaration one entry whichever way the manifest spelled it",
+        { tags: "p1" },
+        () => {
+            // The fixture manifest spells the default selector out; this one leaves it
+            // implicit. Two wire forms, one declaration, so one entry — a materializer that
+            // stored the manifest bytes unchanged would produce two entry ids for it.
+            const spelled = manifestWith(
+                new Contribution(new SlotName("interceptors"), [
+                    {
+                        cutPoint: "operation.before",
+                        id: "materialized.interceptor",
+                        mode: "gate",
+                        priority: 10
+                    }
+                ])
+            );
+            const implied = createHarness("1.0.0", spelled);
+            const prepared = implied.materializer.prepareContribution(implied.database, context);
+            if (prepared === undefined) throw new TypeError("Expected prepared contribution");
+            implied.database.transaction(() =>
+                implied.materializer.materialize(
+                    implied.database,
+                    context,
+                    prepared,
+                    validated(new MaterializedFacet(spelled))
+                )
+            );
+            apply(harness);
+
+            const spelledEntry = implied.persistence
+                .listCatalogEntries(implied.database)
+                .find((entry) => entry.kind === "interceptor");
+            const canonicalEntry = harness.persistence
+                .listCatalogEntries(harness.database)
+                .find((entry) => entry.kind === "interceptor");
+            expect(spelledEntry).toBeDefined();
+            expect(spelledEntry?.id.value).toBe(canonicalEntry?.id.value);
+        }
+    );
+
+    test(
+        "[C13-FACET-CONTRIBUTION-MATERIALIZATION] refuses a malformed Event producer before writing any record",
+        { tags: "p0" },
+        () => {
+            const malformed = manifestWith(
+                new Contribution(new SlotName("events"), [{ kind: "materialized.event" }])
+            );
+            const broken = createHarness("1.0.0", malformed);
+            const facet = new MaterializedFacet(malformed);
+            const prepared = broken.materializer.prepareContribution(broken.database, context);
+            if (prepared === undefined) throw new TypeError("Expected prepared contribution");
+
+            expect(() =>
+                broken.database.transaction(() =>
+                    broken.materializer.materialize(
+                        broken.database,
+                        context,
+                        prepared,
+                        validated(facet)
+                    )
+                )
+            ).toThrow(TypeError);
+            expect(broken.slots.listAllEntries(broken.database)).toEqual([]);
+            expect(broken.slots.revision().value).toBe(0);
+            expect(broken.persistence.listCatalogEntries(broken.database)).toEqual([]);
+            expect(broken.persistence.listPromptSections(broken.database)).toEqual([]);
         }
     );
 
@@ -335,7 +488,7 @@ describe("Workspace Facet materializer", () => {
             ).toEqual([]);
             expect(
                 harness.persistence.listContributedCatalogEntries(harness.database, second)
-            ).toHaveLength(2);
+            ).toHaveLength(4);
             expect(harness.slots.revision().value).toBe(2);
         }
     );
@@ -407,7 +560,7 @@ describe("Workspace Facet materializer", () => {
             packageMaterialization.materialize(reaching<LoadedBlueprint<unknown>>({}), [
                 validated()
             ]);
-            expect(harness.persistence.listCatalogEntries(harness.database)).toHaveLength(2);
+            expect(harness.persistence.listCatalogEntries(harness.database)).toHaveLength(4);
 
             harness.provenance.installation = undefined;
             expect(() =>

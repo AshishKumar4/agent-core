@@ -25,12 +25,20 @@ import type { OperationGateway } from "./gateway";
 
 /**
  * One capability explicitly passed into an isolate: the name the loaded code addresses
- * it by, and the exact Facet that name must resolve to. The Package is derived from the
- * Facet reference rather than stated separately, so a passed capability cannot claim one
- * Package and resolve to another.
+ * it by, the exact Facet that name must resolve to, and the Operations that Facet
+ * declares reachable through it. The Package is derived from the Facet reference rather
+ * than stated separately, so a passed capability cannot claim one Package and resolve to
+ * another.
  */
 export class AuthoredCodeCapability {
     public readonly package: FacetPackageId;
+    /**
+     * The declared Operations this name conveys (SPEC §4.7). They come from the
+     * composition's `operations` contributions, never from the submission, because
+     * availability is a property of the composition — so nothing the model writes can
+     * widen what the isolate reaches.
+     */
+    public readonly operations: readonly OperationDescriptor[];
 
     public constructor(
         public readonly name: BindingName,
@@ -40,9 +48,13 @@ export class AuthoredCodeCapability {
          * holds" — the widest §3.4 admits — and any stated narrowing is enforced by the
          * ordinary attenuation rules, never by this record.
          */
-        public readonly capability?: CapabilitySpec
+        public readonly capability?: CapabilitySpec,
+        operations: readonly OperationDescriptor[] = []
     ) {
         this.package = new FacetPackageId(facet.value.slice(0, facet.value.indexOf(":")));
+        // Detached, so a later addition to whatever the capability was built from reaches
+        // nothing the isolate can name.
+        this.operations = Object.freeze([...operations]);
         Object.freeze(this);
     }
 }
@@ -52,6 +64,11 @@ export class AuthoredCodeCapability {
  * what the isolate can reach: a name absent from this set has no channel, because the
  * isolate holds no ambient authority and the only outward call path checks membership
  * here before it resolves anything.
+ *
+ * The set is also where §4.7's availability bound is discharged. An Operation declared
+ * `native` is not passable, and the refusal is the whole outcome: dropping it instead
+ * would leave the model an offered catalog the isolate cannot reach, which is the one
+ * disagreement between the two the declaration exists to prevent.
  */
 export class AuthoredCodeCapabilitySet {
     readonly #capabilities: ReadonlyMap<string, AuthoredCodeCapability>;
@@ -64,6 +81,14 @@ export class AuthoredCodeCapabilitySet {
             }
             if (indexed.has(capability.name.value)) {
                 throw new TypeError("Passed capability names must be unique");
+            }
+            for (const operation of capability.operations) {
+                if (!operation.availability.reachableByAuthoredCode) {
+                    throw new AgentCoreError(
+                        "authority.denied",
+                        `Operation ${operation.name.value} is declared native and is not passable to agent-authored code`
+                    );
+                }
             }
             indexed.set(capability.name.value, capability);
         }
@@ -418,6 +443,11 @@ export class AuthoredCodeOperation extends Operation {
     }
 }
 
+/**
+ * A submission names Bindings and never Operations: `AUTHORED_CODE_INPUT_SCHEMA` admits no
+ * key that could carry one, so the declared Operations each passed name conveys are the
+ * composition's to attach (SPEC §4.7) and a submission cannot state its own availability.
+ */
 export function decodeSubmission(input: FacetData): AuthoredCodeSubmission {
     const object = requireDataObject(input, "Agent-authored code submission");
     requireAuthoredCodeConsumer(object["consumer"], "Agent-authored code consumer");

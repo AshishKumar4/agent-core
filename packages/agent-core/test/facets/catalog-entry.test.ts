@@ -12,7 +12,17 @@ import { ContributionAttribution } from "../../src/facets/attribution";
 import { CatalogEntry } from "../../src/facets/catalog-entry";
 import { Command } from "../../src/facets/command";
 import { OperationDescriptor } from "../../src/facets/contribution";
-import { BindingName, FacetRef, OperationName, OperationRef, SlotName } from "../../src/facets/id";
+import { EventDeclaration } from "../../src/facets/event";
+import { InterceptorDeclaration } from "../../src/facets/interceptor";
+import {
+    BindingName,
+    EventKind,
+    FacetRef,
+    InterceptorId,
+    OperationName,
+    OperationRef,
+    SlotName
+} from "../../src/facets/id";
 
 const objectSchema = new JsonSchema({ type: "object" });
 const goldenPin = new PackagePin(
@@ -52,6 +62,56 @@ describe("Declarative facet vocabulary [facet.catalog-entry]", () => {
         expect(decoded.declaration instanceof Command).toBe(true);
         expect(decoded.id.equals(entry.id)).toBe(true);
     });
+
+    test(
+        "[C13-FACET-CONTRIBUTION-ATTRIBUTION] round-trips an Event producer and an interceptor pipeline entry under the same attribution",
+        { tags: "p0" },
+        () => {
+            const event = new EventDeclaration(
+                new EventKind("acme.resized"),
+                "Image resized",
+                objectSchema,
+                "workspace"
+            );
+            const interceptor = new InterceptorDeclaration(
+                new InterceptorId("acme.audit"),
+                "operation.before",
+                "gate",
+                5
+            );
+            const entries = [
+                new CatalogEntry("event", event.kind.value, event, goldenAttribution),
+                new CatalogEntry(
+                    "interceptor",
+                    interceptor.id.value,
+                    interceptor,
+                    goldenAttribution
+                )
+            ];
+
+            for (const entry of entries) {
+                const decoded = CatalogEntry.decode(CatalogEntry.encode(entry));
+                expect(decoded.kind).toBe(entry.kind);
+                expect(decoded.name).toBe(entry.name);
+                expect(decoded.id.equals(entry.id)).toBe(true);
+                expect(decoded.attribution?.equals(goldenAttribution)).toBe(true);
+                expect(decoded.declaration.toData()).toEqual(entry.declaration.toData());
+            }
+            expect(entries[0]!.id.equals(entries[1]!.id)).toBe(false);
+
+            // The name is the declaration's own identity, and the kind must match the record
+            // it carries: neither is a label the caller may choose.
+            expect(() => new CatalogEntry("event", "other", event, goldenAttribution)).toThrow(
+                /must be its declaration's own name acme\.resized/
+            );
+            expect(
+                () => new CatalogEntry("event", "acme.audit", interceptor, goldenAttribution)
+            ).toThrow(/declares a different record/);
+            expect(
+                () => new CatalogEntry("interceptor", "acme.resized", event, goldenAttribution)
+            ).toThrow(/declares a different record/);
+        }
+    );
 
     test("encodes a host-direct declaration without any attribution field", () => {
         const encoded = CatalogEntry.encode(directEntry());
@@ -134,7 +194,7 @@ describe("Declarative facet vocabulary [facet.catalog-entry]", () => {
             /declares a different record/
         );
         expect(() => CatalogEntry.fromData({ ...fieldsOf(directEntry()), kind: "macro" })).toThrow(
-            /must be one of operation, command/
+            /must be one of command, event, interceptor, operation/
         );
         const missingDeclaration = { ...fieldsOf(directEntry()) };
         delete missingDeclaration["declaration"];

@@ -31,10 +31,12 @@ import {
     OperationRef,
     PayloadMapping
 } from "../facets";
+import type { ContributionAttribution } from "../facets";
 import { TenantId } from "../identity";
 import { DeploymentId, DeploymentKey } from "./id";
 import { PackageId, PackagePin } from "../definition-references";
 import { ManagedOrigin } from "./origin";
+import type { FacetInstallFailure } from "./install-outcome";
 import { ActorPlan, DesiredProjection, MaterializationPlan } from "./plan";
 import { compareText } from "./order";
 import type { ValidationAttestation } from "./attestation";
@@ -45,7 +47,7 @@ import {
     PlacementPolicy,
     PlacementSelection
 } from "./placement";
-import { PolicySet } from "./policy";
+import { PolicySet, TreeMergePolicy } from "./policy";
 
 export interface DeploymentRecordInit {
     readonly id: DeploymentId;
@@ -249,6 +251,7 @@ class MaterializationRolloutCodec extends RecordCodec<MaterializationRollout> {
                 DeploymentId,
                 BindingName,
                 PolicySet,
+                TreeMergePolicy,
                 FacetPackageId,
                 PlacementInput,
                 PlacementSelection,
@@ -270,7 +273,7 @@ class MaterializationRolloutCodec extends RecordCodec<MaterializationRollout> {
             ],
             "definition.materialization-rollout",
             {
-                major: 1,
+                major: 2,
                 minor: 0
             }
         );
@@ -573,6 +576,19 @@ export abstract class MaterializationControlStore<Transaction> {
         expected: Revision,
         entry: MaterializationOutboxEntry
     ): boolean;
+    public abstract insertInstallFailure(
+        transaction: Transaction,
+        failure: FacetInstallFailure
+    ): void;
+    /**
+     * SPEC §4.1: every recorded failed install of exactly this contribution, in canonical
+     * id order. The caller compares each against the `ManagedOrigin` it is about to install
+     * under, because only an unchanged Scope refuses a retry.
+     */
+    public abstract listInstallFailures(
+        transaction: Transaction,
+        attribution: ContributionAttribution
+    ): readonly FacetInstallFailure[];
 }
 
 export abstract class MaterializationPlanAdmissionPort {

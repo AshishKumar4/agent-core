@@ -1,4 +1,5 @@
 import { JsonSchema, TextId } from "../core";
+import { OperationAvailability } from "./authored-code";
 import type { FacetData } from "./data";
 import {
     DataRecordCodec,
@@ -33,6 +34,12 @@ export class OperationDescriptor {
      * values under §5.2, and leave a field a later edit could flip.
      */
     public readonly interceptable: true | undefined;
+    /**
+     * SPEC §4.7 (C13-FACET-CODE-AVAILABILITY): which caller this Operation is declared
+     * for. Always present in memory and absent on the wire for `native`, so the offered
+     * catalog and the set an isolate can reach are one declared fact.
+     */
+    public readonly availability: OperationAvailability;
 
     public constructor(
         public readonly name: OperationName,
@@ -40,7 +47,8 @@ export class OperationDescriptor {
         public readonly input: JsonSchema,
         public readonly output: JsonSchema,
         help?: string,
-        interceptable?: true
+        interceptable?: true,
+        availability?: OperationAvailability
     ) {
         if (help !== undefined) {
             requireNonblank(help, "Operation help");
@@ -50,6 +58,7 @@ export class OperationDescriptor {
             interceptable,
             "Operation interceptable declaration"
         );
+        this.availability = availability ?? OperationAvailability.native;
         Object.freeze(this);
     }
 
@@ -58,7 +67,7 @@ export class OperationDescriptor {
         requireExactFields(
             object,
             ["impact", "input", "name", "output"],
-            ["help", "interceptable"]
+            ["availability", "help", "interceptable"]
         );
         return new OperationDescriptor(
             new OperationName(requireString(object["name"], "Operation name")),
@@ -66,7 +75,11 @@ export class OperationDescriptor {
             new JsonSchema(requireSchemaDocument(object["input"], "Operation input schema")),
             new JsonSchema(requireSchemaDocument(object["output"], "Operation output schema")),
             requireOptionalString(object["help"], "Operation help"),
-            requireOfferedCapability(object["interceptable"], "Operation interceptable declaration")
+            requireOfferedCapability(
+                object["interceptable"],
+                "Operation interceptable declaration"
+            ),
+            OperationAvailability.fromData(object["availability"])
         );
     }
 
@@ -80,6 +93,7 @@ export class OperationDescriptor {
 
     public toData(): FacetData {
         return dataRecord({
+            availability: this.availability.toData(),
             impact: this.impact,
             input: this.input.document,
             interceptable: this.interceptable,
@@ -91,7 +105,7 @@ export class OperationDescriptor {
 }
 
 const operationDescriptorCodec = new DataRecordCodec(
-    [OperationDescriptor, TextId, JsonSchema, OperationName],
+    [OperationDescriptor, TextId, JsonSchema, OperationName, OperationAvailability],
     "facet.operation-descriptor",
     (descriptor: OperationDescriptor) => descriptor.toData(),
     (payload) => OperationDescriptor.fromData(payload)

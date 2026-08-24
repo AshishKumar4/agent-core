@@ -65,7 +65,8 @@ export class ProfileOperationContract<
                 this.descriptor.input,
                 this.descriptor.output,
                 this.descriptor.help,
-                this.descriptor.interceptable
+                this.descriptor.interceptable,
+                this.descriptor.availability
             ),
             this.inputCodec,
             this.outputCodec,

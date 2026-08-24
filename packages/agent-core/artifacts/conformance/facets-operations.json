@@ -157,13 +157,13 @@
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "The reachability conjunct is built and partly tested, so what remains here is narrower than construction: src/facets/runtime.ts#OperationContext declares a required `signal: AbortSignal`, and a Turn's cancellation reaches it through the scope signal TurnExecutor hands its executor, GatewayTurnInvocationPort's TurnGatewayScope, ComposedTurnGatewaySource.open calling operations(scope.signal), and the shared { signal, content } resources both DerivedDirectOperationContext and CanonicalBatchInvocationPort put on the handler's context. test/composition/mediation-pipeline.test.ts already discriminates the never-abort substitute over the concrete pipeline — 'the published mediation composition root runs each Operation under its own Turn's cancellation signal' asserts the handler's observed context signal is identically the Turn's signal and that an already-aborted Turn signal prevents dispatch with zero handler calls — but it carries no atom tag, so it is not yet conformance evidence for this row under scripts/quality/ledger.mjs's priority-evidence rule",
+        "The reachability conjunct is built and partly tested, so what remains here is narrower than construction: src/facets/runtime.ts#OperationContext declares a required `signal: AbortSignal`, and a Turn's cancellation reaches it through the scope signal TurnExecutor hands its executor, GatewayTurnInvocationPort's TurnGatewayScope, ComposedTurnGatewaySource.open calling operations(scope.signal), and the shared { signal, content } resources both DerivedDirectOperationContext and CanonicalBatchInvocationPort put on the handler's context. test/composition/mediation-pipeline.test.ts already discriminates the never-abort substitute over the concrete pipeline \u2014 'the published mediation composition root runs each Operation under its own Turn's cancellation signal' asserts the handler's observed context signal is identically the Turn's signal and that an already-aborted Turn signal prevents dispatch with zero handler calls \u2014 but it carries no atom tag, so it is not yet conformance evidence for this row under scripts/quality/ledger.mjs's priority-evidence rule",
         "What no test does is abort a Turn while an Operation handler is suspended and observe that handler's own context signal fire: the pipeline case aborts before invoke and then uses a controller it never aborts, and the only mid-execution abort observation in the suite is on a facet `start` hook's FacetLifecycleContext in test/operations/runtime.test.ts, not on an OperationContext. Availability at handler entry and observability during handler execution are different claims, and this rule makes the second one",
         "The distinction this rule exists for is untested: an attempt whose wait the host abandoned must record `indeterminate` while an attempt whose handler observed its context cancellation must record `aborted` under C13-RECEIPT-FAILURE-KIND, and a mutation substituting a never-abort sentinel for the context signal must collapse the second case into the first rather than leaving both green",
-        "Propagation past the seam has no enforcement point at all. Nothing requires a handler that awaits further asynchronous work under its own invocation's lifetime to pass its context cancellation on, and nothing keeps a bound it derives linked to the cancellation it derived from. Closure needs a profile handler that delegates — §11.2 Shell is the sharpest, since P11-SHELL-CANCELLATION already asserts prompt cancellation — proving the abort reaches the side-effect owner, that awaited work reaches quiescence, and that a handler deriving a narrower deadline still aborts when the upstream cancellation fires",
+        "Propagation past the seam has no enforcement point at all. Nothing requires a handler that awaits further asynchronous work under its own invocation's lifetime to pass its context cancellation on, and nothing keeps a bound it derives linked to the cancellation it derived from. Closure needs a profile handler that delegates \u2014 \u00a711.2 Shell is the sharpest, since P11-SHELL-CANCELLATION already asserts prompt cancellation \u2014 proving the abort reaches the side-effect owner, that awaited work reaches quiescence, and that a handler deriving a narrower deadline still aborts when the upstream cancellation fires",
         "The schema exclusion is unchecked: OperationDescriptor.input accepts any JsonSchema, so nothing today refuses a declared input property that purports to carry cancellation, and nothing proves a handler cannot be reachable only through such a field. Verification requires the install-time manifest validation to refuse it, not the first invocation to fail on it",
-        "The durable-record boundary is satisfied by construction rather than by assertion, which is the direction a regression would come from: the ContentStore seam and the §8.5 command dispatcher take no signal, so an added one would silently widen this atom into the requirement it explicitly is not. A conformance assertion that those two seams stay cancellation-free is what keeps this rule from being read as requiring cancellation everywhere",
-        "Promotion to verified is blocked across a fragment boundary and the blocker is a true dependency rather than a bookkeeping accident: this row names C13-RECEIPT-FAILURE-KIND, which is W6's in invocations-audit.json and planned, so ledger.mjs's verified-status monotonicity rejects a verified row here until §7.4's failure-kind taxonomy is itself verified. An implemented status depending on a planned prerequisite is legal, and the dependency is real — the aborted-versus-indeterminate discrimination this atom exists to make is a claim about that taxonomy — so the edge stays and the promotion waits on W6 rather than being eased by dropping it"
+        "The durable-record boundary is satisfied by construction rather than by assertion, which is the direction a regression would come from: the ContentStore seam and the \u00a78.5 command dispatcher take no signal, so an added one would silently widen this atom into the requirement it explicitly is not. A conformance assertion that those two seams stay cancellation-free is what keeps this rule from being read as requiring cancellation everywhere",
+        "Promotion to verified is blocked across a fragment boundary and the blocker is a true dependency rather than a bookkeeping accident: this row names C13-RECEIPT-FAILURE-KIND, which is W6's in invocations-audit.json and planned, so ledger.mjs's verified-status monotonicity rejects a verified row here until \u00a77.4's failure-kind taxonomy is itself verified. An implemented status depending on a planned prerequisite is legal, and the dependency is real \u2014 the aborted-versus-indeterminate discrimination this atom exists to make is a claim about that taxonomy \u2014 so the edge stays and the promotion waits on W6 rather than being eased by dropping it"
       ]
     },
     {
@@ -190,7 +190,7 @@
       "owner": "W3",
       "specAnchor": "C13-FACET-CODE-AVAILABILITY",
       "specTextSha256": "sha256:f36a1bc625100b139f82834d25c4fa55bbd54ed2b553ca9de869120e2f8b98eb",
-      "status": "planned",
+      "status": "implemented",
       "prerequisites": [
         "C13-AUTH-ISOLATE-DELEGATION",
         "C13-BLUEPRINT-VALIDATE-BEFORE-LOAD",
@@ -198,15 +198,26 @@
         "C13-PLACEMENT-AUTHORED-BACKING",
         "C13-TURN-FACET-SET-STABLE"
       ],
-      "sourceSymbols": [],
-      "testSelectors": [],
+      "sourceSymbols": [
+        "src/facets/authored-code.ts#OperationAvailability",
+        "src/facets/contribution.ts#OperationDescriptor",
+        "src/operations/authored-code.ts#AuthoredCodeCapabilitySet"
+      ],
+      "testSelectors": [
+        "test/facets/declarations.test.ts#Declarative facet vocabulary [facet.operation-descriptor] [C13-FACET-CODE-AVAILABILITY] reads an absent availability as native and gives that one meaning one canonical wire form",
+        "test/facets/declarations.test.ts#Declarative facet vocabulary [facet.operation-descriptor] [C13-FACET-CODE-AVAILABILITY] round-trips a code- and a both-available declaration and refuses an undeclared availability",
+        "test/facets/authored-code.test.ts#Agent-authored code availability bound [C13-FACET-CODE-AVAILABILITY] passes a code- and a both-available Operation into an isolate",
+        "test/facets/authored-code.test.ts#Agent-authored code availability bound [C13-FACET-CODE-AVAILABILITY] refuses a passed set that names a native Operation rather than dropping it",
+        "test/facets/authored-code.test.ts#Agent-authored code availability bound [C13-FACET-CODE-AVAILABILITY] refuses the whole set when a second passed name carries the native Operation",
+        "test/facets/authored-code.test.ts#Agent-authored code availability bound [C13-FACET-CODE-AVAILABILITY] detaches the declared Operations a passed name conveys"
+      ],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "The declaration does not exist yet and its absence is enforced: src/facets/contribution.ts#OperationDescriptor carries no availability member and its codec's exact-field check would reject one, so the type, the codec's optional-field set, toData(), and the descriptor reconstruction in src/facets/profile-runtime/contract.ts all need the new member before any other clause can be asserted",
-        "The absent-means-native default needs discrimination and not merely a default value: a descriptor declaring no availability must be shown unreachable from agent-authored code, and a mutation defaulting it to both must break a cited test rather than silently widening every existing Operation into code mode",
-        "The one-set clause is the substance of the rule and has nothing to test against: nothing today computes the Bindings handed to a dynamic isolate, so verification needs that computation plus proof that its members are exactly the code- or both-available Operations the caller holds authority for, that a native-only Operation is not passable, and that the same declared set is what the offered catalog records under C13-TURN-MODEL-INPUT-RECONSTRUCTABLE — a host keeping two sets in agreement must fail",
-        "The composition clauses ride on atoms that are themselves planned: availability changed at the Scope mid-Turn must not change what that Turn's isolate reaches, which needs the captured FacetSet of C13-TURN-FACET-SET-STABLE, and the materialized availability record must appear in the declaring Facet's withdrawal set under C13-FACET-WITHDRAWAL-EXACT rather than surviving its contributor",
-        "The validation-time rejection is a definition-plane obligation with no current reader: the Blueprint validator does not relate policies.placement's consumer-to-backing mapping to any Operation's declared availability, so a code-available Operation on a platform that maps no backing and declares no default cannot be refused today. Closure requires that relation, the no-code-loaded assertion C13-BLUEPRINT-VALIDATE-BEFORE-LOAD already tests against, and a discriminating case proving the failure lands at validation rather than at the first submission that needs the runtime"
+        "The declaration exists and absence is native rather than a defaulted value: OperationAvailability is a value object whose three cases carry the two decisions the rule turns on, an absent wire key decodes as native, and native canonicalizes back to the absent key so one meaning never gets two manifestDigest values.",
+        "The isolate bound is enforced where the passed set is built, not filtered: AuthoredCodeCapabilitySet refuses construction when any passed capability names an Operation whose availability is not reachable by authored code, and TenantAuthoredCodeDelegationPort carries the declared Operations through delegation so the screen runs on the set the backing actually receives.",
+        "Validation-time rejection exists and lands before package code loads, and it is a W4 obligation this row may not cite: src/definition/validator.ts#PlacementSourcePort now declares the profile default for a SPEC 4.7 consumer explicitly, and the validator refuses a code- or both-available Operation when neither policies.placement nor the profile declares a backing for the programmaticToolCall consumer. That evidence is carried by the W4 rows C13-BLUEPRINT-VALIDATE-BEFORE-LOAD and C13-PLACEMENT-AUTHORED-BACKING, and this row depends on them rather than restating them.",
+        "The one-set clause is not closed here and its remainder is W5\u2019s. Nothing in W3 may build the passed set from the Turn\u2019s captured FacetSet without inventing a second source of the descriptors, which is exactly what the rule forbids. The exact interface owed is the Turn-side assembly that builds an AuthoredCodeCapabilitySet from the FacetSet C13-TURN-FACET-SET-STABLE captures, and the same declared set feeding the offered catalog under C13-TURN-MODEL-INPUT-RECONSTRUCTABLE.",
+        "The withdrawal-set clause is owed a record: the availability declaration travels inside the OperationDescriptor an `operations` contribution materializes into a CatalogEntry, so it is already attributed and already enters the withdrawal set, but no test asserts that the availability specifically retires with its contributor."
       ]
     },
     {
@@ -223,16 +234,19 @@
         "src/facets/settings.ts#SettingsLayer",
         "src/facets/slot-entry.ts#SlotEntry",
         "src/facets/slot.ts#InstalledSlot",
-        "src/facets/surface.ts#SurfaceRegistration"
+        "src/facets/surface.ts#SurfaceRegistration",
+        "src/composition/workspace-facet-materializer.ts#WorkspaceFacetMaterializer"
       ],
       "testSelectors": [
         "test/facets/declarations.test.ts#Declarative facet vocabulary [C13-FACET-CONTRIBUTION-ATTRIBUTION] refuses to decode a SlotEntry that carries no source Package pin",
         "test/facets/declarations.test.ts#Declarative facet vocabulary [C13-FACET-CONTRIBUTION-ATTRIBUTION] refuses to register a Surface from a missing or forged attribution",
+        "test/facets/catalog-entry.test.ts#Declarative facet vocabulary [facet.catalog-entry] [C13-FACET-CONTRIBUTION-ATTRIBUTION] round-trips an Event producer and an interceptor pipeline entry under the same attribution",
+        "test/composition/workspace-facet-materializer.test.ts#Workspace Facet materializer [C13-FACET-CONTRIBUTION-ATTRIBUTION] materializes an interceptor pipeline entry and a typed Event producer under the exact FacetRef and PackagePin",
         "test/w3/facet-withdrawal.test.ts#Facet withdrawal across owning Actors [C13-FACET-CONTRIBUTION-ATTRIBUTION] refuses every later revision that rewrites, adds, or drops a Subscription's attribution"
       ],
       "checkerInvariants": ["ACQ-ATTRIBUTION"],
       "remainingEvidence": [
-        "Interceptor pipeline entries and typed Event producer declarations still have no durable materialization record. This atom cannot promote until those two core contribution kinds carry the same exact FacetRef and PackagePin and join the same activation and withdrawal transaction.",
+        "The two core kinds that carried no durable record now carry one. An `interceptors` contribution materializes as a `CatalogEntry` of kind `interceptor` and an `events` contribution as one of kind `event`, both written by WorkspaceFacetMaterializer.reconcile in the same Workspace Actor transaction as every other kind, both carrying the exact FacetRef and PackagePin, and both answered by the same listContributedCatalogEntries query the \u00a74.1 withdrawal set is computed from. The record kind is derived rather than invented: \u00a74.2 closes the set of records a contribution materializes into at SlotEntry, catalog entry, derived Subscription, Surface registration, prompt section, ingress endpoint and settings fragment, and a SlotEntry structurally requires an installed SlotDeclaration that a core slot has no contributor to declare, so the catalog entry is the only admissible one.",
         "The unified materializer and Workspace record path have not passed their final mutation campaign or exact-head maintainer review. The row therefore remains implemented."
       ]
     },
@@ -248,15 +262,18 @@
         "src/facets/prompt-section.ts#PromptSection",
         "src/facets/settings.ts#SettingsLayer",
         "src/facets/slot-store.ts#WorkspaceSlotStore",
-        "src/facets/surface.ts#SurfaceRegistration"
+        "src/facets/surface.ts#SurfaceRegistration",
+        "src/composition/workspace-facet-materializer.ts#WorkspaceFacetMaterializer"
       ],
       "testSelectors": [
-        "test/facets/slot-memory.test.ts#MemoryWorkspaceSlotStore snapshots [C13-FACET-CONTRIBUTION-MATERIALIZATION] supports idempotent high-level install and contribution operations"
+        "test/facets/slot-memory.test.ts#MemoryWorkspaceSlotStore snapshots [C13-FACET-CONTRIBUTION-MATERIALIZATION] supports idempotent high-level install and contribution operations",
+        "test/composition/workspace-facet-materializer.test.ts#Workspace Facet materializer [C13-FACET-CONTRIBUTION-MATERIALIZATION] gives one interceptor declaration one entry whichever way the manifest spelled it",
+        "test/composition/workspace-facet-materializer.test.ts#Workspace Facet materializer [C13-FACET-CONTRIBUTION-MATERIALIZATION] refuses a malformed Event producer before writing any record"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": [
-        "Interceptor pipeline entries and typed Event producer declarations remain unmaterialized. Package activation is not a complete core-slot materializer until both use real primitive records.",
-        "The Cloudflare composition package has not yet constructed WorkspacePackageFacetMaterialization against its deployed Workspace Actor transaction. Local core behavior is implemented, but live profile wiring and mutation evidence remain open."
+        "Package activation is now a complete core-slot materializer: every one of the ten core slots reaches a real primitive record, and the two that reached none \u2014 `interceptors` and `events` \u2014 reach a CatalogEntry. The materializer decodes each declaration before storing it, so a malformed Event producer is refused at the materialization boundary with no record written, and the stored value is the canonical typed form, so one declaration is one record whichever way the manifest spelled it.",
+        "The Cloudflare composition package has not yet constructed WorkspacePackageFacetMaterialization against its deployed Workspace Actor transaction. W8 owns packages/agent-core-cloudflare and profiles-cloudflare.json; the exact interface it must satisfy is src/composition/facet-withdrawal.ts#ControlTransaction over its deployed Workspace Durable Object, passed to WorkspacePackageFacetMaterialization. Local core behavior is implemented; live profile wiring and mutation evidence remain open."
       ]
     },
     {
@@ -264,19 +281,33 @@
       "owner": "W3",
       "specAnchor": "C13-FACET-DEPENDENCY-ORDER",
       "specTextSha256": "sha256:a40a5f1aed92083f9a8898bc271e2c164e77dc834d0bd45b7336b40046a9dfe4",
-      "status": "planned",
+      "status": "implemented",
       "prerequisites": ["C13-AUTH-BINDING-RESOLUTION", "C13-FACET-WITHDRAWAL-EXACT"],
-      "sourceSymbols": [],
-      "testSelectors": [],
+      "sourceSymbols": [
+        "src/operations/lifecycle.ts#FacetRuntimeHost",
+        "src/operations/lifecycle.ts#FacetRequirementResolver",
+        "src/composition/facet-withdrawal.ts#FacetWithdrawal"
+      ],
+      "testSelectors": [
+        "test/operations/lifecycle.test.ts#W3 Facet dependency order [C13-FACET-DEPENDENCY-ORDER] never starts a Facet whose requirement no Binding satisfies",
+        "test/operations/lifecycle.test.ts#W3 Facet dependency order [C13-FACET-DEPENDENCY-ORDER] starts no Facet at all when one requirement is unresolved",
+        "test/operations/lifecycle.test.ts#W3 Facet dependency order [C13-FACET-DEPENDENCY-ORDER] records reliance on the exact provider the requirement reached",
+        "test/operations/lifecycle.test.ts#W3 Facet dependency order [C13-FACET-DEPENDENCY-ORDER] a second Facet answering the same Binding name neither satisfies nor discharges",
+        "test/operations/lifecycle.test.ts#W3 Facet dependency order [C13-FACET-DEPENDENCY-ORDER] holds a provider by resolved requirements, not by the child tree",
+        "test/operations/lifecycle.test.ts#W3 Facet dependency order [C13-FACET-DEPENDENCY-ORDER] keeps a stopping Facet's provider resolved for the whole of its stop",
+        "test/operations/lifecycle.test.ts#W3 Facet dependency order [C13-FACET-DEPENDENCY-ORDER] activates a Facet declaring no requirement against the fail-closed default",
+        "test/w3/facet-withdrawal.test.ts#Facet withdrawal across owning Actors [C13-FACET-DEPENDENCY-ORDER] defers a withdrawal a live Facet still relies on and writes no plane",
+        "test/w3/facet-withdrawal.test.ts#Facet withdrawal across owning Actors [C13-FACET-DEPENDENCY-ORDER] retires the exact set once the reliance obligation discharges",
+        "test/w3/facet-withdrawal.test.ts#Facet withdrawal across owning Actors [C13-FACET-DEPENDENCY-ORDER] keys reliance on the exact provider, so another Facet's dependent defers nothing"
+      ],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "The declaration half exists and is already better keyed than a nominal string: src/facets/manifest.ts#BindingRequirement carries (name: BindingName, facet: FacetPackageId, compat: CompatRange) and round-trips through the facet manifest codec. Nothing consumes it as an activation precondition — no facet runtime in src/facets gates start on requirement resolution, so the whole ordering half of this atom is unbuilt",
-        "The activation gate needs a host that resolves every BindingRequirement to a live ResolvedFacet before calling start, and four discriminating mutations must each break a cited test: calling start with one requirement unresolved, starting a Facet degraded rather than leaving it inactive, reporting an unresolvable requirement as a runtime failure instead of a rejected install, and admitting a resolution whose ResolutionStamp is not current under C13-AUTH-RESOLUTION-LIFETIME",
-        "The reliance guard needs the withdrawal path of C13-FACET-WITHDRAWAL-EXACT first, then evidence that withdrawing a relied-upon Facet records a pending obligation under the C13-BLUEPRINT-CONVERGENCE shape instead of retiring its records, that the obligation discharges exactly when the last relying Facet goes inactive, and that the withdrawal is never rejected and never silently completed while reliance stands",
-        "The teardown-window clause is the clause most easily lost and needs its own two-Facet test: a dependent whose teardown its provider's withdrawal triggered must successfully resolve that provider from inside its own stop, which means the provider stays resolvable for the whole of its own teardown rather than being unresolvable from the first retirement",
-        "Exact-FacetRef keying needs an adversarial substitution: a second installed Facet answering the same BindingName and compatible FacetPackageId must neither satisfy an unresolved requirement nor discharge an existing reliance, so reliance tracks the exact provider a dependent reached rather than the capability name it asked for",
-        "Pre-load rejection is a definition-plane obligation with no current implementation: the Blueprint validator holds no reliance graph, so a reliance cycle and a retained Facet whose requirement names a withdrawn Facet cannot be refused today. Verification requires that graph built from the Blueprint's declared Bindings and the installed manifests' requirements, plus the no-code-loaded assertion C13-BLUEPRINT-VALIDATE-BEFORE-LOAD already tests against",
-        "The independence-from-the-child-tree clause needs discrimination against the existing tree ordering: a Facet that is a child of the withdrawing Facet but relies on nothing it provides must not be held, and a Facet that relies on it but is not its child must be, so an implementation cannot satisfy this atom by reusing the stop-children-first order alone"
+        "The ordering half is built. FacetRuntimeHost resolves every BindingRequirement through FacetRequirementResolver in one pre-flight pass before the first start, so an unresolvable requirement is a rejected install raised before any Facet starts rather than a runtime failure or a degraded start, and the fail-closed default resolver admits only a Facet that declares no requirement.",
+        "Reliance is built and keyed on the exact provider FacetRef a dependent reached: a second installed Facet answering the same BindingName and a compatible FacetPackageId neither satisfies an unresolved requirement nor discharges an existing reliance. An edge lives from just before a dependent starts until its own stop has returned, so a provider stays resolvable for the whole of a dependent teardown its own withdrawal triggered, and reliance is independent of the child tree.",
+        "The withdrawal hold is built as a pending obligation rather than a rejection or a silent completion: FacetWithdrawal reports a `reliance` obligation, writes no plane while one stands, and retires the exact set once the last relying Facet goes inactive.",
+        "Pre-load rejection is built, and it is a W4 obligation this row may not cite: the Blueprint validator refuses a reliance cycle, named canonically from its lowest Facet id, and a requirement the validated platform compatibility does not admit. That evidence is carried by the W4 row C13-BLUEPRINT-VALIDATE-BEFORE-LOAD over src/definition/validator.ts and test/definition/validation.test.ts, and this row depends on it rather than restating it. Provider presence is deliberately NOT decided at validation: SPEC 9.1 forbids deriving a Package-closure obligation from a BindingRequirement, and the verified C13-PACKAGE-DEPENDENCY-DECLARED test validates a Blueprint whose manifest requires a Facet the closure does not install, so the liveness refusal belongs to the start gate above.",
+        "What remains is the \u00a79.3 obligation shape itself, which is C13-BLUEPRINT-CONVERGENCE\u2019s and W4\u2019s: src/definition/reconciliation.ts#ReconciliationPlan carries opaque `blockers: readonly string[]` rather than a typed pending-obligation set, so a reliance hold cannot yet be carried by a reconciliation outcome. The exact interface owed is a typed obligation on ReconciliationPlan that FacetWithdrawalObligation maps into.",
+        "Recorded discrimination is W0-owned and not this row\u2019s to write: artifacts/quality/discrimination/facets.json and operations.json carry no attribution for these selectors. The RelianceGate slice measured each of the seven runtime selectors killed by a mutant inside a cited symbol, and the ValidatorChecks slice measured four validator mutants, each by hand in an isolated worktree with byte-identical restoration."
       ]
     },
     {
@@ -399,15 +430,23 @@
       "specTextSha256": "sha256:2abf749e076815e9f28e7e30e36c13c276c9f3cda45889fad5d168c244e0fa7b",
       "status": "implemented",
       "prerequisites": ["C13-FACET-CONTRIBUTION-ATTRIBUTION", "C13-FACET-WITHDRAWAL-EXACT"],
-      "sourceSymbols": ["src/facets/runtime.ts#Facet"],
+      "sourceSymbols": [
+        "src/facets/runtime.ts#Facet",
+        "src/composition/facet-withdrawal.ts#FacetActivation"
+      ],
       "testSelectors": [
         "test/w3/facet-withdrawal.test.ts#Facet activation atomicity [C13-FACET-START-ATOMIC] leaves nothing behind when start does not complete",
-        "test/w3/facet-withdrawal.test.ts#Facet activation atomicity [C13-FACET-START-ATOMIC] refuses a retry against a Scope whose prior partial effect was not retired"
+        "test/w3/facet-withdrawal.test.ts#Facet activation atomicity [C13-FACET-START-ATOMIC] refuses a retry against a Scope whose prior partial effect was not retired",
+        "test/w3/facet-withdrawal.test.ts#Facet activation atomicity [C13-FACET-START-ATOMIC] records exactly one start-phase install failure for the exact contribution",
+        "test/w3/facet-withdrawal.test.ts#Facet activation atomicity [C13-FACET-START-ATOMIC] refuses a retry against the same ManagedOrigin before start runs",
+        "test/w3/facet-withdrawal.test.ts#Facet activation atomicity [C13-FACET-START-ATOMIC] admits the retry against a bumped materialization generation",
+        "test/w3/facet-withdrawal.test.ts#Facet activation atomicity [C13-FACET-START-ATOMIC] records a materialization-phase failure and leaves the Scope unattributed"
       ],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "Facet start runs while the host is unpublished. Contribution records publish only after every start succeeds, and a later record-write fault rolls back the Workspace transaction before PackageFacetRuntime exposes the host. The failed-install outcome is not yet a durable definition-plane record.",
-        "The attribution and exact-withdrawal prerequisites remain implemented rather than verified. Interceptor/Event materialization, authority-plane retirement, drain obligations, and the final mutation campaign remain open."
+        "The failed-install outcome is now a durable definition-plane record, and this row cites only the W3 and W9 half of it: FacetActivation records the outcome on every failure path, and a materialization-phase failure additionally retires the partial activation through the same attributed withdrawal set a withdrawal computes. The record itself is W4-owned and cited where it belongs \u2014 artifacts/records/definition-platform.json registers kind definition.facet-install-failure as durable Tenant-owned state over src/definition/install-outcome.ts#FacetInstallFailure with the src/definition/rollout.ts#MaterializationControlStore seam and its memory and SQLite implementations. Verification of this row therefore depends on that W4 record staying registered; the dependency is real and is not a citation this row may make.",
+        "\"Not retried against the same unchanged Scope\" is decidable from records: the W4 record compares the contribution and the whole ManagedOrigin, so a retry under the same Tenant, deployment, attestation, Blueprint, PackageLock, config and generation is refused before start runs and a later generation is admitted. The refusal itself is asserted here, through FacetActivation, over the W3-owned activation tests.",
+        "The attribution and exact-withdrawal prerequisites remain implemented rather than verified, and the final mutation campaign over the activation path has not run. The row therefore remains implemented."
       ]
     },
     {
@@ -415,16 +454,24 @@
       "owner": "W3",
       "specAnchor": "C13-FACET-WITHDRAWAL-DRAIN",
       "specTextSha256": "sha256:af3140ee57811ba0d8bfed689e392a2d298d2f56a06070bf9c19694f1c2437dc",
-      "status": "planned",
+      "status": "implemented",
       "prerequisites": ["C13-FACET-WITHDRAWAL-EXACT"],
-      "sourceSymbols": [],
-      "testSelectors": [],
+      "sourceSymbols": [
+        "src/composition/facet-withdrawal.ts#FacetWithdrawal",
+        "src/composition/facet-withdrawal.ts#FacetInvocationDrainPort"
+      ],
+      "testSelectors": [
+        "test/w3/facet-withdrawal.test.ts#Facet withdrawal across owning Actors [C13-FACET-WITHDRAWAL-DRAIN] retires the records and reports the admitted item that has no terminal Receipt",
+        "test/w3/facet-withdrawal.test.ts#Facet withdrawal across owning Actors [C13-FACET-WITHDRAWAL-DRAIN] reports no obligation once the admitted item reaches a terminal Receipt",
+        "test/w3/facet-withdrawal.test.ts#Facet withdrawal across owning Actors [C13-FACET-WITHDRAWAL-DRAIN] reports exactly the admitted items that are not terminal",
+        "test/w3/facet-withdrawal.test.ts#Facet withdrawal across owning Actors [C13-FACET-WITHDRAWAL-DRAIN] leaves a reservation that reached preparation to drain as an Invocation item"
+      ],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "The drain gate itself does not exist. Verification requires the withdrawal transaction to durably capture the finite set of admitted Invocation items whose PreparedInvocationHeader.target names the Facet, and to refuse completion while any captured item lacks a terminal current Receipt. Nothing in the runtime captures that set, so this row stays planned even though its sibling reservation-split obligation is now closed",
-        "Admission closure needs adversarial evidence on both sides: an Invocation prepared against the withdrawing Facet after the withdrawal transaction must be refused, and an item admitted before it must still settle against its frozen intent, placement, and Package pin across restart rather than against whatever later occupies that FacetRef. The withdrawal writes no durable record a later admission could consult, so neither side is checkable today",
-        "The reservation split is now half-proved. src/workspaces/withdrawal.ts#WorkspaceRoutingWithdrawal leaves a reservation that reached preparation alone and drives one the target has not admitted to a terminal rejected RouteDelivery, and appendWithdrawalRejection refuses a prepared reservation so the two cases cannot overlap; the case that no reservation falls in neither is covered by the same query. What is still owed is the other half: showing that the reservation left alone actually drains as an Invocation item, which needs the capture above, plus ownership-correct integration evidence against the W7 routing surface that owns RouteDelivery rather than a W3-authored persistence test",
-        "The prohibition is the part a passing test can hide: a host that reports a withdrawal complete by discarding, synthesizing, or shortcutting a draining item's Receipt must fail, and a mutation removing the drain gate must break a cited test rather than merely change timing"
+        "The drain gate now exists. FacetWithdrawal computes the admitted Invocation items whose target names the Facet inside the same transaction that retires the records \u2014 the transaction that stops admission, which is what closes the set \u2014 and reports each item without a terminal current Receipt as a `drain` obligation. A withdrawal is complete exactly when it reports no obligation, so a host cannot report completion by discarding a live item, and an item that is already terminal is never reported.",
+        "The durable capture is owed and is W7\u2019s. The captured set survives only as the port\u2019s answer inside one transaction; making it durable needs a Workspace-owned record in src/workspaces holding the frozen item set for one withdrawal, written in the withdrawal transaction, that a later completion attempt and a later admission consult across restart.",
+        "The admitted-item query is owed and is W6\u2019s. FacetInvocationDrainPort#admitted is the exact interface: it must be satisfied from src/invocations by a query over PreparedInvocationHeader whose OperationPin target names the Facet, with terminality read from the item\u2019s current Receipt under C13-RECEIPT-FAILURE-KIND. Until then this row is evidenced against an in-memory reference implementation of that port.",
+        "The reservation split is proved on the W7 side and unchanged: WorkspaceRoutingWithdrawal leaves a reservation that reached preparation alone and drives one the target has not admitted to a terminal rejected RouteDelivery. What is still owed there is ownership-correct integration evidence against the W7 routing surface that owns RouteDelivery rather than a W3-authored persistence test."
       ]
     },
     {
@@ -434,18 +481,22 @@
       "specTextSha256": "sha256:e4ad430bb9d9e8d03e69b14dbaaab97c41c051c0cc78518174a2cb097e48775d",
       "status": "implemented",
       "prerequisites": ["C13-FACET-CONTRIBUTION-ATTRIBUTION"],
-      "sourceSymbols": ["src/facets/slot-store.ts#WorkspaceSlotStore"],
+      "sourceSymbols": [
+        "src/facets/slot-store.ts#WorkspaceSlotStore",
+        "src/composition/facet-withdrawal.ts#FacetWithdrawal"
+      ],
       "testSelectors": [
-        "test/protocol/facet-commands.test.ts#Facet Slot protocol commands [C13-FACET-WITHDRAWAL-EXACT] retires a Facet's contributions through one administer control transaction",
+        "test/protocol/facet-commands.test.ts#Facet Slot protocol commands [C13-FACET-WITHDRAWAL-EXACT] carries exact attribution through one administer control transaction",
         "test/w3/facet-withdrawal.test.ts#Facet withdrawal across owning Actors [C13-FACET-WITHDRAWAL-EXACT] retires a contributed Subscription and drives its unprepared reservation to a terminal rejected delivery",
-        "test/w3/facet-withdrawal.test.ts#Facet withdrawal across owning Actors [C13-FACET-WITHDRAWAL-EXACT] refuses the whole withdrawal when a plane cannot answer the attribution query"
+        "test/w3/facet-withdrawal.test.ts#Facet withdrawal across owning Actors [C13-FACET-WITHDRAWAL-EXACT] refuses the whole withdrawal when a plane cannot answer the attribution query",
+        "test/w3/facet-withdrawal.test.ts#Facet withdrawal across owning Actors [C13-FACET-WITHDRAWAL-EXACT] retires both planes for one Facet and leaves every other Facet's record byte-identical"
       ],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "The Workspace Actor now queries and retires SlotEntry, InstalledSlot, CatalogEntry, PromptSection, SettingsLayer, SurfaceRegistration, IngressEndpoint, and Subscription records in one caller transaction. The exact FacetRef and PackagePin set is recomputed inside that transaction before any write.",
-        "Authority-owned Bindings and Grants still need their own exact owning-Actor transaction and Scope epoch advance. No cross-Actor transaction will be added.",
-        "Surface View retirement remains open. A terminal View stream needs a registration-epoch identity before a later PackagePin can re-register the same static SurfaceId without reviving the retired stream.",
-        "Invocation drain obligations and retained ContentRef behavior remain open. Final mutation evidence and exact-head maintainer review are also required."
+        "The Workspace Actor queries and retires SlotEntry, InstalledSlot, CatalogEntry, PromptSection, SettingsLayer, SurfaceRegistration, IngressEndpoint and Subscription records in one caller transaction, and the exact FacetRef and PackagePin set is recomputed inside that transaction before any write. The two contribution kinds added this cycle \u2014 the interceptor pipeline entry and the typed Event producer \u2014 are CatalogEntry records, so they join that same query rather than needing a ninth kind.",
+        "Authority-owned Bindings and Grants still need their own exact owning-Actor transaction and Scope epoch advance. W2 owns src/authority; the exact interface owed is a Binding-and-Grant retirement query keyed on the same ContributionAttribution pair, run in the authority Actor\u2019s own transaction. No cross-Actor transaction will be added.",
+        "Surface View retirement remains open and is W7\u2019s. A terminal View stream needs a registration-epoch identity in src/workspaces before a later PackagePin can re-register the same static SurfaceId without reviving the retired stream.",
+        "Retained ContentRef behavior and the final mutation evidence remain open, and exact-head maintainer review has not run."
       ]
     },
     {

@@ -13,7 +13,7 @@ import { Config, type ConfigInputMap } from "./config";
 import { PackageId } from "./id";
 import { PackageDependency } from "./package";
 import { AuthoredCodeBackingPolicy, PlacementPolicy } from "./placement";
-import { PolicySet } from "./policy";
+import { PolicySet, TreeMergePolicy } from "./policy";
 import { compareText } from "./order";
 
 export interface CanonicalDeclaration {
@@ -139,6 +139,7 @@ class BlueprintCodec extends RecordCodec<Blueprint> {
                 BlueprintMeta,
                 SemVer,
                 PolicySet,
+                TreeMergePolicy,
                 PackageInstall,
                 AuthoredCodeBackingPolicy,
                 PlacementPolicy,
@@ -150,7 +151,7 @@ class BlueprintCodec extends RecordCodec<Blueprint> {
                 PackageDependency
             ],
             "definition.blueprint",
-            { major: 2, minor: 0 }
+            { major: 3, minor: 0 }
         );
     }
 

@@ -94,6 +94,10 @@ const placementSource = new (class extends PlacementSourcePort {
     public substrateModes(_release: PackageRelease, _manifest: FacetManifest) {
         return ["dynamic", "provider", "bundled"] as const;
     }
+
+    public authoredCodeBackingDefault(): undefined {
+        return undefined;
+    }
 })();
 
 const tenantActor = new ActorRef("tenant", new ActorId("platform-tenant"));

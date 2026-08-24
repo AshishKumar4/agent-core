@@ -18,6 +18,7 @@
     "src/definition/generation.ts",
     "src/definition/id.ts",
     "src/definition/index.ts",
+    "src/definition/install-outcome.ts",
     "src/definition/installation.ts",
     "src/definition/loader.ts",
     "src/definition/materialization-kind.ts",
@@ -43,5 +44,5 @@
     "src/substrates/sqlite/materialization.ts",
     "src/substrates/sqlite/package.ts"
   ],
-  "sourceSha256": "bab09d9c2bda25b410a8a3a7ee4b9b55359a316b93f4002b25b296a1e50e386e"
+  "sourceSha256": "7427be285a685c6dcda8dc86c48c219de566d1eae09cd0cd134ce84f9d436dd4"
 }

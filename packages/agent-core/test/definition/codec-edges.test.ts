@@ -8,6 +8,8 @@ import {
     JsonSchema,
     Revision,
     SemVer,
+    decodeCanonicalJson,
+    encodeCanonicalJson,
     type JsonValue
 } from "../../src/core";
 import {
@@ -37,9 +39,14 @@ import {
 } from "../../src/definition";
 import { Contributions, FacetManifest, FacetPackageId } from "../../src/facets";
 import { TenantId } from "../../src/identity";
-import { fieldWithoutValue, forged, recordData } from "./record-data";
+import { fieldWithoutValue, forged, recordData, requireObject } from "./record-data";
 
 const encoder = new TextEncoder();
+/**
+ * The records whose payload can carry a PolicySet, and so whose codec major moved with
+ * `treeMerge`. Naming the set keeps the retired-major probe returning a domain value.
+ */
+type PolicyCarryingRecord = PolicySet | ActorPlan | MaterializationPlan;
 const tenantId = new TenantId("tenant");
 const deploymentId = DeploymentId.derive(tenantId, new DeploymentKey("platform"));
 const actor = new ActorRef("workspace", new ActorId("workspace"));
@@ -64,9 +71,9 @@ describe("definition codec adversarial edges", () => {
 
         const plan = actorPlan(materializationOrigin);
         expect(() => ActorPlan.fromData(null)).toThrow(/object/);
-        expect(() =>
-            ActorPlan.fromData({ ...recordData(plan), projections: null })
-        ).toThrow(/array/);
+        expect(() => ActorPlan.fromData({ ...recordData(plan), projections: null })).toThrow(
+            /array/
+        );
         expect(() =>
             ActorPlan.fromData({ ...recordData(plan), actor: { id: "x", kind: "bad" } })
         ).toThrow(/Actor kind/);
@@ -78,94 +85,95 @@ describe("definition codec adversarial edges", () => {
             MaterializationPlan.fromData({ ...recordData(materialization), actors: null })
         ).toThrow(/array/);
         expect(() =>
-            MaterializationPlan.fromData(
-                fieldWithoutValue(recordData(materialization), "origin")
-            )
+            MaterializationPlan.fromData(fieldWithoutValue(recordData(materialization), "origin"))
         ).toThrow(/required|missing/);
     });
 
-    test("rejects forged managed resource generation and pointer identities", { tags: "p0" }, () => {
-        const plan = actorPlan(origin(1));
-        const generation = MaterializationGeneration.fromActorPlan(plan);
-        const record = ManagedStateRecord.fromProjection(
-            actor,
-            plan.origin,
-            generation.id,
-            plan.projections[0]!
-        );
-        expect(() => new ManagedStateRecord({ ...record, desiredDigest: digest("wrong") })).toThrow(
-            /state digest/
-        );
-        expect(() => new ManagedStateRecord({ ...record, resourceId: digest("wrong") })).toThrow(
-            /resource ID/
-        );
-        expect(() => new ManagedStateRecord({ ...record, id: digest("wrong") })).toThrow(
-            /state ID/
-        );
-        expect(() =>
-            ManagedStateRecord.fromData(fieldWithoutValue(recordData(record), "desired"))
-        ).toThrow(/required|missing/);
-        expect(() =>
-            ManagedStateRecord.fromData({
-                ...recordData(record),
-                actor: { id: "workspace", kind: "bad" }
-            })
-        ).toThrow(/Actor kind/);
-        expect(() => ManagedStateRecord.fromData(null)).toThrow(/object/);
-        expect(() => managedResourceId(actor, plan.origin, " padded ", "policy-set")).toThrow(
-            /canonical/
-        );
-        expect(
-            () =>
-                new MaterializationGeneration({
-                    ...generation,
-                    id: digest("wrong")
+    test(
+        "rejects forged managed resource generation and pointer identities",
+        { tags: "p0" },
+        () => {
+            const plan = actorPlan(origin(1));
+            const generation = MaterializationGeneration.fromActorPlan(plan);
+            const record = ManagedStateRecord.fromProjection(
+                actor,
+                plan.origin,
+                generation.id,
+                plan.projections[0]!
+            );
+            expect(
+                () => new ManagedStateRecord({ ...record, desiredDigest: digest("wrong") })
+            ).toThrow(/state digest/);
+            expect(
+                () => new ManagedStateRecord({ ...record, resourceId: digest("wrong") })
+            ).toThrow(/resource ID/);
+            expect(() => new ManagedStateRecord({ ...record, id: digest("wrong") })).toThrow(
+                /state ID/
+            );
+            expect(() =>
+                ManagedStateRecord.fromData(fieldWithoutValue(recordData(record), "desired"))
+            ).toThrow(/required|missing/);
+            expect(() =>
+                ManagedStateRecord.fromData({
+                    ...recordData(record),
+                    actor: { id: "workspace", kind: "bad" }
                 })
-        ).toThrow(/generation ID/);
-        expect(
-            () =>
-                new MaterializationGeneration({
-                    ...generation,
-                    managedRecordIds: [record.id, record.id]
+            ).toThrow(/Actor kind/);
+            expect(() => ManagedStateRecord.fromData(null)).toThrow(/object/);
+            expect(() => managedResourceId(actor, plan.origin, " padded ", "policy-set")).toThrow(
+                /canonical/
+            );
+            expect(
+                () =>
+                    new MaterializationGeneration({
+                        ...generation,
+                        id: digest("wrong")
+                    })
+            ).toThrow(/generation ID/);
+            expect(
+                () =>
+                    new MaterializationGeneration({
+                        ...generation,
+                        managedRecordIds: [record.id, record.id]
+                    })
+            ).toThrow(/unique/);
+            expect(() =>
+                MaterializationGeneration.fromData({
+                    ...recordData(generation),
+                    managedRecordIds: null
                 })
-        ).toThrow(/unique/);
-        expect(() =>
-            MaterializationGeneration.fromData({
-                ...recordData(generation),
-                managedRecordIds: null
-            })
-        ).toThrow(/array/);
-        expect(() =>
-            MaterializationGeneration.fromData({
-                ...recordData(generation),
-                managedRecordIds: [7]
-            })
-        ).toThrow(/string/);
+            ).toThrow(/array/);
+            expect(() =>
+                MaterializationGeneration.fromData({
+                    ...recordData(generation),
+                    managedRecordIds: [7]
+                })
+            ).toThrow(/string/);
 
-        const pointer = MaterializationGenerationPointer.initial(
-            actor,
-            deploymentId,
-            generation.id
-        );
-        expect(() =>
-            MaterializationGenerationPointer.fromData({
-                ...recordData(pointer),
-                revision: -1
-            })
-        ).toThrow(/non-negative/);
-        expect(() =>
-            MaterializationGenerationPointer.fromData({
-                ...recordData(pointer),
-                actor: { id: "workspace", kind: "bad" }
-            })
-        ).toThrow(/Actor kind/);
-    });
+            const pointer = MaterializationGenerationPointer.initial(
+                actor,
+                deploymentId,
+                generation.id
+            );
+            expect(() =>
+                MaterializationGenerationPointer.fromData({
+                    ...recordData(pointer),
+                    revision: -1
+                })
+            ).toThrow(/non-negative/);
+            expect(() =>
+                MaterializationGenerationPointer.fromData({
+                    ...recordData(pointer),
+                    actor: { id: "workspace", kind: "bad" }
+                })
+            ).toThrow(/Actor kind/);
+        }
+    );
 
     test("accepts generation zero and distinguishes origins by every field", { tags: "p1" }, () => {
         const zero = new ManagedOrigin({ ...originInit(), generation: 0 });
         expect(zero.generation).toBe(0);
         expect(ManagedOrigin.fromData(zero.toData()).generation).toBe(0);
-
 
         const base = new ManagedOrigin(originInit());
         expect(base.equals(new ManagedOrigin(originInit()))).toBe(true);
@@ -207,9 +215,7 @@ describe("definition codec adversarial edges", () => {
         );
         expect(() => ManagedOrigin.fromData(null)).toThrow("Managed origin must be an object");
         expect(() => ManagedOrigin.fromData([])).toThrow("Managed origin must be an object");
-        expect(() => ManagedOrigin.fromData("payload")).toThrow(
-            "Managed origin must be an object"
-        );
+        expect(() => ManagedOrigin.fromData("payload")).toThrow("Managed origin must be an object");
     });
 
     test("rejects every malformed managed origin generation shape", { tags: "p1" }, () => {
@@ -297,19 +303,21 @@ describe("definition codec adversarial edges", () => {
                 })
         ).toThrow(/roots/);
         expect(() => PackageLock.fromData(null)).toThrow(/object/);
-        expect(() => PackageLock.fromData({ ...recordData(lock), roots: null })).toThrow(
-            /array/
+        expect(() => PackageLock.fromData({ ...recordData(lock), roots: null })).toThrow(/array/);
+        expect(() => PackageLock.fromData({ ...recordData(lock), snapshotRevision: -1 })).toThrow(
+            /non-negative/
         );
-        expect(() =>
-            PackageLock.fromData({ ...recordData(lock), snapshotRevision: -1 })
-        ).toThrow(/non-negative/);
-        expect(() =>
-            PackageLock.fromData({ ...recordData(lock), snapshotDigest: 7 })
-        ).toThrow(/string/);
+        expect(() => PackageLock.fromData({ ...recordData(lock), snapshotDigest: 7 })).toThrow(
+            /string/
+        );
 
         const release = packageRelease();
         expect(
-            () => new PackageRelease({ ...releaseInit(release), provenance: forged<PackageProvenance>(null) })
+            () =>
+                new PackageRelease({
+                    ...releaseInit(release),
+                    provenance: forged<PackageProvenance>(null)
+                })
         ).toThrow(/provenance/);
         expect(
             () => new PackageRelease({ ...releaseInit(release), codeDigest: digest("wrong") })
@@ -321,12 +329,12 @@ describe("definition codec adversarial edges", () => {
                     manifests: [release.manifests[0]!, release.manifests[0]!]
                 })
         ).toThrow(/manifests must be unique/);
-        expect(() =>
-            PackageRelease.fromData({ ...recordData(release), provenance: null })
-        ).toThrow(/provenance/);
-        expect(() =>
-            PackageRelease.fromData({ ...recordData(release), manifests: [] })
-        ).toThrow(/at least one manifest/);
+        expect(() => PackageRelease.fromData({ ...recordData(release), provenance: null })).toThrow(
+            /provenance/
+        );
+        expect(() => PackageRelease.fromData({ ...recordData(release), manifests: [] })).toThrow(
+            /at least one manifest/
+        );
         expect(() =>
             PackageRelease.fromData({
                 ...recordData(release),
@@ -347,10 +355,60 @@ describe("definition codec adversarial edges", () => {
         expect(() =>
             MetadataSnapshot.fromData({ ...recordData(snapshot), releases: null })
         ).toThrow(/array/);
-        expect(() =>
-            MetadataSnapshot.fromData({ ...recordData(snapshot), revision: -1 })
-        ).toThrow(/non-negative/);
+        expect(() => MetadataSnapshot.fromData({ ...recordData(snapshot), revision: -1 })).toThrow(
+            /non-negative/
+        );
     });
+
+    test(
+        "[definition.policy-set] rejects every superseded major that could carry a PolicySet without its tree merge setting",
+        { tags: "p0" },
+        () => {
+            // `treeMerge` joined PolicySet's exact key set, so bytes written before it
+            // existed decode as an unsupported major rather than as a policy that declares
+            // no setting. Every codec whose payload can carry a PolicySet moved with it, and
+            // the refusal has to land on the envelope before any payload is read.
+            const materializationOrigin = origin(1);
+            const plan = actorPlan(materializationOrigin);
+            const materialization = new MaterializationPlan({
+                origin: materializationOrigin,
+                actors: [plan]
+            });
+            const superseded = [
+                {
+                    wire: "definition.policy-set",
+                    retired: 2,
+                    encoded: PolicySet.encode(PolicySet.empty()),
+                    decode: (bytes: Uint8Array): PolicyCarryingRecord => PolicySet.decode(bytes)
+                },
+                {
+                    wire: "definition.actor-plan",
+                    retired: 1,
+                    encoded: ActorPlan.encode(plan),
+                    decode: (bytes: Uint8Array): PolicyCarryingRecord => ActorPlan.decode(bytes)
+                },
+                {
+                    wire: "definition.materialization-plan",
+                    retired: 1,
+                    encoded: MaterializationPlan.encode(materialization),
+                    decode: (bytes: Uint8Array): PolicyCarryingRecord =>
+                        MaterializationPlan.decode(bytes)
+                }
+            ];
+            for (const { wire, retired, encoded, decode } of superseded) {
+                const envelope = requireObject(decodeCanonicalJson(encoded));
+                // The payload is the one the current major wrote, so a passing decode could
+                // only mean the envelope check never ran.
+                expect(() =>
+                    decode(
+                        encodeCanonicalJson({ ...envelope, version: { major: retired, minor: 0 } })
+                    )
+                ).toThrow(
+                    new RegExp(`Unsupported ${wire.replace(".", "\\.")} codec major ${retired}`)
+                );
+            }
+        }
+    );
 });
 
 function actorPlan(materializationOrigin: ManagedOrigin): ActorPlan {

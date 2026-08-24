@@ -408,5 +408,9 @@ function dynamicPlacement(): PlacementSourcePort {
         public substrateModes(): readonly IsolationMode[] {
             return ["dynamic"];
         }
+
+        public authoredCodeBackingDefault(): undefined {
+            return undefined;
+        }
     })();
 }

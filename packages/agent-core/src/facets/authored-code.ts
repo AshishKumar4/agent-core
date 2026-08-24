@@ -28,6 +28,105 @@ export function requireAuthoredCodeConsumer(
 }
 
 /**
+ * Which caller an Operation is declared for (SPEC §4.7): `native` offers it to the model
+ * as a tool call, `code` to agent-authored code, `both` to either. Availability belongs to
+ * the composition rather than to a submission, so the catalog §5.6 reconstructs and the
+ * passed Binding set an isolate enforces read this one declaration instead of two a host
+ * keeps in agreement.
+ *
+ * The three cases are singletons and equality is identity, so nothing can mint a fourth
+ * availability or hold two unequal copies of one meaning.
+ */
+export abstract class OperationAvailability {
+    public static get native(): OperationAvailability {
+        return nativeAvailability;
+    }
+    public static get code(): OperationAvailability {
+        return codeAvailability;
+    }
+    public static get both(): OperationAvailability {
+        return bothAvailability;
+    }
+
+    /**
+     * An absent declaration reads as `native` (SPEC §4.7), so an author who never
+     * considered code mode offers it nothing.
+     */
+    public static fromData(value: FacetData | undefined): OperationAvailability {
+        if (value === undefined) {
+            return nativeAvailability;
+        }
+        const declared = OPERATION_AVAILABILITIES.find((candidate) => candidate.label === value);
+        if (declared === undefined) {
+            throw new TypeError("Operation availability must be native, code, or both");
+        }
+        return declared;
+    }
+
+    /** The wire label this availability declares itself with. */
+    public abstract readonly label: "native" | "code" | "both";
+
+    /** May an isolate's passed Binding set name this Operation? */
+    public abstract get reachableByAuthoredCode(): boolean;
+
+    /** Is it offered to the model as a tool call? */
+    public abstract get offeredToModel(): boolean;
+
+    /**
+     * SPEC §4.1's presence rule: `native` is already what an absent declaration means, so
+     * its canonical wire form is the absent key. Writing the label too would give one
+     * meaning two `manifestDigest` values (§5.2) for the same Operation.
+     */
+    public toData(): FacetData | undefined {
+        return this.equals(nativeAvailability) ? undefined : this.label;
+    }
+
+    public equals(other: OperationAvailability): boolean {
+        return this === other;
+    }
+}
+
+class NativeAvailability extends OperationAvailability {
+    public readonly label = "native";
+    public get reachableByAuthoredCode(): boolean {
+        return false;
+    }
+    public get offeredToModel(): boolean {
+        return true;
+    }
+}
+
+class CodeAvailability extends OperationAvailability {
+    public readonly label = "code";
+    public get reachableByAuthoredCode(): boolean {
+        return true;
+    }
+    public get offeredToModel(): boolean {
+        return false;
+    }
+}
+
+class BothAvailability extends OperationAvailability {
+    public readonly label = "both";
+    public get reachableByAuthoredCode(): boolean {
+        return true;
+    }
+    public get offeredToModel(): boolean {
+        return true;
+    }
+}
+
+const nativeAvailability = Object.freeze(new NativeAvailability());
+const codeAvailability = Object.freeze(new CodeAvailability());
+const bothAvailability = Object.freeze(new BothAvailability());
+
+const OPERATION_AVAILABILITIES: readonly OperationAvailability[] = Object.freeze([
+    nativeAvailability,
+    codeAvailability,
+    bothAvailability
+]);
+
+/**
  * Agent-authored code as the submission carries it: content-addressed modules and the
  * one they enter through. Nothing here says where the code will run — that is the
  * backing's business (§10.2) — and nothing here carries authority, because a §4.7

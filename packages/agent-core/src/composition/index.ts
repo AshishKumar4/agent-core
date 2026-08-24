@@ -23,10 +23,15 @@ export type {
     ClosedTenantAuthorityCompositionInit,
     TenantAuthorityCommandBackend
 } from "./authority-commands";
-export { FacetActivation, FacetWithdrawal } from "./facet-withdrawal";
+export { FacetActivation, FacetInvocationDrainPort, FacetWithdrawal } from "./facet-withdrawal";
 export type {
     ControlTransaction,
     FacetActivationOutcome,
+    FacetInstallEvidencePort,
+    FacetRelianceQuery,
+    FacetWithdrawalDeferral,
+    FacetWithdrawalObligation,
+    FacetWithdrawalOutcome,
     FacetWithdrawalPlan,
     FacetWithdrawalResult
 } from "./facet-withdrawal";

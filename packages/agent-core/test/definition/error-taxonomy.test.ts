@@ -38,7 +38,7 @@ describe("W4 error taxonomy", () => {
             readFileSync(resolve(packageRoot, "artifacts/quality/w4-error-taxonomy.json"), "utf8")
         );
         expect(taxonomy.edition).toBe("3.0.0");
-        expect(taxonomy.allowedTypeErrorSites).toHaveLength(168);
+        expect(taxonomy.allowedTypeErrorSites).toHaveLength(177);
         expect(taxonomy.allowedTypeErrorSites[0]).toEqual({
             declarationSha256: expect.stringMatching(/^[0-9a-f]{64}$/u),
             file: expect.stringMatching(/^src\/.+\.ts$/u),
@@ -47,16 +47,16 @@ describe("W4 error taxonomy", () => {
             occurrence: expect.any(Number)
         });
         expect(taxonomy.expected).toEqual({
-            agentCoreOperationalThrows: 244,
-            allowedTypeErrors: 168,
+            agentCoreOperationalThrows: 249,
+            allowedTypeErrors: 177,
             preservedRethrows: 1,
             bareErrors: 0
         });
         expect(taxonomy.expectedOperationalByCode).toEqual({
-            "codec.invalid": 114,
-            "operation.invalid-input": 37,
+            "codec.invalid": 115,
+            "operation.invalid-input": 40,
             "protocol.invalid-envelope": 5,
-            "protocol.invalid-state": 71,
+            "protocol.invalid-state": 72,
             "protocol.revision-conflict": 17
         });
     });

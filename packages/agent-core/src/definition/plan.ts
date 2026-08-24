@@ -43,7 +43,7 @@ import {
     PlacementPolicy,
     PlacementSelection
 } from "./placement";
-import { PolicySet } from "./policy";
+import { PolicySet, TreeMergePolicy } from "./policy";
 import { BLUEPRINT_CONTRIBUTOR } from "./materialization-kind";
 import { CORE_SLOT_NAMES, ValidatedBlueprint, type ValidatedContribution } from "./validator";
 import { TenantId } from "../identity";
@@ -223,6 +223,7 @@ class ActorPlanCodec extends RecordCodec<ActorPlan> {
                 DeploymentId,
                 BindingName,
                 PolicySet,
+                TreeMergePolicy,
                 FacetPackageId,
                 PlacementInput,
                 PlacementSelection,
@@ -244,7 +245,7 @@ class ActorPlanCodec extends RecordCodec<ActorPlan> {
             ],
             "definition.actor-plan",
             {
-                major: 1,
+                major: 2,
                 minor: 0
             }
         );
@@ -339,6 +340,7 @@ class MaterializationPlanCodec extends RecordCodec<MaterializationPlan> {
                 DeploymentId,
                 BindingName,
                 PolicySet,
+                TreeMergePolicy,
                 FacetPackageId,
                 PlacementInput,
                 PlacementSelection,
@@ -360,7 +362,7 @@ class MaterializationPlanCodec extends RecordCodec<MaterializationPlan> {
             ],
             "definition.materialization-plan",
             {
-                major: 1,
+                major: 2,
                 minor: 0
             }
         );

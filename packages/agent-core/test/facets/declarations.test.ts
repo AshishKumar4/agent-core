@@ -50,6 +50,7 @@ import {
     isFacetDataMap,
     type FacetDataMap
 } from "../../src/facets-public";
+import { OperationAvailability } from "../../src/facets/authored-code";
 import {
     claimHonorsEnforcementFloor,
     enforcementFloor,
@@ -1460,6 +1461,102 @@ describe("Declarative facet vocabulary", () => {
             expect(() => SurfaceDescriptor.fromData({ id: "panel", title: 7 })).toThrow(
                 "Surface title must be a string"
             );
+        }
+    );
+
+    test(
+        "[facet.operation-descriptor] [C13-FACET-CODE-AVAILABILITY] reads an absent availability as native and gives that one meaning one canonical wire form",
+        { tags: "p1" },
+        () => {
+            const contributed = new Contribution(new SlotName("operations"), [
+                { impact: "observe", input: {}, name: "read", output: {} }
+            ]).entries.map((entry) => OperationDescriptor.fromData(entry));
+            expect(contributed.map((descriptor) => descriptor.availability.label)).toEqual([
+                "native"
+            ]);
+
+            const absent = new OperationDescriptor(
+                new OperationName("read"),
+                "observe",
+                objectSchema,
+                objectSchema
+            );
+            const stated = new OperationDescriptor(
+                new OperationName("read"),
+                "observe",
+                objectSchema,
+                objectSchema,
+                undefined,
+                undefined,
+                OperationAvailability.native
+            );
+            expect(absent.availability.equals(OperationAvailability.native)).toBe(true);
+            expect(absent.availability.offeredToModel).toBe(true);
+            expect(absent.availability.reachableByAuthoredCode).toBe(false);
+            expect(absent.toData()).toEqual({
+                impact: "observe",
+                input: { type: "object" },
+                name: "read",
+                output: { type: "object" }
+            });
+            // One meaning, one manifestDigest: stating `native` and omitting it are the same
+            // bytes, so no §5.2 digest can tell a considered native from an unconsidered one.
+            expect(encodeCanonicalJson(stated.toData())).toEqual(
+                encodeCanonicalJson(absent.toData())
+            );
+            expect(OperationDescriptor.encode(stated)).toEqual(OperationDescriptor.encode(absent));
+        }
+    );
+
+    test(
+        "[facet.operation-descriptor] [C13-FACET-CODE-AVAILABILITY] round-trips a code- and a both-available declaration and refuses an undeclared availability",
+        { tags: "p1" },
+        () => {
+            for (const availability of [OperationAvailability.code, OperationAvailability.both]) {
+                const descriptor = new OperationDescriptor(
+                    new OperationName("run"),
+                    "execute",
+                    objectSchema,
+                    objectSchema,
+                    undefined,
+                    undefined,
+                    availability
+                );
+                expect(descriptor.toData()).toEqual({
+                    availability: availability.label,
+                    impact: "execute",
+                    input: { type: "object" },
+                    name: "run",
+                    output: { type: "object" }
+                });
+                const restored = OperationDescriptor.decode(OperationDescriptor.encode(descriptor));
+                expect(restored.availability.equals(availability)).toBe(true);
+                expect(restored.availability.reachableByAuthoredCode).toBe(true);
+            }
+            expect(OperationAvailability.code.offeredToModel).toBe(false);
+            expect(OperationAvailability.both.offeredToModel).toBe(true);
+
+            const undeclared = "codeMode";
+            expect(() =>
+                OperationDescriptor.fromData({
+                    availability: undeclared,
+                    impact: "observe",
+                    input: {},
+                    name: "read",
+                    output: {}
+                })
+            ).toThrow("Operation availability must be native, code, or both");
+            // An explicit null is refused rather than read as absence, so the absent form
+            // stays the one spelling of `native`.
+            expect(() =>
+                OperationDescriptor.fromData({
+                    availability: null,
+                    impact: "observe",
+                    input: {},
+                    name: "read",
+                    output: {}
+                })
+            ).toThrow("Operation availability must be native, code, or both");
         }
     );
 

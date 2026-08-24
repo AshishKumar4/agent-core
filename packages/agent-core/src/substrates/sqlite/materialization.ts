@@ -9,6 +9,8 @@ import {
     Blueprint,
     DeploymentId,
     DeploymentRecord,
+    FacetInstallFailure,
+    FacetInstallFailureId,
     ManagedStateRecord,
     MaterializationControlStore,
     MaterializationGeneration,
@@ -25,6 +27,7 @@ import {
     requireExactOutboxClosure
 } from "../../definition";
 import { AgentCoreError } from "../../errors";
+import type { ContributionAttribution } from "../../facets";
 import { TenantId } from "../../identity";
 import type { SqliteRow } from "./sqlite";
 import { TransactionalSqlite, isSqliteNumber, isSqliteText } from "./sqlite";
@@ -38,7 +41,11 @@ const ACTOR_KIND_CHECK = (column: string): string => `
         ${column} IN ('tenant', 'workspace', 'run', 'environment', 'slate')
     `;
 
-const MATERIALIZATION_SCHEMA_VERSION = 2;
+// Bumped with the `definition.blueprint`, `definition.materialization-plan` and
+// `definition.managed-state` codec majors that `PolicySet.treeMerge` moved. Every row in
+// this schema holds bytes those codecs wrote, so a database written before the field
+// existed is refused at the marker rather than at the first row that fails to decode.
+const MATERIALIZATION_SCHEMA_VERSION = 3;
 const MATERIALIZATION_SCHEMA_TABLE = "definition_materialization_schema";
 const LEGACY_COMPOSITION_TABLE_PREFIX = "composition_slot_";
 
@@ -130,16 +137,8 @@ interface StoredBlueprint {
     readonly bytes: Uint8Array;
 }
 
-const CONTROL_SCHEMA_VERSION = 1;
+const CONTROL_SCHEMA_VERSION = 2;
 const CONTROL_SCHEMA_TABLE = "definition_materialization_control_schema";
-const CONTROL_TABLES = [
-    CONTROL_SCHEMA_TABLE,
-    "definition_validation_attestations",
-    "definition_deployments",
-    "definition_materialization_rollouts",
-    "definition_materialization_outbox"
-] as const;
-const CONTROL_TABLE_NAMES: ReadonlySet<string> = new Set(CONTROL_TABLES);
 const CREATE_CONTROL_SCHEMA = `CREATE TABLE ${CONTROL_SCHEMA_TABLE} (
     version INTEGER PRIMARY KEY CHECK (version = ${CONTROL_SCHEMA_VERSION}),
     owner_kind TEXT NOT NULL CHECK (owner_kind = 'tenant'),
@@ -172,15 +171,37 @@ const CREATE_CONTROL_OUTBOX = `CREATE TABLE definition_materialization_outbox (
     revision INTEGER NOT NULL CHECK (revision >= 0),
     record BLOB NOT NULL
 ) STRICT`;
+const CREATE_CONTROL_INSTALL_FAILURES = `CREATE TABLE definition_facet_install_failures (
+    id TEXT PRIMARY KEY CHECK (length(id) > 0),
+    contributor TEXT NOT NULL CHECK (length(contributor) > 0),
+    package_id TEXT NOT NULL CHECK (length(package_id) > 0),
+    package_version TEXT NOT NULL CHECK (length(package_version) > 0),
+    record BLOB NOT NULL
+) STRICT`;
 const CREATE_CONTROL_OUTBOX_INDEX = `CREATE INDEX definition_materialization_outbox_rollout
     ON definition_materialization_outbox (rollout_id, id)`;
+const CREATE_CONTROL_INSTALL_FAILURE_INDEX = `CREATE INDEX definition_facet_install_failures_attribution
+    ON definition_facet_install_failures (contributor, package_id, package_version, id)`;
 const CONTROL_SCHEMA_SQL = new Map<string, string>([
     [CONTROL_SCHEMA_TABLE, CREATE_CONTROL_SCHEMA],
     ["definition_validation_attestations", CREATE_CONTROL_ATTESTATIONS],
     ["definition_deployments", CREATE_CONTROL_DEPLOYMENTS],
     ["definition_materialization_rollouts", CREATE_CONTROL_ROLLOUTS],
-    ["definition_materialization_outbox", CREATE_CONTROL_OUTBOX]
+    ["definition_materialization_outbox", CREATE_CONTROL_OUTBOX],
+    ["definition_facet_install_failures", CREATE_CONTROL_INSTALL_FAILURES]
 ]);
+const CONTROL_TABLE_NAMES: ReadonlySet<string> = new Set(CONTROL_SCHEMA_SQL.keys());
+/** Every index the control schema carries, by index name, with the subject it is reported as. */
+const CONTROL_INDEX_SQL = {
+    definition_facet_install_failures_attribution: {
+        subject: "install failure",
+        sql: CREATE_CONTROL_INSTALL_FAILURE_INDEX
+    },
+    definition_materialization_outbox_rollout: {
+        subject: "outbox",
+        sql: CREATE_CONTROL_OUTBOX_INDEX
+    }
+} satisfies Record<string, { readonly subject: string; readonly sql: string }>;
 
 export class SqliteMaterializationControlStore extends MaterializationControlStore<TransactionalSqlite> {
     public constructor(
@@ -196,7 +217,7 @@ export class SqliteMaterializationControlStore extends MaterializationControlSto
         controlDatabase.transaction(() => {
             const objects = sqliteObjects(controlDatabase);
             const hasMarker = objects.tables.has(CONTROL_SCHEMA_TABLE);
-            const hasAny = CONTROL_TABLES.some((table) => objects.tables.has(table));
+            const hasAny = [...CONTROL_TABLE_NAMES].some((table) => objects.tables.has(table));
             if (!hasMarker && hasAny) {
                 throw resetRequired(
                     "Unmarked materialization control schema requires explicit reset"
@@ -480,6 +501,68 @@ export class SqliteMaterializationControlStore extends MaterializationControlSto
         return true;
     }
 
+    public insertInstallFailure(
+        transaction: TransactionalSqlite,
+        failure: FacetInstallFailure
+    ): void {
+        const encoded = FacetInstallFailure.encode(failure);
+        transaction.run(
+            `INSERT INTO definition_facet_install_failures (
+                id, contributor, package_id, package_version, record
+             ) VALUES (?, ?, ?, ?, ?)
+             ON CONFLICT (id) DO NOTHING`,
+            [
+                failure.id.value,
+                failure.attribution.contributor.value,
+                failure.attribution.package.id.value,
+                failure.attribution.package.version.toString(),
+                encoded
+            ]
+        );
+        const stored = this.loadInstallFailure(transaction, failure.id);
+        if (stored === undefined || !equalBytes(FacetInstallFailure.encode(stored), encoded)) {
+            throw invalidMaterializationState(
+                `Facet install failure ${failure.id.value} is immutable`
+            );
+        }
+    }
+
+    public listInstallFailures(
+        transaction: TransactionalSqlite,
+        attribution: ContributionAttribution
+    ): readonly FacetInstallFailure[] {
+        return Object.freeze(
+            transaction
+                .all(
+                    `SELECT id, contributor, package_id, package_version, record
+             FROM definition_facet_install_failures
+             WHERE contributor = ? AND package_id = ? AND package_version = ?
+             ORDER BY id`,
+                    [
+                        attribution.contributor.value,
+                        attribution.package.id.value,
+                        attribution.package.version.toString()
+                    ]
+                )
+                .map((row) => decodeControlInstallFailure(row))
+                // The projected columns narrow to the contributing Facet and its release; the
+                // pin's own digests decide the rest, so the exact attribution still filters.
+                .filter((failure) => failure.attribution.equals(attribution))
+        );
+    }
+
+    private loadInstallFailure(
+        transaction: TransactionalSqlite,
+        id: FacetInstallFailureId
+    ): FacetInstallFailure | undefined {
+        const row = transaction.all(
+            `SELECT id, contributor, package_id, package_version, record
+             FROM definition_facet_install_failures WHERE id = ?`,
+            [id.value]
+        )[0];
+        return row === undefined ? undefined : decodeControlInstallFailure(row);
+    }
+
     private validateControlState(transaction: TransactionalSqlite): void {
         for (const row of transaction.all(
             `SELECT id, record FROM definition_validation_attestations`,
@@ -524,6 +607,13 @@ export class SqliteMaterializationControlStore extends MaterializationControlSto
                 throw corruptMaterialization("Stored outbox entry has no rollout");
             }
         }
+        for (const row of transaction.all(
+            `SELECT id, contributor, package_id, package_version, record
+             FROM definition_facet_install_failures`,
+            []
+        )) {
+            decodeControlInstallFailure(row, new FacetInstallFailureId(text(row, "id")));
+        }
     }
 
     private isDeploymentLineageValid(
@@ -561,7 +651,7 @@ export class SqliteMaterializationControlStore extends MaterializationControlSto
 
 function createControlSchema(database: TransactionalSqlite, owner: ActorRef): void {
     for (const sql of CONTROL_SCHEMA_SQL.values()) database.run(sql, []);
-    database.run(CREATE_CONTROL_OUTBOX_INDEX, []);
+    for (const index of Object.values(CONTROL_INDEX_SQL)) database.run(index.sql, []);
     database.run(
         `INSERT INTO ${CONTROL_SCHEMA_TABLE} (version, owner_kind, owner_id) VALUES (?, ?, ?)`,
         [CONTROL_SCHEMA_VERSION, owner.kind, owner.id.value]
@@ -579,21 +669,23 @@ function requireControlSchema(database: TransactionalSqlite, owner: ActorRef): v
             throw resetRequired(`Materialization control schema is missing ${table}`);
         }
     }
-    const index = objects.indexes.get("definition_materialization_outbox_rollout");
-    if (
-        index === undefined ||
-        normalizeSchemaSql(index.sql ?? "") !== normalizeSchemaSql(CREATE_CONTROL_OUTBOX_INDEX)
-    ) {
-        throw resetRequired(
-            "Materialization control schema has a missing or malformed outbox index"
-        );
+    for (const [name, index] of Object.entries(CONTROL_INDEX_SQL)) {
+        const actual = objects.indexes.get(name);
+        if (
+            actual === undefined ||
+            normalizeSchemaSql(actual.sql ?? "") !== normalizeSchemaSql(index.sql)
+        ) {
+            throw resetRequired(
+                `Materialization control schema has a missing or malformed ${index.subject} index`
+            );
+        }
     }
     if (
         [...objects.indexes.values()].some(
             (candidate) =>
                 candidate.sql !== null &&
                 CONTROL_TABLE_NAMES.has(candidate.table) &&
-                candidate.name !== "definition_materialization_outbox_rollout"
+                !Object.hasOwn(CONTROL_INDEX_SQL, candidate.name)
         )
     ) {
         throw resetRequired("Materialization control schema contains an unexpected index");
@@ -628,6 +720,25 @@ function decodeControlOutbox(row: SqliteRow, expectedId?: Digest): Materializati
         throw corruptMaterialization("Stored outbox projection does not match codec bytes");
     }
     return entry;
+}
+
+function decodeControlInstallFailure(
+    row: SqliteRow,
+    expectedId?: FacetInstallFailureId
+): FacetInstallFailure {
+    const failure = FacetInstallFailure.decode(bytes(row, "record"));
+    if (
+        (expectedId !== undefined && !failure.id.equals(expectedId)) ||
+        text(row, "id") !== failure.id.value ||
+        text(row, "contributor") !== failure.attribution.contributor.value ||
+        text(row, "package_id") !== failure.attribution.package.id.value ||
+        text(row, "package_version") !== failure.attribution.package.version.toString()
+    ) {
+        throw corruptMaterialization(
+            "Stored Facet install failure projection does not match codec bytes"
+        );
+    }
+    return failure;
 }
 
 interface StoredMaterializationPlan {

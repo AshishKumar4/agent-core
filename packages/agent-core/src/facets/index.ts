@@ -29,6 +29,7 @@ export {
 export {
     AUTHORED_CODE_CONSUMERS,
     AuthoredCodeSource,
+    OperationAvailability,
     requireAuthoredCodeConsumer
 } from "./authored-code";
 export type { AuthoredCodeConsumer } from "./authored-code";

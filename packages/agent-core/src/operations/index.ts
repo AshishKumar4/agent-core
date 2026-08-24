@@ -63,6 +63,7 @@ export type {
     TurnRewriteRule,
     TurnStopRequest
 } from "./interception";
+export { FacetRequirementResolver, FailClosedFacetRequirementResolver } from "./lifecycle";
 export { Facet, Interceptor, Operation, Surface } from "./runtime";
 export type {
     FacetLifecycleContext,

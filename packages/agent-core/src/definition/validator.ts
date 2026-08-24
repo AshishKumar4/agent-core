@@ -19,6 +19,8 @@ import {
     SlotName,
     SurfaceDescriptor,
     canonicalFacetData,
+    type AuthoredCodeBackingId,
+    type AuthoredCodeConsumer,
     type FacetData,
     type FacetDataMap,
     type FacetManifest,
@@ -26,7 +28,7 @@ import {
 } from "../facets";
 import { BASE_CONFIG_SCHEMA, composeConfigSchema } from "./config";
 import { Blueprint } from "./blueprint";
-import { PlatformCompatibility } from "./compatibility";
+import { PlatformCompatibility, compatibilityAdmits } from "./compatibility";
 import { BlueprintDeclarationCodecPort } from "./declaration";
 import { PackageLock, PackagePin } from "./package-lock";
 import { BLUEPRINT_CONTRIBUTOR } from "./materialization-kind";
@@ -51,6 +53,11 @@ export const CORE_SLOT_NAMES = new Set([
     "surfaces"
 ]);
 const SLOT_DECLARATIONS = new SlotName("slots");
+const OPERATION_DECLARATIONS = new SlotName("operations");
+// §4.7 names three consumers of agent-authored code; programmatic tool calling is the
+// only one that reaches Operations, so it is the consumer an `operations` availability
+// declaration depends on being served.
+const AUTHORED_CODE_OPERATION_CONSUMER: AuthoredCodeConsumer = "programmaticToolCall";
 
 export interface BlueprintValidatorOptions {
     readonly lock: PackageLock;
@@ -80,6 +87,17 @@ export abstract class PlacementSourcePort {
         release: PackageRelease,
         manifest: FacetManifest
     ): readonly IsolationMode[];
+
+    /**
+     * The backing the profile declares for a §4.7 consumer the Blueprint does not map,
+     * or nothing when the profile declares no default. It is abstract rather than
+     * defaulted because "this profile serves no authored code" is a statement a profile
+     * makes, not one the validator may assume on its behalf: the absence is what
+     * `C13-FACET-CODE-AVAILABILITY` refuses a `code`-available Operation against.
+     */
+    public abstract authoredCodeBackingDefault(
+        consumer: AuthoredCodeConsumer
+    ): AuthoredCodeBackingId | undefined;
 }
 
 export interface ValidatedContribution {
@@ -170,8 +188,10 @@ export class ValidatedBlueprint {
             blueprint,
             releases,
             schemaValidator,
-            options.coreSlots ?? []
+            options.coreSlots ?? [],
+            options.placement
         );
+        validateReliance(releases, options.target);
         const placements = validatePlacements(blueprint, releases, options.placement);
         const blueprintDigest = Digest.sha256(Blueprint.encode(blueprint));
         const declarationDigest = Digest.sha256(
@@ -421,7 +441,8 @@ function validateDeclarations(
     blueprint: Blueprint,
     releases: readonly PackageRelease[],
     schemaValidator: JsonSchemaValidator,
-    coreSlots: readonly SlotDeclaration[]
+    coreSlots: readonly SlotDeclaration[],
+    placement: PlacementSourcePort
 ): readonly ValidatedContribution[] {
     const slots = new Map<string, SlotDeclaration>();
     for (const slot of coreSlots) {
@@ -479,10 +500,9 @@ function validateDeclarations(
             }
         }
     }
-    validateCommandSurfaceSlots(
-        manifests.map(({ manifest }) => manifest),
-        slots
-    );
+    const facets = manifests.map(({ manifest }) => manifest);
+    validateCommandSurfaceSlots(facets, slots);
+    validateAuthoredCodeAvailability(blueprint, facets, placement);
     declarations.sort(compareDeclarations);
     return Object.freeze(declarations);
 }
@@ -548,6 +568,43 @@ function validateCommandSurfaceSlots(
     }
 }
 
+/**
+ * SPEC §4.7 / C13-FACET-CODE-AVAILABILITY: an Operation the model is offered and an
+ * isolate cannot reach is a catalog that was already wrong when it was assembled, so a
+ * `code`- or `both`-available Operation is refused here rather than at the first
+ * submission that needs it.
+ *
+ * Whether the platform serves programmatic tool calling is one fact about the Blueprint
+ * and the profile, not one per Operation, so it is decided once. When it is served the
+ * declarations need no walk at all; when it is not, the walk names the first Operation
+ * that depends on it in canonical manifest order.
+ */
+function validateAuthoredCodeAvailability(
+    blueprint: Blueprint,
+    manifests: readonly FacetManifest[],
+    placement: PlacementSourcePort
+): void {
+    // SPEC §4.7 gives a consumer's backing exactly two sources — the Blueprint's declared
+    // mapping, or the profile's declared default — and no third outcome. `backingFor`
+    // cannot answer this, because it takes the default as a required argument: asking it
+    // would mean inventing the very backing whose absence is the refusal.
+    const served =
+        blueprint.policies.placement.backings.consumers.includes(
+            AUTHORED_CODE_OPERATION_CONSUMER
+        ) || placement.authoredCodeBackingDefault(AUTHORED_CODE_OPERATION_CONSUMER) !== undefined;
+    if (served) return;
+    for (const manifest of manifests) {
+        for (const value of manifest.contributions.get(OPERATION_DECLARATIONS) ?? []) {
+            const descriptor = OperationDescriptor.fromData(value);
+            if (descriptor.availability.reachableByAuthoredCode) {
+                throw invalidDefinition(
+                    `Facet ${manifest.id.value} Operation ${descriptor.name.value} declares ${descriptor.availability.label} availability to agent-authored code, but no backing serves the ${AUTHORED_CODE_OPERATION_CONSUMER} consumer`
+                );
+            }
+        }
+    }
+}
+
 function addSlot(
     slots: Map<string, SlotDeclaration>,
     slot: SlotDeclaration,
@@ -593,6 +650,109 @@ function validateOwnerDeclarations(
             }
         }
     }
+}
+
+/**
+ * SPEC §4.1 / C13-FACET-DEPENDENCY-ORDER: reliance is computable before any package code
+ * loads from the installed manifests' `BindingRequirement`s, so a reliance cycle rejects
+ * the Blueprint here rather than deadlocking a live reconciliation.
+ *
+ * Two boundaries fix what this may decide. Reliance is over `FacetPackageId`s and the
+ * Package dependency relation is over `PackageId`s: §9.1 permits a cyclic Package
+ * dependency, and a host MUST NOT derive either relation from the other, so a requirement
+ * naming a Facet this closure does not install is not a defect — the provider it resolves
+ * to is a live `FacetRef` on the §3.4 Grant plane, which is why an unsatisfied requirement
+ * is gated at `start` and never guessed at from the closure. What is decidable from data
+ * alone is whether a requirement's own declared spec/host range admits the platform the
+ * Blueprint is validated for, and whether the requirements the installed manifests declare
+ * close a cycle among themselves.
+ *
+ * Every requirement's range is decided before any cycle is reported, so one closure always
+ * yields one refusal.
+ */
+function validateReliance(
+    releases: readonly PackageRelease[],
+    target: PlatformCompatibility
+): void {
+    const manifests = releases.flatMap((release) => release.manifests).sort(compareManifests);
+    for (const manifest of manifests) {
+        for (const requirement of manifest.bindings) {
+            // A requirement is compatibility-ranged exactly as a manifest is (SPEC §4.1),
+            // and package resolution already proved every manifest's range against this
+            // target, so the requirement's own range is the one fact left to decide.
+            if (!compatibilityAdmits(requirement.compat, target)) {
+                throw invalidDefinition(
+                    `Facet ${manifest.id.value} requires Binding ${requirement.name.value} from Facet ${requirement.facet.value} at spec ${requirement.compat.spec} host ${requirement.compat.host}, which the validated platform spec ${target.spec.toString()} host ${target.host.toString()} does not admit`
+                );
+            }
+        }
+    }
+    const cycle = findRelianceCycle(relianceGraph(manifests));
+    if (cycle !== undefined) {
+        // A cycle of length one is a manifest requiring itself; rendering the entry point
+        // twice states both cases with one shape.
+        throw invalidDefinition(
+            `Facet reliance cycle ${[...cycle, ...cycle.slice(0, 1)].join(" -> ")}`
+        );
+    }
+}
+
+// Out-edges per Facet id, deduplicated and sorted, over manifests already in canonical
+// order. Two manifests sharing an id are one node: a requirement of either version holds
+// the same Facet, so a cycle through either is a cycle. A requirement naming a Facet this
+// closure does not install is a target with no out-edges, so it closes nothing — the only
+// cycles this finds are the ones the installed manifests declare among themselves.
+function relianceGraph(
+    manifests: readonly FacetManifest[]
+): ReadonlyMap<string, readonly string[]> {
+    const graph = new Map<string, string[]>();
+    for (const manifest of manifests) {
+        const edges = graph.get(manifest.id.value) ?? [];
+        for (const requirement of manifest.bindings) {
+            if (!edges.includes(requirement.facet.value)) {
+                edges.push(requirement.facet.value);
+            }
+        }
+        graph.set(manifest.id.value, edges.sort(compareText));
+    }
+    return graph;
+}
+
+// Depth-first search over canonically ordered nodes and canonically ordered edges, so the
+// cycle found is a function of the closure alone.
+function findRelianceCycle(
+    graph: ReadonlyMap<string, readonly string[]>
+): readonly string[] | undefined {
+    const settled = new Set<string>();
+    const walking = new Set<string>();
+    const path: string[] = [];
+    const visit = (node: string): readonly string[] | undefined => {
+        if (walking.has(node)) return canonicalCycle(path.slice(path.indexOf(node)));
+        if (settled.has(node)) return undefined;
+        walking.add(node);
+        path.push(node);
+        for (const next of graph.get(node) ?? []) {
+            const cycle = visit(next);
+            if (cycle !== undefined) return cycle;
+        }
+        path.pop();
+        walking.delete(node);
+        settled.add(node);
+        return undefined;
+    };
+    for (const node of graph.keys()) {
+        const cycle = visit(node);
+        if (cycle !== undefined) return cycle;
+    }
+    return undefined;
+}
+
+// One cycle is discoverable from any of its members, so it is named from its lowest id.
+// `cycle` is the nonempty search path from the repeated node, so the fold has a subject.
+function canonicalCycle(cycle: readonly string[]): readonly string[] {
+    const lowest = cycle.reduce((left, right) => (compareText(right, left) < 0 ? right : left));
+    const start = cycle.indexOf(lowest);
+    return [...cycle.slice(start), ...cycle.slice(0, start)];
 }
 
 function compareManifests(left: FacetManifest, right: FacetManifest): number {

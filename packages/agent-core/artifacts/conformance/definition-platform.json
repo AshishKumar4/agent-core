@@ -34,10 +34,11 @@
       "remainingEvidence": [
         "Nothing built today discriminates convergence from the idempotence C13-BLUEPRINT-REMATERIALIZE already verifies. Its selector proves re-applying one unchanged Blueprint reconciles to a semantic no-op, which is f(f(x)) = f(x) for one input; path-independence needs a differential harness that applies one Blueprint to a Scope by at least two admissible issue orders and from at least two different prior managed states, then asserts one identical Blueprint-managed record set once the pending set is empty. An implementation that reached the declared state only from an empty Scope must fail it",
         "The pending set has to be carried by the reconciliation outcome rather than computed alongside it, so that converged is that set being empty rather than a separate report a host can get wrong. Verification requires the outcome type to hold the obligations and a mutation that states convergence while an obligation stands to break a cited test; a boolean flag set next to a nonempty obligation list satisfies the prose and must not satisfy the atom",
-        "Each of the four stated deferrals needs its own obligation-shape evidence — record, reason, and discharging condition all named: a reliance hold under C13-FACET-DEPENDENCY-ORDER, each draining Invocation item under C13-FACET-WITHDRAWAL-DRAIN, each unadmitted RouteReservation terminalized by a rejected RouteDelivery, and a Package retained under SPEC 5.2. No current test exercises any of them, and the Package case additionally has no coverage of the Session, tree-checkpoint, and Snapshot pin holders",
-        "The rejected-reconciliation clause is what stops converging from becoming an excuse, so it needs the strongest negative evidence: a divergence expressible as no pending obligation — a withdrawal set the host cannot compute, or a retired Slot declaration still holding an entry attributed to a retained Facet — must be refused at validation before package code loads, on the no-code-loaded terms C13-BLUEPRINT-VALIDATE-BEFORE-LOAD already tests, and must never be admitted and left pending",
+        "Each of the four stated deferrals needs its own obligation-shape evidence \u2014 record, reason, and discharging condition all named: a reliance hold under C13-FACET-DEPENDENCY-ORDER, each draining Invocation item under C13-FACET-WITHDRAWAL-DRAIN, each unadmitted RouteReservation terminalized by a rejected RouteDelivery, and a Package retained under SPEC 5.2. No current test exercises any of them, and the Package case additionally has no coverage of the Session, tree-checkpoint, and Snapshot pin holders",
+        "The rejected-reconciliation clause is what stops converging from becoming an excuse, so it needs the strongest negative evidence: a divergence expressible as no pending obligation \u2014 a withdrawal set the host cannot compute, or a retired Slot declaration still holding an entry attributed to a retained Facet \u2014 must be refused at validation before package code loads, on the no-code-loaded terms C13-BLUEPRINT-VALIDATE-BEFORE-LOAD already tests, and must never be admitted and left pending",
         "The managed-set scoping needs its own test because it is what makes the endpoint a function at all: an adopted manual edit must appear as a change to the Blueprint, and a host that marks an adopted record Blueprint-managed without a declaring Blueprint must be rejected. src/definition/materializer.ts#LocalMaterializer marks managed state but has no adoption path to discriminate",
-        "This rule's paragraph tightened the SPEC 9.3 retention condition from 'no Run references it' to the full SPEC 5.2 pin-holder set, so C13-BLUEPRINT-RUN-PINS carries anchored text whose Turn, Session, tree-checkpoint, and Snapshot cases its two selectors do not exercise. That atom was demoted from verified to implemented rather than left over-credited, and it now names the per-pin-holder retention tests it owes. This atom cannot be verified while the fourth deferral's discharging condition is under-covered by the neighbour that owns it"
+        "This rule's paragraph tightened the SPEC 9.3 retention condition from 'no Run references it' to the full SPEC 5.2 pin-holder set, so C13-BLUEPRINT-RUN-PINS carries anchored text whose Turn, Session, tree-checkpoint, and Snapshot cases its two selectors do not exercise. That atom was demoted from verified to implemented rather than left over-credited, and it now names the per-pin-holder retention tests it owes. This atom cannot be verified while the fourth deferral's discharging condition is under-covered by the neighbour that owns it",
+        "One of the four stated deferrals now has a built obligation shape to model against: src/composition/facet-withdrawal.ts#FacetWithdrawalObligation carries the reliance hold and the Invocation drain as typed cases on the withdrawal outcome, and a withdrawal is complete exactly when that set is empty. What this row still owes is the same discipline on the reconciliation outcome: src/definition/reconciliation.ts#ReconciliationPlan carries opaque `blockers: readonly string[]`, so convergence is still a report a host could get wrong rather than the obligation set being empty. The exact interface owed is a typed obligation member on ReconciliationPlan that the withdrawal obligation maps into, plus the differential harness the first item names."
       ]
     },
     {
@@ -88,7 +89,14 @@
       ],
       "testSelectors": [
         "test/definition/loader.test.ts#production Blueprint validation-before-load [C13-BLUEPRINT-VALIDATE-BEFORE-LOAD] does not resolve or evaluate code when config validation fails",
-        "test/definition/validation.test.ts#Blueprint validation [C13-BLUEPRINT-VALIDATE-BEFORE-LOAD] validates every core contribution kind before loading Package code"
+        "test/definition/validation.test.ts#Blueprint validation [C13-BLUEPRINT-VALIDATE-BEFORE-LOAD] validates every core contribution kind before loading Package code",
+        "test/definition/validation.test.ts#Blueprint validation [C13-BLUEPRINT-VALIDATE-BEFORE-LOAD] [C13-FACET-CODE-AVAILABILITY] refuses `both` on the same terms and admits `native` under every backing declaration",
+        "test/definition/validation.test.ts#Blueprint validation [C13-BLUEPRINT-VALIDATE-BEFORE-LOAD] [C13-FACET-CODE-AVAILABILITY] refuses a code-available Operation no backing serves, before any Package code loads",
+        "test/definition/validation.test.ts#Blueprint validation [C13-BLUEPRINT-VALIDATE-BEFORE-LOAD] [C13-FACET-DEPENDENCY-ORDER] admits a cyclic Package dependency and refuses a Facet reliance cycle over the same two Packages",
+        "test/definition/validation.test.ts#Blueprint validation [C13-BLUEPRINT-VALIDATE-BEFORE-LOAD] [C13-FACET-DEPENDENCY-ORDER] admits a requirement the closure does not install and refuses one the platform does not admit",
+        "test/definition/validation.test.ts#Blueprint validation [C13-BLUEPRINT-VALIDATE-BEFORE-LOAD] [C13-FACET-DEPENDENCY-ORDER] admits an acyclic reliance chain",
+        "test/definition/validation.test.ts#Blueprint validation [C13-BLUEPRINT-VALIDATE-BEFORE-LOAD] [C13-FACET-DEPENDENCY-ORDER] names one cycle from its lowest Facet id, whichever member the walk enters",
+        "test/definition/validation.test.ts#Blueprint validation [C13-BLUEPRINT-VALIDATE-BEFORE-LOAD] [C13-FACET-DEPENDENCY-ORDER] refuses a Facet reliance cycle before any Package code loads"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
@@ -159,13 +167,13 @@
         "src/definition/validator.ts#exactLockedReleases"
       ],
       "testSelectors": [
-        "test/definition/package-dependency.test.ts#§9.1 declared Package dependencies [C13-PACKAGE-DEPENDENCY-DECLARED] admits exactly the declared closure as a pinned closure and names each divergence",
-        "test/definition/package-dependency.test.ts#§9.1 declared Package dependencies [C13-PACKAGE-DEPENDENCY-DECLARED] carries the declared relation as data through the codec and refuses a repeated id",
-        "test/definition/package-dependency.test.ts#§9.1 declared Package dependencies [C13-PACKAGE-DEPENDENCY-DECLARED] never derives a dependency from a BindingRequirement or a requirement from a dependency",
-        "test/definition/package-dependency.test.ts#§9.1 declared Package dependencies [C13-PACKAGE-DEPENDENCY-DECLARED] refuses a complete-looking lock that is not the closure of the declared relation",
-        "test/definition/package-dependency.test.ts#§9.1 declared Package dependencies [C13-PACKAGE-DEPENDENCY-DECLARED] rejects a dependency the Blueprint does not install before any package code loads",
-        "test/definition/package-dependency.test.ts#§9.1 declared Package dependencies [C13-PACKAGE-DEPENDENCY-DECLARED] rejects an unsatisfiable dependency range before any package code loads",
-        "test/definition/package-dependency.test.ts#§9.1 declared Package dependencies [C13-PACKAGE-DEPENDENCY-DECLARED] resolves and pins a cyclic declared relation rather than refusing the Blueprint",
+        "test/definition/package-dependency.test.ts#\u00a79.1 declared Package dependencies [C13-PACKAGE-DEPENDENCY-DECLARED] admits exactly the declared closure as a pinned closure and names each divergence",
+        "test/definition/package-dependency.test.ts#\u00a79.1 declared Package dependencies [C13-PACKAGE-DEPENDENCY-DECLARED] carries the declared relation as data through the codec and refuses a repeated id",
+        "test/definition/package-dependency.test.ts#\u00a79.1 declared Package dependencies [C13-PACKAGE-DEPENDENCY-DECLARED] never derives a dependency from a BindingRequirement or a requirement from a dependency",
+        "test/definition/package-dependency.test.ts#\u00a79.1 declared Package dependencies [C13-PACKAGE-DEPENDENCY-DECLARED] refuses a complete-looking lock that is not the closure of the declared relation",
+        "test/definition/package-dependency.test.ts#\u00a79.1 declared Package dependencies [C13-PACKAGE-DEPENDENCY-DECLARED] rejects a dependency the Blueprint does not install before any package code loads",
+        "test/definition/package-dependency.test.ts#\u00a79.1 declared Package dependencies [C13-PACKAGE-DEPENDENCY-DECLARED] rejects an unsatisfiable dependency range before any package code loads",
+        "test/definition/package-dependency.test.ts#\u00a79.1 declared Package dependencies [C13-PACKAGE-DEPENDENCY-DECLARED] resolves and pins a cyclic declared relation rather than refusing the Blueprint",
         "test/definition/resolver.test.ts#deterministic package resolution [C13-PACKAGE-DEPENDENCY-DECLARED] resolves a cyclic declared relation to a finite closure unique by pin id",
         "test/definition/resolver.test.ts#deterministic package resolution [C13-PACKAGE-DEPENDENCY-DECLARED] selects the highest admissible versions of a mutually dependent pair"
       ],
@@ -177,16 +185,26 @@
       "owner": "W4",
       "specAnchor": "C13-PLACEMENT-AUTHORED-BACKING",
       "specTextSha256": "sha256:f5933afc9d701f0a59fe6640724089eeb1f9dfc3dcb34d4a6e2f51939d95f269",
-      "status": "planned",
+      "status": "implemented",
       "prerequisites": ["C13-PLACEMENT-DYNAMIC-NO-EGRESS"],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
+      "sourceSymbols": [
+        "src/definition/placement.ts#AuthoredCodeBackingPolicy",
+        "src/definition/validator.ts#PlacementSourcePort"
+      ],
+      "testSelectors": [
+        "test/definition/authored-code-backing.test.ts#declaring which backing serves which \u00a74.7 consumer [C13-PLACEMENT-AUTHORED-BACKING] admits only the three \u00a74.7 consumers",
+        "test/definition/authored-code-backing.test.ts#declaring which backing serves which \u00a74.7 consumer [C13-PLACEMENT-AUTHORED-BACKING] rejects a placement record whose declaration is malformed",
+        "test/definition/authored-code-backing.test.ts#declaring which backing serves which \u00a74.7 consumer [C13-PLACEMENT-AUTHORED-BACKING] round-trips the declaration through the placement record",
+        "test/definition/authored-code-backing.test.ts#declaring which backing serves which \u00a74.7 consumer [C13-PLACEMENT-AUTHORED-BACKING] sends an unmapped consumer to the profile's declared default",
+        "test/definition/authored-code-backing.test.ts#declaring which backing serves which \u00a74.7 consumer [C13-PLACEMENT-AUTHORED-BACKING] serves a declared consumer from the backing the Blueprint named"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": [
-        "The declaration half is built and discrimination-tested. PlacementPolicy carries `backings` (src/definition/placement.ts#AuthoredCodeBackingPolicy), a partial map from the closed §4.7 consumer set to an opaque AuthoredCodeBackingId, read through PlacementPolicy.backingFor(consumer, profileDefault); an unmapped consumer takes the substrate profile's declared default and never another offered backing. test/definition/authored-code-backing.test.ts covers it under this atom's id, and four mutations — ignoring the declaration, sending an unmapped consumer to a declared backing, dropping the mapping on encode, and opening the consumer set — each break a cited test.",
-        "Worker Loader is the only §4.7 backing currently implemented by the Cloudflare package. It loads the isolate with `globalOutbound: null`, `disallow_importable_env`, and an `env` holding one entrypoint stub per delegated Binding and nothing else, all three exercised against real workerd in the cloudflare lane.",
-        "The former dispatch-namespace adapter was removed because it could not establish the abstract AuthoredCodeBacking contract it claimed: outbound posture is a property of the binding's deployed outbound Worker, not of `DispatchNamespace.get()`. Restoring the §10.2 dispatch backing requires a configured deny-all outbound Worker, the exact deployed binding, and a real substrate test proving both `fetch` and `connect` are unavailable while passed Binding capabilities remain callable.",
-        "C13-PLACEMENT-DYNAMIC-NO-EGRESS remains an explicit prerequisite. Verification also requires ownership-correct integration evidence connecting the W4 declaration to every W8 backing the profile actually offers; Worker Loader evidence cannot stand in for an unimplemented dispatch backing."
+        "The declaration half is built and discrimination-tested. PlacementPolicy carries `backings` (src/definition/placement.ts#AuthoredCodeBackingPolicy), a partial map from the closed SPEC 4.7 consumer set to an opaque AuthoredCodeBackingId, read through backingFor(consumer, profileDefault); an unmapped consumer takes the substrate profile\u2019s declared default and never another offered backing. The profile half now has a seam and a reader too: src/definition/validator.ts#PlacementSourcePort declares authoredCodeBackingDefault(consumer), abstract so a profile that serves no authored code says so rather than having the validator assume it on its behalf.",
+        "The declaration is now load-bearing rather than inert, which is what moved this row off planned: C13-FACET-CODE-AVAILABILITY refuses a code- or both-available Operation at Blueprint validation when neither policies.placement nor the profile maps a backing for the programmaticToolCall consumer. That refusal is evidenced on the W4 row C13-BLUEPRINT-VALIDATE-BEFORE-LOAD, whose cited titles carry its label; this row cites its own five labelled declaration tests rather than borrowing them.",
+        "Worker Loader is the only SPEC 4.7 backing the Cloudflare package implements. It loads the isolate with `globalOutbound: null`, `disallow_importable_env`, and an `env` holding one entrypoint stub per delegated Binding and nothing else, all three exercised against real workerd in the cloudflare lane.",
+        "The former dispatch-namespace adapter was removed because it could not establish the abstract AuthoredCodeBacking contract it claimed: outbound posture is a property of the binding\u2019s deployed outbound Worker, not of `DispatchNamespace.get()`. Restoring the SPEC 10.2 dispatch backing requires a configured deny-all outbound Worker, the exact deployed binding, and a real substrate test proving both `fetch` and `connect` are unavailable while passed Binding capabilities stay callable.",
+        "Verification stays blocked on two things this row may not supply. C13-PLACEMENT-DYNAMIC-NO-EGRESS remains an explicit prerequisite and is W4-declarative with a W8 substrate obligation behind it. And W8 owes ownership-correct integration evidence connecting this declaration to every backing packages/agent-core-cloudflare actually offers; Worker Loader evidence cannot stand in for an unimplemented dispatch backing."
       ]
     },
     {
@@ -200,9 +218,9 @@
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "The rule is enforced by domain construction at the substrate (SPEC §1.5: the clause is placed there expressly because an outbound policy code can reach around is advice). W4's definition plane selects the mode and constructs no domain, so no W4 symbol can witness a refused connection and no substrate-neutral interface, nominal token, or local reference can stand in for one.",
+        "The rule is enforced by domain construction at the substrate (SPEC \u00a71.5: the clause is placed there expressly because an outbound policy code can reach around is advice). W4's definition plane selects the mode and constructs no domain, so no W4 symbol can witness a refused connection and no substrate-neutral interface, nominal token, or local reference can stand in for one.",
         "The rule is not closeable by any single substrate's evidence either: one backing demonstrating zero ambient egress says nothing about another, so this is a rule about what every backing must preserve rather than a claim any one of them discharges. C13-PLACEMENT-AUTHORED-BACKING carries the per-backing declaration half.",
-        "The substrate obligation is C13-CLOUDFLARE-DYNAMIC-NO-EGRESS (W8, §10.2): adversarial code in a real isolate failing both global fetch and connect while an explicitly passed Binding stays callable. That obligation cannot be cited from here — ownerFor maps C13-PLACEMENT-* to W4, W4's globs in artifacts/quality/ownership.json name no packages/agent-core-cloudflare path, and ledger.mjs#requireEvidenceOwner admits only W4 or W9 source, so a W4 row citing the enforcement boundary fails the ledger by name even with live evidence in hand.",
+        "The substrate obligation is C13-CLOUDFLARE-DYNAMIC-NO-EGRESS (W8, \u00a710.2): adversarial code in a real isolate failing both global fetch and connect while an explicitly passed Binding stays callable. That obligation cannot be cited from here \u2014 ownerFor maps C13-PLACEMENT-* to W4, W4's globs in artifacts/quality/ownership.json name no packages/agent-core-cloudflare path, and ledger.mjs#requireEvidenceOwner admits only W4 or W9 source, so a W4 row citing the enforcement boundary fails the ledger by name even with live evidence in hand.",
         "The one globalOutbound assertion in the tree is not evidence for this rule and must not be cited: packages/agent-core-cloudflare/test/{hosting,authored-code}.test.ts drive DynamicWorkerLoaderAdapter against a recording fake and assert the argument the adapter passed, so they cannot fail on any egress the platform did or did not refuse."
       ]
     },

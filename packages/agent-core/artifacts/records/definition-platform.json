@@ -3,16 +3,15 @@
   "owner": "W4",
   "records": [
     {
-      "symbol": "ValidationAttestation",
-      "kind": "definition.validation-attestation",
-      "durability": "durable",
-      "ownerActor": "tenant",
-      "source": "src/definition/attestation.ts#ValidationAttestation",
-      "codec": "src/definition/attestation.ts#ValidationAttestation.codec",
-      "store": "src/definition/rollout.ts#MaterializationControlStore",
+      "symbol": "ActorPlan",
+      "kind": "definition.actor-plan",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/definition/plan.ts#ActorPlan",
+      "codec": "src/definition/plan.ts#ActorPlan.codec",
+      "store": null,
       "tests": [
-        "test/definition/attestation.test.ts#ValidationAttestation [definition.validation-attestation] round-trips every validation input under one content-derived identity",
-        "test/definition/rollout.test.ts#materialization rollout and outbox [definition.validation-attestation] persists immutable validation attestations in Tenant control storage"
+        "test/definition/plan.test.ts#materialization planning [definition.managed-origin] [definition.actor-plan] [definition.materialization-plan] copies desired data and round-trips every planning record codec"
       ]
     },
     {
@@ -29,46 +28,6 @@
       ]
     },
     {
-      "symbol": "PackageInstall",
-      "kind": "definition.package-install",
-      "durability": "value",
-      "ownerActor": null,
-      "source": "src/definition/blueprint.ts#PackageInstall",
-      "codec": "src/definition/blueprint.ts#PackageInstall.codec",
-      "store": null,
-      "tests": [
-        "test/definition/blueprint.test.ts#Blueprint [definition.blueprint] [definition.package-install] round-trips strict canonical declaration data"
-      ]
-    },
-    {
-      "symbol": "PackageCodeManifest",
-      "kind": "definition.package-code-manifest",
-      "durability": "value",
-      "ownerActor": null,
-      "contentRetention": {
-        "fields": ["modules[].content"],
-        "retentionOwner": null
-      },
-      "source": "src/definition/code-manifest.ts#PackageCodeManifest",
-      "codec": "src/definition/code-manifest.ts#PackageCodeManifest.codec",
-      "store": null,
-      "tests": [
-        "test/definition/code-manifest.test.ts#PackageCodeManifest [definition.package-code-manifest] canonicalizes and round-trips a complete content-addressed closure"
-      ]
-    },
-    {
-      "symbol": "PlatformCompatibility",
-      "kind": "definition.platform-compatibility",
-      "durability": "value",
-      "ownerActor": null,
-      "source": "src/definition/compatibility.ts#PlatformCompatibility",
-      "codec": "src/definition/compatibility.ts#PlatformCompatibility.codec",
-      "store": null,
-      "tests": [
-        "test/definition/attestation.test.ts#PlatformCompatibility [definition.platform-compatibility] round-trips exact target versions and rejects malformed targets"
-      ]
-    },
-    {
       "symbol": "Config",
       "kind": "definition.config",
       "durability": "value",
@@ -78,6 +37,44 @@
       "store": null,
       "tests": [
         "test/definition/config.test.ts#Blueprint config [C13-CONFIG-SECRET-REF] [definition.config] uses one tagged SecretRef representation and round-trips canonical nested refs"
+      ]
+    },
+    {
+      "symbol": "DeploymentRecord",
+      "kind": "definition.deployment",
+      "durability": "durable",
+      "ownerActor": "tenant",
+      "source": "src/definition/rollout.ts#DeploymentRecord",
+      "codec": "src/definition/rollout.ts#DeploymentRecord.codec",
+      "store": "src/definition/rollout.ts#MaterializationControlStore",
+      "tests": [
+        "test/definition/rollout.test.ts#materialization rollout and outbox [definition.deployment] round-trips rollout records and rejects forged deployment transitions"
+      ]
+    },
+    {
+      "symbol": "FacetInstallFailure",
+      "kind": "definition.facet-install-failure",
+      "durability": "durable",
+      "ownerActor": "tenant",
+      "source": "src/definition/install-outcome.ts#FacetInstallFailure",
+      "codec": "src/definition/install-outcome.ts#FacetInstallFailure.codec",
+      "store": "src/definition/rollout.ts#MaterializationControlStore",
+      "tests": [
+        "test/definition/install-outcome.test.ts#failed Facet install evidence [C13-FACET-START-ATOMIC] [definition.facet-install-failure] round-trips a failed install and refuses one whose ID is not its own contents",
+        "test/definition/install-outcome.test.ts#failed Facet install evidence memory [C13-FACET-START-ATOMIC] [definition.facet-install-failure] records a failed install idempotently and refuses a divergent record under its ID",
+        "test/definition/install-outcome.test.ts#failed Facet install evidence SQLite [C13-FACET-START-ATOMIC] [definition.facet-install-failure] records a failed install idempotently and refuses a divergent record under its ID"
+      ]
+    },
+    {
+      "symbol": "ManagedOrigin",
+      "kind": "definition.managed-origin",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/definition/origin.ts#ManagedOrigin",
+      "codec": "src/definition/origin.ts#ManagedOrigin.codec",
+      "store": null,
+      "tests": [
+        "test/definition/plan.test.ts#materialization planning [definition.managed-origin] [definition.actor-plan] [definition.materialization-plan] copies desired data and round-trips every planning record codec"
       ]
     },
     {
@@ -120,28 +117,40 @@
       ]
     },
     {
-      "symbol": "ManagedOrigin",
-      "kind": "definition.managed-origin",
-      "durability": "value",
-      "ownerActor": null,
-      "source": "src/definition/origin.ts#ManagedOrigin",
-      "codec": "src/definition/origin.ts#ManagedOrigin.codec",
-      "store": null,
+      "symbol": "MaterializationOutboxEntry",
+      "kind": "definition.materialization-outbox",
+      "durability": "durable",
+      "ownerActor": "tenant",
+      "source": "src/definition/rollout.ts#MaterializationOutboxEntry",
+      "codec": "src/definition/rollout.ts#MaterializationOutboxEntry.codec",
+      "store": "src/definition/rollout.ts#MaterializationControlStore",
       "tests": [
-        "test/definition/plan.test.ts#materialization planning [definition.managed-origin] [definition.actor-plan] [definition.materialization-plan] copies desired data and round-trips every planning record codec"
+        "test/definition/rollout.test.ts#materialization rollout and outbox [definition.materialization-rollout] [definition.materialization-outbox] round-trips rollout and outbox codecs and rejects malformed states"
       ]
     },
     {
-      "symbol": "PackageLock",
-      "kind": "definition.package-lock",
+      "symbol": "MaterializationPlan",
+      "kind": "definition.materialization-plan",
       "durability": "durable",
       "ownerActor": "tenant",
-      "source": "src/definition/package-lock.ts#PackageLock",
-      "codec": "src/definition/package-lock.ts#PackageLock.codec",
-      "store": "src/definition/package-store.ts#PackageStore",
+      "source": "src/definition/plan.ts#MaterializationPlan",
+      "codec": "src/definition/plan.ts#MaterializationPlan.codec",
+      "store": "src/definition/materialization-store.ts#MaterializationStore",
       "tests": [
-        "test/definition/package.test.ts#package locks [definition.package-lock] sorts complete pins and round-trips byte deterministically",
-        "test/definition/package-memory.test.ts#MemoryPackageStore persistence [definition.package-release] [definition.metadata-snapshot] [definition.package-lock] restores releases, snapshots, and locks from a detached sorted snapshot"
+        "test/definition/plan.test.ts#materialization planning [definition.managed-origin] [definition.actor-plan] [definition.materialization-plan] copies desired data and round-trips every planning record codec",
+        "test/definition/materialization-memory.test.ts#MemoryMaterializationStore persistence [C13-BLUEPRINT-REMATERIALIZE] [definition.blueprint] [definition.materialization-plan] [definition.managed-state] [definition.materialization-generation] [definition.materialization-generation-pointer] restores a detached deterministic snapshot and clones all generation history"
+      ]
+    },
+    {
+      "symbol": "MaterializationRollout",
+      "kind": "definition.materialization-rollout",
+      "durability": "durable",
+      "ownerActor": "tenant",
+      "source": "src/definition/rollout.ts#MaterializationRollout",
+      "codec": "src/definition/rollout.ts#MaterializationRollout.codec",
+      "store": "src/definition/rollout.ts#MaterializationControlStore",
+      "tests": [
+        "test/definition/rollout.test.ts#materialization rollout and outbox [definition.materialization-rollout] [definition.materialization-outbox] round-trips rollout and outbox codecs and rejects malformed states"
       ]
     },
     {
@@ -158,6 +167,47 @@
       "store": "src/definition/package-store.ts#PackageStore",
       "tests": [
         "test/definition/package.test.ts#metadata snapshots [definition.metadata-snapshot] copies, sorts, freezes, and round-trips one immutable metadata revision",
+        "test/definition/package-memory.test.ts#MemoryPackageStore persistence [definition.package-release] [definition.metadata-snapshot] [definition.package-lock] restores releases, snapshots, and locks from a detached sorted snapshot"
+      ]
+    },
+    {
+      "symbol": "PackageCodeManifest",
+      "kind": "definition.package-code-manifest",
+      "durability": "value",
+      "ownerActor": null,
+      "contentRetention": {
+        "fields": ["modules[].content"],
+        "retentionOwner": null
+      },
+      "source": "src/definition/code-manifest.ts#PackageCodeManifest",
+      "codec": "src/definition/code-manifest.ts#PackageCodeManifest.codec",
+      "store": null,
+      "tests": [
+        "test/definition/code-manifest.test.ts#PackageCodeManifest [definition.package-code-manifest] canonicalizes and round-trips a complete content-addressed closure"
+      ]
+    },
+    {
+      "symbol": "PackageInstall",
+      "kind": "definition.package-install",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/definition/blueprint.ts#PackageInstall",
+      "codec": "src/definition/blueprint.ts#PackageInstall.codec",
+      "store": null,
+      "tests": [
+        "test/definition/blueprint.test.ts#Blueprint [definition.blueprint] [definition.package-install] round-trips strict canonical declaration data"
+      ]
+    },
+    {
+      "symbol": "PackageLock",
+      "kind": "definition.package-lock",
+      "durability": "durable",
+      "ownerActor": "tenant",
+      "source": "src/definition/package-lock.ts#PackageLock",
+      "codec": "src/definition/package-lock.ts#PackageLock.codec",
+      "store": "src/definition/package-store.ts#PackageStore",
+      "tests": [
+        "test/definition/package.test.ts#package locks [definition.package-lock] sorts complete pins and round-trips byte deterministically",
         "test/definition/package-memory.test.ts#MemoryPackageStore persistence [definition.package-release] [definition.metadata-snapshot] [definition.package-lock] restores releases, snapshots, and locks from a detached sorted snapshot"
       ]
     },
@@ -191,28 +241,15 @@
       ]
     },
     {
-      "symbol": "ActorPlan",
-      "kind": "definition.actor-plan",
+      "symbol": "PlatformCompatibility",
+      "kind": "definition.platform-compatibility",
       "durability": "value",
       "ownerActor": null,
-      "source": "src/definition/plan.ts#ActorPlan",
-      "codec": "src/definition/plan.ts#ActorPlan.codec",
+      "source": "src/definition/compatibility.ts#PlatformCompatibility",
+      "codec": "src/definition/compatibility.ts#PlatformCompatibility.codec",
       "store": null,
       "tests": [
-        "test/definition/plan.test.ts#materialization planning [definition.managed-origin] [definition.actor-plan] [definition.materialization-plan] copies desired data and round-trips every planning record codec"
-      ]
-    },
-    {
-      "symbol": "MaterializationPlan",
-      "kind": "definition.materialization-plan",
-      "durability": "durable",
-      "ownerActor": "tenant",
-      "source": "src/definition/plan.ts#MaterializationPlan",
-      "codec": "src/definition/plan.ts#MaterializationPlan.codec",
-      "store": "src/definition/materialization-store.ts#MaterializationStore",
-      "tests": [
-        "test/definition/plan.test.ts#materialization planning [definition.managed-origin] [definition.actor-plan] [definition.materialization-plan] copies desired data and round-trips every planning record codec",
-        "test/definition/materialization-memory.test.ts#MemoryMaterializationStore persistence [C13-BLUEPRINT-REMATERIALIZE] [definition.blueprint] [definition.materialization-plan] [definition.managed-state] [definition.materialization-generation] [definition.materialization-generation-pointer] restores a detached deterministic snapshot and clones all generation history"
+        "test/definition/attestation.test.ts#PlatformCompatibility [definition.platform-compatibility] round-trips exact target versions and rejects malformed targets"
       ]
     },
     {
@@ -228,39 +265,16 @@
       ]
     },
     {
-      "symbol": "DeploymentRecord",
-      "kind": "definition.deployment",
+      "symbol": "ValidationAttestation",
+      "kind": "definition.validation-attestation",
       "durability": "durable",
       "ownerActor": "tenant",
-      "source": "src/definition/rollout.ts#DeploymentRecord",
-      "codec": "src/definition/rollout.ts#DeploymentRecord.codec",
+      "source": "src/definition/attestation.ts#ValidationAttestation",
+      "codec": "src/definition/attestation.ts#ValidationAttestation.codec",
       "store": "src/definition/rollout.ts#MaterializationControlStore",
       "tests": [
-        "test/definition/rollout.test.ts#materialization rollout and outbox [definition.deployment] round-trips rollout records and rejects forged deployment transitions"
-      ]
-    },
-    {
-      "symbol": "MaterializationOutboxEntry",
-      "kind": "definition.materialization-outbox",
-      "durability": "durable",
-      "ownerActor": "tenant",
-      "source": "src/definition/rollout.ts#MaterializationOutboxEntry",
-      "codec": "src/definition/rollout.ts#MaterializationOutboxEntry.codec",
-      "store": "src/definition/rollout.ts#MaterializationControlStore",
-      "tests": [
-        "test/definition/rollout.test.ts#materialization rollout and outbox [definition.materialization-rollout] [definition.materialization-outbox] round-trips rollout and outbox codecs and rejects malformed states"
-      ]
-    },
-    {
-      "symbol": "MaterializationRollout",
-      "kind": "definition.materialization-rollout",
-      "durability": "durable",
-      "ownerActor": "tenant",
-      "source": "src/definition/rollout.ts#MaterializationRollout",
-      "codec": "src/definition/rollout.ts#MaterializationRollout.codec",
-      "store": "src/definition/rollout.ts#MaterializationControlStore",
-      "tests": [
-        "test/definition/rollout.test.ts#materialization rollout and outbox [definition.materialization-rollout] [definition.materialization-outbox] round-trips rollout and outbox codecs and rejects malformed states"
+        "test/definition/attestation.test.ts#ValidationAttestation [definition.validation-attestation] round-trips every validation input under one content-derived identity",
+        "test/definition/rollout.test.ts#materialization rollout and outbox [definition.validation-attestation] persists immutable validation attestations in Tenant control storage"
       ]
     }
   ]

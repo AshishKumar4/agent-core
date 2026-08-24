@@ -1,4 +1,12 @@
-export { DeploymentId, DeploymentKey, MaterializationGenerationId, PackageId } from "./id";
+export {
+    DeploymentId,
+    DeploymentKey,
+    FacetInstallFailureId,
+    MaterializationGenerationId,
+    PackageId
+} from "./id";
+export { FacetInstallFailure, FacetInstallPhase } from "./install-outcome";
+export type { FacetInstallFailureInit } from "./install-outcome";
 export { PackageCodeEntrypoint, PackageCodeManifest, PackageCodeModule } from "./code-manifest";
 export type {
     PackageCodeEntrypointInit,
@@ -88,6 +96,7 @@ export type {
 export {
     POLICY_IMPACTS,
     PolicySet,
+    TreeMergePolicy,
     enforcementFloor,
     evaluatePolicy,
     mergePolicySets
@@ -97,7 +106,8 @@ export type {
     EnforcementTierOverrides,
     PolicyDecision,
     PolicyEvaluationInput,
-    PolicySetInit
+    PolicySetInit,
+    TreeMergeSetting
 } from "./policy";
 export { ManagedOrigin } from "./origin";
 export type { ManagedOriginInit } from "./origin";

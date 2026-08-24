@@ -77,6 +77,10 @@ const placementSource = new (class extends PlacementSourcePort {
     public substrateModes(_release: PackageRelease, _manifest: FacetManifest) {
         return ["dynamic", "provider", "bundled"] as const;
     }
+
+    public authoredCodeBackingDefault(): undefined {
+        return undefined;
+    }
 })();
 const topology = new (class extends MaterializationTopologyPort {
     public actorFor(_validated: ValidatedBlueprint, projection: DesiredProjection): ActorRef {
@@ -177,7 +181,8 @@ describe("materialization planning", () => {
                 approvals: ["execute"],
                 maxDirectRevocationWindowMs: null,
                 placement: { allowed: ["dynamic", "provider", "bundled"], trusted: ["*"] },
-                tiers: {}
+                tiers: {},
+                treeMerge: null
             });
             expect(Object.isFrozen(projection.desired)).toBe(true);
             expect(Object.isFrozen(requireObject(projection.desired)["placement"])).toBe(true);
@@ -408,7 +413,8 @@ describe("materialization planning", () => {
                     backings: {},
                     trusted: ["*"]
                 },
-                tiers: {}
+                tiers: {},
+                treeMerge: null
             }
         });
         const canonical = policyProjection(
@@ -504,7 +510,8 @@ describe("materialization planning", () => {
                             approvals: [],
                             maxDirectRevocationWindowMs: null,
                             placement: { allowed: [], backings: {}, trusted: ["*"] },
-                            tiers: {}
+                            tiers: {},
+                            treeMerge: null
                         }
                     })
             ).toThrow(/must not be empty/);
@@ -652,7 +659,7 @@ describe("materialization planning", () => {
                     ActorPlan.decode(
                         encodeCanonicalJson({
                             ...requireObject(decodeCanonicalJson(ActorPlan.encode(actorPlan))),
-                            version: { major: 2, minor: 0 }
+                            version: { major: 3, minor: 0 }
                         })
                     ),
                 "codec.unknown-major"

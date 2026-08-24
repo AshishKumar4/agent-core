@@ -27,20 +27,116 @@ export const POLICY_IMPACTS: readonly Impact[] = Object.freeze([
     "administer"
 ]);
 
+/**
+ * SPEC §5.2.1: how a merge resolves the tree its two parents share. The three settings are
+ * the whole vocabulary and the platform never picks silently, so this is a value object
+ * whose cases carry the two facts a merge needs — which side a wholesale resolution
+ * records, and whether a path changed on both sides is a conflict the operator resolves.
+ * Absence is not a fourth setting: a Blueprint that omits it declares a platform whose
+ * branches own disjoint Environments, and a merge that would need a side is rejected
+ * rather than guessed (C13-RUN-TREE-CONFLICT-EXPLICIT).
+ */
+export type TreeMergeSetting = "ours" | "theirs" | "perPath";
+
+export abstract class TreeMergePolicy {
+    public static get ours(): TreeMergePolicy {
+        return oursTreeMerge;
+    }
+
+    public static get theirs(): TreeMergePolicy {
+        return theirsTreeMerge;
+    }
+
+    public static get perPath(): TreeMergePolicy {
+        return perPathTreeMerge;
+    }
+
+    public static fromData(value: JsonValue | undefined): TreeMergePolicy | undefined {
+        if (value === undefined || value === null) return undefined;
+        const declared = TREE_MERGE_POLICIES.find((policy) => policy.label === value);
+        if (declared === undefined) {
+            throw new TypeError(
+                `Tree merge policy must be one of ${TREE_MERGE_POLICIES.map((policy) => policy.label).join(", ")}`
+            );
+        }
+        return declared;
+    }
+
+    public abstract readonly label: TreeMergeSetting;
+
+    /** The side a wholesale resolution records, or nothing when resolution is per path. */
+    public abstract get side(): "ours" | "theirs" | undefined;
+
+    /** Whether a path both sides changed is a conflict the operator resolves explicitly. */
+    public abstract get surfacesConflicts(): boolean;
+
+    public equals(other: TreeMergePolicy): boolean {
+        return this === other;
+    }
+
+    public toData(): JsonValue {
+        return this.label;
+    }
+}
+
+class WholesaleTreeMerge extends TreeMergePolicy {
+    public constructor(public readonly label: "ours" | "theirs") {
+        super();
+        Object.freeze(this);
+    }
+
+    public get side(): "ours" | "theirs" {
+        return this.label;
+    }
+
+    public get surfacesConflicts(): false {
+        return false;
+    }
+}
+
+class PerPathTreeMerge extends TreeMergePolicy {
+    public readonly label = "perPath";
+
+    public get side(): undefined {
+        return undefined;
+    }
+
+    public get surfacesConflicts(): true {
+        return true;
+    }
+}
+
+const oursTreeMerge = Object.freeze(new WholesaleTreeMerge("ours"));
+const theirsTreeMerge = Object.freeze(new WholesaleTreeMerge("theirs"));
+const perPathTreeMerge = Object.freeze(new PerPathTreeMerge());
+const TREE_MERGE_POLICIES: readonly TreeMergePolicy[] = Object.freeze([
+    oursTreeMerge,
+    theirsTreeMerge,
+    perPathTreeMerge
+]);
+
 export interface PolicySetInit {
     readonly tiers?: EnforcementTierOverrides;
     readonly approvals?: readonly Impact[];
     readonly placement?: PlacementPolicy;
     readonly maxDirectRevocationWindowMs?: number;
+    readonly treeMerge?: TreeMergePolicy;
 }
 
 class PolicySetCodec extends RecordCodec<PolicySet> {
     public constructor() {
         super(
-            [PolicySet, AuthoredCodeBackingPolicy, PlacementPolicy, AuthoredCodeBackingId, TextId],
+            [
+                PolicySet,
+                AuthoredCodeBackingPolicy,
+                PlacementPolicy,
+                AuthoredCodeBackingId,
+                TextId,
+                TreeMergePolicy
+            ],
             "definition.policy-set",
             {
-                major: 2,
+                major: 3,
                 minor: 0
             }
         );
@@ -63,6 +159,11 @@ export class PolicySet {
     public readonly approvals: readonly Impact[];
     public readonly placement: PlacementPolicy;
     public readonly maxDirectRevocationWindowMs: number | undefined;
+    /**
+     * Present only when the Blueprint declares it. Absence is the declaration that this
+     * platform's branches own disjoint Environments, so a merge needing a side is refused.
+     */
+    public readonly treeMerge: TreeMergePolicy | undefined;
 
     public constructor(init: PolicySetInit = {}) {
         this.tiers = canonicalTiers(init.tiers ?? {});
@@ -71,6 +172,7 @@ export class PolicySet {
         this.maxDirectRevocationWindowMs = validateDirectRevocationWindow(
             init.maxDirectRevocationWindowMs
         );
+        this.treeMerge = init.treeMerge;
         Object.freeze(this);
     }
 
@@ -93,16 +195,19 @@ export class PolicySet {
                 "approvals",
                 "maxDirectRevocationWindowMs",
                 "placement",
-                "tiers"
+                "tiers",
+                "treeMerge"
             ])
         ) {
             throw new TypeError("Policy set contains missing or unknown fields");
         }
+        const treeMerge = TreeMergePolicy.fromData(object["treeMerge"]);
         return new PolicySet({
             tiers: requireTiers(object["tiers"]),
             approvals: requireImpactArray(object["approvals"], "Policy approvals"),
             ...decodeOptionalDirectRevocationWindow(object["maxDirectRevocationWindowMs"]),
-            placement: PlacementPolicy.fromData(object["placement"])
+            placement: PlacementPolicy.fromData(object["placement"]),
+            ...(treeMerge && { treeMerge })
         });
     }
 
@@ -119,7 +224,8 @@ export class PolicySet {
             approvals: this.approvals,
             maxDirectRevocationWindowMs: this.maxDirectRevocationWindowMs ?? null,
             placement: this.placement.toData(),
-            tiers: this.tiers
+            tiers: this.tiers,
+            treeMerge: this.treeMerge?.toData() ?? null
         };
     }
 }

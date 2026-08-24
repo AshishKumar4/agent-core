@@ -386,16 +386,18 @@ describe("MemoryMaterializationControlStore integrity", () => {
         const [planA, planB] = first.plan.actors;
         const entryA = MaterializationOutboxEntry.pending(first.id, planA!);
         const entryB = MaterializationOutboxEntry.pending(first.id, planB!);
-        expect([entryA.id.value, entryB.id.value].sort()).toEqual([
-            entryA.id.value,
-            entryB.id.value
-        ]);
+        // The claim is that listOutbox answers in canonical id order, so the fixture derives
+        // that order rather than assuming which digest wins and inserts against it: an
+        // assumed order makes the assertion vacuous the moment a plan digest changes.
+        const ordered = [entryA, entryB].sort((left, right) =>
+            left.id.value < right.id.value ? -1 : 1
+        );
         store.transaction((transaction) => {
             store.insertAttestation(transaction, validationAttestation(2));
             store.insertRollout(transaction, first);
             store.insertRollout(transaction, second);
-            store.insertOutbox(transaction, entryB);
-            store.insertOutbox(transaction, entryA);
+            store.insertOutbox(transaction, ordered[1]!);
+            store.insertOutbox(transaction, ordered[0]!);
             store.insertOutbox(
                 transaction,
                 MaterializationOutboxEntry.pending(second.id, second.plan.actors[0]!)
@@ -414,7 +416,7 @@ describe("MemoryMaterializationControlStore integrity", () => {
             store
                 .transaction((transaction) => store.listOutbox(transaction, first.id))
                 .map((entry) => entry.id.value)
-        ).toEqual([entryA.id.value, entryB.id.value]);
+        ).toEqual(ordered.map((entry) => entry.id.value));
     });
 });
 

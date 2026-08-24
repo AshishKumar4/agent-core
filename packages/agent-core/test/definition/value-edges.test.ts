@@ -245,7 +245,8 @@ describe("definition value boundaries", () => {
                     placement: { allowed: ["dynamic"], backings: {}, trusted: ["*"] },
                     tiers: {
                         execute: "invalid"
-                    }
+                    },
+                    treeMerge: null
                 })
             ).toThrow(/tier/);
             expect(() =>
@@ -253,7 +254,8 @@ describe("definition value boundaries", () => {
                     approvals: "execute",
                     maxDirectRevocationWindowMs: null,
                     placement: { allowed: ["dynamic"], backings: {}, trusted: ["*"] },
-                    tiers: {}
+                    tiers: {},
+                    treeMerge: null
                 })
             ).toThrow(/array/);
             expect(() => new PolicySet({ approvals: [forged<Impact>("invalid")] })).toThrow(/impact/);

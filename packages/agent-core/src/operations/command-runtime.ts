@@ -252,7 +252,10 @@ function schemaAtPointer(
 ): JsonSchemaDocument | undefined {
     let current: JsonSchemaDocument | undefined = document;
     for (const segment of pointerSegments(pointer)) {
-        if (current === undefined) return undefined;
+        // A boolean schema carries no subschema, so the walk ends there rather than indexing
+        // a value with no members: `true` admits anything and `false` admits nothing, and
+        // neither names the segment.
+        if (!isJsonObject(current)) return undefined;
         const properties = schemaMap(current["properties"]);
         if (properties !== undefined && Object.hasOwn(properties, segment)) {
             current = schemaDocument(properties[segment]);

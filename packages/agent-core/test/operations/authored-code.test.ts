@@ -529,10 +529,13 @@ describe("running one submission of agent-authored code", () => {
 // the check: the passed set is the entire reach of an isolate holding no ambient authority,
 // and the offered set is what a profile will hand a consumer's code to run in.
 describe("the sets a §4.7 isolate is built from", () => {
+    // Structurally complete and still not the canonical record: the refusal is by class
+    // identity, so a shape that matches field for field must not be admitted.
     const impostorCapability = {
         name: impostorBinding,
         facet: mailFacet,
-        package: new FacetPackageId("core")
+        package: new FacetPackageId("core"),
+        operations: []
     };
     const impostorBacking = {
         id: workerLoader,

@@ -18,6 +18,7 @@ import {
     FacetPackageId,
     FacetRef,
     InterceptorId,
+    OperationAvailability,
     OperationDescriptor,
     OperationName,
     OperationRef,
@@ -623,6 +624,7 @@ class ModelInputCodec extends RecordCodec<TurnModelInput> {
                 FacetPackageId,
                 FacetRef,
                 OperationDescriptor,
+                OperationAvailability,
                 OperationName,
                 OperationRef,
                 TurnInboxEntryId,
@@ -794,9 +796,9 @@ export class TurnModelInputReplay<Transaction> {
             const load = (id: RunCommitId): RunCommit | undefined =>
                 this.records.repository.loadCommit(transaction, id);
             return Object.freeze(
-                accountableTranscript(
-                    effectiveTranscript(effectiveCommitOf(load, base), load)
-                ).map((commit) => commit.id)
+                accountableTranscript(effectiveTranscript(effectiveCommitOf(load, base), load)).map(
+                    (commit) => commit.id
+                )
             );
         });
     }
@@ -811,11 +813,7 @@ export class TurnModelInputReplay<Transaction> {
      * every reconstruction calls it again, so a surface written by any other writer is
      * refused on the way out even though nothing refused it on the way in.
      */
-    public requireAccounted(
-        input: RunCommitId,
-        base: RunCommitId,
-        record: TurnModelInput
-    ): void {
+    public requireAccounted(input: RunCommitId, base: RunCommitId, record: TurnModelInput): void {
         const accountable = this.accountable(base);
         const covered = record.covers;
         if (covered.length !== accountable.length) {
@@ -1479,7 +1477,9 @@ class ScopedModelInputHandle<Transaction> extends TurnModelInputHandle {
     }
 
     public async accountable(): Promise<readonly RunCommitId[]> {
-        return this.scope.withActive(async () => this.replay.accountable(this.scope.active().head.id));
+        return this.scope.withActive(async () =>
+            this.replay.accountable(this.scope.active().head.id)
+        );
     }
 }
 
@@ -1710,10 +1710,7 @@ const admitStepRewrite: TurnRewriteRule = (before, after, interceptor) => {
     for (const [index, annotation] of next.annotations.entries()) {
         const kept = previous.annotations[index];
         if (kept !== undefined) {
-            if (
-                !kept.interceptor.equals(annotation.interceptor) ||
-                kept.note !== annotation.note
-            ) {
+            if (!kept.interceptor.equals(annotation.interceptor) || kept.note !== annotation.note) {
                 throw refusedRewrite(
                     "A turn.step rewrite may not rewrite another interceptor's annotation"
                 );

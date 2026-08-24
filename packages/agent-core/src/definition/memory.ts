@@ -6,6 +6,7 @@ import {
     type TransactionOperation
 } from "../actors";
 import { Digest, Revision, SemVer } from "../core";
+import type { ContributionAttribution } from "../facets";
 import { MaterializationGenerationId, PackageId, type DeploymentId } from "./id";
 import {
     DeploymentRecord,
@@ -21,6 +22,7 @@ import { compareText } from "./order";
 import type { MaterializationPlan } from "./plan";
 import { ValidationAttestation } from "./attestation";
 import { corruptDefinition, definitionRevisionConflict, invalidDefinitionState } from "./error";
+import { FacetInstallFailure } from "./install-outcome";
 import { requireMaterializationKind } from "./materialization-kind";
 import {
     MaterializationStore,
@@ -447,6 +449,12 @@ export interface MemoryMaterializationControlSnapshot {
     readonly deployments: readonly Uint8Array[];
     readonly rollouts: readonly Uint8Array[];
     readonly outbox: readonly Uint8Array[];
+    /**
+     * Recorded failed installs. Unlike rollouts and outbox entries, a failed install closes
+     * nothing, so an absent key restores the same empty evidence set a store built with no
+     * snapshot at all holds.
+     */
+    readonly installFailures?: readonly Uint8Array[];
 }
 
 interface MemoryMaterializationControlState {
@@ -454,6 +462,7 @@ interface MemoryMaterializationControlState {
     readonly deployments: Map<string, Uint8Array>;
     readonly rollouts: Map<string, Uint8Array>;
     readonly outbox: Map<string, Uint8Array>;
+    readonly installFailures: Map<string, Uint8Array>;
 }
 
 export class MemoryMaterializationControlStore extends MaterializationControlStore<MemoryMaterializationControlState> {
@@ -468,7 +477,11 @@ export class MemoryMaterializationControlStore extends MaterializationControlSto
             ),
             deployments: installControlRows(snapshot?.deployments ?? [], DeploymentRecord.decode),
             rollouts: installControlRows(snapshot?.rollouts ?? [], MaterializationRollout.decode),
-            outbox: installControlRows(snapshot?.outbox ?? [], MaterializationOutboxEntry.decode)
+            outbox: installControlRows(snapshot?.outbox ?? [], MaterializationOutboxEntry.decode),
+            installFailures: installControlRows(
+                snapshot?.installFailures ?? [],
+                FacetInstallFailure.decode
+            )
         };
         this.validateClosure();
     }
@@ -488,7 +501,8 @@ export class MemoryMaterializationControlStore extends MaterializationControlSto
             attestations: frozenControlRows(this.#state.attestations),
             deployments: frozenControlRows(this.#state.deployments),
             rollouts: frozenControlRows(this.#state.rollouts),
-            outbox: frozenControlRows(this.#state.outbox)
+            outbox: frozenControlRows(this.#state.outbox),
+            installFailures: frozenControlRows(this.#state.installFailures)
         });
     }
 
@@ -636,6 +650,30 @@ export class MemoryMaterializationControlStore extends MaterializationControlSto
         return true;
     }
 
+    public insertInstallFailure(
+        transaction: MemoryMaterializationControlState,
+        failure: FacetInstallFailure
+    ): void {
+        insertControlImmutable(
+            transaction.installFailures,
+            failure.id.value,
+            FacetInstallFailure.encode(failure),
+            "Facet install failure"
+        );
+    }
+
+    public listInstallFailures(
+        transaction: MemoryMaterializationControlState,
+        attribution: ContributionAttribution
+    ): readonly FacetInstallFailure[] {
+        return Object.freeze(
+            [...transaction.installFailures.values()]
+                .map((bytes) => FacetInstallFailure.decode(bytes))
+                .filter((failure) => failure.attribution.equals(attribution))
+                .sort((left, right) => compareText(left.id.value, right.id.value))
+        );
+    }
+
     private validateClosure(): void {
         this.transaction((transaction) => {
             for (const bytes of transaction.rollouts.values()) {
@@ -726,7 +764,8 @@ function cloneControlState(
         attestations: copyByteMap(state.attestations),
         deployments: copyByteMap(state.deployments),
         rollouts: copyByteMap(state.rollouts),
-        outbox: copyByteMap(state.outbox)
+        outbox: copyByteMap(state.outbox),
+        installFailures: copyByteMap(state.installFailures)
     };
 }
 

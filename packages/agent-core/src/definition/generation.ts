@@ -43,7 +43,7 @@ import {
     PlacementPolicy,
     PlacementSelection
 } from "./placement";
-import { PolicySet } from "./policy";
+import { PolicySet, TreeMergePolicy } from "./policy";
 
 export interface ManagedStateRecordInit {
     readonly actor: ActorRef;
@@ -72,6 +72,7 @@ class ManagedStateRecordCodec extends RecordCodec<ManagedStateRecord> {
                 MaterializationGenerationId,
                 BindingName,
                 PolicySet,
+                TreeMergePolicy,
                 FacetPackageId,
                 PlacementInput,
                 PlacementSelection,
@@ -93,7 +94,7 @@ class ManagedStateRecordCodec extends RecordCodec<ManagedStateRecord> {
             ],
             "definition.managed-state",
             {
-                major: 2,
+                major: 3,
                 minor: 0
             }
         );

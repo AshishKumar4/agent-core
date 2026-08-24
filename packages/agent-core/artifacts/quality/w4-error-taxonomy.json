@@ -525,10 +525,66 @@
       "occurrence": 1
     },
     {
+      "declarationSha256": "f884a5aa37d68138198c2fec1298276e8a82a22d599af42f9392f1eb22741a0b",
+      "file": "src/definition/id.ts",
+      "symbol": "FacetInstallFailureId.constructor",
+      "statementSha256": "f64073a0110faa6b6265277b81fa90dd1e256f51857714a11c341199fe6a7854",
+      "occurrence": 1
+    },
+    {
       "declarationSha256": "07db1e7bb23e885586f8ac28fc2e3d46ef64438a801c84203499c279d6145c7c",
       "file": "src/definition/id.ts",
       "symbol": "MaterializationGenerationId.constructor",
       "statementSha256": "5788aae4a74fb54c4be29a02fef2bf336c8a197913583b1f3de06c520ca75a45",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "05a0e5fd0f2adef6b9c3f0c07d50bbde17cf17aefbd47a222bcbc3ab0523a868",
+      "file": "src/definition/install-outcome.ts",
+      "symbol": "FacetInstallFailure.constructor",
+      "statementSha256": "3078b2078c5c7f5d7c95511da92a895c127a682dff5f0fd67623a6323898dd74",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "05a0e5fd0f2adef6b9c3f0c07d50bbde17cf17aefbd47a222bcbc3ab0523a868",
+      "file": "src/definition/install-outcome.ts",
+      "symbol": "FacetInstallFailure.constructor",
+      "statementSha256": "5033b53244a72eed0e03ee242849d774ed3062fb6c50e7764192a0f5f37906ec",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "05a0e5fd0f2adef6b9c3f0c07d50bbde17cf17aefbd47a222bcbc3ab0523a868",
+      "file": "src/definition/install-outcome.ts",
+      "symbol": "FacetInstallFailure.constructor",
+      "statementSha256": "5adc42626a85acb1b7d85b4684e05492bffbca395e3bd4cc6af1658dc6fea791",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "05a0e5fd0f2adef6b9c3f0c07d50bbde17cf17aefbd47a222bcbc3ab0523a868",
+      "file": "src/definition/install-outcome.ts",
+      "symbol": "FacetInstallFailure.constructor",
+      "statementSha256": "808a0c956047cfcf975297a611b5bad5e3b9d64cde971707eefdbf44dab3c371",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "05a0e5fd0f2adef6b9c3f0c07d50bbde17cf17aefbd47a222bcbc3ab0523a868",
+      "file": "src/definition/install-outcome.ts",
+      "symbol": "FacetInstallFailure.constructor",
+      "statementSha256": "9aa6a40f08cbb51d28decd78722dbd994466fc6d708967253be873695395a82f",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "05a0e5fd0f2adef6b9c3f0c07d50bbde17cf17aefbd47a222bcbc3ab0523a868",
+      "file": "src/definition/install-outcome.ts",
+      "symbol": "FacetInstallFailure.constructor",
+      "statementSha256": "cca6b4d7b580837579b9c4079f7561f35ba5b5936a1bfa17dab49aab25f558e1",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "3bc2633d4e246668a16bc030c6eae8b01c0eb5135fe52f51ffdaf3473221824a",
+      "file": "src/definition/install-outcome.ts",
+      "symbol": "FacetInstallPhase.fromData",
+      "statementSha256": "474e41f2008770bbf58b682643ab4666167198ee1b2240665fd8d85d02184553",
       "occurrence": 1
     },
     {
@@ -994,10 +1050,17 @@
       "occurrence": 1
     },
     {
-      "declarationSha256": "e489f8ee8c2c0ad3a8a1555442b25bb4cf93f63b9445747f3f3933bdb6b40ead",
+      "declarationSha256": "349ff09fabede5f76b721ec55b629533b8ea100e88e9bdecc0f6294ba871c55b",
       "file": "src/definition/policy.ts",
       "symbol": "PolicySet.fromData",
       "statementSha256": "b5c00a9c6c05894a1de3099f48ee4afa4acb99f9c31f5ea671b663b605454420",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "6c890671e73d2ffcc3e8e9779176b1ca880b85581e21d5e7defad0cdbab5b5fa",
+      "file": "src/definition/policy.ts",
+      "symbol": "TreeMergePolicy.fromData",
+      "statementSha256": "6a8785e396bba69a311f35ccf2c06db231b6effd0e03ac4ebfefc660b4c4e175",
       "occurrence": 1
     },
     {
@@ -1200,16 +1263,16 @@
     }
   ],
   "expected": {
-    "agentCoreOperationalThrows": 244,
-    "allowedTypeErrors": 168,
+    "agentCoreOperationalThrows": 249,
+    "allowedTypeErrors": 177,
     "preservedRethrows": 1,
     "bareErrors": 0
   },
   "expectedOperationalByCode": {
-    "codec.invalid": 114,
-    "operation.invalid-input": 37,
+    "codec.invalid": 115,
+    "operation.invalid-input": 40,
     "protocol.invalid-envelope": 5,
-    "protocol.invalid-state": 71,
+    "protocol.invalid-state": 72,
     "protocol.revision-conflict": 17
   }
 }

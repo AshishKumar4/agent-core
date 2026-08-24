@@ -62,6 +62,12 @@ const placementSource = new (class extends PlacementSourcePort {
     public substrateModes(_release: PackageRelease, _manifest: FacetManifest) {
         return ["dynamic", "provider", "bundled"] as const;
     }
+
+    // This profile hosts no §4.7 agent-authored code, so it declares no default backing
+    // and a `code`-available Operation is refused at validation rather than assumed.
+    public authoredCodeBackingDefault(): undefined {
+        return undefined;
+    }
 })();
 
 const topology = new (class extends MaterializationTopologyPort {

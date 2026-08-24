@@ -335,6 +335,10 @@ describe("production Blueprint validation-before-load", () => {
                     public substrateModes() {
                         return ["dynamic", "provider"] as const;
                     }
+
+                    public authoredCodeBackingDefault(): undefined {
+                        return undefined;
+                    }
                 })(),
                 content: { get: async (reference) => content.get(reference.value)!.slice() },
                 inspector: new (class extends PackageModuleInspector {
@@ -814,6 +818,10 @@ function allModePlacement(): PlacementSourcePort {
     return new (class extends PlacementSourcePort {
         public substrateModes(_release: PackageRelease, _manifest: FacetManifest) {
             return ["dynamic", "provider", "bundled"] as const;
+        }
+
+        public authoredCodeBackingDefault(): undefined {
+            return undefined;
         }
     })();
 }
