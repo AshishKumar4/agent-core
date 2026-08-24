@@ -285,15 +285,15 @@ theorem globMatches_of_substStar {fresh : Char} {pattern value : List Char}
       | cons childHead childTail =>
           simp only [substStar, List.cons.injEq] at shape
           have notFresh : atom ≠ fresh := fun equal =>
-            absent (equal ▸ List.mem_cons_self atom rest)
+            absent (equal ▸ List.mem_cons_self)
           by_cases star : childHead = '*'
           · exact absurd (shape.1.trans (if_pos star)) notFresh
           · have head : atom = childHead := shape.1.trans (if_neg star)
-            have inner := ih childTail shape.2 fun member => absent (List.mem_cons_of_mem atom member)
+            have inner := ih childTail shape.2 fun member => absent (List.Mem.tail atom member)
             exact head ▸ .lit (head ▸ notStar) inner
   | @starSkip rest value _ ih =>
       intro child shape absent
-      exact .starSkip (ih child shape fun member => absent (List.mem_cons_of_mem '*' member))
+      exact .starSkip (ih child shape fun member => absent (List.Mem.tail '*' member))
   | @starEat rest head value _ ih =>
       intro child shape absent
       cases child with
@@ -387,7 +387,7 @@ theorem lookupArgument_mem {table : List (ArgumentPath × CanonicalValue)}
           simp only [Option.some.injEq] at found
           cases found
           simp
-      · exact List.mem_cons_of_mem _ (ih found)
+      · exact List.Mem.tail _ (ih found)
 
 /-- Admission semantics: which intents a capability admits. -/
 def Capability.Matches (spec : Capability) (intent : CapabilityIntent) : Prop :=
@@ -484,7 +484,7 @@ theorem le_maxOperationLength {operations : List String} {operation : String}
 
 /-- An Operation name outside any finite set: longer than every member. -/
 def freshOperation (operations : List String) : String :=
-  ⟨List.replicate (maxOperationLength operations + 1) 'a'⟩
+  String.ofList (List.replicate (maxOperationLength operations + 1) 'a')
 
 theorem freshOperation_not_mem (operations : List String) :
     freshOperation operations ∉ operations := by
@@ -519,7 +519,7 @@ theorem capability_covering_is_complete {parent child : Capability}
   obtain ⟨childImpact, childImpactMember⟩ : ∃ impact, impact ∈ child.impacts := by
     cases hypothesis : child.impacts with
     | nil => exact absurd hypothesis validChild.impacts
-    | cons head _ => exact ⟨head, List.mem_cons_self _ _⟩
+    | cons head _ => exact ⟨head, List.mem_cons_self⟩
   have defaultOperation : child.operations = [] ∨
       (child.operations.headD "") ∈ child.operations := by
     cases child.operations with

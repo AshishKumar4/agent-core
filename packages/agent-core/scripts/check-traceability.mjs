@@ -1008,9 +1008,25 @@ const reportOutput = runLakeOrExit(
 const reported = new Map();
 const observedAxioms = new Set();
 let candidateReportLineCount = 0;
+// Lean 4.33 renders axiom lists with more than one entry one per physical
+// line, so a designation record may span several lines until its `]`.
+const reportRecords = [];
 for (const rawLine of reportOutput.split(/\r?\n/)) {
     const line = rawLine.trim();
+    if (!line) continue;
+    const previous = reportRecords[reportRecords.length - 1];
+    if (
+        previous !== undefined &&
+        previous.includes("depends on axioms: [") &&
+        !previous.endsWith("]")
+    ) {
+        reportRecords[reportRecords.length - 1] = `${previous} ${line}`;
+        continue;
+    }
     if (!line.startsWith("'") || !line.includes("depend")) continue;
+    reportRecords.push(line);
+}
+for (const line of reportRecords) {
     candidateReportLineCount += 1;
     const match =
         /^'([^']+)' (?:does not depend on any axioms|depends on axioms: \[([^\]]*)\])$/.exec(line);

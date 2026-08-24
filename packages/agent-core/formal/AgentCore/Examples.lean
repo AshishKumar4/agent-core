@@ -372,7 +372,7 @@ theorem nonvacuous_same_attempt_supersession :
     (attempt := attempt0)
   · rfl
   · rfl
-  · simp [supersedeBefore, supersedingReceipt]
+  · simp [supersedeBefore]
   · rfl
   · rfl
   · rfl
@@ -1104,7 +1104,7 @@ theorem nonvacuous_forced_sibling_system_fence :
     · exact Or.inl rfl
     · rfl
     · exact terminalControlAuditCause
-    · exact ⟨rootAudit, by simp [terminalAuditLog, synthesisAuditLog, auditOne], rfl⟩
+    · exact ⟨rootAudit, by simp [terminalAuditLog, synthesisAuditLog], rfl⟩
     · exact .terminalFence
     · rfl
   · apply GraphStep.terminalize (run := run) (turn := runningTurn) (token := token)
@@ -1156,7 +1156,7 @@ theorem nonvacuous_forced_sibling_system_fence :
     · rfl
     · rfl
     · rfl
-    · exact ⟨rootAudit, by simp [terminalAuditLog, synthesisAuditLog, auditOne], rfl⟩
+    · exact ⟨rootAudit, by simp [terminalAuditLog, synthesisAuditLog], rfl⟩
     · rfl
     · rfl
     · rfl
@@ -1226,7 +1226,7 @@ private theorem attemptedReceiptStep :
     · simp [attemptedReceiptBeforeState, attemptedReceiptBeforeEffects, successReceipt, attempt0]
     · rfl
     · rfl
-  · simp [attemptedReceiptAfterState, attemptedReceiptAfterEffects,
+  · simp [attemptedReceiptAfterEffects,
       EffectLedger.addAttemptReceipt]
   · exact attemptedReceiptAuditAppend
 
@@ -1688,8 +1688,7 @@ theorem nonvacuous_persisted_approval_continuation :
     startedState.approvals.Continues actionApproval actionPrepared := by
   refine ⟨⟨actionApproval, actionInvocation, actionPrepared.identity, actionPrepared.digest, ⟨50⟩⟩,
     ?_, ?_, rfl, rfl, rfl, rfl⟩
-  · simp [startedState, ApprovalLedger.consume, actionPrepared, actionHeader, noTurnHeader,
-      actionInvocation]
+  · simp [startedState, ApprovalLedger.consume, actionPrepared, actionHeader, noTurnHeader]
   · simp [startedState, ApprovalLedger.consume, actionPrepared, actionHeader, noTurnHeader,
       actionInvocation]
 
@@ -1819,7 +1818,7 @@ theorem nonvacuous_request_approve_start_trace :
     · rfl
     · decide
   · have approvedReady : MediatedReady approvedState actionFirstRequest := by
-      simpa [approvedState, requestedState] using actionFirstReady
+      exact actionFirstReady
     constructor
     · apply MediatedStep.claimItem (request := actionFirstRequest) (claim := actionClaim)
         (effects' := claimedEffects) approvedReady
@@ -1844,7 +1843,7 @@ theorem nonvacuous_request_approve_start_trace :
         · rfl
         · rfl
     · have claimedReady : MediatedReady claimedState actionFirstRequest := by
-        simpa [claimedState] using approvedReady
+        exact approvedReady
       change MediatedStep claimedState
         (.approvalStart actionApproval actionPrepared.header.invocation ⟨50⟩ ⟨50⟩)
         startedState
@@ -1899,7 +1898,7 @@ theorem nonvacuous_approval_start_then_continue :
       (.approvalContinue actionApproval actionInvocation ⟨51⟩ ⟨51⟩) continuedState := by
   refine ⟨nonvacuous_request_approve_start_trace.2.2.2, ?_, ?_⟩
   · have ready : MediatedReady startedState actionSecondRequest := by
-      simpa [startedState, claimedState, approvedState, requestedState] using actionSecondReady
+      exact actionSecondReady
     apply MediatedStep.claimItem (request := actionSecondRequest) (claim := actionSecondClaim)
       (effects' := secondClaimedEffects) ready
     · change actionSecondRequest.ReservesItem 1
@@ -1918,7 +1917,6 @@ theorem nonvacuous_approval_start_then_continue :
         (item := ⟨1, secondArgs,
           deriveItemKey actionHeader actionPrepared.payload 1 secondArgs⟩)
       · simp [startedState, startedEffects, claimedState, claimedEffects, requestedEffects,
-          secondClaimedEffects,
           actionSecondClaim, EffectLedger.addAttempt, EffectLedger.recordAdmission,
           EffectLedger.setClaim, tableSet_self]
       · rfl
@@ -1929,9 +1927,8 @@ theorem nonvacuous_approval_start_then_continue :
       · decide
       · rfl
       · rfl
-  · have ready : MediatedReady secondClaimedState actionSecondRequest := by
-      simpa [secondClaimedState, startedState, claimedState, approvedState, requestedState]
-        using actionSecondReady
+  · have ready : MediatedReady secondClaimedState actionSecondRequest :=
+      (actionSecondReady : MediatedReady secondClaimedState actionSecondRequest)
     apply MediatedStep.approvalContinue (state := secondClaimedState)
       (request := actionSecondRequest)
       (approvalId := actionApproval) (attempt := actionSecondAttempt)
@@ -1946,7 +1943,7 @@ theorem nonvacuous_approval_start_then_continue :
         noTurnHeader,
         actionInvocation, EffectLedger.addAttempt, EffectLedger.recordAdmission,
         EffectLedger.setClaim, tableSet_self]
-    · simpa [secondClaimedState] using nonvacuous_persisted_approval_continuation
+    · exact nonvacuous_persisted_approval_continuation
     · simp [secondClaimedState, startedState, ApprovalLedger.consume, actionSecondRequest,
         actionRequest,
         actionPrepared, actionHeader, noTurnHeader, actionInvocation, tableSet_self]
@@ -1979,7 +1976,7 @@ theorem nonvacuous_approval_start_then_continue :
             actionSecondAttempt, EffectLedger.setClaim, tableSet_self],
           by simp [EffectLedger.recordAdmission, secondClaimedState, secondClaimedEffects,
             startedEffects, claimedEffects, requestedEffects, actionSecondClaim,
-            actionSecondAttempt, EffectLedger.setClaim, tableSet_self],
+            actionSecondAttempt, EffectLedger.setClaim],
           ⟨rfl, rfl, rfl, rfl, rfl⟩, by decide⟩
       · rfl
       · rfl
@@ -2155,7 +2152,7 @@ theorem nonvacuous_stale_mediated_denial :
       (scope := scope) (evidence := ⟨scope, 0⟩)
     · exact actionPathComplete
     · change (⟨scope, 0⟩ : PathEpoch) ∈ [⟨tenantScope, 0⟩, ⟨scope, 0⟩]
-      exact List.mem_cons_of_mem _ (List.mem_cons_self _ _)
+      exact List.Mem.tail _ (List.mem_cons_self)
     · rfl
   · rfl
   · exact AuthorityLedger.AuthorityStep.observe
@@ -2428,7 +2425,7 @@ theorem nonvacuous_distributed_permit_replay_after_restart :
   obtain ⟨reachable, authenticated, blocked⟩ :=
     CanonicalMediatedTrace.canonical_replay_after_restart_is_reauthenticated_but_cannot_reconsume
   refine ⟨_, _, reachable, authenticated, ?_⟩
-  simpa using blocked
+  exact blocked
 
 theorem nonvacuous_missing_target_request_authentication_fails_closed :
     ∃ state target nonce,
@@ -2510,18 +2507,18 @@ theorem nonvacuous_source_reservation_audit_binding :
       by simp [sourceReservedStore, sourceEventStore, reservation], rfl,
       by simp [sourceRouteState, sourceEventAuditLog, reservation], rfl, rfl⟩
 
-private def routePublishStep :
+private theorem routePublishStep :
     EventStep (fun _ => none) ⟨1⟩ (default : EventStore) (.publish reservation.sourceEvent)
       sourceEventStore :=
   EventStep.publish (event := sourceEventRecord) rfl rfl rfl ⟨rfl, rfl⟩
 
-private def routeReserveStep :
+private theorem routeReserveStep :
     EventStep (fun _ => none) ⟨1⟩ sourceEventStore (.reserve reservationId) sourceReservedStore :=
   EventStep.reserveSameTenant (reservation := reservation) (event := sourceEventRecord)
     (source := .initiator principalRef bindingId) rfl rfl
     (by simp [sourceEventStore, reservation]) rfl rfl rfl
 
-private def routeUniquenessReachable :
+private theorem routeUniquenessReachable :
     EventStoreReachable (fun _ => none) ⟨1⟩ sourceReservedStore :=
   .step (.step .boot routePublishStep) routeReserveStep
 
@@ -2844,8 +2841,8 @@ theorem nonvacuous_aggregation_chain :
     simpa using step
   refine ⟨chain, ?_⟩
   have := Representation.MixtureOfAgents.proposers_are_ancestors chain chainProposer
-    (List.mem_singleton.mpr rfl)
-  simpa using this
+  have headEq : chainProposerHeadId = chainProposer.head := rfl
+  simpa [headEq] using this
 
 /-- A disabled Subscription refuses to fire even with a fresh key. -/
 private def disabledLedger : SubscriptionLedger :=
@@ -2930,7 +2927,8 @@ private theorem acceptanceVerifierReceipt :
 private theorem defaultDeclaresNoAcceptance (accId : AcceptanceId) :
     ¬ (default : GraphStore).DeclaresAcceptance accId := by
   intro ⟨candidate, criterion, member, _⟩
-  simp [GraphStore.acceptanceCriteria] at member
+  have runsEmpty : (default : GraphStore).runs candidate = none := rfl
+  simp [GraphStore.acceptanceCriteria, runsEmpty] at member
 
 private theorem writerGraphDeclaresNoAcceptance (accId : AcceptanceId) :
     ¬ writerGraph.DeclaresAcceptance accId := by
@@ -2938,7 +2936,9 @@ private theorem writerGraphDeclaresNoAcceptance (accId : AcceptanceId) :
   by_cases same : candidate = runId
   · rw [same] at member
     simp [GraphStore.acceptanceCriteria, writerGraph, rootGraph, run] at member
-  · simp [GraphStore.acceptanceCriteria, writerGraph, rootGraph, tableSet, same] at member
+  · have runsEmpty : (default : GraphStore).runs candidate = none := rfl
+    simp [GraphStore.acceptanceCriteria, writerGraph, rootGraph, tableSet, same, runsEmpty]
+      at member
 
 private def acceptanceRunRecord : Run :=
   ⟨tenant, workspace, agent, pins, rootCommitId, branchId, none, .active, [acceptanceCriterion]⟩
@@ -2997,7 +2997,7 @@ private theorem acceptanceVerdictRecorded :
 private theorem acceptanceOpenRetryAdmissible (accId : AcceptanceId) (subject : TreeId) :
     acceptanceOpenGraph.AcceptanceRetryAdmissible accId subject := by
   intro verdict member _
-  exact absurd member (by simp [acceptanceOpenGraph, GraphStore.acceptanceVerdicts])
+  exact absurd member (by simp [acceptanceOpenGraph])
 
 private theorem acceptanceVerdictStepOver {effects : EffectLedger} {audit : AuditLog}
     {verdict : AcceptanceVerdict} (named : verdict.acceptance = acceptanceId)
@@ -3096,7 +3096,7 @@ theorem nonvacuous_acceptance_obligation_stays_outstanding :
     have exactly : acceptanceVerdictGraph.admissionRegistry runId = some acceptanceRegistry := by
       simp [acceptanceVerdictGraph, GraphStore.recordVerdict, acceptanceOpenGraph]
     exact Option.some.inj (registryLookup.symm.trans exactly)
-  simp [acceptanceRegistry, RunAdmissionRegistry.outstanding, acceptanceCriterion]
+  simp [acceptanceRegistry, RunAdmissionRegistry.outstanding]
 
 /-- No transition can put the acceptance obligation into the completed frontier: the generic
     completion path refuses it outright, and it is the only path that writes one. -/
@@ -3344,8 +3344,9 @@ theorem nonvacuous_acceptance_settlement_invariants :
       simpa [GraphStore.acceptanceCriteria, acceptanceSettledState,
         acceptanceSettlementRun [verdictAtHead], acceptanceTerminalRun] using declared
     · exact absurd declared (by
+        have runsEmpty : (default : GraphStore).runs candidate = none := rfl
         simp [GraphStore.acceptanceCriteria, acceptanceSettledState, acceptanceSettlementGraph,
-          settledGraph, terminalBefore, rootGraph, tableSet_other _ _ _ same, same])
+          settledGraph, terminalBefore, rootGraph, tableSet_other _ _ _ same, runsEmpty])
   refine ⟨?_, ?_, ?_, ?_⟩
   · intro candidate criterion declared
     obtain ⟨rfl, rfl⟩ := criteria candidate criterion declared
@@ -3375,7 +3376,7 @@ theorem nonvacuous_acceptance_settlement_invariants :
       simp [acceptanceTerminalSnapshot, acceptanceClosedRegistry]
     · exact absurd snapshotLookup (by
         simp [acceptanceSettledState, acceptanceSettlementGraph, settledGraph, terminalBefore,
-          rootGraph, tableSet_other _ _ _ same, same])
+          rootGraph, tableSet_other _ _ _ same])
 
 /-- The headline settlement property on a concrete Settled Run: its one declared criterion
     holds a recorded verdict whose subject is the Run's current head tree, whose Receipt
@@ -3500,7 +3501,7 @@ private theorem undoMessageAllowed :
       messageCommit :=
   ⟨⟨rootCommitId, rootCommit, rfl, writerGraphRoot, rfl⟩,
     ⟨runningTurn, writerGraphTurn, rfl, rfl, rfl, rfl, ⟨rfl, rfl, rfl, by decide⟩,
-      ⟨rootAudit, by simp [terminalAuditLog, synthesisAuditLog, auditOne], rfl⟩⟩,
+      ⟨rootAudit, by simp [terminalAuditLog, synthesisAuditLog], rfl⟩⟩,
     rfl⟩
 
 private theorem undoControlAudit {store : GraphStore} (runLookup : store.runs runId = some run) :
@@ -3538,7 +3539,7 @@ private theorem fencedBranchUnheld (store : GraphStore)
     rw [tableSet_other _ _ _ same] at lookup
     change tableSet (default : GraphStore).turns turnId runningTurn candidate = some record at lookup
     rw [tableSet_other _ _ _ same] at lookup
-    exact Option.noConfusion lookup
+    exact (by cases lookup)
 
 private theorem undoAllowed {store : GraphStore} {selected parent : CommitId}
     {parentRecord : RunCommit}
@@ -3931,7 +3932,7 @@ private theorem reachOnlyTurn (subject : TreeId) (candidate : TurnId) (record : 
       some record at lookup
     rw [tableSet_other _ _ _ same] at lookup
     rw [reachNoTurnYet subject candidate] at lookup
-    exact Option.noConfusion lookup
+    exact (by cases lookup)
 
 private theorem reachSiblingsTerminal (subject : TreeId) :
     SiblingTurnsTerminalAndUnheld (reachTerminalizingGraph subject) runId turnId := by
@@ -4333,7 +4334,7 @@ private def promptInstalledLedger : SlotLedger :=
   { (default : SlotLedger) with
     slots := tableSet (default : SlotLedger).slots promptSlotName promptSlotDecl }
 
-private def promptInstallStep :
+private theorem promptInstallStep :
     SlotStep slotSchemas (default : SlotLedger) (.installSlot promptSlotDecl)
       promptInstalledLedger :=
   SlotStep.installSlot rfl
@@ -4345,12 +4346,12 @@ private def untrustedPromptEntry : SlotEntry :=
 private def promptTrustedLedger : SlotLedger :=
   { promptInstalledLedger with entries := [trustedPromptEntry] }
 
-private def promptTrustedContributeStep :
+private theorem promptTrustedContributeStep :
     SlotStep slotSchemas promptInstalledLedger (.contribute trustedPromptEntry)
       promptTrustedLedger :=
   SlotStep.contribute rfl rfl (by intro stored member; cases member)
 
-private def promptTrustedAuthorizedStep :
+private theorem promptTrustedAuthorizedStep :
     AuthorizedSlotStep slotSchemas promptContributeAuthority promptInstalledLedger
       (.contribute trustedPromptEntry) promptTrustedLedger :=
   .step (fun entry labelEq => by cases labelEq; decide) promptTrustedContributeStep
@@ -4412,7 +4413,7 @@ private def deployInvocation : CommandInvocation :=
 private def invokedDeployRegistry : CommandRegistry :=
   { deployRegistry with invoked := [deployInvocation] }
 
-private def deployInstallStep :
+private theorem deployInstallStep :
     CommandStep commandSchemas commandMappings (default : CommandRegistry)
       (.installCommand commandScope deployCommand) deployRegistry :=
   CommandStep.installCommand (by decide)
@@ -4547,7 +4548,7 @@ private def resubmittedLedger : SubmissionLedger :=
   { committedSubmissionLedger with
     writes := tableSet committedSubmissionLedger.writes ⟨2⟩ duplicateSubmission }
 
-private def commitSubmissionStep :
+private theorem commitSubmissionStep :
     SubmissionStep (default : SubmissionLedger) (.commit ⟨1⟩ ⟨71⟩)
       committedSubmissionLedger :=
   SubmissionStep.commit (write := committedSubmission) rfl rfl rfl
@@ -4881,7 +4882,7 @@ theorem nonvacuous_dynamic_isolate_provenance :
       rw [expected] at lookup
       exact (Option.some.inj lookup).symm
     subst destinationFree
-    exact Option.noConfusion named
+    exact (by cases named)
 
 /-- The §4.6 backend manifest admits only `dynamic`: with everything else permissive
 the selector places it dynamic, and with a substrate that cannot host dynamic it
@@ -5215,7 +5216,7 @@ theorem nonvacuous_interception_replay_item_bridge :
       beforePhaseRun afterPhaseRun
   refine ⟨?_, valid, (replay_item_reuses_persisted_transformations valid).1,
     (replay_item_reuses_persisted_transformations valid).2⟩
-  exact List.mem_cons_self ..
+  exact List.mem_cons_self
 
 private def interceptionSite : InterceptionSite :=
   ⟨⟨⟨1⟩, "web.fetch", 1⟩, .workspace tenant workspace, true⟩
@@ -5329,7 +5330,7 @@ private theorem interceptedMediatedReady :
       by simp [interceptedState, interceptedGraph, graphWithTurn, runningTurn],
       rfl, rfl, rfl, interceptedRegistry, ?_, rfl, rfl, ?_, ?_⟩
     · simp [interceptedState, interceptedGraph, runId]
-    · exact List.mem_cons_self ..
+    · exact List.mem_cons_self
     · simp [interceptedRegistry]
   · change tableSet authorityBase.resolutions resolution.id resolution resolution.id =
       some resolution
@@ -5362,7 +5363,7 @@ theorem nonvacuous_intercepted_observe_escalates_to_mediated :
     (∀ before after, ¬ DirectStep before interceptedObservation after) ∧
     MediatedStep interceptedState (.persistIntent invocationId) interceptedIntentState := by
   refine ⟨rfl, rfl, rfl, .admit directReady, rfl, rfl, ?_, interceptedPersistIntent⟩
-  exact applicable_interceptor_forbids_direct_admission (List.mem_cons_self ..)
+  exact applicable_interceptor_forbids_direct_admission (List.mem_cons_self)
 
 /-! ## Dispatcher witnesses (SPEC §8.5) -/
 
@@ -5391,7 +5392,7 @@ private def dispatchCommittedRecord : WriteRecord :=
 private def dispatchLedgerCommitted : DispatcherLedger Nat :=
   dispatchLedgerBoot.appendWrite dispatchCommittedRecord (some dispatchEnvelope.identity) 1
 
-private def dispatchCommitStep :
+private theorem dispatchCommitStep :
     DispatchStep dispatchPolicy dispatchLedgerBoot (.process ⟨1⟩ ⟨1⟩ dispatchGoodRaw ⟨0⟩)
       dispatchLedgerCommitted :=
   DispatchStep.commit (envelope := dispatchEnvelope) rfl rfl (by decide) rfl rfl rfl rfl rfl rfl
@@ -5403,7 +5404,7 @@ private def dispatchDuplicateRecord : WriteRecord :=
 private def dispatchLedgerDuplicated : DispatcherLedger Nat :=
   dispatchLedgerCommitted.appendWrite dispatchDuplicateRecord none dispatchLedgerCommitted.domain
 
-private def dispatchDuplicateStep :
+private theorem dispatchDuplicateStep :
     DispatchStep dispatchPolicy dispatchLedgerCommitted (.process ⟨2⟩ ⟨2⟩ dispatchGoodRaw ⟨1⟩)
       dispatchLedgerDuplicated :=
   DispatchStep.duplicate (envelope := dispatchEnvelope) (originalId := ⟨1⟩)
@@ -5415,7 +5416,7 @@ private def dispatchMalformedRecord : WriteRecord :=
 private def dispatchLedgerMalformed : DispatcherLedger Nat :=
   dispatchLedgerDuplicated.appendWrite dispatchMalformedRecord none dispatchLedgerDuplicated.domain
 
-private def dispatchMalformedStep :
+private theorem dispatchMalformedStep :
     DispatchStep dispatchPolicy dispatchLedgerDuplicated (.process ⟨3⟩ ⟨3⟩ dispatchBadRaw ⟨2⟩)
       dispatchLedgerMalformed :=
   DispatchStep.rejectMalformed (by decide) (by decide) (by decide)
@@ -5473,7 +5474,7 @@ private def secretCustody1 : SecretCustody := ⟨secretBinding1, secretEndpoint1
 private def secretsAccepted : SecretLedger :=
   { SecretLedger.boot with custody := tableSet SecretLedger.boot.custody secretRef1 secretCustody1 }
 
-private def secretsAcceptStep :
+private theorem secretsAcceptStep :
     SecretStep SecretLedger.boot (.accept secretRef1 secretBinding1 secretEndpoint1)
       secretsAccepted :=
   SecretStep.accept rfl
@@ -5485,7 +5486,7 @@ private def secretsResolved : SecretLedger :=
   { secretsAccepted with
     resolutions := tableSet secretsAccepted.resolutions secretResolutionId secretResolutionRecord }
 
-private def secretsResolveStep :
+private theorem secretsResolveStep :
     SecretStep secretsAccepted
       (.resolve secretResolutionId secretRef1 secretsTenantA secretBinding1 secretEndpoint1)
       secretsResolved :=
@@ -5495,7 +5496,7 @@ private def secretsRepointed : SecretLedger :=
   { secretsResolved with
     custody := tableSet secretsResolved.custody secretRef1 ⟨secretBinding2, secretEndpoint2, 1⟩ }
 
-private def secretsRepointStep :
+private theorem secretsRepointStep :
     SecretStep secretsResolved (.repoint secretRef1 secretBinding2 secretEndpoint2)
       secretsRepointed :=
   SecretStep.repoint (current := secretCustody1) rfl
@@ -5540,11 +5541,11 @@ private def secretsDelegated : SecretLedger :=
   { secretsAccepted with
     delegations := tableSet secretsAccepted.delegations secretDelegationId (.ref secretRef1) }
 
-private def secretsDelegateStep :
+private theorem secretsDelegateStep :
     SecretStep secretsAccepted (.delegate secretDelegationId secretRef1) secretsDelegated :=
   SecretStep.delegate rfl
 
-private def secretsReachable : SecretReachable secretsDelegated :=
+private theorem secretsReachable : SecretReachable secretsDelegated :=
   .step (.step .boot secretsAcceptStep) secretsDelegateStep
 
 private def secretGuestGrantId : GuestGrantId := ⟨92⟩
@@ -5554,7 +5555,7 @@ private def secretsGuestGranted : SecretLedger :=
   { secretsDelegated with
     guestGrants := tableSet secretsDelegated.guestGrants secretGuestGrantId (.ref secretRef1) }
 
-private def secretsGuestGrantStep :
+private theorem secretsGuestGrantStep :
     SecretStep secretsDelegated (.guestGrant secretGuestGrantId secretRef1) secretsGuestGranted :=
   SecretStep.guestGrant rfl
 
@@ -5563,12 +5564,12 @@ private def secretsReserved : SecretLedger :=
     crossTenantReservations := tableSet secretsGuestGranted.crossTenantReservations
       secretCrossTenantReservationId (.ref secretRef1) }
 
-private def secretsReservationStep :
+private theorem secretsReservationStep :
     SecretStep secretsGuestGranted
       (.crossTenantReserve secretCrossTenantReservationId secretRef1) secretsReserved :=
   SecretStep.crossTenantReserve rfl
 
-private def secretsReservedReachable : SecretReachable secretsReserved :=
+private theorem secretsReservedReachable : SecretReachable secretsReserved :=
   .step (.step secretsReachable secretsGuestGrantStep) secretsReservationStep
 
 /-- A reachable delegation carrier for the accepted secret is a ref; a ledger built
@@ -5623,14 +5624,14 @@ private def contentPutLedger : ContentLedger :=
   { ContentLedger.boot with
     stored := fun candidate => if candidate = contentRef1 then true else ContentLedger.boot.stored candidate }
 
-private def contentPutStep :
+private theorem contentPutStep :
     ContentStep ContentLedger.boot (.put contentRef1) contentPutLedger :=
   ContentStep.put rfl
 
 private def contentOwnedLedger : ContentLedger :=
   { contentPutLedger with owningRecords := mark2 contentPutLedger.owningRecords contentRef1 contentOwningRecord }
 
-private def contentOwnStep :
+private theorem contentOwnStep :
     ContentStep contentPutLedger (.own contentRef1 contentOwningRecord) contentOwnedLedger :=
   ContentStep.own rfl
 
@@ -5640,7 +5641,7 @@ private def contentReleasedLedger : ContentLedger :=
       (candidateRef, candidateRecord) ≠ (contentRef1, contentOwningRecord) ∧
         contentOwnedLedger.owningRecords candidateRef candidateRecord }
 
-private def contentReleaseStep :
+private theorem contentReleaseStep :
     ContentStep contentOwnedLedger (.release contentRef1 contentOwningRecord) contentReleasedLedger :=
   ContentStep.release (Or.inl ⟨rfl, rfl⟩)
 
@@ -5657,11 +5658,11 @@ private theorem contentReleasedUnowned :
     exact differs rfl
   · exact falseCase
 
-private def contentCollectStep :
+private theorem contentCollectStep :
     ContentStep contentReleasedLedger (.collect contentRef1) contentCollectedLedger :=
   ContentStep.collect rfl contentReleasedUnowned
 
-private def contentReachable : ContentReachable contentCollectedLedger :=
+private theorem contentReachable : ContentReachable contentCollectedLedger :=
   .step (.step (.step (.step .boot contentPutStep) contentOwnStep) contentReleaseStep) contentCollectStep
 
 /-- The full custody lifecycle on one ref: home-Tenant resolution succeeds once
@@ -5733,7 +5734,7 @@ private def materializedLedger : MaterializerLedger :=
       subscriptions := tableSet MaterializerLedger.boot.routing.subscriptions materializerSubId
         materializerTemplate.materialize } }
 
-private def materializeStep :
+private theorem materializeStep :
     MaterializeStep MaterializerLedger.boot
       (.materialize materializerBlueprint materializerTemplate materializerSubId) materializedLedger :=
   MaterializeStep.materialize rfl rfl
@@ -5758,43 +5759,43 @@ theorem nonvacuous_materialize_then_reconcile_never_duplicates :
 
 /-! ## Capability matching and attenuation (SPEC §3.4 rule 2) -/
 
-private def anyFacetObserve : Capability := ⟨"*".data, [], [.observe, .mutate], []⟩
-private def acmeObserve : Capability := ⟨"acme.*".data, [], [.observe], []⟩
-private def acmeMailSend : Capability := ⟨"acme.mail".data, ["send"], [.observe], []⟩
-private def acmeMailSendMutate : Capability := ⟨"acme.mail".data, ["send"], [.observe, .mutate], []⟩
-private def prefixSuffixParent : Capability := ⟨"a*a".data, [], [.observe], []⟩
-private def literalChild : Capability := ⟨"a".data, [], [.observe], []⟩
+private def anyFacetObserve : Capability := ⟨"*".toList, [], [.observe, .mutate], []⟩
+private def acmeObserve : Capability := ⟨"acme.*".toList, [], [.observe], []⟩
+private def acmeMailSend : Capability := ⟨"acme.mail".toList, ["send"], [.observe], []⟩
+private def acmeMailSendMutate : Capability := ⟨"acme.mail".toList, ["send"], [.observe, .mutate], []⟩
+private def prefixSuffixParent : Capability := ⟨"a*a".toList, [], [.observe], []⟩
+private def literalChild : Capability := ⟨"a".toList, [], [.observe], []⟩
 
-private def mailObserveIntent : CapabilityIntent := ⟨"acme.mail".data, "send", .observe, []⟩
-private def mailMutateIntent : CapabilityIntent := ⟨"acme.mail".data, "send", .mutate, []⟩
-private def literalIntent : CapabilityIntent := ⟨"a".data, "send", .observe, []⟩
+private def mailObserveIntent : CapabilityIntent := ⟨"acme.mail".toList, "send", .observe, []⟩
+private def mailMutateIntent : CapabilityIntent := ⟨"acme.mail".toList, "send", .mutate, []⟩
+private def literalIntent : CapabilityIntent := ⟨"a".toList, "send", .observe, []⟩
 
 /-- The pattern decision separates Facet names for real, in both directions. -/
 theorem nonvacuous_glob_match_discriminates :
-    globMatch "acme.*".data "acme.mail".data = true ∧
-      globMatch "acme.*".data "other.mail".data = false := by decide
+    globMatch "acme.*".toList "acme.mail".toList = true ∧
+      globMatch "acme.*".toList "other.mail".toList = false := by decide
 
 /-- **The escalation a prefix/suffix approximation admits.** Parent `a*a` must not cover
 child `a`: the Facet name `a` is admitted by the child and refused by the parent, so
 approving that delegation would widen authority. The decision refuses it, and the
 containment it is deciding genuinely fails. -/
 theorem nonvacuous_glob_covering_refuses_widening :
-    globMatch "a*a".data "a".data = false ∧
-      GlobMatches "a".data "a".data ∧ ¬ GlobMatches "a*a".data "a".data :=
+    globMatch "a*a".toList "a".toList = false ∧
+      GlobMatches "a".toList "a".toList ∧ ¬ GlobMatches "a*a".toList "a".toList :=
   ⟨by decide, globMatch_sound (by decide),
     fun matched => absurd (globMatch_complete matched) (by decide)⟩
 
 /-- Covering is not merely refusal: a genuinely narrower pattern is admitted, and the
 containment it stands for holds over every Facet name. -/
 theorem nonvacuous_glob_covering_admits_narrowing :
-    globMatch "a*z".data "ab*yz".data = true ∧
-      ∀ value, GlobMatches "ab*yz".data value → GlobMatches "a*z".data value :=
+    globMatch "a*z".toList "ab*yz".toList = true ∧
+      ∀ value, GlobMatches "ab*yz".toList value → GlobMatches "a*z".toList value :=
   ⟨by decide, glob_covering_is_sound (globMatch_sound (by decide))⟩
 
 /-- Pattern validation, the side condition the completeness direction rests on, is itself
 discriminating. -/
 theorem nonvacuous_pattern_validity_discriminates :
-    PatternValid "acme.*".data ∧ ¬ PatternValid "acme.#".data := by decide
+    PatternValid "acme.*".toList ∧ ¬ PatternValid "acme.#".toList := by decide
 
 /-- Admission separates intents: the same capability admits one and refuses another. -/
 theorem nonvacuous_capability_matches_discriminates :
@@ -5857,13 +5858,13 @@ private def actingPrincipal : Subject := .principal ⟨homeTenant, ⟨5⟩⟩
 private def actingTeam : Subject := .team ⟨6⟩
 private def strangerPrincipal : Subject := .principal ⟨homeTenant, ⟨7⟩⟩
 
-private def mailIntent : CapabilityIntent := ⟨"acme.mail".data, "send", .observe, []⟩
-private def delegateIntent : CapabilityIntent := ⟨"acme.mail".data, "send", .delegate, []⟩
+private def mailIntent : CapabilityIntent := ⟨"acme.mail".toList, "send", .observe, []⟩
+private def delegateIntent : CapabilityIntent := ⟨"acme.mail".toList, "send", .delegate, []⟩
 
-private def broadCapability : Capability := ⟨"*".data, [], [.observe, .mutate, .delegate], []⟩
-private def mailCapability : Capability := ⟨"acme.*".data, [], [.observe], []⟩
-private def widerCapability : Capability := ⟨"*".data, [], [.observe, .administer], []⟩
-private def otherCapability : Capability := ⟨"other.*".data, [], [.observe], []⟩
+private def broadCapability : Capability := ⟨"*".toList, [], [.observe, .mutate, .delegate], []⟩
+private def mailCapability : Capability := ⟨"acme.*".toList, [], [.observe], []⟩
+private def widerCapability : Capability := ⟨"*".toList, [], [.observe, .administer], []⟩
+private def otherCapability : Capability := ⟨"other.*".toList, [], [.observe], []⟩
 
 private def rootGrant : AuthorityGrant :=
   ⟨.manual 1, actingPrincipal, rootScope, .allow, broadCapability, none, true⟩
@@ -6093,8 +6094,8 @@ theorem nonvacuous_canonical_scope_key_discriminates :
 /-- **A guest's verification stamp is inside its Subject key.** The same foreign Principal
 under two schemes is two subjects to every key comparison the resolver makes. -/
 theorem nonvacuous_canonical_subject_key_separates_schemes :
-    subjectKeyText (.foreign plainTenant plainTenant "token".data) ≠
-        subjectKeyText (.foreign plainTenant plainTenant "callback".data) ∧
+    subjectKeyText (.foreign plainTenant plainTenant "token".toList) ≠
+        subjectKeyText (.foreign plainTenant plainTenant "callback".toList) ∧
       subjectKeyText (.principal plainTenant plainTenant) ≠
         subjectKeyText (.team plainTenant) :=
   ⟨foreign_subject_key_separates_verification_schemes _ _,
@@ -6103,8 +6104,8 @@ theorem nonvacuous_canonical_subject_key_separates_schemes :
 /-- The encoder is not injective by accident: a number token really can sit beside a string
 that renders the same characters, and the two trees stay apart. -/
 theorem nonvacuous_canonical_encoding_discriminates :
-    encodeJson (.arr [.num ['1'], .num ['2']]) = "[1,2]".data ∧
-      encodeJson (.num ['1', '2']) = "12".data ∧
+    encodeJson (.arr [.num ['1'], .num ['2']]) = "[1,2]".toList ∧
+      encodeJson (.num ['1', '2']) = "12".toList ∧
       encodeJson (.str ['1', '2']) ≠ encodeJson (.num ['1', '2']) ∧
       numbersValid (.arr [.num ['1'], .num ['2']]) = true := by decide
 

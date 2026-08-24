@@ -365,6 +365,27 @@ describe("share offer adversarial redemption", () => {
     );
 
     test(
+        "[C13-AUTH-SHARE-OFFER] [identity.share-offer] holder identity is injective across component boundaries",
+        { tags: "p0" },
+        () => {
+            const left = SubjectRef.principal(
+                new PrincipalRef(new TenantId("a"), new PrincipalId("b\u0000c"))
+            );
+            const right = SubjectRef.principal(
+                new PrincipalRef(new TenantId("a\u0000b"), new PrincipalId("c"))
+            );
+
+            expect(shareOfferHolderKey(left)).not.toBe(shareOfferHolderKey(right));
+            expect(
+                decodeCanonicalJson(new TextEncoder().encode(shareOfferHolderKey(left)))
+            ).toEqual(["agent-core.share-offer-holder.v1", "principal", "a", "b\u0000c"]);
+            expect(
+                decodeCanonicalJson(new TextEncoder().encode(shareOfferHolderKey(right)))
+            ).toEqual(["agent-core.share-offer-holder.v1", "principal", "a\u0000b", "c"]);
+        }
+    );
+
+    test(
         "[C13-AUTH-SHARE-OFFER] [identity.share-offer] refuses an exhausted bound, a Team holder, and an unbounded offer",
         { tags: "p0" },
         () => {

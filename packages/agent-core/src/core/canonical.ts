@@ -24,6 +24,20 @@ export function encodeCanonicalJson(value: JsonValue): Uint8Array {
         throw new AgentCoreError("codec.invalid", `Invalid canonical JSON value: ${message}`);
     }
 }
+/**
+ * An injective textual key for a typed tuple. Canonical JSON preserves component
+ * boundaries even when a component contains a delimiter or control character.
+ */
+export function canonicalTupleKey(
+    namespace: string,
+    components: readonly JsonValue[]
+): string {
+    if (namespace.length === 0 || namespace !== namespace.trim()) {
+        throw new TypeError("Canonical tuple key namespace must be nonblank");
+    }
+    return decoder.decode(encodeCanonicalJson([namespace, ...components]));
+}
+
 
 export function decodeCanonicalJson(bytes: Uint8Array): JsonValue {
     let source: Uint8Array;

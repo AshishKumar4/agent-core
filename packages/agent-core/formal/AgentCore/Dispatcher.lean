@@ -136,9 +136,9 @@ private theorem leaseGateBool_some_iff (leases : TurnId → Option TurnLease) (t
       | none => false) = true ↔
       ∃ turnLease, leases token.turn = some turnLease ∧ turnLease.Admits token now := by
   cases lookup : leases token.turn with
-  | none => simp [lookup]
+  | none => simp []
   | some turnLease =>
-      simp only [lookup, TurnLease.admitsBool_eq_true]
+      simp only [TurnLease.admitsBool_eq_true]
       constructor
       · intro admits; exact ⟨turnLease, rfl, admits⟩
       · rintro ⟨found, foundLookup, admits⟩
