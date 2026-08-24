@@ -57,18 +57,8 @@ export { SlotContributionOrigin, SlotEntry } from "./slot-entry";
 export { SlotWithdrawalSet, WorkspaceSlotStore } from "./slot-store";
 export { MemoryWorkspaceSlotStore } from "./slot-memory";
 export { CatalogOrigin, CatalogEntry, type CatalogKind } from "./catalog-entry";
-export {
-    CatalogWithdrawalSet,
-    WorkspaceCatalogStore,
-    type CatalogDeclarationInit
-} from "./catalog-entry-store";
-export { MemoryWorkspaceCatalogStore } from "./catalog-entry-memory";
 export { SurfaceRegistration } from "./surface";
-export { SurfaceWithdrawalSet, WorkspaceSurfaceStore } from "./surface-store";
-export { MemoryWorkspaceSurfaceStore } from "./surface-memory";
 export { SettingsLayer, SettingsLayerOrigin } from "./settings";
-export { SettingsWithdrawalSet, WorkspaceSettingsStore } from "./settings-store";
-export { MemoryWorkspaceSettingsStore } from "./settings-memory";
 export {
     EventDeclaration,
     EventPattern,
@@ -78,8 +68,6 @@ export {
 } from "./event";
 export type { EventVisibility, TrustTier, VerificationScheme } from "./event";
 export { PromptSection, PromptSectionContributionOrigin } from "./prompt-section";
-export { PromptWithdrawalSet, WorkspacePromptSectionStore } from "./prompt-store";
-export { MemoryWorkspacePromptSectionStore } from "./prompt-memory";
 export { Prompt, PromptContribution } from "./prompt";
 export { Command } from "./command";
 export type { CommandInit } from "./command";

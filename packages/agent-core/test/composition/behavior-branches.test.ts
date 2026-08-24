@@ -434,21 +434,27 @@ describe("W9 composition behavior branches", () => {
         async () => {
             const manifest = emptyManifest("composition.runtime");
             const stops: string[] = [];
+            const materialize = vi.fn();
             const loaded = loadedBlueprint(
                 manifest,
                 vi.fn(async () => void stops.push("module"))
             );
-            const runtime = new PackageFacetRuntime(loaderReturning(loaded), {
-                roots: () => [
-                    new LifecycleFacet(manifest, undefined, async () => {
-                        stops.push("facet");
-                    })
-                ]
-            });
+            const runtime = new PackageFacetRuntime(
+                loaderReturning(loaded),
+                {
+                    roots: () => [
+                        new LifecycleFacet(manifest, undefined, async () => {
+                            stops.push("facet");
+                        })
+                    ]
+                },
+                { materialize }
+            );
 
             expect(runtime.host).toBeUndefined();
             await runtime.activate(reaching<Blueprint>({}));
             expect(runtime.host).toBeDefined();
+            expect(materialize).toHaveBeenCalledOnce();
             await expect(runtime.activate(reaching<Blueprint>({}))).rejects.toMatchObject({
                 code: "facet.inactive",
                 message: "Package Facet runtime is already active"
@@ -466,12 +472,33 @@ describe("W9 composition behavior branches", () => {
                             throw new TypeError("start failed");
                         })
                     ]
-                }
+                },
+                { materialize: () => {} }
             );
             await expect(failedActivation.activate(reaching<Blueprint>({}))).rejects.toThrow(
                 "start failed"
             );
             expect(activationCleanup).toHaveBeenCalledOnce();
+
+            const materializationCleanup = vi.fn(async () => undefined);
+            const materializationStop = vi.fn(async () => undefined);
+            const failedMaterialization = new PackageFacetRuntime(
+                loaderReturning(loadedBlueprint(manifest, materializationCleanup)),
+                {
+                    roots: () => [new LifecycleFacet(manifest, undefined, materializationStop)]
+                },
+                {
+                    materialize: () => {
+                        throw new TypeError("materialization failed");
+                    }
+                }
+            );
+            await expect(failedMaterialization.activate(reaching<Blueprint>({}))).rejects.toThrow(
+                "materialization failed"
+            );
+            expect(materializationStop).toHaveBeenCalledOnce();
+            expect(materializationCleanup).toHaveBeenCalledOnce();
+            expect(failedMaterialization.host).toBeUndefined();
 
             const failedCleanup = new PackageFacetRuntime(
                 loaderReturning(
@@ -485,7 +512,8 @@ describe("W9 composition behavior branches", () => {
                             throw new TypeError("facet cleanup failed");
                         })
                     ]
-                }
+                },
+                { materialize: () => {} }
             );
             await failedCleanup.activate(reaching<Blueprint>({}));
             await expect(failedCleanup.dispose()).rejects.toThrow(/Facet stop hook/);
@@ -499,7 +527,8 @@ describe("W9 composition behavior branches", () => {
                         throw moduleCleanupFailure;
                     })
                 ),
-                { roots: () => [new LifecycleFacet(manifest, undefined)] }
+                { roots: () => [new LifecycleFacet(manifest, undefined)] },
+                { materialize: () => {} }
             );
             await failedModuleCleanup.activate(reaching<Blueprint>({}));
             await expect(failedModuleCleanup.dispose()).rejects.toBe(moduleCleanupFailure);

@@ -848,34 +848,38 @@ describe("SQLite workspace record coverage", () => {
         }
     );
 
-    test("maps record and unique constraint races to exact duplicate codes", { tags: "p1" }, () => {
-        const database = new TestSqlite();
-        const records = new SqliteWorkspaceRecords(database);
-        database.run(
-            `CREATE TRIGGER reject_record_insert BEFORE INSERT ON workspace_records
+    test(
+        "distinguishes storage constraint failures from duplicate identities",
+        { tags: "p1" },
+        () => {
+            const database = new TestSqlite();
+            const records = new SqliteWorkspaceRecords(database);
+            database.run(
+                `CREATE TRIGGER reject_record_insert BEFORE INSERT ON workspace_records
              WHEN NEW.id = 'constraint' BEGIN SELECT RAISE(ABORT, 'constraint'); END`,
-            []
-        );
-        expect(
-            capturedAgentCoreErrorCode(() =>
-                records.insertRecord(stored("view", "constraint", Uint8Array.of(1)))
-            )
-        ).toBe("protocol.duplicate");
-        database.run(
-            `CREATE TRIGGER reject_unique_insert BEFORE INSERT ON workspace_uniques
+                []
+            );
+            expect(
+                capturedAgentCoreErrorCode(() =>
+                    records.insertRecord(stored("view", "constraint", Uint8Array.of(1)))
+                )
+            ).toBe("protocol.invalid-state");
+            database.run(
+                `CREATE TRIGGER reject_unique_insert BEFORE INSERT ON workspace_uniques
              WHEN NEW.key = 'constraint' BEGIN SELECT RAISE(ABORT, 'constraint'); END`,
-            []
-        );
-        expect(
-            capturedAgentCoreErrorCode(() =>
-                records.insertUnique({
-                    namespace: "unique",
-                    key: "constraint",
-                    recordKey: "record"
-                })
-            )
-        ).toBe("protocol.duplicate");
-    });
+                []
+            );
+            expect(
+                capturedAgentCoreErrorCode(() =>
+                    records.insertUnique({
+                        namespace: "unique",
+                        key: "constraint",
+                        recordKey: "record"
+                    })
+                )
+            ).toBe("protocol.invalid-state");
+        }
+    );
 
     test("rejects missing and incompatible schemas", { tags: "p1" }, () => {
         expect(() => new SqliteWorkspaceRecords(new MissingSchemaSqlite())).toThrow(

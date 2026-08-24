@@ -1,7 +1,7 @@
 import { Revision } from "../core";
 import type { ActorRef } from "../actors";
 import { AgentCoreError } from "../errors";
-import type { SurfaceId, SurfaceWithdrawalSet } from "../facets";
+import type { SurfaceId } from "../facets";
 import type { TenantId } from "../identity";
 import { WorkspacePersistence } from "./persistence";
 import { RetainedRecordKind, type ContentRetentionReference } from "./retention";
@@ -60,50 +60,6 @@ export class ViewReplayProtocol<Transaction> {
             viewRetentions,
             deltaRetentions
         );
-    }
-
-    /**
-     * SPEC §6.3 (C13-VIEW-WITHDRAWAL-TERMINAL): the one place that retires a withdrawn
-     * Facet's Surfaces. §4.1 computes the set by querying attribution upstream, never by
-     * trusting a Facet-supplied inverse, and each set member holding a durable View gets
-     * exactly one more revision — the patch that adds `terminal` — through the same
-     * publication path a live revision takes. The terminal View is itself the durable
-     * record of the transition: re-running the withdrawal finds it and changes nothing,
-     * so terminality derives from records rather than from a second durable flag, and
-     * persistence refuses every later revision for the retired Surface.
-     *
-     * `retentions` is consulted only for a Surface this call actually terminates; an
-     * already-terminal View, or a Surface with no durable View at all, costs nothing.
-     */
-    public retire(
-        transaction: Transaction,
-        withdrawal: SurfaceWithdrawalSet,
-        retentions: (surface: SurfaceId) => {
-            readonly view: readonly ContentRetentionReference[];
-            readonly delta: readonly ContentRetentionReference[];
-        }
-    ): readonly View[] {
-        const terminated: View[] = [];
-        for (const surface of withdrawal.surfaces) {
-            const current = this.persistence.currentView(transaction, surface.value);
-            if (current === undefined || current.terminal !== undefined) continue;
-            const supplied = retentions(surface);
-            terminated.push(
-                this.publish(
-                    transaction,
-                    new ViewDelta({
-                        surface,
-                        baseRevision: current.revision,
-                        revision: current.revision.next(),
-                        patch: [{ op: "add", path: "/terminal", value: true }],
-                        cursor: current.cursor
-                    }),
-                    supplied.view,
-                    supplied.delta
-                )
-            );
-        }
-        return Object.freeze(terminated);
     }
 
     public replay(transaction: Transaction, surface: SurfaceId, after: Revision): ViewReplayResult {

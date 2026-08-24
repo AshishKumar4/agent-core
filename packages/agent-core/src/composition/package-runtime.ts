@@ -24,13 +24,18 @@ export interface PackageFacetRoots<Loaded> {
     roots(modules: readonly LoadedPackageModule<Loaded>[]): readonly Facet[];
 }
 
+export interface PackageFacetMaterializationPort<Loaded> {
+    materialize(loaded: LoadedBlueprint<Loaded>, facets: readonly Facet[]): void;
+}
+
 export class PackageFacetRuntime<Loaded> implements AsyncDisposable {
     #loaded: LoadedBlueprint<Loaded> | undefined;
     #host: FacetRuntimeHost | undefined;
 
     public constructor(
         private readonly loader: BlueprintLoader<Loaded>,
-        private readonly facets: PackageFacetRoots<Loaded>
+        private readonly facets: PackageFacetRoots<Loaded>,
+        private readonly materialization: PackageFacetMaterializationPort<Loaded>
     ) {}
 
     public get host(): FacetRuntimeHost | undefined {
@@ -43,10 +48,15 @@ export class PackageFacetRuntime<Loaded> implements AsyncDisposable {
         }
         const loaded = await this.loader.load(blueprint);
         const manifests = loaded.validated.releases.flatMap((release) => release.manifests);
-        const host = new FacetRuntimeHost(manifests, this.facets.roots(loaded.modules));
+        const roots = this.facets.roots(loaded.modules);
+        const host = new FacetRuntimeHost(manifests, roots);
         try {
             await host.activate();
+            this.materialization.materialize(loaded, roots);
         } catch (error) {
+            try {
+                await host.dispose();
+            } catch {}
             await loaded.dispose();
             throw error;
         }

@@ -1,17 +1,24 @@
 import { describe, expect, test } from "vitest";
 import type { SynchronousResultGuard } from "../../src/actors";
-import { Revision, SecretRef, SemVer } from "../../src/core";
+import { JsonSchema, Revision, SecretRef, SemVer } from "../../src/core";
 import { PackageId, PackagePin, type AuthenticatedContribution } from "../../src/definition";
 import {
+    CatalogEntry,
     ContributionAttribution,
     FacetPackageId,
     FacetRef,
     FieldMove,
     IngressDeclaration,
     IngressVerification,
+    OperationDescriptor,
+    OperationName,
     PackageInstallationRef,
     PromptSection,
-    ProvenanceMapping
+    ProvenanceMapping,
+    SettingsLayer,
+    SurfaceDescriptor,
+    SurfaceId,
+    SurfaceRegistration
 } from "../../src/facets";
 import { ScopeRef, WorkspaceId } from "../../src/identity";
 import { AuditRecordId } from "../../src/interaction-references";
@@ -33,9 +40,6 @@ import {
 } from "../../src/workspaces";
 import { malformed } from "../helpers/malformed";
 import { attribution } from "../w3/slot-store-contract";
-import { attributed } from "../w3/catalog-store-contract";
-import { layer } from "../w3/settings-store-contract";
-import { registration } from "../w3/surface-store-contract";
 import {
     authenticatedInstallationFixture,
     authenticatedProjectionFixture,
@@ -90,6 +94,27 @@ function ingressEndpoint(
     });
 }
 
+function catalogEntry(contributor: string, version: string, name: string): CatalogEntry {
+    const schema = new JsonSchema({ type: "object" });
+    const operation = new OperationDescriptor(new OperationName(name), "mutate", schema, schema);
+    return new CatalogEntry("operation", name, operation, attribution(contributor, version));
+}
+
+function settingsLayer(contributor: string, ordinal: number, version: string): SettingsLayer {
+    return new SettingsLayer(attribution(contributor, version), ordinal, { type: "object" });
+}
+
+function surfaceRegistration(
+    contributor: string,
+    id: string,
+    version: string
+): SurfaceRegistration {
+    return new SurfaceRegistration(
+        new SurfaceDescriptor(new SurfaceId(id), id),
+        attribution(contributor, version)
+    );
+}
+
 export function workspacePersistenceContract<Transaction>(
     name: string,
     create: () => WorkspacePersistenceHarness<Transaction>
@@ -104,10 +129,10 @@ export function workspacePersistenceContract<Transaction>(
                     const contributor = "workspace:records";
                     const firstAttribution = attribution(contributor, "1.0.0");
                     const secondAttribution = attribution(contributor, "2.0.0");
-                    const firstCatalog = attributed(contributor, "1.0.0", "first");
-                    const secondCatalog = attributed(contributor, "2.0.0", "second");
-                    const supersededCatalog = attributed(contributor, "1.0.0", "replace");
-                    const replacementCatalog = attributed(contributor, "2.0.0", "replace");
+                    const firstCatalog = catalogEntry(contributor, "1.0.0", "first");
+                    const secondCatalog = catalogEntry(contributor, "2.0.0", "second");
+                    const supersededCatalog = catalogEntry(contributor, "1.0.0", "replace");
+                    const replacementCatalog = catalogEntry(contributor, "2.0.0", "replace");
                     const firstPrompt = new PromptSection(
                         "First",
                         "First body",
@@ -122,18 +147,12 @@ export function workspacePersistenceContract<Transaction>(
                         secondAttribution,
                         1
                     );
-                    const firstSettings = layer(contributor, 0, { type: "object" }, "1.0.0");
-                    const secondSettings = layer(contributor, 1, { type: "object" }, "2.0.0");
-                    const firstSurface = registration(
-                        contributor,
-                        "surface:first",
-                        "First",
-                        "1.0.0"
-                    );
-                    const secondSurface = registration(
+                    const firstSettings = settingsLayer(contributor, 0, "1.0.0");
+                    const secondSettings = settingsLayer(contributor, 1, "2.0.0");
+                    const firstSurface = surfaceRegistration(contributor, "surface:first", "1.0.0");
+                    const secondSurface = surfaceRegistration(
                         contributor,
                         "surface:second",
-                        "Second",
                         "2.0.0"
                     );
 

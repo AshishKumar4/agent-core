@@ -18,6 +18,7 @@ import type {
     WorkspacePersistence,
     WorkspaceRoutingWithdrawal
 } from "../workspaces";
+import type { WorkspaceFacetMaterializer } from "./workspace-facet-materializer";
 
 /** Opens one synchronous control transaction for the owning Workspace Actor. */
 export interface ControlTransaction<Transaction> {
@@ -181,44 +182,84 @@ export type FacetActivationOutcome =
     | { readonly kind: "active"; readonly facet: FacetRef }
     | { readonly kind: "failed"; readonly facet: FacetRef; readonly reason: string };
 
-export class FacetActivation<Transaction> {
-    public constructor(private readonly withdrawal: FacetWithdrawal<Transaction>) {}
+export class FacetActivation<Transaction, Read, Context> {
+    public constructor(
+        private readonly withdrawal: FacetWithdrawal<Transaction>,
+        private readonly materializer: WorkspaceFacetMaterializer<Transaction, Read, Context>,
+        private readonly transaction: ControlTransaction<Transaction>
+    ) {}
 
     public async activate(
         facet: Facet,
-        attribution: ContributionAttribution,
-        context: FacetLifecycleContext
+        read: Read,
+        materializationContext: Context,
+        lifecycleContext: FacetLifecycleContext
     ): Promise<FacetActivationOutcome> {
-        const contributor = attribution.contributor;
-        if (!facet.ref.equals(contributor)) {
+        const prepared = this.materializer.prepareContribution(read, materializationContext);
+        if (prepared === undefined) {
             throw new AgentCoreError(
                 "authority.denied",
-                "Facet activation attribution names another Facet"
+                "Facet activation requires current package installation provenance"
             );
         }
-        const before = this.withdrawal.plan(attribution);
+        const contributor = prepared.reference.attribution.contributor;
+        if (!facet.ref.equals(contributor)) {
+            this.materializer.discard(prepared);
+            throw new AgentCoreError(
+                "authority.denied",
+                "Facet activation provenance names another Facet"
+            );
+        }
+        const before = this.withdrawal.plan(prepared.reference.attribution);
         if (
             before.slots.slots.length > 0 ||
             before.slots.entries.length > 0 ||
             before.subscriptions > 0 ||
             contributionRecordCount(before.records) > 0
         ) {
+            this.materializer.discard(prepared);
             throw new AgentCoreError(
                 "protocol.invalid-state",
                 `Facet ${contributor.value} still holds materialized contributions; retire them before activating`
             );
         }
         try {
-            await facet.start(context);
+            await facet.start(lifecycleContext);
         } catch (error) {
-            this.withdrawal.withdraw(attribution);
-            return Object.freeze({
-                kind: "failed",
-                facet: contributor,
-                reason: error instanceof Error ? error.message : String(error)
-            });
+            this.materializer.discard(prepared);
+            return this.failed(
+                facet,
+                error instanceof Error ? error : String(error),
+                lifecycleContext
+            );
+        }
+        try {
+            this.transaction((transaction) =>
+                this.materializer.materialize(transaction, materializationContext, prepared, facet)
+            );
+        } catch (error) {
+            return this.failed(
+                facet,
+                error instanceof Error ? error : String(error),
+                lifecycleContext
+            );
         }
         return Object.freeze({ kind: "active", facet: contributor });
+    }
+
+    private async failed(
+        facet: Facet,
+        failure: Error | string,
+        context: FacetLifecycleContext
+    ): Promise<FacetActivationOutcome> {
+        let reason = failure instanceof Error ? failure.message : failure;
+        try {
+            await facet.stop(context);
+        } catch (error) {
+            const stopReason = error instanceof Error ? error.message : String(error);
+            reason = `${reason}; Facet stop failed: ${stopReason}`;
+        }
+        return Object.freeze({ kind: "failed", facet: facet.ref, reason });
     }
 }
 

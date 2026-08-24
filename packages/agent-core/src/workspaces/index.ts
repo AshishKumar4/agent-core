@@ -65,7 +65,6 @@ export type {
 } from "./persistence";
 export type { SubscriptionMaterializationInit } from "./persistence";
 export { WorkspaceSubscriptionMaterializer } from "./subscription-materializer";
-export { WorkspacePromptMaterializer } from "./prompt-materializer";
 export {
     validateStoredWorkspaceRecord,
     validateWorkspacePointer,

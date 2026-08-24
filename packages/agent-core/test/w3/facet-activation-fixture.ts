@@ -2,7 +2,6 @@ import {
     Contributions,
     Facet,
     FacetManifest,
-    FacetPackageId,
     type FacetLifecycleContext,
     type FacetRef,
     type Interceptor,
@@ -32,7 +31,7 @@ class ActivationFacet extends Facet {
     ) {
         super();
         this.manifest = new FacetManifest({
-            id: new FacetPackageId("activation.fixture"),
+            id: ref.packageId,
             version: new SemVer("1.0.0"),
             compat: new CompatRange("^1.0.0", "^1.0.0"),
             isolation: ["dynamic"],

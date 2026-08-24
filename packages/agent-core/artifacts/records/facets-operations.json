@@ -351,15 +351,55 @@
       ]
     },
     {
+      "symbol": "CatalogEntry",
+      "kind": "facet.catalog-entry",
+      "durability": "durable",
+      "ownerActor": "workspace",
+      "source": "src/facets/catalog-entry.ts#CatalogEntry",
+      "codec": "src/facets/catalog-entry.ts#CatalogEntry.codec",
+      "store": "src/workspaces/persistence.ts#WorkspacePersistence",
+      "tests": [
+        "test/facets/catalog-entry.test.ts#Declarative facet vocabulary [facet.catalog-entry] round-trips an operation declaration together with its contribution attribution",
+        "test/composition/workspace-facet-materializer.test.ts#Workspace Facet materializer materializes every supported primitive atomically and replays as a no-op"
+      ]
+    },
+    {
+      "symbol": "PromptSection",
+      "kind": "facet.prompt-section",
+      "durability": "durable",
+      "ownerActor": "workspace",
+      "source": "src/facets/prompt-section.ts#PromptSection",
+      "codec": "src/facets/prompt-section.ts#PromptSection.codec",
+      "store": "src/workspaces/persistence.ts#WorkspacePersistence",
+      "tests": [
+        "test/facets/prompt-section.test.ts#PromptSection record and codec round-trips through bytes and canonical data with its identity intact",
+        "test/events/persistence-memory.test.ts#memory Workspace Event persistence persists and withdraws every immutable contribution record by exact release"
+      ]
+    },
+    {
+      "symbol": "SettingsLayer",
+      "kind": "facet.settings-layer",
+      "durability": "durable",
+      "ownerActor": "workspace",
+      "source": "src/facets/settings.ts#SettingsLayer",
+      "codec": "src/facets/settings.ts#SettingsLayer.codec",
+      "store": "src/workspaces/persistence.ts#WorkspacePersistence",
+      "tests": [
+        "test/composition/workspace-facet-materializer.test.ts#Workspace Facet materializer materializes every supported primitive atomically and replays as a no-op",
+        "test/events/persistence-memory.test.ts#memory Workspace Event persistence persists and withdraws every immutable contribution record by exact release"
+      ]
+    },
+    {
       "symbol": "SurfaceRegistration",
       "kind": "facet.surface-registration",
-      "durability": "value",
-      "ownerActor": null,
+      "durability": "durable",
+      "ownerActor": "workspace",
       "source": "src/facets/surface.ts#SurfaceRegistration",
-      "codec": "src/facets/surface.ts#SurfaceRegistration.encode",
-      "store": null,
+      "codec": "src/facets/surface.ts#SurfaceRegistration.codec",
+      "store": "src/workspaces/persistence.ts#WorkspacePersistence",
       "tests": [
-        "test/facets/declarations.test.ts#Declarative facet vocabulary [facet.surface-registration] round-trips a Surface declaration together with its contribution attribution"
+        "test/facets/declarations.test.ts#Declarative facet vocabulary [facet.surface-registration] round-trips a Surface declaration together with its contribution attribution",
+        "test/composition/workspace-facet-materializer.test.ts#Workspace Facet materializer materializes every supported primitive atomically and replays as a no-op"
       ]
     }
   ]

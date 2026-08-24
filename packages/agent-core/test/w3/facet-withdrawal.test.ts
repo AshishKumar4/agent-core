@@ -1,9 +1,13 @@
 import { describe, expect, test } from "vitest";
 import { AuditRecordId } from "../../src/interaction-references";
-import { FacetRef, SlotEntry, SlotName } from "../../src/facets";
-import { WorkspaceId } from "../../src/identity";
+import { FacetRef, SlotEntry, SlotName, type ContributionAttribution } from "../../src/facets";
+import { ScopeRef, WorkspaceId } from "../../src/identity";
 import { AgentCoreError } from "../../src/errors";
-import { FacetActivation, FacetWithdrawal } from "../../src/composition";
+import {
+    FacetActivation,
+    FacetWithdrawal,
+    WorkspaceFacetMaterializer
+} from "../../src/composition";
 import {
     MemoryWorkspaceRecords,
     RouteDeliveryState,
@@ -27,6 +31,8 @@ import {
     sourceActor,
     subscriptionFixture,
     targetActor,
+    TestPackageInstallationProvenance,
+    authenticatedInstallationFixture,
     tenant
 } from "../workspaces/fixtures";
 import { attribution, contribute, declarerSlot, entry } from "./slot-store-contract";
@@ -418,29 +424,24 @@ describe("Facet activation atomicity", () => {
         { tags: "p0" },
         async () => {
             const harness = crossPlaneHarness();
-            const activation = new FacetActivation(harness.withdrawal);
             const contributor = attribution("workspace:partial");
+            const activation = activationFor(harness, contributor);
             const before = harness.slots.entries(new SlotName("dashboard.card"));
             const facet = activationFacet(contributor.contributor, () => {
-                // A partial activation: two committed contributions, then a failure.
-                contribute(harness.slots, entry("workspace:partial", 1, { title: "One" }));
-                materializeAttributedSubscription(
-                    harness.persistence,
-                    harness.records,
-                    contributor,
-                    subscriptionFixture("partial")
-                );
-                throw new TypeError("start failed after materializing");
+                throw new TypeError("start failed before publication");
             });
 
-            const outcome = await activation.activate(facet, contributor, {
-                signal: new AbortController().signal
-            });
+            const outcome = await activation.activate(
+                facet,
+                harness.database,
+                { installationId: "installation" },
+                { signal: new AbortController().signal }
+            );
 
             expect(outcome).toEqual({
                 kind: "failed",
                 facet: contributor.contributor,
-                reason: "start failed after materializing"
+                reason: "start failed before publication"
             });
             expect(harness.slots.entries(new SlotName("dashboard.card"))).toEqual(before);
             expect(harness.persistence.listSubscriptions(harness.records)).toEqual([]);
@@ -459,16 +460,18 @@ describe("Facet activation atomicity", () => {
             // The outcome is the record of the install, so a Facet that rejects with a value
             // that is not an Error still has to say what it rejected with.
             const harness = crossPlaneHarness();
-            const activation = new FacetActivation(harness.withdrawal);
             const contributor = attribution("workspace:non-error");
+            const activation = activationFor(harness, contributor);
             const facet = activationFacet(contributor.contributor, () => {
-                contribute(harness.slots, entry("workspace:non-error", 1, { title: "One" }));
                 throw "start rejected without an Error";
             });
 
-            const outcome = await activation.activate(facet, contributor, {
-                signal: new AbortController().signal
-            });
+            const outcome = await activation.activate(
+                facet,
+                harness.database,
+                { installationId: "installation" },
+                { signal: new AbortController().signal }
+            );
 
             expect(outcome).toEqual({
                 kind: "failed",
@@ -488,20 +491,26 @@ describe("Facet activation atomicity", () => {
         { tags: "p0" },
         async () => {
             const harness = crossPlaneHarness();
-            const activation = new FacetActivation(harness.withdrawal);
             const contributor = attribution("workspace:partial");
+            const activation = activationFor(harness, contributor);
             contribute(harness.slots, entry("workspace:partial", 1, { title: "Stranded" }));
             const facet = activationFacet(contributor.contributor, () => undefined);
 
             await expect(
-                activation.activate(facet, contributor, { signal: new AbortController().signal })
+                activation.activate(
+                    facet,
+                    harness.database,
+                    { installationId: "installation" },
+                    { signal: new AbortController().signal }
+                )
             ).rejects.toThrow(/still holds materialized contributions/);
 
             // A Facet whose activation was refused obstructs no other Facet's activation.
             const other = attribution("workspace:other");
-            const outcome = await activation.activate(
+            const outcome = await activationFor(harness, other).activate(
                 activationFacet(other.contributor, () => undefined),
-                other,
+                harness.database,
+                { installationId: "installation" },
                 { signal: new AbortController().signal }
             );
             expect(outcome.kind).toBe("active");
@@ -513,11 +522,13 @@ describe("Facet activation atomicity", () => {
         { tags: "p1" },
         async () => {
             const harness = crossPlaneHarness();
-            const activation = new FacetActivation(harness.withdrawal);
+            const contribution = attribution("workspace:two");
+            const activation = activationFor(harness, contribution);
             await expect(
                 activation.activate(
                     activationFacet(new FacetRef("workspace:one"), () => undefined),
-                    attribution("workspace:two"),
+                    harness.database,
+                    { installationId: "installation" },
                     { signal: new AbortController().signal }
                 )
             ).rejects.toThrow(/names another Facet/);
@@ -584,4 +595,28 @@ function crossPlaneHarness(): CrossPlaneHarness {
         routingFailure: new TypeError("Workspace Actor is unreachable")
     };
     return harness;
+}
+
+function activationFor(
+    harness: CrossPlaneHarness,
+    contribution: ContributionAttribution
+): FacetActivation<TransactionalSqlite, TransactionalSqlite, { readonly installationId: string }> {
+    const base = authenticatedInstallationFixture(
+        contribution.contributor.value,
+        contribution.package
+    );
+    const provenance = new TestPackageInstallationProvenance<TransactionalSqlite>({
+        ...base,
+        facet: contribution.contributor,
+        packageFacet: contribution.contributor.packageId
+    });
+    const materializer = new WorkspaceFacetMaterializer(
+        harness.persistence,
+        harness.slots,
+        provenance,
+        ScopeRef.workspace(tenant, new WorkspaceId("workspace"))
+    );
+    return new FacetActivation(harness.withdrawal, materializer, (operation, ...guard) =>
+        harness.database.transaction(() => operation(harness.database), ...guard)
+    );
 }

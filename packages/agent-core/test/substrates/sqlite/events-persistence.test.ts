@@ -227,7 +227,7 @@ test("duplicate records are rejected before the insert executes", { tags: "p1" }
     expect(records.findRecord("event", "append-once")?.bytes).toEqual(Uint8Array.of(1, 2));
 });
 
-test("record insert failures surface the exact append-only error", { tags: "p1" }, () => {
+test("record storage failures remain distinct from duplicate identity", { tags: "p1" }, () => {
     const database = new TestSqlite();
     const records = new SqliteWorkspaceRecords(database);
     database.run(
@@ -241,8 +241,8 @@ test("record insert failures surface the exact append-only error", { tags: "p1" 
         records.insertRecord({ kind: "event", id: "faulted", bytes: Uint8Array.of(1) })
     ).toThrow(
         expect.objectContaining({
-            code: "protocol.duplicate",
-            message: "Workspace records are append-only"
+            code: "protocol.invalid-state",
+            message: "Workspace record insert failed: injected record fault"
         })
     );
     expect(records.findRecord("event", "faulted")).toBeUndefined();

@@ -93,8 +93,21 @@ export class SqliteWorkspaceRecords {
                 record.id,
                 record.bytes.slice()
             ]);
-        } catch {
-            throw new AgentCoreError("protocol.duplicate", "Workspace records are append-only");
+        } catch (error) {
+            if (this.findRecord(record.kind, record.id) !== undefined) {
+                throw new AgentCoreError("protocol.duplicate", "Workspace records are append-only");
+            }
+            throw new AgentCoreError(
+                "protocol.invalid-state",
+                `Workspace record insert failed: ${error instanceof Error ? error.message : String(error)}`
+            );
+        }
+        const stored = this.findRecord(record.kind, record.id);
+        if (stored === undefined || !sameBytes(stored.bytes, record.bytes)) {
+            throw new AgentCoreError(
+                "protocol.invalid-state",
+                "Workspace record insert did not persist exact bytes"
+            );
         }
     }
 
@@ -133,10 +146,22 @@ export class SqliteWorkspaceRecords {
                  VALUES (?, ?, ?)`,
                 [unique.namespace, unique.key, unique.recordKey]
             );
-        } catch {
+        } catch (error) {
+            if (this.findUnique(unique.namespace, unique.key) !== undefined) {
+                throw new AgentCoreError(
+                    "protocol.duplicate",
+                    "Workspace unique key is already reserved"
+                );
+            }
             throw new AgentCoreError(
-                "protocol.duplicate",
-                "Workspace unique key is already reserved"
+                "protocol.invalid-state",
+                `Workspace unique insert failed: ${error instanceof Error ? error.message : String(error)}`
+            );
+        }
+        if (this.findUnique(unique.namespace, unique.key)?.recordKey !== unique.recordKey) {
+            throw new AgentCoreError(
+                "protocol.invalid-state",
+                "Workspace unique insert did not persist"
             );
         }
     }
@@ -271,4 +296,10 @@ function readBytes(row: SqliteRow, column: string): Uint8Array {
     const value = row[column];
     if (!(value instanceof Uint8Array)) throw new TypeError(`Expected byte column: ${column}`);
     return value.slice();
+}
+
+function sameBytes(left: Uint8Array, right: Uint8Array): boolean {
+    return (
+        left.byteLength === right.byteLength && left.every((value, index) => value === right[index])
+    );
 }

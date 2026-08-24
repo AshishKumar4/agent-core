@@ -67,6 +67,12 @@ export class PromptContribution {
         return emptyPromptContribution;
     }
 
+    public static fromData(payload: FacetData): PromptContribution {
+        return new PromptContribution(
+            requireArray(payload, "Prompt contribution").map(Prompt.fromData)
+        );
+    }
+
     public static encode(contribution: PromptContribution): Uint8Array {
         return promptContributionCodec.encode(contribution);
     }
@@ -84,8 +90,7 @@ const promptContributionCodec = new DataRecordCodec(
     [PromptContribution, Prompt],
     "facet.prompt-contribution",
     (contribution: PromptContribution) => contribution.toData(),
-    (payload) =>
-        new PromptContribution(requireArray(payload, "Prompt contribution").map(Prompt.fromData))
+    (payload) => PromptContribution.fromData(payload)
 );
 
 function comparePrompts(left: Prompt, right: Prompt): number {

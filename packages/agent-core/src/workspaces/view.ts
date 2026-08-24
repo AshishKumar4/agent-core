@@ -19,7 +19,6 @@ import {
     requireArray,
     requireFields,
     requireObject,
-    requireOptionalFields,
     requireString
 } from "./codec";
 import { ActionId, EventCursor } from "./id";
@@ -92,7 +91,6 @@ interface ViewBaseInit {
     readonly body: JsonValue;
     readonly actions: readonly ActionDescriptor[];
     readonly cursor: EventCursor;
-    readonly terminal?: true | undefined;
 }
 
 interface OrdinaryViewInit {
@@ -146,11 +144,6 @@ export class ViewMark {
 
 const viewMarkCodecInstance = new ViewMarkCodecV1();
 
-/**
- * Major 2 carries §6.3's terminal discriminator: a retired Surface's last View encodes
- * `terminal` by presence, and absence is a live Surface. Every key outside the declared
- * set is refused.
- */
 class ViewCodecV2 extends RecordCodec<View> {
     public constructor() {
         super(
@@ -180,7 +173,6 @@ class ViewCodecV2 extends RecordCodec<View> {
             body: view.body,
             actions: view.actions.map(encodeAction),
             cursor: view.cursor.value,
-            ...encodeTerminality(view),
             ...encodeViewProvenance(view)
         };
     }
@@ -199,8 +191,7 @@ class ViewCodecV2 extends RecordCodec<View> {
             revision: decodeRevision(object["revision"], "View revision"),
             body: canonicalJson(object["body"]),
             actions: requireArray(object["actions"], "View actions").map(decodeAction),
-            cursor: new EventCursor(requireString(object["cursor"], "View cursor")),
-            terminal: decodeTerminal(object, "View payload")
+            cursor: new EventCursor(requireString(object["cursor"], "View cursor"))
         };
         return provenance === undefined ? new View(init) : new View({ ...init, ...provenance });
     }
@@ -224,9 +215,6 @@ export class View {
     public readonly body: JsonValue;
     public readonly actions: readonly ActionDescriptor[];
     public readonly cursor: EventCursor;
-    // §6.3: retirement is declared by the field's presence, exactly as a decision View is
-    // discriminated by intentDigest — a live Surface carries no terminal key at all.
-    public readonly terminal: true | undefined;
     declare public readonly intentDigest?: Digest;
     declare public readonly marks?: readonly ViewMark[];
 
@@ -254,10 +242,6 @@ export class View {
         this.body = body;
         this.actions = Object.freeze(actions);
         this.cursor = init.cursor;
-        if (init.terminal !== undefined && init.terminal !== true) {
-            throw new TypeError("View terminality is declared by presence");
-        }
-        this.terminal = init.terminal;
         if (provenance !== undefined) {
             this.intentDigest = new Digest(provenance.intentDigest.value);
             this.marks = Object.freeze(marks);
@@ -353,7 +337,6 @@ export function viewDocument(view: View): JsonValue {
     return canonicalJson({
         body: view.body,
         actions: view.actions.map(encodeAction),
-        ...encodeTerminality(view),
         ...encodeViewProvenance(view)
     });
 }
@@ -373,8 +356,7 @@ export function viewFromDocument(previous: View, delta: ViewDelta, document: Jso
         revision: delta.revision,
         body: canonicalJson(object["body"]),
         actions: requireArray(object["actions"], "Patched View actions").map(decodeAction),
-        cursor: delta.cursor,
-        terminal: decodeTerminal(object, "Patched View document")
+        cursor: delta.cursor
     };
     return provenance === undefined ? new View(init) : new View({ ...init, ...provenance });
 }
@@ -410,10 +392,6 @@ function encodeViewProvenance(view: View): JsonObject {
           };
 }
 
-function encodeTerminality(view: View): JsonObject {
-    return view.terminal === undefined ? {} : { terminal: view.terminal };
-}
-
 function decodeViewMark(value: JsonValue): ViewMark {
     const object = requireObject(value, "View mark");
     requireFields(object, ["path", "tier"], "View mark");
@@ -434,23 +412,15 @@ function decodeViewProvenance(object: JsonObject, subject: string): ViewProvenan
     };
 }
 
-function decodeTerminal(object: JsonObject, subject: string): true | undefined {
-    const terminal = object["terminal"];
-    if (terminal === undefined) return undefined;
-    if (terminal !== true) throw new TypeError(`${subject} terminality is encoded by presence`);
-    return true;
-}
-
 function requireViewFields<Field extends string>(
     object: JsonObject,
     provenance: ViewProvenance | undefined,
     fields: readonly Field[],
     subject: string
 ): asserts object is JsonFields<Field> {
-    requireOptionalFields(
+    requireFields(
         object,
         provenance === undefined ? fields : [...fields, "intentDigest", "marks"],
-        ["terminal"],
         subject
     );
 }

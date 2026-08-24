@@ -101,6 +101,10 @@ export abstract class PackageInstallationProvenancePort<State, Context> {
         });
     }
 
+    public discardPreparedContribution(stamp: PreparedPackageContribution["stamp"]): void {
+        this.#prepared.delete(stamp);
+    }
+
     public resolveContributionForApply(
         state: State,
         context: Context,

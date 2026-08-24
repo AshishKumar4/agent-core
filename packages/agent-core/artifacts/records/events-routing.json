@@ -51,6 +51,19 @@
       ]
     },
     {
+      "symbol": "IngressEndpoint",
+      "kind": "workspace.ingress-endpoint",
+      "durability": "durable",
+      "ownerActor": "workspace",
+      "source": "src/workspaces/ingress-endpoint.ts#IngressEndpoint",
+      "codec": "src/workspaces/ingress-endpoint.ts#IngressEndpoint.codec",
+      "store": "src/workspaces/persistence.ts#WorkspacePersistence",
+      "tests": [
+        "test/workspaces/ingress.test.ts#ingress endpoint record round-trips byte-identically and encodes attribution and retirement by presence",
+        "test/events/persistence-memory.test.ts#memory Workspace Event persistence persists revisioned ingress and retires only the exact release"
+      ]
+    },
+    {
       "symbol": "Event",
       "kind": "workspace.event",
       "durability": "durable",

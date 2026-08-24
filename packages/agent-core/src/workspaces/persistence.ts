@@ -937,6 +937,40 @@ export class WorkspacePersistence<Transaction> {
         return subscription;
     }
 
+    public putManagedSubscription(
+        transaction: Transaction,
+        attribution: ContributionAttribution,
+        init: SubscriptionMaterializationInit
+    ): Subscription {
+        if ("contribution" in init || "retired" in init || "revision" in init) {
+            throw new AgentCoreError(
+                "operation.invalid-input",
+                "Managed Subscription input must not supply record state"
+            );
+        }
+        const current = this.currentSubscription(transaction, init.id);
+        const next = new Subscription({
+            id: init.id,
+            revision: current?.revision.next() ?? Revision.initial(),
+            source: init.source,
+            target: init.target,
+            mapping: init.mapping,
+            dedupe: init.dedupe,
+            authority: init.authority,
+            contribution: attribution
+        });
+        if (
+            current !== undefined &&
+            current.retired !== true &&
+            sameSubscriptionDesired(current, next)
+        ) {
+            return current;
+        }
+        if (current === undefined) this.createSubscription(transaction, next);
+        else this.saveSubscription(transaction, next, current.revision);
+        return next;
+    }
+
     private createSubscription(transaction: Transaction, subscription: Subscription): void {
         const current = this.currentSubscription(transaction, subscription.id);
         if (current !== undefined || subscription.revision.value !== 0) {
@@ -1202,11 +1236,6 @@ export class WorkspacePersistence<Transaction> {
     ): void {
         const storage = this.storage(transaction);
         const current = this.currentView(transaction, view.surface.value);
-        // SPEC §6.3 (C13-VIEW-WITHDRAWAL-TERMINAL): the terminal View is itself the durable
-        // record of retirement, so no later revision exists that could revive the stream.
-        if (current?.terminal !== undefined) {
-            throw revisionConflict("Retired Surface admits no further View revision");
-        }
         if (expectedRevision === undefined) {
             if (current !== undefined || view.revision.value !== 0) {
                 throw revisionConflict("Initial View requires revision zero and no current View");
@@ -1251,11 +1280,6 @@ export class WorkspacePersistence<Transaction> {
         deltaRetentions: readonly ContentRetentionReference[]
     ): View {
         const current = this.currentView(transaction, delta.surface.value);
-        // SPEC §6.3 (C13-VIEW-WITHDRAWAL-TERMINAL): retirement is terminal, so the delta
-        // that adds `terminal` is the last revision the Surface ever admits.
-        if (current?.terminal !== undefined) {
-            throw revisionConflict("Retired Surface admits no further View revision");
-        }
         if (current === undefined || !current.revision.equals(delta.baseRevision)) {
             throw revisionConflict("View delta base revision is stale");
         }
@@ -1758,6 +1782,24 @@ function sameContribution(
 ): boolean {
     if (left === undefined || right === undefined) return left === right;
     return left.equals(right);
+}
+
+function sameSubscriptionDesired(current: Subscription, desired: Subscription): boolean {
+    return sameBytes(
+        Subscription.encode(current),
+        Subscription.encode(
+            new Subscription({
+                id: desired.id,
+                revision: current.revision,
+                source: desired.source,
+                target: desired.target,
+                mapping: desired.mapping,
+                dedupe: desired.dedupe,
+                authority: desired.authority,
+                contribution: desired.contribution
+            })
+        )
+    );
 }
 
 function requireSameOptionalContributor(
