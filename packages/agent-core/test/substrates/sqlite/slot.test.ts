@@ -136,16 +136,11 @@ describe("SQLite Workspace Slot store exact failure and schema behavior", () => 
         expect(store.revision().value).toBe(0);
     });
 
-    test("requires the owning transaction for direct access", { tags: "p1" }, () => {
+    test("accepts the owning database from an outer Actor transaction", { tags: "p1" }, () => {
         const database = new TestSqlite();
         const store = new SqliteWorkspaceSlotStore(owner, database);
 
-        expect(() => store.loadRevision(database)).toThrow(
-            expect.objectContaining({
-                code: "protocol.invalid-state",
-                message: "SQLite Slot access requires its owning transaction"
-            })
-        );
+        expect(store.loadRevision(database).value).toBe(0);
     });
 
     test("keeps installed declarations immutable with the exact error", { tags: "p0" }, () => {
@@ -370,7 +365,7 @@ describe("SQLite Workspace Slot store exact failure and schema behavior", () => 
         expect(() => store.transaction(() => store.loadRevision(foreign))).toThrow(
             expect.objectContaining({
                 code: "protocol.invalid-state",
-                message: "SQLite Slot access requires its owning transaction"
+                message: "SQLite Slot access requires its owning database"
             })
         );
     });
@@ -425,7 +420,10 @@ function neighbouringSlot(): InstalledSlot {
 class SchemaTamperSqlite extends TestSqlite {
     public rewrite: ((value: string) => string) | undefined;
 
-    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+    protected override query(
+        statement: string,
+        bindings: readonly SqliteValue[]
+    ): readonly SqliteRow[] {
         const rows = super.query(statement, bindings);
         const rewrite = this.rewrite;
         if (rewrite === undefined || !statement.includes("FROM sqlite_master")) return rows;
@@ -440,7 +438,10 @@ class SchemaTamperSqlite extends TestSqlite {
 class RowRedirectSqlite extends TestSqlite {
     public redirect: { readonly fragment: string; readonly binding: SqliteValue } | undefined;
 
-    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+    protected override query(
+        statement: string,
+        bindings: readonly SqliteValue[]
+    ): readonly SqliteRow[] {
         const redirect = this.redirect;
         return redirect === undefined || !statement.includes(redirect.fragment)
             ? super.query(statement, bindings)
@@ -451,7 +452,10 @@ class RowRedirectSqlite extends TestSqlite {
 class SlotVanishSqlite extends TestSqlite {
     public vanish = false;
 
-    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+    protected override query(
+        statement: string,
+        bindings: readonly SqliteValue[]
+    ): readonly SqliteRow[] {
         if (this.vanish && statement.includes("FROM facet_slots WHERE name = ?")) return [];
         return super.query(statement, bindings);
     }
@@ -460,7 +464,10 @@ class SlotVanishSqlite extends TestSqlite {
 class MarkerTamperSqlite extends TestSqlite {
     public marker: SqliteRow | "missing" | undefined;
 
-    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+    protected override query(
+        statement: string,
+        bindings: readonly SqliteValue[]
+    ): readonly SqliteRow[] {
         const rows = super.query(statement, bindings);
         if (
             this.marker === undefined ||
@@ -477,7 +484,10 @@ class MarkerTamperSqlite extends TestSqlite {
 class RevisionTamperSqlite extends TestSqlite {
     public revision: number | "missing" | undefined;
 
-    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+    protected override query(
+        statement: string,
+        bindings: readonly SqliteValue[]
+    ): readonly SqliteRow[] {
         const rows = super.query(statement, bindings);
         if (
             this.revision === undefined ||

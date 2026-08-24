@@ -14,7 +14,7 @@ import { malformed } from "../helpers/malformed";
 import { TestSqlite } from "../helpers/sqlite";
 import { WorkspaceId } from "../../src/identity";
 import { AuditRecordId } from "../../src/interaction-references";
-import { SqliteWorkspaceEventRecords } from "../../src/substrates/sqlite/events/records";
+import { SqliteWorkspaceRecords } from "../../src/substrates/sqlite/workspace-records";
 import {
     MemoryWorkspaceRecords,
     View,
@@ -91,7 +91,7 @@ function wire(): WiredStores {
 function harness(kind: "memory" | "sqlite"): ViewHarness {
     if (kind === "sqlite") {
         const database = new TestSqlite();
-        let records = new SqliteWorkspaceEventRecords(database);
+        let records = new SqliteWorkspaceRecords(database);
         let wired = wire();
         return {
             get persistence() {
@@ -110,7 +110,7 @@ function harness(kind: "memory" | "sqlite"): ViewHarness {
                 return database.transaction(() => operation(records), ...guard);
             },
             restart(): void {
-                records = new SqliteWorkspaceEventRecords(database);
+                records = new SqliteWorkspaceRecords(database);
                 wired = wire();
             }
         };

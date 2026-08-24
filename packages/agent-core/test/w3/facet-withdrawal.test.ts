@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { AuditRecordId } from "../../src/interaction-references";
-import { FacetRef, MemoryWorkspaceSlotStore, SlotEntry, SlotName } from "../../src/facets";
+import { FacetRef, SlotEntry, SlotName } from "../../src/facets";
 import { WorkspaceId } from "../../src/identity";
 import { AgentCoreError } from "../../src/errors";
 import { FacetActivation, FacetWithdrawal } from "../../src/composition";
@@ -12,6 +12,12 @@ import {
     WorkspaceRoutingWithdrawal,
     type ContentRetentionPort
 } from "../../src/workspaces";
+import {
+    SqliteWorkspaceRecords,
+    SqliteWorkspaceSlotStore,
+    type TransactionalSqlite
+} from "../../src/substrates";
+import { TestSqlite } from "../helpers/sqlite";
 import {
     authenticatedProjectionFixture,
     projectionRetention,
@@ -26,7 +32,7 @@ import {
 import { attribution, contribute, declarerSlot, entry } from "./slot-store-contract";
 import { activationFacet } from "./facet-activation-fixture";
 
-class DurableRetention implements ContentRetentionPort<MemoryWorkspaceRecords> {
+class DurableRetention<Transaction> implements ContentRetentionPort<Transaction> {
     public verify(): boolean {
         return true;
     }
@@ -152,7 +158,8 @@ describe("Facet withdrawal across owning Actors", () => {
             // An unattributed Subscription is nobody's contribution, so no withdrawal names it.
             expect(() => unattributed.retire()).toThrow(/Only a contributed Subscription/);
             expect(
-                harness.routing.retire(harness.records, attribution("workspace:owner")).subscriptions
+                harness.routing.retire(harness.records, attribution("workspace:owner"))
+                    .subscriptions
             ).toHaveLength(1);
             expect(
                 harness.persistence.currentSubscription(harness.records, unattributed.id)?.retired
@@ -284,18 +291,12 @@ describe("Facet withdrawal across owning Actors", () => {
             const harness = crossPlaneHarness();
             const releaseA = attribution("workspace:dual", "1.0.0");
             const releaseB = attribution("workspace:dual", "2.0.0");
-            const entryA = new SlotEntry(
-                new SlotName("dashboard.card"),
-                releaseA,
-                1,
-                { title: "Release A" }
-            );
-            const entryB = new SlotEntry(
-                new SlotName("dashboard.card"),
-                releaseB,
-                2,
-                { title: "Release B" }
-            );
+            const entryA = new SlotEntry(new SlotName("dashboard.card"), releaseA, 1, {
+                title: "Release A"
+            });
+            const entryB = new SlotEntry(new SlotName("dashboard.card"), releaseB, 2, {
+                title: "Release B"
+            });
             contribute(harness.slots, entryA);
             contribute(harness.slots, entryB);
             const subscriptionA = materializeAttributedSubscription(
@@ -328,9 +329,7 @@ describe("Facet withdrawal across owning Actors", () => {
                 harness.persistence.currentSubscription(harness.records, subscriptionB.id)?.retired
             ).toBeUndefined();
 
-            const wrongPin = harness.withdrawal.withdraw(
-                attribution("workspace:dual", "9.9.9")
-            );
+            const wrongPin = harness.withdrawal.withdraw(attribution("workspace:dual", "9.9.9"));
             expect(wrongPin.slots.entries).toEqual([]);
             expect(wrongPin.routing.subscriptions).toEqual([]);
             const replay = harness.withdrawal.withdraw(releaseA);
@@ -352,7 +351,7 @@ describe("Facet withdrawal across owning Actors", () => {
             harness.routingFails = true;
 
             expect(() => harness.withdrawal.withdraw(attribution("workspace:withdrawn"))).toThrow(
-                /not computable from the routing plane/
+                /not computable from the Workspace Actor transaction/
             );
             // No plane was written, so the slot record the set named is still present.
             expect(
@@ -367,18 +366,17 @@ describe("Facet withdrawal across owning Actors", () => {
         "[C13-FACET-WITHDRAWAL-EXACT] carries a non-Error refusal from a plane into the reason it reports",
         { tags: "p2" },
         () => {
-            // A control transaction that rejects with something other than an Error still has
-            // to name why the set is incomputable, so the raised value is reported as text
-            // rather than swallowed into an empty reason.
+            // A control transaction that rejects with something other than an Error still
+            // names why the set is incomputable.
             const harness = crossPlaneHarness();
             contribute(harness.slots, entry("workspace:withdrawn", 1, { title: "Withdrawn" }));
             harness.routingFails = true;
-            harness.routingFailure = "routing Actor rejected without an Error";
+            harness.routingFailure = "Workspace Actor rejected without an Error";
 
             expect(() => harness.withdrawal.plan(attribution("workspace:withdrawn"))).toThrow(
                 new AgentCoreError(
                     "protocol.invalid-state",
-                    "Withdrawal set is not computable from the routing plane: routing Actor rejected without an Error"
+                    "Withdrawal set is not computable from the Workspace Actor transaction: Workspace Actor rejected without an Error"
                 )
             );
         }
@@ -537,7 +535,7 @@ function routingHarness(actor = sourceActor): RoutingHarness {
     const records = new MemoryWorkspaceRecords();
     const persistence = new WorkspacePersistence<MemoryWorkspaceRecords>(
         (state) => state,
-        new DurableRetention(),
+        new DurableRetention<MemoryWorkspaceRecords>(),
         actor,
         tenant
     );
@@ -548,32 +546,42 @@ function routingHarness(actor = sourceActor): RoutingHarness {
     };
 }
 
-type SlotTransaction = Parameters<Parameters<MemoryWorkspaceSlotStore["transaction"]>[0]>[0];
-
 interface CrossPlaneHarness {
-    readonly records: MemoryWorkspaceRecords;
-    readonly persistence: WorkspacePersistence<MemoryWorkspaceRecords>;
-    readonly slots: MemoryWorkspaceSlotStore;
-    readonly withdrawal: FacetWithdrawal<SlotTransaction, MemoryWorkspaceRecords>;
+    readonly database: TestSqlite;
+    readonly records: TransactionalSqlite;
+    readonly storage: SqliteWorkspaceRecords;
+    readonly persistence: WorkspacePersistence<TransactionalSqlite>;
+    readonly slots: SqliteWorkspaceSlotStore;
+    readonly withdrawal: FacetWithdrawal<TransactionalSqlite>;
     routingFails: boolean;
-    /** What the routing Actor's control transaction raises when it fails. */
+    /** What the Workspace Actor's control transaction raises when it fails. */
     routingFailure: unknown;
 }
 
 function crossPlaneHarness(): CrossPlaneHarness {
-    const routing = routingHarness();
-    const slots = new MemoryWorkspaceSlotStore(new WorkspaceId("workspace"));
+    const database = new TestSqlite();
+    const records = new SqliteWorkspaceRecords(database);
+    const persistence = new WorkspacePersistence<TransactionalSqlite>(
+        () => records,
+        new DurableRetention<TransactionalSqlite>(),
+        sourceActor,
+        tenant
+    );
+    const routing = new WorkspaceRoutingWithdrawal(persistence, new CountingAudits());
+    const slots = new SqliteWorkspaceSlotStore(new WorkspaceId("workspace"), database);
     slots.install(declarerSlot("dashboard.card"));
     const harness: CrossPlaneHarness = {
-        records: routing.records,
-        persistence: routing.persistence,
+        database,
+        records: database,
+        storage: records,
+        persistence,
         slots,
-        withdrawal: new FacetWithdrawal(slots, routing.routing, (operation) => {
+        withdrawal: new FacetWithdrawal(slots, routing, persistence, (operation, ...guard) => {
             if (harness.routingFails) throw harness.routingFailure;
-            return operation(routing.records);
+            return database.transaction(() => operation(database), ...guard);
         }),
         routingFails: false,
-        routingFailure: new TypeError("routing Actor is unreachable")
+        routingFailure: new TypeError("Workspace Actor is unreachable")
     };
     return harness;
 }

@@ -3,6 +3,7 @@ import {
     JsonSchema,
     SemVer,
     TextId,
+    canonicalTupleKey,
     encodeCanonicalJson
 } from "../core";
 import { PackageId, PackagePin } from "../definition-references";
@@ -17,7 +18,6 @@ import {
     requireSchemaDocument
 } from "./data";
 import { FacetPackageId, FacetRef, SettingsLayerId } from "./id";
-
 
 /**
  * SPEC §4.2: the position one settings layer occupies in the merged platform config
@@ -39,10 +39,11 @@ export class SettingsLayerOrigin {
             throw new TypeError("A settings layer origin names its contributor");
         }
         if (!Number.isSafeInteger(ordinal) || ordinal < 0) {
-            throw new TypeError("Settings layer origin ordinal must be a non-negative safe integer");
+            throw new TypeError(
+                "Settings layer origin ordinal must be a non-negative safe integer"
+            );
         }
-        // Both halves are canonical ids, so NUL separation is injective without a digest.
-        this.key = `${contributor.value}\0${ordinal}`;
+        this.key = canonicalTupleKey("settings-layer.origin", [contributor.value, ordinal]);
         Object.freeze(this);
     }
 
@@ -61,6 +62,10 @@ export class SettingsLayerOrigin {
  * the merged config schema, and what puts the layer in that Facet's §4.1 withdrawal set.
  */
 export class SettingsLayer {
+    public static get codec(): DataRecordCodec<SettingsLayer> {
+        return settingsLayerCodec;
+    }
+
     public readonly schema: JsonSchema;
     public readonly origin: SettingsLayerOrigin;
     /**

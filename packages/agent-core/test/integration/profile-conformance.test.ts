@@ -66,7 +66,7 @@ import {
     type Receipt
 } from "../../src/invocations";
 import { CorrelationId, EventId, InvocationId } from "../../src/interaction-references";
-import { SqliteWorkspaceEventRecords } from "../../src/substrates";
+import { SqliteWorkspaceRecords } from "../../src/substrates";
 import { RunId, TurnId, TurnLease, type LeaseToken } from "../../src/agents";
 import {
     ContentRetentionId,
@@ -573,7 +573,7 @@ class SqliteCausalProfileEffects extends ProfileRuntimeEffectsPort<Receipt> {
         string,
         { audit: AuditRecord; receiptAudit: AuditRecord; receipt: Receipt }
     >();
-    #records = new SqliteWorkspaceEventRecords(this.#database);
+    #records = new SqliteWorkspaceRecords(this.#database);
     public readonly events: Event[] = [];
 
     public constructor(private readonly harness: CanonicalBatchHarness<ProtectedOperationRequest>) {
@@ -649,7 +649,7 @@ class SqliteCausalProfileEffects extends ProfileRuntimeEffectsPort<Receipt> {
     }
 
     public restart(): void {
-        this.#records = new SqliteWorkspaceEventRecords(this.#database);
+        this.#records = new SqliteWorkspaceRecords(this.#database);
     }
 
     public eventEvidence(id: EventId) {

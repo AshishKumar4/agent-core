@@ -5,7 +5,7 @@ import { expect, test } from "vitest";
 import type { SynchronousResultGuard } from "../../../src/actors";
 import { Digest, Revision } from "../../../src/core";
 import { sqliteText } from "../../../src/substrates/sqlite/content";
-import { SqliteWorkspaceEventRecords } from "../../../src/substrates/sqlite/events/records";
+import { SqliteWorkspaceRecords } from "../../../src/substrates/sqlite/workspace-records";
 import {
     TransactionalSqlite,
     type SqliteRow,
@@ -18,7 +18,7 @@ import {
     ViewMark,
     ViewReplayProtocol,
     WorkspacePersistence,
-    type CompactableWorkspaceRecordKind
+    type DeletableWorkspaceRecordKind
 } from "../../../src/workspaces";
 import { malformed } from "../../helpers/malformed";
 import { FileSqlite, TestSqlite } from "../../helpers/sqlite";
@@ -44,7 +44,7 @@ test("file-backed SQLite records survive a database close and reopen", { tags: "
     let database: FileSqlite | undefined;
     try {
         database = new FileSqlite(path);
-        let records = new SqliteWorkspaceEventRecords(database);
+        let records = new SqliteWorkspaceRecords(database);
         let persistence = new WorkspacePersistence<TransactionalSqlite>(
             () => records,
             { verify: () => true, release: () => {}, discard: () => {} },
@@ -57,7 +57,7 @@ test("file-backed SQLite records survive a database close and reopen", { tags: "
         database.close();
 
         database = new FileSqlite(path);
-        records = new SqliteWorkspaceEventRecords(database);
+        records = new SqliteWorkspaceRecords(database);
         persistence = new WorkspacePersistence<TransactionalSqlite>(
             () => records,
             { verify: () => true, release: () => {}, discard: () => {} },
@@ -106,7 +106,7 @@ test(
         try {
             const opened = new FileSqlite(path);
             database = opened;
-            let records = new SqliteWorkspaceEventRecords(opened);
+            let records = new SqliteWorkspaceRecords(opened);
             let persistence = new WorkspacePersistence<TransactionalSqlite>(
                 () => records,
                 { verify: () => true, release: () => {}, discard: () => {} },
@@ -128,7 +128,7 @@ test(
 
             const reopened = new FileSqlite(path);
             database = reopened;
-            records = new SqliteWorkspaceEventRecords(reopened);
+            records = new SqliteWorkspaceRecords(reopened);
             persistence = new WorkspacePersistence<TransactionalSqlite>(
                 () => records,
                 { verify: () => true, release: () => {}, discard: () => {} },
@@ -158,20 +158,17 @@ test(
 
 test("rejects preexisting lax workspace event tables", { tags: "p1" }, () => {
     const database = new TestSqlite();
-    database.run(
-        "CREATE TABLE workspace_event_records (kind TEXT, id TEXT, bytes BLOB) STRICT",
-        []
-    );
+    database.run("CREATE TABLE workspace_records (kind TEXT, id TEXT, bytes BLOB) STRICT", []);
 
-    expect(() => new SqliteWorkspaceEventRecords(database)).toThrow(/schema is incompatible/);
+    expect(() => new SqliteWorkspaceRecords(database)).toThrow(/schema is incompatible/);
 });
 
 test("verifies initial pointer compare-and-set postconditions", { tags: "p0" }, () => {
     const database = new TestSqlite();
-    const records = new SqliteWorkspaceEventRecords(database);
+    const records = new SqliteWorkspaceRecords(database);
     database.run(
         `CREATE TRIGGER ignore_workspace_pointer
-         BEFORE INSERT ON workspace_event_pointers
+         BEFORE INSERT ON workspace_pointers
          BEGIN SELECT RAISE(IGNORE); END`,
         []
     );
@@ -188,36 +185,30 @@ test("verifies initial pointer compare-and-set postconditions", { tags: "p0" }, 
     ).toThrow(/lost a concurrent race/);
 });
 
-test(
-    "refuses to compact non-compactable record kinds and keeps them stored",
-    { tags: "p0" },
-    () => {
-        const database = new TestSqlite();
-        const records = new SqliteWorkspaceEventRecords(database);
-        records.insertRecord({ kind: "event", id: "guarded", bytes: Uint8Array.of(1) });
+test("refuses to delete non-deletable record kinds and keeps them stored", { tags: "p0" }, () => {
+    const database = new TestSqlite();
+    const records = new SqliteWorkspaceRecords(database);
+    records.insertRecord({ kind: "event", id: "guarded", bytes: Uint8Array.of(1) });
 
-        expect(() =>
-            records.deleteCompactedRecords(malformed<CompactableWorkspaceRecordKind>("event"), [
-                "guarded"
-            ])
-        ).toThrow(
-            expect.objectContaining({
-                code: "protocol.invalid-state",
-                message: "Record kind is not compactable"
-            })
-        );
-        expect(records.findRecord("event", "guarded")?.bytes).toEqual(Uint8Array.of(1));
-    }
-);
+    expect(() =>
+        records.deleteRecords(malformed<DeletableWorkspaceRecordKind>("event"), ["guarded"])
+    ).toThrow(
+        expect.objectContaining({
+            code: "protocol.invalid-state",
+            message: "Record kind is not deletable"
+        })
+    );
+    expect(records.findRecord("event", "guarded")?.bytes).toEqual(Uint8Array.of(1));
+});
 
 test("duplicate records are rejected before the insert executes", { tags: "p1" }, () => {
     const database = new TestSqlite();
-    const records = new SqliteWorkspaceEventRecords(database);
+    const records = new SqliteWorkspaceRecords(database);
     database.run(
         `CREATE TRIGGER ignore_duplicate_records
-         BEFORE INSERT ON workspace_event_records
+         BEFORE INSERT ON workspace_records
          WHEN EXISTS (
-             SELECT 1 FROM workspace_event_records
+             SELECT 1 FROM workspace_records
              WHERE kind = NEW.kind AND id = NEW.id
          )
          BEGIN SELECT RAISE(IGNORE); END`,
@@ -238,10 +229,10 @@ test("duplicate records are rejected before the insert executes", { tags: "p1" }
 
 test("record insert failures surface the exact append-only error", { tags: "p1" }, () => {
     const database = new TestSqlite();
-    const records = new SqliteWorkspaceEventRecords(database);
+    const records = new SqliteWorkspaceRecords(database);
     database.run(
         `CREATE TRIGGER fail_workspace_records
-         BEFORE INSERT ON workspace_event_records
+         BEFORE INSERT ON workspace_records
          BEGIN SELECT RAISE(ABORT, 'injected record fault'); END`,
         []
     );
@@ -262,12 +253,12 @@ test(
     { tags: "p1" },
     () => {
         const database = new TestSqlite();
-        const records = new SqliteWorkspaceEventRecords(database);
+        const records = new SqliteWorkspaceRecords(database);
         database.run(
             `CREATE TRIGGER ignore_duplicate_uniques
-             BEFORE INSERT ON workspace_event_uniques
+             BEFORE INSERT ON workspace_uniques
              WHEN EXISTS (
-                 SELECT 1 FROM workspace_event_uniques
+                 SELECT 1 FROM workspace_uniques
                  WHERE namespace = NEW.namespace AND key = NEW.key
              )
              BEGIN SELECT RAISE(IGNORE); END`,
@@ -296,7 +287,7 @@ test(
 );
 
 test("pointer compare-and-set reports a stale expectation exactly", { tags: "p0" }, () => {
-    const records = new SqliteWorkspaceEventRecords(new TestSqlite());
+    const records = new SqliteWorkspaceRecords(new TestSqlite());
     records.compareAndSetPointer(
         { namespace: "view.current", key: "surface", recordKey: "surface@0" },
         undefined
@@ -318,18 +309,14 @@ test("pointer compare-and-set reports a stale expectation exactly", { tags: "p0"
 
 test("schema comparison tolerates whitespace layout but not content drift", { tags: "p1" }, () => {
     const reference = new TestSqlite();
-    new SqliteWorkspaceEventRecords(reference);
-    const tables = [
-        "workspace_event_records",
-        "workspace_event_uniques",
-        "workspace_event_pointers"
-    ];
+    new SqliteWorkspaceRecords(reference);
+    const tables = ["workspace_records", "workspace_uniques", "workspace_pointers"];
 
     const collapsed = new TestSqlite();
     for (const table of tables) {
         collapsed.run(tableSql(reference, table).replaceAll(/\s+/gu, " "), []);
     }
-    const collapsedRecords = new SqliteWorkspaceEventRecords(collapsed);
+    const collapsedRecords = new SqliteWorkspaceRecords(collapsed);
     collapsedRecords.insertRecord({ kind: "event", id: "normalized", bytes: Uint8Array.of(3) });
     expect(collapsedRecords.findRecord("event", "normalized")?.bytes).toEqual(Uint8Array.of(3));
 
@@ -337,17 +324,17 @@ test("schema comparison tolerates whitespace layout but not content drift", { ta
     for (const table of tables) {
         padded.run(`${tableSql(reference, table)}\n    `, []);
     }
-    expect(new SqliteWorkspaceEventRecords(padded).findRecord("event", "missing")).toBeUndefined();
+    expect(new SqliteWorkspaceRecords(padded).findRecord("event", "missing")).toBeUndefined();
 
     const drifted = new TestSqlite();
-    drifted.run(tableSql(reference, "workspace_event_records").replace("'event'", "'even t'"), []);
-    expect(() => new SqliteWorkspaceEventRecords(drifted)).toThrow(
-        "SQLite schema is incompatible: workspace_event_records"
+    drifted.run(tableSql(reference, "workspace_records").replace("'event'", "'even t'"), []);
+    expect(() => new SqliteWorkspaceRecords(drifted)).toThrow(
+        "SQLite schema is incompatible: workspace_records"
     );
 });
 
 test("record reads return defensive byte copies of reused rows", { tags: "p1" }, () => {
-    const records = new SqliteWorkspaceEventRecords(new RecordCachingSqlite());
+    const records = new SqliteWorkspaceRecords(new RecordCachingSqlite());
     records.insertRecord({ kind: "event", id: "shared", bytes: Uint8Array.of(1, 2, 3) });
 
     const found = records.findRecord("event", "shared");
@@ -362,7 +349,7 @@ test("record reads return defensive byte copies of reused rows", { tags: "p1" },
 
 test("record writes hand the substrate bytes detached from the caller", { tags: "p0" }, () => {
     const database = new BlobRecordingSqlite();
-    const records = new SqliteWorkspaceEventRecords(database);
+    const records = new SqliteWorkspaceRecords(database);
     const bytes = Uint8Array.of(1, 2, 3);
 
     records.insertRecord({ kind: "event", id: "detached", bytes });
@@ -384,7 +371,7 @@ class BlobRecordingSqlite extends TestSqlite {
 
     protected override execute(statement: string, bindings: readonly SqliteValue[]): void {
         super.execute(statement, bindings);
-        if (!statement.includes("INSERT INTO workspace_event_records")) return;
+        if (!statement.includes("INSERT INTO workspace_records")) return;
         for (const binding of bindings) {
             if (binding instanceof Uint8Array) this.lastRecordBlob = binding;
         }
@@ -394,8 +381,11 @@ class BlobRecordingSqlite extends TestSqlite {
 class RecordCachingSqlite extends TestSqlite {
     readonly #cache = new Map<string, readonly SqliteRow[]>();
 
-    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
-        if (!statement.includes("FROM workspace_event_records")) {
+    protected override query(
+        statement: string,
+        bindings: readonly SqliteValue[]
+    ): readonly SqliteRow[] {
+        if (!statement.includes("FROM workspace_records")) {
             return super.query(statement, bindings);
         }
         const key = `${statement} ${JSON.stringify(bindings)}`;
@@ -409,7 +399,7 @@ class RecordCachingSqlite extends TestSqlite {
 
 function createSqliteHarness(): WorkspacePersistenceHarness<TransactionalSqlite> {
     const database = new TestSqlite();
-    let records = new SqliteWorkspaceEventRecords(database);
+    let records = new SqliteWorkspaceRecords(database);
     const persistence = new WorkspacePersistence<TransactionalSqlite>(
         () => records,
         { verify: () => true, release: () => {}, discard: () => {} },
@@ -425,7 +415,7 @@ function createSqliteHarness(): WorkspacePersistenceHarness<TransactionalSqlite>
             return database.transaction(() => operation(database), ...guard);
         },
         restart(): void {
-            records = new SqliteWorkspaceEventRecords(database);
+            records = new SqliteWorkspaceRecords(database);
         },
         dispose(): void {}
     };

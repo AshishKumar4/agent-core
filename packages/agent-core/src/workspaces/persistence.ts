@@ -1,9 +1,29 @@
 import { AgentCoreError } from "../errors";
 import type { ActorRef } from "../actors";
 import type { AuditRecordId } from "../interaction-references";
-import type { ContributionAttribution } from "../facets";
+import {
+    CatalogEntry,
+    IngressDeclaration,
+    PromptSection,
+    SettingsLayer,
+    SurfaceRegistration,
+    type CatalogEntryId,
+    type ContributionAttribution,
+    type PromptSectionId,
+    type SettingsLayerId,
+    type SurfaceId
+} from "../facets";
 import { consumeAuthenticatedContribution, type AuthenticatedContribution } from "../definition";
-import { ContentRef, Revision, type JsonValue, compareCanonicalText, isJsonObject } from "../core";
+import {
+    ContentRef,
+    Digest,
+    JsonSchema,
+    Revision,
+    type JsonValue,
+    compareCanonicalText,
+    isMember,
+    isJsonObject
+} from "../core";
 import type { TenantId } from "../identity";
 import type {
     EventId,
@@ -18,6 +38,11 @@ import {
     type ContentRetentionPort
 } from "./retention";
 import {
+    IngressEndpoint,
+    type IngressEndpointId,
+    type IngressEndpointMaterializationInit
+} from "./ingress-endpoint";
+import {
     AuthenticatedRouteProjection,
     RouteDelivery,
     RouteDeliveryState,
@@ -28,27 +53,44 @@ import {
 import { Subscription, type SubscriptionInit } from "./subscription";
 import { View, ViewDelta, type JsonPatchEngine, viewDocument, viewFromDocument } from "./view";
 
-export type WorkspaceRecordKind =
-    | "event"
-    | "subscription"
-    | "routeReservation"
-    | "routeProjection"
-    | "routeDelivery"
-    | "view"
-    | "viewDelta"
-    | "contentRetention";
+export const WORKSPACE_RECORD_KINDS = Object.freeze([
+    "catalogEntry",
+    "contentRetention",
+    "event",
+    "ingressEndpoint",
+    "promptSection",
+    "routeDelivery",
+    "routeProjection",
+    "routeReservation",
+    "settingsLayer",
+    "subscription",
+    "surfaceRegistration",
+    "view",
+    "viewDelta"
+] as const);
+export type WorkspaceRecordKind = (typeof WORKSPACE_RECORD_KINDS)[number];
 
-export type CompactableWorkspaceRecordKind = "view" | "viewDelta" | "contentRetention";
+export const DELETABLE_WORKSPACE_RECORD_KINDS = Object.freeze([
+    "contentRetention",
+    "view",
+    "viewDelta"
+] as const);
+export type DeletableWorkspaceRecordKind = (typeof DELETABLE_WORKSPACE_RECORD_KINDS)[number];
 
 type WorkspaceDurableRecord =
+    | CatalogEntry
+    | ContentRetentionReference
     | Event
-    | Subscription
-    | RouteReservation
-    | RouteProjection
+    | IngressEndpoint
+    | PromptSection
     | RouteDelivery
+    | RouteProjection
+    | RouteReservation
+    | SettingsLayer
+    | Subscription
+    | SurfaceRegistration
     | View
-    | ViewDelta
-    | ContentRetentionReference;
+    | ViewDelta;
 
 /**
  * A trusted materializer supplies route behavior. The store derives the initial revision,
@@ -81,7 +123,7 @@ export interface WorkspaceRecordStorage {
     findRecord(kind: WorkspaceRecordKind, id: string): StoredWorkspaceRecord | undefined;
     listRecords(kind: WorkspaceRecordKind): readonly StoredWorkspaceRecord[];
     insertRecord(record: StoredWorkspaceRecord): void;
-    deleteCompactedRecords(kind: CompactableWorkspaceRecordKind, ids: readonly string[]): void;
+    deleteRecords(kind: DeletableWorkspaceRecordKind, ids: readonly string[]): void;
     findUnique(namespace: string, key: string): StoredWorkspaceUnique | undefined;
     insertUnique(unique: StoredWorkspaceUnique): void;
     findPointer(namespace: string, key: string): StoredWorkspacePointer | undefined;
@@ -89,6 +131,7 @@ export interface WorkspaceRecordStorage {
         pointer: StoredWorkspacePointer,
         expectedRecordKey: string | undefined
     ): void;
+    deletePointer(namespace: string, key: string, expectedRecordKey: string): void;
 }
 
 export class WorkspacePersistence<Transaction> {
@@ -98,6 +141,554 @@ export class WorkspacePersistence<Transaction> {
         private readonly actor: ActorRef,
         private readonly tenant: TenantId
     ) {}
+
+    public findCatalogEntry(
+        transaction: Transaction,
+        id: CatalogEntryId
+    ): CatalogEntry | undefined {
+        return this.load(transaction, "catalogEntry", id.value, CatalogEntry.codec);
+    }
+
+    public catalogEntryAt(
+        transaction: Transaction,
+        origin: CatalogEntry["origin"]
+    ): CatalogEntry | undefined {
+        return this.currentRecord(
+            transaction,
+            "catalogEntry",
+            "catalog.current",
+            origin.key,
+            CatalogEntry.codec
+        );
+    }
+
+    public listCatalogEntries(transaction: Transaction): readonly CatalogEntry[] {
+        return this.listCurrentRecords(
+            transaction,
+            "catalogEntry",
+            "catalog.current",
+            (entry) => entry.origin.key,
+            CatalogEntry.codec,
+            (left, right) => compareCanonicalText(left.id.value, right.id.value)
+        );
+    }
+
+    public listContributedCatalogEntries(
+        transaction: Transaction,
+        attribution: ContributionAttribution
+    ): readonly CatalogEntry[] {
+        return Object.freeze(
+            this.listCatalogEntries(transaction).filter(
+                (entry) => entry.attribution?.equals(attribution) === true
+            )
+        );
+    }
+
+    public putCatalogEntry(transaction: Transaction, entry: CatalogEntry): boolean {
+        const current = this.catalogEntryAt(transaction, entry.origin);
+        if (current !== undefined) {
+            requireSameOptionalContributor(current.attribution, entry.attribution, "Catalog entry");
+            if (sameBytes(CatalogEntry.encode(current), CatalogEntry.encode(entry))) return false;
+        }
+        this.appendOrVerify(
+            this.storage(transaction),
+            "catalogEntry",
+            entry.id.value,
+            entry,
+            CatalogEntry.codec
+        );
+        this.storage(transaction).compareAndSetPointer(
+            {
+                namespace: "catalog.current",
+                key: entry.origin.key,
+                recordKey: entry.id.value
+            },
+            current?.id.value
+        );
+        return true;
+    }
+
+    public retireCatalogEntry(transaction: Transaction, id: CatalogEntryId): void {
+        const entry = this.requireLoad(transaction, "catalogEntry", id.value, CatalogEntry.codec);
+        this.storage(transaction).deletePointer("catalog.current", entry.origin.key, id.value);
+    }
+
+    public findPromptSection(
+        transaction: Transaction,
+        id: PromptSectionId
+    ): PromptSection | undefined {
+        return this.load(transaction, "promptSection", id.value, PromptSection.codec);
+    }
+
+    public promptSectionAt(
+        transaction: Transaction,
+        origin: PromptSection["origin"]
+    ): PromptSection | undefined {
+        return this.currentRecord(
+            transaction,
+            "promptSection",
+            "prompt.current",
+            origin.key,
+            PromptSection.codec
+        );
+    }
+
+    public listPromptSections(transaction: Transaction): readonly PromptSection[] {
+        return this.listCurrentRecords(
+            transaction,
+            "promptSection",
+            "prompt.current",
+            (section) => section.origin.key,
+            PromptSection.codec,
+            PromptSection.compare
+        );
+    }
+
+    public listContributedPromptSections(
+        transaction: Transaction,
+        attribution: ContributionAttribution
+    ): readonly PromptSection[] {
+        return Object.freeze(
+            this.listPromptSections(transaction).filter((section) =>
+                section.attribution.equals(attribution)
+            )
+        );
+    }
+
+    public putPromptSection(transaction: Transaction, section: PromptSection): boolean {
+        const current = this.promptSectionAt(transaction, section.origin);
+        if (
+            current !== undefined &&
+            sameBytes(PromptSection.encode(current), PromptSection.encode(section))
+        ) {
+            return false;
+        }
+        this.appendOrVerify(
+            this.storage(transaction),
+            "promptSection",
+            section.id.value,
+            section,
+            PromptSection.codec
+        );
+        this.storage(transaction).compareAndSetPointer(
+            {
+                namespace: "prompt.current",
+                key: section.origin.key,
+                recordKey: section.id.value
+            },
+            current?.id.value
+        );
+        return true;
+    }
+
+    public retirePromptSection(transaction: Transaction, id: PromptSectionId): void {
+        const section = this.requireLoad(
+            transaction,
+            "promptSection",
+            id.value,
+            PromptSection.codec
+        );
+        this.storage(transaction).deletePointer("prompt.current", section.origin.key, id.value);
+    }
+
+    public assembledPromptSections(transaction: Transaction): readonly PromptSection[] {
+        return this.listPromptSections(transaction);
+    }
+
+    public findSettingsLayer(
+        transaction: Transaction,
+        id: SettingsLayerId
+    ): SettingsLayer | undefined {
+        return this.load(transaction, "settingsLayer", id.value, SettingsLayer.codec);
+    }
+
+    public settingsLayerAt(
+        transaction: Transaction,
+        origin: SettingsLayer["origin"]
+    ): SettingsLayer | undefined {
+        return this.currentRecord(
+            transaction,
+            "settingsLayer",
+            "settings.current",
+            origin.key,
+            SettingsLayer.codec
+        );
+    }
+
+    public listSettingsLayers(transaction: Transaction): readonly SettingsLayer[] {
+        return this.listCurrentRecords(
+            transaction,
+            "settingsLayer",
+            "settings.current",
+            (layer) => layer.origin.key,
+            SettingsLayer.codec,
+            compareSettingsLayers
+        );
+    }
+
+    public listContributedSettingsLayers(
+        transaction: Transaction,
+        attribution: ContributionAttribution
+    ): readonly SettingsLayer[] {
+        return Object.freeze(
+            this.listSettingsLayers(transaction).filter((layer) =>
+                layer.attribution.equals(attribution)
+            )
+        );
+    }
+
+    public putSettingsLayer(transaction: Transaction, layer: SettingsLayer): boolean {
+        const current = this.settingsLayerAt(transaction, layer.origin);
+        if (
+            current !== undefined &&
+            sameBytes(SettingsLayer.encode(current), SettingsLayer.encode(layer))
+        ) {
+            return false;
+        }
+        this.appendOrVerify(
+            this.storage(transaction),
+            "settingsLayer",
+            layer.id.value,
+            layer,
+            SettingsLayer.codec
+        );
+        this.storage(transaction).compareAndSetPointer(
+            {
+                namespace: "settings.current",
+                key: layer.origin.key,
+                recordKey: layer.id.value
+            },
+            current?.id.value
+        );
+        return true;
+    }
+
+    public retireSettingsLayer(transaction: Transaction, id: SettingsLayerId): void {
+        const layer = this.requireLoad(transaction, "settingsLayer", id.value, SettingsLayer.codec);
+        this.storage(transaction).deletePointer("settings.current", layer.origin.key, id.value);
+    }
+
+    public composedSettingsSchema(transaction: Transaction, base: JsonSchema): JsonSchema {
+        const groups = new Map<string, JsonValue[]>();
+        for (const layer of this.listSettingsLayers(transaction)) {
+            const group = layer.attribution.package.id.value;
+            const fragments = groups.get(group);
+            if (fragments === undefined) groups.set(group, [layer.schema.document]);
+            else fragments.push(layer.schema.document);
+        }
+        const properties = Object.fromEntries(
+            [...groups.entries()].map(([group, fragments]) => [
+                group,
+                fragments.length === 1 ? fragments[0]! : { allOf: fragments }
+            ])
+        );
+        return new JsonSchema({
+            allOf: [
+                base.document,
+                {
+                    additionalProperties: false,
+                    properties,
+                    required: [...groups.keys()],
+                    type: "object"
+                }
+            ]
+        });
+    }
+
+    public findSurfaceRegistration(
+        transaction: Transaction,
+        surface: SurfaceId
+    ): SurfaceRegistration | undefined {
+        return this.currentRecord(
+            transaction,
+            "surfaceRegistration",
+            "surface.registration",
+            surface.value,
+            SurfaceRegistration.codec
+        );
+    }
+
+    public listSurfaceRegistrations(transaction: Transaction): readonly SurfaceRegistration[] {
+        return this.listCurrentRecords(
+            transaction,
+            "surfaceRegistration",
+            "surface.registration",
+            (registration) => registration.descriptor.id.value,
+            SurfaceRegistration.codec,
+            (left, right) =>
+                compareCanonicalText(left.descriptor.id.value, right.descriptor.id.value)
+        );
+    }
+
+    public listContributedSurfaceRegistrations(
+        transaction: Transaction,
+        attribution: ContributionAttribution
+    ): readonly SurfaceRegistration[] {
+        return Object.freeze(
+            this.listSurfaceRegistrations(transaction).filter((registration) =>
+                registration.attribution.equals(attribution)
+            )
+        );
+    }
+
+    public putSurfaceRegistration(
+        transaction: Transaction,
+        registration: SurfaceRegistration
+    ): boolean {
+        const surface = registration.descriptor.id;
+        const current = this.findSurfaceRegistration(transaction, surface);
+        if (current !== undefined) {
+            if (!current.attribution.contributor.equals(registration.attribution.contributor)) {
+                throw new AgentCoreError(
+                    "protocol.invalid-state",
+                    `Surface ${surface.value} is registered by ${current.attribution.contributor.value}`
+                );
+            }
+            if (
+                sameBytes(
+                    SurfaceRegistration.encode(current),
+                    SurfaceRegistration.encode(registration)
+                )
+            ) {
+                return false;
+            }
+        }
+        const recordKey = Digest.sha256(SurfaceRegistration.encode(registration)).value;
+        this.appendOrVerify(
+            this.storage(transaction),
+            "surfaceRegistration",
+            recordKey,
+            registration,
+            SurfaceRegistration.codec
+        );
+        this.storage(transaction).compareAndSetPointer(
+            {
+                namespace: "surface.registration",
+                key: surface.value,
+                recordKey
+            },
+            current === undefined
+                ? undefined
+                : Digest.sha256(SurfaceRegistration.encode(current)).value
+        );
+        return true;
+    }
+
+    public retireSurfaceRegistration(transaction: Transaction, surface: SurfaceId): void {
+        const current = this.findSurfaceRegistration(transaction, surface);
+        if (current === undefined) {
+            throw new AgentCoreError(
+                "protocol.invalid-state",
+                "Surface withdrawal requires a current registration"
+            );
+        }
+        this.storage(transaction).deletePointer(
+            "surface.registration",
+            surface.value,
+            Digest.sha256(SurfaceRegistration.encode(current)).value
+        );
+    }
+
+    public currentIngressEndpoint(
+        transaction: Transaction,
+        id: IngressEndpointId
+    ): IngressEndpoint | undefined {
+        return this.currentRecord(
+            transaction,
+            "ingressEndpoint",
+            "ingress.current",
+            id.value,
+            IngressEndpoint.codec
+        );
+    }
+
+    public listIngressEndpoints(transaction: Transaction): readonly IngressEndpoint[] {
+        return Object.freeze(
+            this.listCurrentRecords(
+                transaction,
+                "ingressEndpoint",
+                "ingress.current",
+                (endpoint) => endpoint.id.value,
+                IngressEndpoint.codec,
+                (left, right) => compareCanonicalText(left.id.value, right.id.value)
+            ).filter((endpoint) => endpoint.retired !== true)
+        );
+    }
+
+    public listContributedIngressEndpoints(
+        transaction: Transaction,
+        attribution: ContributionAttribution
+    ): readonly IngressEndpoint[] {
+        return Object.freeze(
+            this.listIngressEndpoints(transaction).filter(
+                (endpoint) => endpoint.contribution?.equals(attribution) === true
+            )
+        );
+    }
+
+    public createIngressEndpoint(transaction: Transaction, endpoint: IngressEndpoint): void {
+        if (endpoint.contribution !== undefined) {
+            throw new AgentCoreError(
+                "authority.denied",
+                "Ingress endpoint attribution requires authenticated contribution materialization"
+            );
+        }
+        this.putNewIngressEndpoint(transaction, endpoint);
+    }
+
+    public materializeIngressEndpoint(
+        transaction: Transaction,
+        contribution: AuthenticatedContribution,
+        init: IngressEndpointMaterializationInit
+    ): IngressEndpoint {
+        if ("contribution" in init || "retired" in init || "revision" in init) {
+            throw new AgentCoreError(
+                "operation.invalid-input",
+                "Ingress endpoint materialization input must not supply record state"
+            );
+        }
+        const attribution = consumeAuthenticatedContribution(contribution);
+        if (attribution === undefined) {
+            throw new AgentCoreError(
+                "authority.denied",
+                "Ingress endpoint materialization requires authenticated contribution provenance"
+            );
+        }
+        const endpoint = new IngressEndpoint({
+            id: init.id,
+            revision: Revision.initial(),
+            scope: init.scope,
+            declared: init.declared,
+            contribution: attribution
+        });
+        this.putNewIngressEndpoint(transaction, endpoint);
+        return endpoint;
+    }
+
+    public putManagedIngressEndpoint(transaction: Transaction, endpoint: IngressEndpoint): boolean {
+        if (
+            endpoint.contribution === undefined ||
+            endpoint.revision.value !== 0 ||
+            endpoint.retired !== undefined
+        ) {
+            throw new AgentCoreError(
+                "authority.denied",
+                "Managed Ingress endpoint requires attributed revision-zero state"
+            );
+        }
+        const current = this.currentIngressEndpoint(transaction, endpoint.id);
+        if (current === undefined) {
+            this.putNewIngressEndpoint(transaction, endpoint);
+            return true;
+        }
+        if (sameIngressDesired(current, endpoint)) return false;
+        this.replaceIngressEndpoint(
+            transaction,
+            new IngressEndpoint({
+                id: endpoint.id,
+                revision: current.revision.next(),
+                scope: endpoint.scope,
+                declared: endpoint.declared,
+                contribution: endpoint.contribution
+            }),
+            current
+        );
+        return true;
+    }
+
+    public replaceIngressEndpoint(
+        transaction: Transaction,
+        endpoint: IngressEndpoint,
+        expected: IngressEndpoint
+    ): void {
+        const current = this.currentIngressEndpoint(transaction, endpoint.id);
+        if (
+            current === undefined ||
+            !current.revision.equals(expected.revision) ||
+            !expected.revision.next().equals(endpoint.revision)
+        ) {
+            throw revisionConflict("Ingress endpoint revision compare-and-set failed");
+        }
+        if (!sameContribution(current.contribution, endpoint.contribution)) {
+            throw new AgentCoreError(
+                "protocol.invalid-state",
+                "Ingress endpoint contribution attribution is immutable"
+            );
+        }
+        if (current.retired === true) {
+            throw new AgentCoreError(
+                "protocol.invalid-state",
+                "Retired Ingress endpoint accepts no further revision"
+            );
+        }
+        this.requireOwnTenant(endpoint);
+        if (endpoint.retired !== true) this.requireLiveIngressPathFree(transaction, endpoint);
+        this.writeIngressEndpoint(transaction, endpoint, current);
+    }
+
+    public retireIngressEndpoint(transaction: Transaction, id: IngressEndpointId): void {
+        const current = this.currentIngressEndpoint(transaction, id);
+        if (current === undefined || current.retired === true) {
+            throw new AgentCoreError(
+                "protocol.invalid-state",
+                "Ingress endpoint withdrawal requires a live contributed record"
+            );
+        }
+        this.replaceIngressEndpoint(transaction, current.retire(), current);
+    }
+
+    private putNewIngressEndpoint(transaction: Transaction, endpoint: IngressEndpoint): void {
+        this.requireOwnTenant(endpoint);
+        if (
+            this.currentIngressEndpoint(transaction, endpoint.id) !== undefined ||
+            endpoint.revision.value !== 0 ||
+            endpoint.retired === true
+        ) {
+            throw revisionConflict(
+                "New Ingress endpoint requires revision zero, live state, and no current record"
+            );
+        }
+        this.requireLiveIngressPathFree(transaction, endpoint);
+        this.writeIngressEndpoint(transaction, endpoint, undefined);
+    }
+
+    private writeIngressEndpoint(
+        transaction: Transaction,
+        endpoint: IngressEndpoint,
+        current: IngressEndpoint | undefined
+    ): void {
+        const storage = this.storage(transaction);
+        const recordKey = ingressEndpointRecordId(endpoint);
+        this.appendOrVerify(storage, "ingressEndpoint", recordKey, endpoint, IngressEndpoint.codec);
+        storage.compareAndSetPointer(
+            {
+                namespace: "ingress.current",
+                key: endpoint.id.value,
+                recordKey
+            },
+            current === undefined ? undefined : ingressEndpointRecordId(current)
+        );
+    }
+
+    private requireOwnTenant(endpoint: IngressEndpoint): void {
+        if (!endpoint.scope.tenantId.equals(this.tenant)) {
+            throw new AgentCoreError(
+                "protocol.invalid-state",
+                "Ingress endpoint belongs to another Tenant"
+            );
+        }
+    }
+
+    private requireLiveIngressPathFree(transaction: Transaction, candidate: IngressEndpoint): void {
+        const occupant = this.listIngressEndpoints(transaction).find(
+            (endpoint) =>
+                endpoint.declared.path === candidate.declared.path &&
+                !endpoint.id.equals(candidate.id)
+        );
+        if (occupant !== undefined) {
+            throw duplicate("A live Ingress endpoint already binds this path");
+        }
+    }
 
     public findEvent(transaction: Transaction, id: EventId): Event | undefined {
         const event = this.load(transaction, "event", id.value, Event.codec);
@@ -772,8 +1363,8 @@ export class WorkspacePersistence<Transaction> {
             .map(({ record }) => record.id);
         this.releaseRetentions(transaction, RetainedRecordKind.view(), oldViews);
         this.releaseRetentions(transaction, RetainedRecordKind.viewDelta(), oldDeltas);
-        storage.deleteCompactedRecords("view", oldViews);
-        storage.deleteCompactedRecords("viewDelta", oldDeltas);
+        storage.deleteRecords("view", oldViews);
+        storage.deleteRecords("viewDelta", oldDeltas);
     }
 
     public listRetentionsFor(
@@ -798,6 +1389,62 @@ export class WorkspacePersistence<Transaction> {
                         reference.record.value === recordKey
                 )
         );
+    }
+
+    private currentRecord<Record extends WorkspaceDurableRecord>(
+        transaction: Transaction,
+        kind: WorkspaceRecordKind,
+        namespace: string,
+        key: string,
+        codec: { decode(bytes: Uint8Array): Record }
+    ): Record | undefined {
+        const pointer = this.storage(transaction).findPointer(namespace, key);
+        return pointer === undefined
+            ? undefined
+            : this.requireLoad(transaction, kind, pointer.recordKey, codec);
+    }
+
+    private listCurrentRecords<Record extends WorkspaceDurableRecord>(
+        transaction: Transaction,
+        kind: WorkspaceRecordKind,
+        namespace: string,
+        keyOf: (record: Record) => string,
+        codec: { decode(bytes: Uint8Array): Record },
+        compare: (left: Record, right: Record) => number
+    ): readonly Record[] {
+        const storage = this.storage(transaction);
+        const current: Record[] = [];
+        const seen = new Set<string>();
+        for (const stored of storage.listRecords(kind)) {
+            const record = this.decodeStored(stored, kind, stored.id, codec);
+            const key = keyOf(record);
+            if (seen.has(key)) continue;
+            if (storage.findPointer(namespace, key)?.recordKey === stored.id) {
+                current.push(record);
+                seen.add(key);
+            }
+        }
+        return Object.freeze(current.sort(compare));
+    }
+
+    private appendOrVerify<Record extends WorkspaceDurableRecord>(
+        storage: WorkspaceRecordStorage,
+        kind: WorkspaceRecordKind,
+        id: string,
+        record: Record,
+        codec: { encode(value: Record): Uint8Array; decode(bytes: Uint8Array): Record }
+    ): void {
+        const expected = codec.encode(record);
+        codec.decode(expected);
+        const existing = storage.findRecord(kind, id);
+        if (existing === undefined) {
+            storage.insertRecord({ kind, id, bytes: expected });
+            return;
+        }
+        const decoded = this.decodeStored(existing, kind, id, codec);
+        if (!sameBytes(codec.encode(decoded), expected)) {
+            throw corrupt(`${kind} record identity resolves to different bytes`);
+        }
     }
 
     private append<Record>(
@@ -876,7 +1523,7 @@ export class WorkspacePersistence<Transaction> {
                     reference.recordKind.equals(recordKind) && keys.has(reference.record.value)
             );
         for (const reference of retained) this.retention.release(transaction, reference);
-        storage.deleteCompactedRecords(
+        storage.deleteRecords(
             "contentRetention",
             retained.map((reference) => reference.id.value)
         );
@@ -932,24 +1579,38 @@ export function validateWorkspacePointerAdvance(
     expectedRecordKey: string | undefined
 ): void {
     validateWorkspacePointer(pointer);
-    if (pointer.namespace !== "subscription.current" && pointer.namespace !== "view.current") {
-        throw new AgentCoreError(
-            "protocol.invalid-state",
-            "Workspace pointer namespace is invalid"
-        );
-    }
-    const nextRevision = pointerRevision(pointer.recordKey);
-    const expectedRevision =
-        expectedRecordKey === undefined ? undefined : pointerRevision(expectedRecordKey);
-    if (
-        (expectedRevision === undefined && nextRevision !== 0) ||
-        (expectedRevision !== undefined && nextRevision !== expectedRevision + 1)
-    ) {
-        throw revisionConflict("Workspace pointer must advance by exactly one revision");
+    switch (pointer.namespace) {
+        case "subscription.current":
+        case "view.current":
+        case "ingress.current": {
+            const nextRevision = pointerRevision(pointer.recordKey);
+            const expectedRevision =
+                expectedRecordKey === undefined ? undefined : pointerRevision(expectedRecordKey);
+            if (
+                (expectedRevision === undefined && nextRevision !== 0) ||
+                (expectedRevision !== undefined && nextRevision !== expectedRevision + 1)
+            ) {
+                throw revisionConflict("Workspace pointer must advance by exactly one revision");
+            }
+            return;
+        }
+        case "catalog.current":
+        case "prompt.current":
+        case "settings.current":
+        case "surface.registration":
+            return;
+        default:
+            throw new AgentCoreError(
+                "protocol.invalid-state",
+                "Workspace pointer namespace is invalid"
+            );
     }
 }
 
 export function validateStoredWorkspaceRecord(record: StoredWorkspaceRecord): void {
+    if (!isMember(WORKSPACE_RECORD_KINDS, record.kind)) {
+        throw new AgentCoreError("codec.invalid", "Workspace record kind is invalid");
+    }
     validateStorageText(record.id, 2048, "Workspace record key");
     if (!(record.bytes instanceof Uint8Array)) {
         throw new AgentCoreError("codec.invalid", "Workspace record bytes are malformed");
@@ -1015,6 +1676,23 @@ function collectContentRefs(value: JsonValue, refs = new Set<string>()): Set<str
 
 function durableRecordId(kind: WorkspaceRecordKind, record: WorkspaceDurableRecord): string {
     switch (kind) {
+        case "catalogEntry":
+            if (record instanceof CatalogEntry) return record.id.value;
+            break;
+        case "ingressEndpoint":
+            if (record instanceof IngressEndpoint) return ingressEndpointRecordId(record);
+            break;
+        case "promptSection":
+            if (record instanceof PromptSection) return record.id.value;
+            break;
+        case "settingsLayer":
+            if (record instanceof SettingsLayer) return record.id.value;
+            break;
+        case "surfaceRegistration":
+            if (record instanceof SurfaceRegistration) {
+                return Digest.sha256(SurfaceRegistration.encode(record)).value;
+            }
+            break;
         case "event":
             if (record instanceof Event) return record.id.value;
             break;
@@ -1042,6 +1720,17 @@ function durableRecordId(kind: WorkspaceRecordKind, record: WorkspaceDurableReco
     }
     throw corrupt("Stored workspace record has the wrong codec kind");
 }
+function sameIngressDesired(current: IngressEndpoint, desired: IngressEndpoint): boolean {
+    return (
+        current.retired === undefined &&
+        current.scope.equals(desired.scope) &&
+        sameContribution(current.contribution, desired.contribution) &&
+        sameBytes(
+            IngressDeclaration.encode(current.declared),
+            IngressDeclaration.encode(desired.declared)
+        )
+    );
+}
 
 function isStringValue(value: JsonValue): value is string {
     return typeof value === "string";
@@ -1049,6 +1738,10 @@ function isStringValue(value: JsonValue): value is string {
 
 function subscriptionRecordId(subscription: Subscription): string {
     return `${subscription.id.value}@${subscription.revision.value}`;
+}
+
+function ingressEndpointRecordId(endpoint: IngressEndpoint): string {
+    return `${endpoint.id.value}@${endpoint.revision.value}`;
 }
 
 function viewRecordId(view: View): string {
@@ -1065,6 +1758,42 @@ function sameContribution(
 ): boolean {
     if (left === undefined || right === undefined) return left === right;
     return left.equals(right);
+}
+
+function requireSameOptionalContributor(
+    left: ContributionAttribution | undefined,
+    right: ContributionAttribution | undefined,
+    subject: string
+): void {
+    if (
+        (left === undefined) !== (right === undefined) ||
+        (left !== undefined && right !== undefined && !left.contributor.equals(right.contributor))
+    ) {
+        throw new AgentCoreError(
+            "protocol.invalid-state",
+            `${subject} origin belongs to another contributor`
+        );
+    }
+}
+
+function compareSettingsLayers(left: SettingsLayer, right: SettingsLayer): number {
+    return (
+        compareCanonicalText(
+            left.attribution.package.id.value,
+            right.attribution.package.id.value
+        ) ||
+        compareCanonicalText(
+            left.attribution.contributor.value,
+            right.attribution.contributor.value
+        ) ||
+        left.ordinal - right.ordinal
+    );
+}
+
+function sameBytes(left: Uint8Array, right: Uint8Array): boolean {
+    return (
+        left.byteLength === right.byteLength && left.every((value, index) => value === right[index])
+    );
 }
 
 function requireRetention(

@@ -3,6 +3,7 @@ import {
     RecordCodec,
     SemVer,
     TextId,
+    canonicalTupleKey,
     encodeCanonicalJson,
     type RecordVersion
 } from "../core";
@@ -31,7 +32,10 @@ export class PromptSectionContributionOrigin {
     /** Lookup key for the at-most-one-section-per-contributor-per-position index. */
     public readonly key: string;
 
-    public constructor(public readonly contributor: FacetRef, public readonly position: number) {
+    public constructor(
+        public readonly contributor: FacetRef,
+        public readonly position: number
+    ) {
         if (!(contributor instanceof FacetRef)) {
             throw new TypeError("A prompt contribution origin names its contributor");
         }
@@ -40,9 +44,7 @@ export class PromptSectionContributionOrigin {
                 "Prompt contribution origin position must be a non-negative safe integer"
             );
         }
-        // Both halves are canonical ids or bounded integers, so NUL separation is
-        // injective without a digest.
-        this.key = `${contributor.value}\0${position}`;
+        this.key = canonicalTupleKey("prompt-section.origin", [contributor.value, position]);
         Object.freeze(this);
     }
 
@@ -147,7 +149,13 @@ export class PromptSection {
             throw new TypeError("Prompt section position must be a non-negative safe integer");
         }
         this.origin = new PromptSectionContributionOrigin(attribution.contributor, position);
-        const expectedId = promptSectionId(this.title, this.body, this.priority, attribution, position);
+        const expectedId = promptSectionId(
+            this.title,
+            this.body,
+            this.priority,
+            attribution,
+            position
+        );
         if (id !== undefined && !id.equals(expectedId)) {
             throw new TypeError("Prompt section ID does not match its canonical contents");
         }
@@ -165,7 +173,15 @@ export class PromptSection {
 
     public static fromData(payload: FacetData): PromptSection {
         const object = requireDataObject(payload, "Prompt section");
-        requireExactFields(object, ["body", "contributor", "id", "package", "position", "priority", "title"]);
+        requireExactFields(object, [
+            "body",
+            "contributor",
+            "id",
+            "package",
+            "position",
+            "priority",
+            "title"
+        ]);
         return new PromptSection(
             requireString(object["title"], "Prompt section title"),
             requireString(object["body"], "Prompt section body"),

@@ -1,10 +1,11 @@
-import { compareCanonicalText } from "../core";
+import { compareCanonicalText, isMember } from "../core";
 import { ACTOR_STATE_SNAPSHOT, type ActorCloneOwnedState } from "../actors";
 import {
+    DELETABLE_WORKSPACE_RECORD_KINDS,
     type StoredWorkspacePointer,
     type StoredWorkspaceRecord,
     type StoredWorkspaceUnique,
-    type CompactableWorkspaceRecordKind,
+    type DeletableWorkspaceRecordKind,
     type WorkspaceRecordKind,
     type WorkspaceRecordStorage,
     validateStoredWorkspaceRecord,
@@ -63,12 +64,9 @@ export class MemoryWorkspaceRecords implements WorkspaceRecordStorage, ActorClon
         records.set(record.id, copyRecord(record));
     }
 
-    public deleteCompactedRecords(
-        kind: CompactableWorkspaceRecordKind,
-        ids: readonly string[]
-    ): void {
-        if (kind !== "view" && kind !== "viewDelta" && kind !== "contentRetention") {
-            throw new AgentCoreError("protocol.invalid-state", "Record kind is not compactable");
+    public deleteRecords(kind: DeletableWorkspaceRecordKind, ids: readonly string[]): void {
+        if (!isDeletableRecordKind(kind)) {
+            throw new AgentCoreError("protocol.invalid-state", "Record kind is not deletable");
         }
         const records = this.#records.get(kind);
         if (records === undefined) return;
@@ -116,6 +114,19 @@ export class MemoryWorkspaceRecords implements WorkspaceRecordStorage, ActorClon
         pointers.set(pointer.key, Object.freeze({ ...pointer }));
     }
 
+    public deletePointer(namespace: string, key: string, expectedRecordKey: string): void {
+        validateWorkspacePointer({ namespace, key, recordKey: expectedRecordKey });
+        const pointers = this.#pointers.get(namespace);
+        if (pointers?.get(key)?.recordKey !== expectedRecordKey) {
+            throw new AgentCoreError(
+                "protocol.revision-conflict",
+                "Workspace pointer compare-and-delete failed"
+            );
+        }
+        pointers.delete(key);
+        if (pointers.size === 0) this.#pointers.delete(namespace);
+    }
+
     public snapshot(): MemoryWorkspaceSnapshot {
         return Object.freeze({
             version: 1 as const,
@@ -132,6 +143,10 @@ export class MemoryWorkspaceRecords implements WorkspaceRecordStorage, ActorClon
     public [ACTOR_STATE_SNAPSHOT](): MemoryWorkspaceSnapshot {
         return this.snapshot();
     }
+}
+
+function isDeletableRecordKind(kind: string): kind is DeletableWorkspaceRecordKind {
+    return isMember(DELETABLE_WORKSPACE_RECORD_KINDS, kind);
 }
 
 function copyRecord(record: StoredWorkspaceRecord): StoredWorkspaceRecord {

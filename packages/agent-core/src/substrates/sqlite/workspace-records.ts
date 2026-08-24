@@ -1,13 +1,15 @@
-import { isMember } from "../../../core";
-import { TransactionalSqlite, isSqliteText, type SqliteRow, type SqliteValue } from "../sqlite";
+import { isMember } from "../../core";
+import { TransactionalSqlite, isSqliteText, type SqliteRow, type SqliteValue } from "./sqlite";
 import {
+    DELETABLE_WORKSPACE_RECORD_KINDS,
+    WORKSPACE_RECORD_KINDS,
     validateWorkspacePointerAdvance,
     validateStoredWorkspaceRecord,
     validateWorkspaceUnique,
-    type CompactableWorkspaceRecordKind,
+    type DeletableWorkspaceRecordKind,
     type WorkspaceRecordKind
-} from "../../../workspaces";
-import { AgentCoreError } from "../../../errors";
+} from "../../workspaces";
+import { AgentCoreError } from "../../errors";
 
 interface StoredWorkspaceRecord {
     readonly kind: WorkspaceRecordKind;
@@ -27,45 +29,43 @@ interface StoredWorkspacePointer {
     readonly recordKey: string;
 }
 
-const CREATE_RECORDS = `CREATE TABLE IF NOT EXISTS workspace_event_records (
-    kind TEXT NOT NULL CHECK (kind IN (
-        'event', 'subscription', 'routeReservation', 'routeProjection',
-        'routeDelivery', 'view', 'viewDelta', 'contentRetention'
-    )),
+const SQL_RECORD_KINDS = WORKSPACE_RECORD_KINDS.map((kind) => `'${kind}'`).join(", ");
+const CREATE_RECORDS = `CREATE TABLE IF NOT EXISTS workspace_records (
+    kind TEXT NOT NULL CHECK (kind IN (${SQL_RECORD_KINDS})),
     id TEXT NOT NULL CHECK (length(id) BETWEEN 1 AND 2048),
     bytes BLOB NOT NULL,
     PRIMARY KEY (kind, id)
 ) STRICT`;
 
-const CREATE_UNIQUES = `CREATE TABLE IF NOT EXISTS workspace_event_uniques (
+const CREATE_UNIQUES = `CREATE TABLE IF NOT EXISTS workspace_uniques (
     namespace TEXT NOT NULL CHECK (length(namespace) BETWEEN 1 AND 512),
     key TEXT NOT NULL CHECK (length(key) BETWEEN 1 AND 2048),
     record_id TEXT NOT NULL CHECK (length(record_id) BETWEEN 1 AND 2048),
     PRIMARY KEY (namespace, key)
 ) STRICT`;
 
-const CREATE_POINTERS = `CREATE TABLE IF NOT EXISTS workspace_event_pointers (
+const CREATE_POINTERS = `CREATE TABLE IF NOT EXISTS workspace_pointers (
     namespace TEXT NOT NULL CHECK (length(namespace) BETWEEN 1 AND 512),
     key TEXT NOT NULL CHECK (length(key) BETWEEN 1 AND 2048),
     record_id TEXT NOT NULL CHECK (length(record_id) BETWEEN 1 AND 2048),
     PRIMARY KEY (namespace, key)
 ) STRICT`;
 
-export class SqliteWorkspaceEventRecords {
+export class SqliteWorkspaceRecords {
     public constructor(private readonly database: TransactionalSqlite) {
         this.database.transaction(() => {
             this.database.run(CREATE_RECORDS, []);
             this.database.run(CREATE_UNIQUES, []);
             this.database.run(CREATE_POINTERS, []);
-            this.requireSchema("workspace_event_records", CREATE_RECORDS);
-            this.requireSchema("workspace_event_uniques", CREATE_UNIQUES);
-            this.requireSchema("workspace_event_pointers", CREATE_POINTERS);
+            this.requireSchema("workspace_records", CREATE_RECORDS);
+            this.requireSchema("workspace_uniques", CREATE_UNIQUES);
+            this.requireSchema("workspace_pointers", CREATE_POINTERS);
         });
     }
 
     public findRecord(kind: WorkspaceRecordKind, id: string): StoredWorkspaceRecord | undefined {
         const row = this.database.all(
-            `SELECT kind, id, bytes FROM workspace_event_records
+            `SELECT kind, id, bytes FROM workspace_records
              WHERE kind = ? AND id = ?`,
             [kind, id]
         )[0];
@@ -75,7 +75,7 @@ export class SqliteWorkspaceEventRecords {
     public listRecords(kind: WorkspaceRecordKind): readonly StoredWorkspaceRecord[] {
         return this.database
             .all(
-                `SELECT kind, id, bytes FROM workspace_event_records
+                `SELECT kind, id, bytes FROM workspace_records
              WHERE kind = ? ORDER BY id`,
                 [kind]
             )
@@ -88,24 +88,22 @@ export class SqliteWorkspaceEventRecords {
             throw new AgentCoreError("protocol.duplicate", "Workspace records are append-only");
         }
         try {
-            this.database.run(
-                `INSERT INTO workspace_event_records (kind, id, bytes) VALUES (?, ?, ?)`,
-                [record.kind, record.id, record.bytes.slice()]
-            );
+            this.database.run(`INSERT INTO workspace_records (kind, id, bytes) VALUES (?, ?, ?)`, [
+                record.kind,
+                record.id,
+                record.bytes.slice()
+            ]);
         } catch {
             throw new AgentCoreError("protocol.duplicate", "Workspace records are append-only");
         }
     }
 
-    public deleteCompactedRecords(
-        kind: CompactableWorkspaceRecordKind,
-        ids: readonly string[]
-    ): void {
-        if (kind !== "view" && kind !== "viewDelta" && kind !== "contentRetention") {
-            throw new AgentCoreError("protocol.invalid-state", "Record kind is not compactable");
+    public deleteRecords(kind: DeletableWorkspaceRecordKind, ids: readonly string[]): void {
+        if (!isDeletableRecordKind(kind)) {
+            throw new AgentCoreError("protocol.invalid-state", "Record kind is not deletable");
         }
         for (const id of ids) {
-            this.database.run(`DELETE FROM workspace_event_records WHERE kind = ? AND id = ?`, [
+            this.database.run(`DELETE FROM workspace_records WHERE kind = ? AND id = ?`, [
                 kind,
                 id
             ]);
@@ -114,7 +112,7 @@ export class SqliteWorkspaceEventRecords {
 
     public findUnique(namespace: string, key: string): StoredWorkspaceUnique | undefined {
         const row = this.database.all(
-            `SELECT namespace, key, record_id FROM workspace_event_uniques
+            `SELECT namespace, key, record_id FROM workspace_uniques
              WHERE namespace = ? AND key = ?`,
             [namespace, key]
         )[0];
@@ -131,7 +129,7 @@ export class SqliteWorkspaceEventRecords {
         }
         try {
             this.database.run(
-                `INSERT INTO workspace_event_uniques (namespace, key, record_id)
+                `INSERT INTO workspace_uniques (namespace, key, record_id)
                  VALUES (?, ?, ?)`,
                 [unique.namespace, unique.key, unique.recordKey]
             );
@@ -145,7 +143,7 @@ export class SqliteWorkspaceEventRecords {
 
     public findPointer(namespace: string, key: string): StoredWorkspacePointer | undefined {
         const row = this.database.all(
-            `SELECT namespace, key, record_id FROM workspace_event_pointers
+            `SELECT namespace, key, record_id FROM workspace_pointers
              WHERE namespace = ? AND key = ?`,
             [namespace, key]
         )[0];
@@ -169,13 +167,13 @@ export class SqliteWorkspaceEventRecords {
         }
         if (current === undefined) {
             this.database.run(
-                `INSERT INTO workspace_event_pointers (namespace, key, record_id)
+                `INSERT INTO workspace_pointers (namespace, key, record_id)
                  VALUES (?, ?, ?)`,
                 [pointer.namespace, pointer.key, pointer.recordKey]
             );
         } else {
             this.database.run(
-                `UPDATE workspace_event_pointers SET record_id = ?
+                `UPDATE workspace_pointers SET record_id = ?
                  WHERE namespace = ? AND key = ? AND record_id = ?`,
                 [pointer.recordKey, pointer.namespace, pointer.key, current.recordKey]
             );
@@ -185,6 +183,27 @@ export class SqliteWorkspaceEventRecords {
             throw new AgentCoreError(
                 "protocol.revision-conflict",
                 "Workspace pointer compare-and-set lost a concurrent race"
+            );
+        }
+    }
+
+    public deletePointer(namespace: string, key: string, expectedRecordKey: string): void {
+        const current = this.findPointer(namespace, key);
+        if (current?.recordKey !== expectedRecordKey) {
+            throw new AgentCoreError(
+                "protocol.revision-conflict",
+                "Workspace pointer compare-and-delete failed"
+            );
+        }
+        this.database.run(
+            `DELETE FROM workspace_pointers
+             WHERE namespace = ? AND key = ? AND record_id = ?`,
+            [namespace, key, expectedRecordKey]
+        );
+        if (this.findPointer(namespace, key) !== undefined) {
+            throw new AgentCoreError(
+                "protocol.revision-conflict",
+                "Workspace pointer compare-and-delete lost a concurrent race"
             );
         }
     }
@@ -200,6 +219,10 @@ export class SqliteWorkspaceEventRecords {
             throw new TypeError(`SQLite schema is incompatible: ${table}`);
         }
     }
+}
+
+function isDeletableRecordKind(kind: string): kind is DeletableWorkspaceRecordKind {
+    return isMember(DELETABLE_WORKSPACE_RECORD_KINDS, kind);
 }
 
 function normalizeSql(value: string): string {
@@ -232,17 +255,6 @@ function decodePointer(row: SqliteRow): StoredWorkspacePointer {
         recordKey: readText(row, "record_id")
     };
 }
-
-const WORKSPACE_RECORD_KINDS = Object.freeze([
-    "event",
-    "subscription",
-    "routeReservation",
-    "routeProjection",
-    "routeDelivery",
-    "view",
-    "viewDelta",
-    "contentRetention"
-] as const);
 
 function decodeRecordKind(value: SqliteValue | undefined): WorkspaceRecordKind {
     if (isMember(WORKSPACE_RECORD_KINDS, value)) return value;

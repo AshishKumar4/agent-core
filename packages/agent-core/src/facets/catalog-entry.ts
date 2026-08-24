@@ -1,4 +1,4 @@
-import { Digest, SemVer, TextId, encodeCanonicalJson } from "../core";
+import { Digest, SemVer, TextId, canonicalTupleKey, encodeCanonicalJson } from "../core";
 import { PackageId, PackagePin } from "../definition-references";
 import { ContributionAttribution } from "./attribution";
 import { Command } from "./command";
@@ -40,9 +40,7 @@ export class CatalogOrigin {
         public readonly name: string,
         public readonly owner: FacetRef | undefined
     ) {
-        // Every half is a canonical id or a closed kind literal, so NUL separation is
-        // injective without a digest; an absent owner spends an empty segment.
-        this.key = `${kind}\0${name}\0${owner?.value ?? ""}`;
+        this.key = canonicalTupleKey("catalog.origin", [kind, name, owner?.value ?? null]);
         Object.freeze(this);
     }
 
@@ -72,6 +70,10 @@ export class CatalogOrigin {
  * Facet's entry.
  */
 export class CatalogEntry {
+    public static get codec(): DataRecordCodec<CatalogEntry> {
+        return catalogEntryCodec;
+    }
+
     public readonly origin: CatalogOrigin;
     public readonly id: CatalogEntryId;
 
@@ -109,10 +111,11 @@ export class CatalogEntry {
      */
     public static fromData(payload: FacetData): CatalogEntry {
         const object = requireDataObject(payload, "Catalog entry");
-        requireExactFields(object, ["declaration", "id", "kind", "name"], [
-            "contributor",
-            "package"
-        ]);
+        requireExactFields(
+            object,
+            ["declaration", "id", "kind", "name"],
+            ["contributor", "package"]
+        );
         const attributed =
             (object["contributor"] !== undefined) === (object["package"] !== undefined);
         if (!attributed) {
@@ -158,22 +161,20 @@ export class CatalogEntry {
 
 function requireKind(value: FacetData | undefined): CatalogKind {
     if (value !== "operation" && value !== "command") {
-        throw new TypeError(
-            `Catalog entry kind must be one of ${CATALOG_KINDS.join(", ")}`
-        );
+        throw new TypeError(`Catalog entry kind must be one of ${CATALOG_KINDS.join(", ")}`);
     }
     return value;
 }
 
-function requireKindDeclaration(kind: CatalogKind, declaration: OperationDescriptor | Command): void {
+function requireKindDeclaration(
+    kind: CatalogKind,
+    declaration: OperationDescriptor | Command
+): void {
     if (declaresOperation(kind, declaration)) return;
     throw new TypeError(`A ${kind} catalog entry declares a different record`);
 }
 
-function declaresOperation(
-    kind: CatalogKind,
-    declaration: OperationDescriptor | Command
-): boolean {
+function declaresOperation(kind: CatalogKind, declaration: OperationDescriptor | Command): boolean {
     const operation = declaration instanceof OperationDescriptor;
     return kind === "operation" ? operation : !operation;
 }
@@ -189,9 +190,7 @@ function decodeDeclaration(
     if (payload === undefined) {
         throw new TypeError("Catalog entry carries no declaration");
     }
-    return kind === "operation"
-        ? OperationDescriptor.fromData(payload)
-        : Command.fromData(payload);
+    return kind === "operation" ? OperationDescriptor.fromData(payload) : Command.fromData(payload);
 }
 
 function catalogEntryId(
@@ -230,4 +229,3 @@ const catalogEntryCodec = new DataRecordCodec(
     (entry: CatalogEntry) => entry.toData(),
     (payload) => CatalogEntry.fromData(payload)
 );
-

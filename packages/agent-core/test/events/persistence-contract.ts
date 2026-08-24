@@ -1,17 +1,25 @@
 import { describe, expect, test } from "vitest";
 import type { SynchronousResultGuard } from "../../src/actors";
-import { Revision, SemVer } from "../../src/core";
+import { Revision, SecretRef, SemVer } from "../../src/core";
 import { PackageId, PackagePin, type AuthenticatedContribution } from "../../src/definition";
 import {
     ContributionAttribution,
     FacetPackageId,
     FacetRef,
-    PackageInstallationRef
+    FieldMove,
+    IngressDeclaration,
+    IngressVerification,
+    PackageInstallationRef,
+    PromptSection,
+    ProvenanceMapping
 } from "../../src/facets";
+import { ScopeRef, WorkspaceId } from "../../src/identity";
 import { AuditRecordId } from "../../src/interaction-references";
 import {
     Event,
     EventId,
+    IngressEndpoint,
+    IngressEndpointId,
     RouteProjection,
     RouteProjectionId,
     RouteReservation,
@@ -25,6 +33,9 @@ import {
 } from "../../src/workspaces";
 import { malformed } from "../helpers/malformed";
 import { attribution } from "../w3/slot-store-contract";
+import { attributed } from "../w3/catalog-store-contract";
+import { layer } from "../w3/settings-store-contract";
+import { registration } from "../w3/surface-store-contract";
 import {
     authenticatedInstallationFixture,
     authenticatedProjectionFixture,
@@ -43,6 +54,7 @@ import {
     subscriptionFixture,
     subscriptionMaterializationInit,
     TestPackageInstallationProvenance,
+    tenant,
     viewDeltaFixture,
     viewFixture
 } from "../workspaces/fixtures";
@@ -57,11 +69,277 @@ export interface WorkspacePersistenceHarness<Transaction> {
     dispose(): void;
 }
 
+function ingressEndpoint(
+    suffix: string,
+    contribution: ContributionAttribution,
+    path: string
+): IngressEndpoint {
+    return new IngressEndpoint({
+        id: new IngressEndpointId(`ingress-${suffix}`),
+        revision: Revision.initial(),
+        scope: ScopeRef.workspace(tenant, new WorkspaceId("workspace-scope")),
+        declared: new IngressDeclaration(
+            path,
+            new IngressVerification(
+                "hmac",
+                new SecretRef("env", "provider-test", `secret-${suffix}`)
+            ),
+            new ProvenanceMapping([new FieldMove("/identity", { literal: "external" })])
+        ),
+        contribution
+    });
+}
+
 export function workspacePersistenceContract<Transaction>(
     name: string,
     create: () => WorkspacePersistenceHarness<Transaction>
 ): void {
     describe(`${name} workspace persistence`, () => {
+        test(
+            "persists and withdraws every immutable contribution record by exact release",
+            { tags: "p0" },
+            () => {
+                const harness = create();
+                try {
+                    const contributor = "workspace:records";
+                    const firstAttribution = attribution(contributor, "1.0.0");
+                    const secondAttribution = attribution(contributor, "2.0.0");
+                    const firstCatalog = attributed(contributor, "1.0.0", "first");
+                    const secondCatalog = attributed(contributor, "2.0.0", "second");
+                    const supersededCatalog = attributed(contributor, "1.0.0", "replace");
+                    const replacementCatalog = attributed(contributor, "2.0.0", "replace");
+                    const firstPrompt = new PromptSection(
+                        "First",
+                        "First body",
+                        0,
+                        firstAttribution,
+                        0
+                    );
+                    const secondPrompt = new PromptSection(
+                        "Second",
+                        "Second body",
+                        0,
+                        secondAttribution,
+                        1
+                    );
+                    const firstSettings = layer(contributor, 0, { type: "object" }, "1.0.0");
+                    const secondSettings = layer(contributor, 1, { type: "object" }, "2.0.0");
+                    const firstSurface = registration(
+                        contributor,
+                        "surface:first",
+                        "First",
+                        "1.0.0"
+                    );
+                    const secondSurface = registration(
+                        contributor,
+                        "surface:second",
+                        "Second",
+                        "2.0.0"
+                    );
+
+                    harness.transaction((transaction) => {
+                        const persistence = harness.persistence;
+                        for (const entry of [
+                            firstCatalog,
+                            secondCatalog,
+                            supersededCatalog,
+                            replacementCatalog
+                        ]) {
+                            persistence.putCatalogEntry(transaction, entry);
+                        }
+                        persistence.putPromptSection(transaction, firstPrompt);
+                        persistence.putPromptSection(transaction, secondPrompt);
+                        persistence.putSettingsLayer(transaction, firstSettings);
+                        persistence.putSettingsLayer(transaction, secondSettings);
+                        persistence.putSurfaceRegistration(transaction, firstSurface);
+                        persistence.putSurfaceRegistration(transaction, secondSurface);
+
+                        expect(
+                            persistence
+                                .catalogEntryAt(transaction, replacementCatalog.origin)
+                                ?.id.equals(replacementCatalog.id)
+                        ).toBe(true);
+                        expect(
+                            persistence
+                                .listContributedCatalogEntries(transaction, firstAttribution)
+                                .map((entry) => entry.name)
+                        ).toEqual(["first"]);
+                    });
+
+                    harness.restart();
+                    harness.transaction((transaction) => {
+                        const persistence = harness.persistence;
+                        for (const entry of persistence.listContributedCatalogEntries(
+                            transaction,
+                            firstAttribution
+                        )) {
+                            persistence.retireCatalogEntry(transaction, entry.id);
+                        }
+                        for (const section of persistence.listContributedPromptSections(
+                            transaction,
+                            firstAttribution
+                        )) {
+                            persistence.retirePromptSection(transaction, section.id);
+                        }
+                        for (const settings of persistence.listContributedSettingsLayers(
+                            transaction,
+                            firstAttribution
+                        )) {
+                            persistence.retireSettingsLayer(transaction, settings.id);
+                        }
+                        for (const surface of persistence.listContributedSurfaceRegistrations(
+                            transaction,
+                            firstAttribution
+                        )) {
+                            persistence.retireSurfaceRegistration(
+                                transaction,
+                                surface.descriptor.id
+                            );
+                        }
+                    });
+
+                    harness.restart();
+                    harness.transaction((transaction) => {
+                        const persistence = harness.persistence;
+                        expect(
+                            persistence.listContributedCatalogEntries(transaction, firstAttribution)
+                        ).toEqual([]);
+                        expect(
+                            persistence.listContributedPromptSections(transaction, firstAttribution)
+                        ).toEqual([]);
+                        expect(
+                            persistence.listContributedSettingsLayers(transaction, firstAttribution)
+                        ).toEqual([]);
+                        expect(
+                            persistence.listContributedSurfaceRegistrations(
+                                transaction,
+                                firstAttribution
+                            )
+                        ).toEqual([]);
+                        expect(
+                            persistence
+                                .listContributedCatalogEntries(transaction, secondAttribution)
+                                .map((entry) => entry.name)
+                                .sort()
+                        ).toEqual(["replace", "second"]);
+                        expect(
+                            persistence.listContributedPromptSections(
+                                transaction,
+                                secondAttribution
+                            )
+                        ).toHaveLength(1);
+                        expect(
+                            persistence.listContributedSettingsLayers(
+                                transaction,
+                                secondAttribution
+                            )
+                        ).toHaveLength(1);
+                        expect(
+                            persistence.listContributedSurfaceRegistrations(
+                                transaction,
+                                secondAttribution
+                            )
+                        ).toHaveLength(1);
+                    });
+                } finally {
+                    harness.dispose();
+                }
+            }
+        );
+        test(
+            "persists revisioned ingress and retires only the exact release",
+            { tags: "p0" },
+            () => {
+                const harness = create();
+                try {
+                    const contributor = "workspace:ingress";
+                    const firstAttribution = attribution(contributor, "1.0.0");
+                    const secondAttribution = attribution(contributor, "2.0.0");
+                    const first = ingressEndpoint(
+                        `${name}-first`,
+                        firstAttribution,
+                        `/${name}/first`
+                    );
+                    const second = ingressEndpoint(
+                        `${name}-second`,
+                        secondAttribution,
+                        `/${name}/second`
+                    );
+                    harness.transaction((transaction) => {
+                        expect(
+                            harness.persistence.putManagedIngressEndpoint(transaction, first)
+                        ).toBe(true);
+                        expect(
+                            harness.persistence.putManagedIngressEndpoint(transaction, second)
+                        ).toBe(true);
+                        expect(
+                            harness.persistence.putManagedIngressEndpoint(transaction, second)
+                        ).toBe(false);
+                        expect(() =>
+                            harness.persistence.putManagedIngressEndpoint(
+                                transaction,
+                                ingressEndpoint(
+                                    `${name}-conflict`,
+                                    secondAttribution,
+                                    `/${name}/second`
+                                )
+                            )
+                        ).toThrow(
+                            expect.objectContaining({
+                                code: "protocol.duplicate"
+                            })
+                        );
+                    });
+
+                    harness.restart();
+                    harness.transaction((transaction) => {
+                        expect(
+                            harness.persistence.listContributedIngressEndpoints(
+                                transaction,
+                                firstAttribution
+                            )
+                        ).toHaveLength(1);
+                        expect(
+                            harness.persistence.listContributedIngressEndpoints(
+                                transaction,
+                                secondAttribution
+                            )
+                        ).toHaveLength(1);
+                        harness.persistence.retireIngressEndpoint(transaction, first.id);
+                    });
+
+                    harness.restart();
+                    harness.transaction((transaction) => {
+                        expect(
+                            harness.persistence.listContributedIngressEndpoints(
+                                transaction,
+                                firstAttribution
+                            )
+                        ).toEqual([]);
+                        expect(
+                            harness.persistence.currentIngressEndpoint(transaction, first.id)
+                                ?.retired
+                        ).toBe(true);
+                        expect(
+                            harness.persistence.listContributedIngressEndpoints(
+                                transaction,
+                                secondAttribution
+                            )
+                        ).toHaveLength(1);
+                        expect(() =>
+                            harness.persistence.putManagedIngressEndpoint(transaction, first)
+                        ).toThrow(
+                            expect.objectContaining({
+                                code: "protocol.invalid-state"
+                            })
+                        );
+                    });
+                } finally {
+                    harness.dispose();
+                }
+            }
+        );
+
         test(
             "binds retained content to the exact durable record atomically",
             { tags: "p0" },
@@ -478,8 +756,7 @@ export function workspacePersistenceContract<Transaction>(
                                 ?.retired
                         ).toBeUndefined();
                         expect(
-                            harness.persistence.currentSubscription(transaction, direct.id)
-                                ?.retired
+                            harness.persistence.currentSubscription(transaction, direct.id)?.retired
                         ).toBeUndefined();
                         expect(
                             harness.persistence

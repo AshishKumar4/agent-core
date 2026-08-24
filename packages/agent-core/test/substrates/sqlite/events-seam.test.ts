@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { SqliteWorkspaceEventRecords } from "../../../src/substrates/sqlite/events/records";
+import { SqliteWorkspaceRecords } from "../../../src/substrates/sqlite/workspace-records";
 import { MemoryWorkspaceRecords, type WorkspaceRecordStorage } from "../../../src/workspaces";
 import { TestSqlite } from "../../helpers/sqlite";
 
@@ -18,7 +18,7 @@ test(
 function verifyWorkspaceStorage(): void {
     const stores: readonly WorkspaceRecordStorage[] = [
         new MemoryWorkspaceRecords(),
-        new SqliteWorkspaceEventRecords(new TestSqlite())
+        new SqliteWorkspaceRecords(new TestSqlite())
     ];
     for (const [index, store] of stores.entries()) {
         const id = `event-${index}`;
@@ -59,7 +59,7 @@ function verifyWorkspaceStorage(): void {
         expect(store.findPointer("view.current", `surface-${index}`)?.recordKey).toBe(
             `surface-${index}@1`
         );
-        store.deleteCompactedRecords("view", [`surface-${index}@0`]);
+        store.deleteRecords("view", [`surface-${index}@0`]);
         expect(store.findRecord("view", `surface-${index}@0`)).toBeUndefined();
     }
 }
