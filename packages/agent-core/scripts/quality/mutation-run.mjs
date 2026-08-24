@@ -524,22 +524,20 @@ function runStryker(area, mutatePattern, disableBail = true) {
     try {
         const reportPath = join(scratch, "report.json");
         const configPath = join(scratch, "stryker.conf.mjs");
+        const mutatePatterns = Array.isArray(mutatePattern) ? mutatePattern : [mutatePattern];
         writeFileSync(
             configPath,
-            privateOutputConfig(reportPath, join(scratch, "tmp"), disableBail),
+            privateOutputConfig(reportPath, join(scratch, "tmp"), disableBail, mutatePatterns),
             { mode: 0o600 }
         );
         // `process.execPath`, not `node`: the key binds `process.version`, and a `node`
         // resolved off PATH is free to be a different interpreter than the one that
         // hashed it.
-        const mutateArguments = (
-            Array.isArray(mutatePattern) ? mutatePattern : [mutatePattern]
-        ).flatMap((pattern) => ["--mutate", pattern]);
-        const stryker = spawnSync(
-            process.execPath,
-            [strykerBin, "run", configPath, ...mutateArguments],
-            { cwd: packageRoot, encoding: "utf8", stdio: ["ignore", "inherit", "inherit"] }
-        );
+        const stryker = spawnSync(process.execPath, [strykerBin, "run", configPath], {
+            cwd: packageRoot,
+            encoding: "utf8",
+            stdio: ["ignore", "inherit", "inherit"]
+        });
         if (stryker.status !== 0) throw new TypeError(`Stryker failed for area ${area}`);
         return {
             report: JSON.parse(readFileSync(reportPath, "utf8")),
@@ -553,17 +551,17 @@ function runStryker(area, mutatePattern, disableBail = true) {
 
 /**
  * The committed configuration with private output paths. It spreads the committed module
- * rather than restating any of it, so the only fields that can differ from what the run
- * key hashed are the two this function names — and neither of them can change a mutant's
- * status. Without it, two areas measured at once write one report file and `cleanTempDir`
- * deletes one another's sandbox.
+ * rather than restating any of it, so only output paths, bail policy, and the measured
+ * locations differ. The normal run keeps complete discrimination; a timeout fallback
+ * disables bail only for the unresolved mutants it names.
  */
-function privateOutputConfig(reportPath, tempDirName, disableBail) {
+function privateOutputConfig(reportPath, tempDirName, disableBail, mutatePatterns) {
     return [
         `import committed from ${JSON.stringify(pathToFileURL(strykerConfig).href)};`,
         "",
         "export default {",
         "    ...committed,",
+        `    mutate: ${JSON.stringify(mutatePatterns)},`,
         `    jsonReporter: { fileName: ${JSON.stringify(reportPath)} },`,
         `    tempDirName: ${JSON.stringify(tempDirName)},`,
         `    disableBail: ${JSON.stringify(disableBail)}`,
