@@ -56,7 +56,7 @@ import {
     type CommandInvocationOrigin,
     type InstalledCommand
 } from "../../src/operations/command-runtime";
-import { FacetCorrespondenceValidator } from "../../src/operations/correspondence";
+import { FacetCorrespondenceValidator, ValidatedFacet } from "../../src/operations/correspondence";
 import {
     OperationGatewayHost,
     OperationRequestKey,
@@ -77,6 +77,8 @@ import {
     type TurnInterceptorDomainPort,
     type TurnRewriteRule
 } from "../../src/operations/interception";
+import type { ValidatedFacetRuntime } from "../../src/operations";
+import { reaching } from "../composition/fixture";
 import {
     Facet,
     Interceptor,
@@ -88,6 +90,7 @@ import {
     type OperationContext,
     type OperationInterceptContext
 } from "../../src/operations/runtime";
+type CorrespondentFacet = ValidatedFacetRuntime["facets"][number];
 
 const objectSchema = new JsonSchema({ type: "object" });
 
@@ -132,9 +135,36 @@ describe("Facet runtime", () => {
 
             const idle = new FacetRuntimeHost([], []);
             await idle.activate();
+
             await settlesWithinMicrotasks(idle.dispose(), "idle runtime drain");
         }
     );
+    test("mints runtime correspondence evidence only through the validator", { tags: "p1" }, () => {
+        const expected = manifest("acme.correspondence-token", []);
+        const source = new TestFacet("workspace:correspondence-token", expected);
+        expect(() =>
+            Reflect.construct(ValidatedFacet, [
+                Object.freeze({}),
+                source,
+                source.ref,
+                expected,
+                new Map(),
+                new Map(),
+                new Map()
+            ])
+        ).toThrow("Validated Facet must come from correspondence validation");
+
+        const forged = Object.setPrototypeOf(
+            reaching<CorrespondentFacet>({
+                ref: source.ref,
+                manifest: expected
+            }),
+            ValidatedFacet.prototype
+        );
+        expect(() => FacetCorrespondenceValidator.require(forged)).toThrow(
+            "Facet has no correspondence validation evidence"
+        );
+    });
 
     test("rejects correspondence failures before lifecycle code runs", { tags: "p1" }, async () => {
         const descriptor = operationDescriptor("run");
@@ -242,7 +272,37 @@ describe("Facet runtime", () => {
         );
         expect(() =>
             new FacetCorrespondenceValidator().validate([duplicateManifest], [duplicateFacet])
-        ).toThrow(/more than once/);
+        ).toThrow("Interceptor duplicate is declared more than once");
+
+        const duplicateOperation = manifest("acme.duplicate-operation", [descriptor, descriptor]);
+        const duplicateOperationFacet = new TestFacet(
+            "workspace:duplicate-operation",
+            duplicateOperation,
+            [],
+            new Map([["run", new TestOperation(descriptor, async (input) => input)]])
+        );
+        expect(() =>
+            new FacetCorrespondenceValidator().validate(
+                [duplicateOperation],
+                [duplicateOperationFacet]
+            )
+        ).toThrow("Operation run is declared more than once");
+
+        const panel = new SurfaceDescriptor(new SurfaceId("panel"), "Panel");
+        const duplicateSurface = manifest("acme.duplicate-surface", [], [], [panel, panel]);
+        const duplicateSurfaceFacet = new TestFacet(
+            "workspace:duplicate-surface",
+            duplicateSurface,
+            [],
+            new Map(),
+            new Map(),
+            async () => {},
+            async () => {},
+            new Map([["panel", new TestSurface(panel)]])
+        );
+        expect(() =>
+            new FacetCorrespondenceValidator().validate([duplicateSurface], [duplicateSurfaceFacet])
+        ).toThrow("Surface panel is declared more than once");
     });
 
     test("validates Surface declarations against runtime implementations", { tags: "p1" }, () => {

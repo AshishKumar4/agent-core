@@ -841,6 +841,7 @@ describe("CommandRuntime mapping validation", () => {
             accepts({ type: "array" }, [1]);
             refuses({ type: "array" }, 1);
             accepts({ type: "boolean" }, true);
+            accepts({ type: "boolean" }, false);
             refuses({ type: "boolean" }, 1);
             accepts({ type: "integer" }, 3);
             refuses({ type: "integer" }, 3.5);
