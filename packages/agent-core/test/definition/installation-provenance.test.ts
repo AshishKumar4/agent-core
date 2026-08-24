@@ -245,6 +245,7 @@ function installation(facet: string): AuthenticatedPackageInstallation {
         ),
         packageFacet: new FacetPackageId("profile.facet"),
         facet: new FacetRef(facet),
+        manifestDigest: digest,
         materialization: new ManagedOrigin({
             tenantId: new TenantId("tenant"),
             deploymentId: new DeploymentId("b".repeat(64)),

@@ -195,7 +195,8 @@ export class TestPackageInstallationProvenance<State> extends PackageInstallatio
 
 export function authenticatedInstallationFixture(
     facet = "workspace:subscription",
-    packagePin?: PackagePin
+    packagePin?: PackagePin,
+    manifestDigest?: Digest
 ): AuthenticatedPackageInstallation {
     const digest = Digest.sha256(encoder.encode(`subscription-installation:${facet}`));
     return Object.freeze({
@@ -208,6 +209,7 @@ export function authenticatedInstallationFixture(
                 digest
             ),
         packageFacet: new FacetPackageId("subscription.materializer"),
+        manifestDigest: manifestDigest ?? digest,
         facet: new FacetRef(facet),
         materialization: new ManagedOrigin({
             tenantId: tenant,

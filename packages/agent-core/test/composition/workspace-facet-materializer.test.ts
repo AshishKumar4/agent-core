@@ -1,7 +1,8 @@
-import { CompatRange, JsonSchema, SecretRef, SemVer } from "../../src/core";
-import type { PreparedPackageContribution } from "../../src/definition";
+import { CompatRange, Digest, JsonSchema, SecretRef, SemVer } from "../../src/core";
+import { ManagedOrigin, type PreparedPackageContribution } from "../../src/definition";
 import {
     Automation,
+    Command,
     BindingName,
     Contribution,
     Contributions,
@@ -13,24 +14,29 @@ import {
     FieldMove,
     IngressDeclaration,
     IngressVerification,
+    Operation,
     OperationDescriptor,
     OperationName,
     OperationRef,
     Prompt,
     PromptContribution,
+    PayloadMapping,
     ProvenanceMapping,
     SlotAuthorityPolicy,
     SlotDeclaration,
     SlotName,
+    Surface,
     SurfaceDescriptor,
+    commandAutomation,
     SurfaceId,
+    type FacetData,
     type FacetLifecycleContext,
     type Interceptor,
-    type Operation,
-    type Surface
+    type OperationContext
 } from "../../src/facets";
 import { ScopeRef, WorkspaceId } from "../../src/identity";
 import { WorkspaceFacetMaterializer } from "../../src/composition";
+import { FacetCorrespondenceValidator, type ValidatedFacetRuntime } from "../../src/operations";
 import {
     SqliteWorkspaceRecords,
     SqliteWorkspaceSlotStore,
@@ -45,7 +51,10 @@ import {
     sourceActor,
     tenant
 } from "../workspaces/fixtures";
+import { reaching } from "./fixture";
 import { pin } from "../w3/slot-store-contract";
+
+type CorrespondentFacet = ValidatedFacetRuntime["facets"][number];
 
 const facetRef = new FacetRef("subscription.materializer:primary");
 const scope = ScopeRef.workspace(tenant, new WorkspaceId("workspace"));
@@ -61,16 +70,54 @@ class DurableRetention implements ContentRetentionPort<TransactionalSqlite> {
     public discard(): void {}
 }
 
+function operationDescriptor(): OperationDescriptor {
+    const schema = new JsonSchema({ type: "object" });
+    return new OperationDescriptor(new OperationName("execute"), "mutate", schema, schema);
+}
+
+class MaterializedOperation extends Operation {
+    public readonly descriptor = operationDescriptor();
+
+    public async execute(_context: OperationContext, input: FacetData): Promise<FacetData> {
+        return input;
+    }
+}
+
+function surfaceDescriptor(): SurfaceDescriptor {
+    return new SurfaceDescriptor(new SurfaceId("materialized.surface"), "Materialized");
+}
+
+function commandDeclaration(): Command {
+    return new Command({
+        name: "send",
+        title: "Send",
+        arguments: new JsonSchema({ type: "object" }),
+        operation: new OperationRef("subscription.materializer:execute"),
+        binding: new BindingName("executor"),
+        surfaces: [new SlotName("custom.cards")]
+    });
+}
+
+class MaterializedSurface extends Surface {
+    public readonly descriptor = surfaceDescriptor();
+
+    public async render(_context: OperationContext, input: FacetData): Promise<FacetData> {
+        return input;
+    }
+}
+
 class MaterializedFacet extends Facet {
     public readonly ref = facetRef;
     public readonly manifest = manifest();
 
-    public operation(): Operation | undefined {
-        return undefined;
+    public operation(name: OperationName): Operation | undefined {
+        return name.equals(new OperationName("execute")) ? new MaterializedOperation() : undefined;
     }
 
-    public surface(): Surface | undefined {
-        return undefined;
+    public surface(id: SurfaceId): Surface | undefined {
+        return id.equals(new SurfaceId("materialized.surface"))
+            ? new MaterializedSurface()
+            : undefined;
     }
 
     public interceptor(): Interceptor | undefined {
@@ -100,6 +147,7 @@ interface Harness {
 }
 
 function createHarness(version = "1.0.0"): Harness {
+    const expectedManifest = manifest();
     const database = new TestSqlite();
     const records = new SqliteWorkspaceRecords(database);
     const persistence = new WorkspacePersistence<TransactionalSqlite>(
@@ -110,7 +158,11 @@ function createHarness(version = "1.0.0"): Harness {
     );
     const slots = new SqliteWorkspaceSlotStore(new WorkspaceId("workspace"), database);
     const provenance = new TestPackageInstallationProvenance<TransactionalSqlite>(
-        authenticatedInstallationFixture(facetRef.value, pin("subscription.package", version))
+        authenticatedInstallationFixture(
+            facetRef.value,
+            pin("subscription.package", version),
+            Digest.sha256(FacetManifest.encode(expectedManifest))
+        )
     );
     return {
         database,
@@ -129,12 +181,7 @@ function manifest(): FacetManifest {
         schema,
         new SlotAuthorityPolicy(["installed"], ["scope.read"])
     );
-    const operation = new OperationDescriptor(
-        new OperationName("execute"),
-        "mutate",
-        schema,
-        schema
-    );
+    const operation = operationDescriptor();
     const automation = new Automation({
         source: new EventPattern("source.event", ["authenticated"]),
         target: new OperationRef("subscription.materializer:execute"),
@@ -153,6 +200,7 @@ function manifest(): FacetManifest {
         bindings: [],
         contributions: new Contributions([
             new Contribution(new SlotName("automations"), [automation.toData()]),
+            new Contribution(new SlotName("commands"), [commandDeclaration().toData()]),
             new Contribution(new SlotName("ingress"), [ingress.toData()]),
             new Contribution(new SlotName("operations"), [operation.toData()]),
             new Contribution(new SlotName("prompt"), [
@@ -163,12 +211,7 @@ function manifest(): FacetManifest {
             ]),
             new Contribution(new SlotName("settings"), [schema.document]),
             new Contribution(new SlotName("slots"), [slot.toData()]),
-            new Contribution(new SlotName("surfaces"), [
-                new SurfaceDescriptor(
-                    new SurfaceId("materialized.surface"),
-                    "Materialized"
-                ).toData()
-            ]),
+            new Contribution(new SlotName("surfaces"), [surfaceDescriptor().toData()]),
             new Contribution(new SlotName("custom.cards"), [{ title: "Card" }])
         ])
     });
@@ -182,8 +225,11 @@ function prepare(harness: Harness): PreparedPackageContribution {
 
 function apply(harness: Harness, facet = new MaterializedFacet()) {
     const prepared = prepare(harness);
+    const validated = new FacetCorrespondenceValidator().validate([facet.manifest], [facet])
+        .facets[0];
+    if (validated === undefined) throw new TypeError("Expected validated Facet");
     return harness.database.transaction(() =>
-        harness.materializer.materialize(harness.database, context, prepared, facet)
+        harness.materializer.materialize(harness.database, context, prepared, validated)
     );
 }
 
@@ -200,24 +246,37 @@ describe("Workspace Facet materializer", () => {
         () => {
             const first = apply(harness);
             expect(first).toMatchObject({
-                catalogEntries: 1,
+                catalogEntries: 2,
                 ingressEndpoints: 1,
                 promptSections: 2,
                 settingsLayers: 1,
                 slotDeclarations: 1,
                 slotEntries: 1,
-                subscriptions: 1,
+                subscriptions: 2,
                 surfaces: 1
             });
             expect(harness.slots.revision().value).toBe(1);
             expect(apply(harness)).toMatchObject(first);
             expect(harness.slots.revision().value).toBe(1);
-            expect(harness.persistence.listCatalogEntries(harness.database)).toHaveLength(1);
+            expect(harness.persistence.listCatalogEntries(harness.database)).toHaveLength(2);
             expect(harness.persistence.listPromptSections(harness.database)).toHaveLength(2);
             expect(harness.persistence.listSettingsLayers(harness.database)).toHaveLength(1);
             expect(harness.persistence.listIngressEndpoints(harness.database)).toHaveLength(1);
             expect(harness.persistence.listSurfaceRegistrations(harness.database)).toHaveLength(1);
-            expect(harness.persistence.listSubscriptions(harness.database)).toHaveLength(1);
+            const subscriptions = harness.persistence.listSubscriptions(harness.database);
+            expect(subscriptions).toHaveLength(2);
+            const commandSubscription = subscriptions.find(
+                (subscription) => subscription.source.kind === "command.invoked"
+            );
+            const automationSubscription = subscriptions.find(
+                (subscription) => subscription.source.kind === "source.event"
+            );
+            expect(commandSubscription?.source.toData()).toEqual(
+                commandAutomation(commandDeclaration()).source.toData()
+            );
+            expect(automationSubscription?.mapping.toData()).toEqual(
+                PayloadMapping.identity.toData()
+            );
             expect(harness.slots.listAllEntries(harness.database)).toHaveLength(1);
         }
     );
@@ -229,7 +288,8 @@ describe("Workspace Facet materializer", () => {
             const first = apply(harness).attribution;
             harness.provenance.installation = authenticatedInstallationFixture(
                 facetRef.value,
-                pin("subscription.package", "2.0.0")
+                pin("subscription.package", "2.0.0"),
+                Digest.sha256(FacetManifest.encode(manifest()))
             );
             const second = apply(harness).attribution;
 
@@ -255,10 +315,95 @@ describe("Workspace Facet materializer", () => {
             ).toEqual([]);
             expect(
                 harness.persistence.listContributedCatalogEntries(harness.database, second)
-            ).toHaveLength(1);
+            ).toHaveLength(2);
             expect(harness.slots.revision().value).toBe(2);
         }
     );
+    test(
+        "re-materializes a withdrawn same-pin activation under a new generation",
+        { tags: "p0" },
+        () => {
+            const attribution = apply(harness).attribution;
+            const firstIngress = harness.persistence.listContributedIngressEndpoints(
+                harness.database,
+                attribution
+            )[0];
+            const firstSubscription = harness.persistence.listContributedSubscriptions(
+                harness.database,
+                attribution
+            )[0];
+            if (firstIngress === undefined || firstSubscription === undefined) {
+                throw new TypeError("Expected materialized ingress and Subscription");
+            }
+            harness.database.transaction(() => {
+                harness.persistence.retireIngressEndpoint(harness.database, firstIngress.id);
+                harness.persistence.retireSubscription(harness.database, firstSubscription);
+            });
+            const installation = harness.provenance.installation;
+            if (installation === undefined) {
+                throw new TypeError("Expected authenticated installation");
+            }
+            harness.provenance.installation = {
+                package: installation.package,
+                packageFacet: installation.packageFacet,
+                facet: installation.facet,
+                manifestDigest: installation.manifestDigest,
+                materialization: new ManagedOrigin({
+                    tenantId: installation.materialization.tenantId,
+                    deploymentId: installation.materialization.deploymentId,
+                    attestationDigest: installation.materialization.attestationDigest,
+                    blueprintDigest: installation.materialization.blueprintDigest,
+                    packageLockDigest: installation.materialization.packageLockDigest,
+                    configDigest: installation.materialization.configDigest,
+                    generation: installation.materialization.generation + 1
+                })
+            };
+
+            apply(harness);
+            const nextIngress = harness.persistence.listContributedIngressEndpoints(
+                harness.database,
+                attribution
+            )[0];
+            const nextSubscription = harness.persistence.listContributedSubscriptions(
+                harness.database,
+                attribution
+            )[0];
+            expect(nextIngress?.id.equals(firstIngress.id)).toBe(false);
+            expect(nextSubscription?.id.equals(firstSubscription.id)).toBe(false);
+        }
+    );
+
+    test("refuses unvalidated or manifest-substituted Facet instances", { tags: "p0" }, () => {
+        const prepared = prepare(harness);
+        expect(() =>
+            harness.database.transaction(() =>
+                harness.materializer.materialize(
+                    harness.database,
+                    context,
+                    prepared,
+                    reaching<CorrespondentFacet>({
+                        ref: facetRef,
+                        manifest: manifest()
+                    })
+                )
+            )
+        ).toThrow(/correspondence validation evidence/);
+        harness.materializer.discard(prepared);
+
+        const installation = harness.provenance.installation;
+        if (installation === undefined) {
+            throw new TypeError("Expected authenticated installation");
+        }
+        harness.provenance.installation = {
+            ...installation,
+            manifestDigest: new Digest("f".repeat(64))
+        };
+        expect(() => apply(harness)).toThrow(
+            /Facet instance, manifest, and authenticated installation do not match/
+        );
+        expect(harness.persistence.listCatalogEntries(harness.database)).toEqual([]);
+        expect(harness.slots.revision().value).toBe(0);
+    });
 
     test(
         "[C13-FACET-CONTRIBUTION-MATERIALIZATION] [C13-FACET-START-ATOMIC] rolls back every primitive when one later record write fails",

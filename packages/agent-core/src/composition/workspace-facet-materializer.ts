@@ -3,6 +3,7 @@ import {
     PackageInstallationProvenancePort,
     consumeAuthenticatedContribution,
     type LoadedBlueprint,
+    type ManagedOrigin,
     type PreparedPackageContribution
 } from "../definition";
 import { AgentCoreError } from "../errors";
@@ -11,6 +12,7 @@ import {
     CatalogEntry,
     Command,
     ContributionAttribution,
+    FacetManifest,
     IngressDeclaration,
     InstalledSlot,
     OperationDescriptor,
@@ -22,10 +24,11 @@ import {
     SlotEntry,
     SurfaceDescriptor,
     SurfaceRegistration,
-    type Facet,
+    commandAutomation,
     type WorkspaceSlotStore
 } from "../facets";
 import type { ScopeRef } from "../identity";
+import { FacetCorrespondenceValidator, type ValidatedFacetRuntime } from "../operations";
 import { SubscriptionId } from "../interaction-references";
 import {
     IngressEndpoint,
@@ -34,6 +37,8 @@ import {
     type SubscriptionMaterializationInit
 } from "../workspaces";
 import type { ControlTransaction } from "./facet-withdrawal";
+
+type CorrespondentFacet = ValidatedFacetRuntime["facets"][number];
 
 export interface WorkspaceFacetMaterializationResult {
     readonly attribution: ContributionAttribution;
@@ -70,13 +75,16 @@ export class WorkspacePackageFacetMaterialization<Transaction, Read, Context, Lo
         private readonly facetMaterializer: WorkspaceFacetMaterializer<Transaction, Read, Context>,
         private readonly transaction: ControlTransaction<Transaction>,
         private readonly read: Read,
-        private readonly contextFor: (facet: Facet) => Context
+        private readonly contextFor: (facet: CorrespondentFacet) => Context
     ) {}
 
-    public materialize(_loaded: LoadedBlueprint<Loaded>, facets: readonly Facet[]): void {
+    public materialize(
+        _loaded: LoadedBlueprint<Loaded>,
+        facets: readonly CorrespondentFacet[]
+    ): void {
         const prepared: {
             readonly contribution: PreparedPackageContribution;
-            readonly facet: Facet;
+            readonly facet: CorrespondentFacet;
         }[] = [];
         try {
             for (const facet of facets) {
@@ -129,9 +137,9 @@ export class WorkspaceFacetMaterializer<Transaction, Read, Context> {
         transaction: Transaction,
         context: Context,
         prepared: PreparedPackageContribution,
-
-        facet: Facet
+        facet: CorrespondentFacet
     ): WorkspaceFacetMaterializationResult {
+        FacetCorrespondenceValidator.require(facet);
         const result = this.provenance.withAuthenticatedContribution(
             transaction,
             context,
@@ -145,7 +153,12 @@ export class WorkspaceFacetMaterializer<Transaction, Read, Context> {
                     );
                 }
                 this.requireExactInstallation(facet, prepared, attribution);
-                const desired = deriveContributionRecords(facet, attribution, this.scope);
+                const desired = deriveContributionRecords(
+                    facet,
+                    attribution,
+                    prepared.materialization,
+                    this.scope
+                );
                 this.reconcile(transaction, attribution, desired);
                 return freezeResult(attribution, desired);
             }
@@ -163,7 +176,7 @@ export class WorkspaceFacetMaterializer<Transaction, Read, Context> {
     }
 
     private requireExactInstallation(
-        facet: Facet,
+        facet: CorrespondentFacet,
         prepared: PreparedPackageContribution,
         attribution: ContributionAttribution
     ): void {
@@ -171,7 +184,8 @@ export class WorkspaceFacetMaterializer<Transaction, Read, Context> {
             !facet.ref.equals(attribution.contributor) ||
             !facet.ref.packageId.equals(facet.manifest.id) ||
             !prepared.reference.attribution.equals(attribution) ||
-            !prepared.reference.packageFacet.equals(facet.manifest.id)
+            !prepared.reference.packageFacet.equals(facet.manifest.id) ||
+            !prepared.manifestDigest.equals(Digest.sha256(FacetManifest.encode(facet.manifest)))
         ) {
             throw new AgentCoreError(
                 "authority.denied",
@@ -285,8 +299,9 @@ export class WorkspaceFacetMaterializer<Transaction, Read, Context> {
 }
 
 function deriveContributionRecords(
-    facet: Facet,
+    facet: CorrespondentFacet,
     attribution: ContributionAttribution,
+    materialization: ManagedOrigin,
     scope: ScopeRef
 ): DerivedContributionRecords {
     const catalogs: CatalogEntry[] = [];
@@ -306,6 +321,7 @@ function deriveContributionRecords(
                     subscriptions.push(
                         subscriptionInit(
                             attribution,
+                            materialization,
                             "automations",
                             ordinal,
                             Automation.fromData(value)
@@ -318,9 +334,10 @@ function deriveContributionRecords(
                     subscriptions.push(
                         subscriptionInit(
                             attribution,
+                            materialization,
                             "commands",
                             ordinal,
-                            commandAutomation(command, attribution)
+                            commandAutomation(command)
                         )
                     );
                     break;
@@ -330,7 +347,13 @@ function deriveContributionRecords(
                     ingress.push(
                         new IngressEndpoint({
                             id: new IngressEndpointId(
-                                derivedId("ingress", attribution, ordinal, declared.path)
+                                derivedId(
+                                    "ingress",
+                                    attribution,
+                                    materialization,
+                                    ordinal,
+                                    declared.path
+                                )
                             ),
                             revision: Revision.initial(),
                             scope,
@@ -393,32 +416,20 @@ function deriveContributionRecords(
     };
 }
 
-function commandAutomation(command: Command, attribution: ContributionAttribution): Automation {
-    return Automation.fromData({
-        authority: "initiator",
-        binding: command.binding.value,
-        dedupe: "event",
-        mapping: [{ from: "/input", to: "" }],
-        source: {
-            acceptedTrust: command.acceptedTrust ?? ["owner", "authenticated", "self"],
-            kind: "command.invoked",
-            source: `${attribution.contributor.value}:${command.name}`
-        },
-        target: command.operation.value
-    });
-}
-
 function subscriptionInit(
     attribution: ContributionAttribution,
+    materialization: ManagedOrigin,
     slot: string,
     ordinal: number,
     automation: Automation
 ): SubscriptionMaterializationInit {
     return {
-        id: new SubscriptionId(derivedId(slot, attribution, ordinal, automation.target.value)),
+        id: new SubscriptionId(
+            derivedId(slot, attribution, materialization, ordinal, automation.target.value)
+        ),
         source: automation.source,
         target: automation.target,
-        mapping: automation.mapping ?? new PayloadMapping([]),
+        mapping: automation.mapping ?? PayloadMapping.identity,
         dedupe: automation.dedupe ?? "event",
         authority: {
             kind: automation.authority ?? "initiator",
@@ -430,12 +441,14 @@ function subscriptionInit(
 function derivedId(
     kind: string,
     attribution: ContributionAttribution,
+    materialization: ManagedOrigin,
     ordinal: number,
     identity: string
 ): string {
     return Digest.sha256(
         encodeCanonicalJson({
             ...attribution.encodeFields(),
+            materialization: materialization.toData(),
             identity,
             kind,
             ordinal

@@ -44,6 +44,7 @@ import {
     SurfaceDescriptor,
     SurfaceId,
     TURN_BOUND_CUT_POINTS,
+    commandInvocationSource,
     isFacetDataMap,
     type FacetData,
     type FacetDataMap
@@ -55,7 +56,7 @@ import {
     type CommandInvocationOrigin,
     type InstalledCommand
 } from "../../src/operations/command-runtime";
-import { FacetCorrespondenceValidator, ValidatedFacet } from "../../src/operations/correspondence";
+import { FacetCorrespondenceValidator } from "../../src/operations/correspondence";
 import {
     OperationGatewayHost,
     OperationRequestKey,
@@ -105,34 +106,6 @@ class LeaseRefusingHost extends FacetRuntimeHost {
         expected: Parameters<FacetRuntimeHost["acquire"]>[1]
     ): ReturnType<FacetRuntimeHost["acquire"]> {
         return this.refuseLeases ? undefined : super.acquire(ref, expected);
-    }
-}
-
-/**
- * A host that reports the Facet its pinned manifest declares while resolving no interceptor
- * behind those declarations — what a Facet becomes once its implementation is gone after
- * correspondence was checked. Nothing the validator produces is in this state, which is the
- * point: neither runner may trust the schedule it was validated against.
- */
-class DroppedInterceptorHost extends FacetRuntimeHost {
-    public constructor(private readonly source: TestFacet) {
-        super([source.manifest], [source]);
-    }
-
-    public override facets(): readonly ValidatedFacet[] {
-        return super
-            .facets()
-            .map(
-                (facet) =>
-                    new ValidatedFacet(
-                        this.source,
-                        facet.ref,
-                        facet.manifest,
-                        new Map(),
-                        new Map(),
-                        new Map()
-                    )
-            );
     }
 }
 
@@ -349,7 +322,10 @@ describe("Facet runtime", () => {
                         ]
                     ])
                 );
-                const runtime = new FacetCorrespondenceValidator().validate([pinned], [implemented]);
+                const runtime = new FacetCorrespondenceValidator().validate(
+                    [pinned],
+                    [implemented]
+                );
                 admitted.push(
                     `${cutPoint}: ${runtime.facets.length} facet(s), interceptor ` +
                         `${runtime.facets[0]?.interceptor(declaration.id) === undefined ? "absent" : "resolved"}`
@@ -394,7 +370,9 @@ describe("Facet runtime", () => {
                 for (const selector of [
                     OperationSelector.own(),
                     OperationSelector.own("run"),
-                    new OperationSelector([new OperationPattern("*", new FacetPackageId("acme.other"))])
+                    new OperationSelector([
+                        new OperationPattern("*", new FacetPackageId("acme.other"))
+                    ])
                 ]) {
                     let outcome: string;
                     try {
@@ -563,7 +541,9 @@ describe("Facet runtime", () => {
                     } catch (error) {
                         outcome = error instanceof Error ? error.message : "non-Error refusal";
                     }
-                    outcomes.push(`${cutPoint}/${mode} [facets=${host.facets().length}]: ${outcome}`);
+                    outcomes.push(
+                        `${cutPoint}/${mode} [facets=${host.facets().length}]: ${outcome}`
+                    );
                     await host.dispose();
                 }
             }
@@ -664,9 +644,27 @@ describe("Facet runtime", () => {
             const turn = new TurnId("turn-order");
             const observed: string[] = [];
             const facets = [
-                { facet: "acme.beta", ref: "workspace:beta", id: "late", mode: "rewrite", priority: 90 },
-                { facet: "acme.alpha", ref: "workspace:alpha", id: "early", mode: "gate", priority: 1 },
-                { facet: "acme.alpha", ref: "workspace:alpha", id: "aardvark", mode: "rewrite", priority: 90 }
+                {
+                    facet: "acme.beta",
+                    ref: "workspace:beta",
+                    id: "late",
+                    mode: "rewrite",
+                    priority: 90
+                },
+                {
+                    facet: "acme.alpha",
+                    ref: "workspace:alpha",
+                    id: "early",
+                    mode: "gate",
+                    priority: 1
+                },
+                {
+                    facet: "acme.alpha",
+                    ref: "workspace:alpha",
+                    id: "aardvark",
+                    mode: "rewrite",
+                    priority: 90
+                }
             ] as const;
             const manifests: FacetManifest[] = [];
             const runtimes: TestFacet[] = [];
@@ -677,9 +675,7 @@ describe("Facet runtime", () => {
                     entry.mode,
                     entry.priority
                 );
-                const existing = manifests.find(
-                    (candidate) => candidate.id.value === entry.facet
-                );
+                const existing = manifests.find((candidate) => candidate.id.value === entry.facet);
                 const declarations = [
                     ...(existing === undefined
                         ? []
@@ -698,7 +694,9 @@ describe("Facet runtime", () => {
                         })
                     ])
                 );
-                const index = manifests.findIndex((candidate) => candidate.id.value === entry.facet);
+                const index = manifests.findIndex(
+                    (candidate) => candidate.id.value === entry.facet
+                );
                 const facet = new TestFacet(entry.ref, built, [], new Map(), interceptors);
                 if (index < 0) {
                     manifests.push(built);
@@ -764,8 +762,7 @@ describe("Facet runtime", () => {
             expect(() => runner.run("turn.step", turn, { step: 0 }, () => {})).toThrowError(
                 expect.objectContaining({
                     code: "authority.denied",
-                    message:
-                        "Interceptor foreign is contributed from another protection domain"
+                    message: "Interceptor foreign is contributed from another protection domain"
                 })
             );
             // The same schedule in the Turn's own domain runs, so the refusal is about the
@@ -1006,7 +1003,7 @@ describe("Facet runtime", () => {
     );
 
     test(
-        "[C13-INTERCEPTOR-TURN-HOSTED] refuses a declared interceptor with no implementation behind it at an operation and a Turn-bound cut point alike",
+        "[C13-INTERCEPTOR-TURN-HOSTED] rejects a declared interceptor with no implementation at operation and Turn cut points before activation",
         { tags: "p1" },
         async () => {
             const descriptor = operationDescriptor("run");
@@ -1031,7 +1028,26 @@ describe("Facet runtime", () => {
             const operation = new TestOperation(descriptor, async (input) => input);
             const passThrough = (declaration: InterceptorDeclaration): TestInterceptor =>
                 new TestInterceptor(declaration, (value) => ({ proceed: true, value }));
-            const facet = new TestFacet(
+            for (const [missing, implementations] of [
+                [
+                    "dropped-turn",
+                    new Map([["dropped-operation", passThrough(operationDeclaration)]])
+                ],
+                ["dropped-operation", new Map([["dropped-turn", passThrough(turnDeclaration)]])]
+            ] as const) {
+                const incomplete = new TestFacet(
+                    "workspace:dropped",
+                    facetManifest,
+                    [],
+                    new Map([["run", operation]]),
+                    implementations
+                );
+                await expect(
+                    new FacetRuntimeHost([facetManifest], [incomplete]).activate()
+                ).rejects.toThrow(`Interceptor ${missing} has no runtime implementation`);
+            }
+
+            const resolvedFacet = new TestFacet(
                 "workspace:dropped",
                 facetManifest,
                 [],
@@ -1041,41 +1057,7 @@ describe("Facet runtime", () => {
                     ["dropped-operation", passThrough(operationDeclaration)]
                 ])
             );
-            const dropped = new DroppedInterceptorHost(facet);
-            await dropped.activate();
-            const droppedTarget = dropped.facets()[0]!;
-            expect(() =>
-                new TurnInterceptorRunner(dropped, new TestTurnDomains()).run(
-                    "turn.step",
-                    new TurnId("turn-dropped"),
-                    { step: 0 },
-                    () => {}
-                )
-            ).toThrowError(
-                expect.objectContaining({
-                    code: "facet.inactive",
-                    message: "Interceptor dropped-turn is no longer active"
-                })
-            );
-            expect(() =>
-                new OperationInterceptorRunner<string>(dropped, new TestAuthority([], "direct")).run(
-                    "operation.before",
-                    "resolution",
-                    droppedTarget,
-                    operation,
-                    0,
-                    {}
-                )
-            ).toThrowError(
-                expect.objectContaining({
-                    code: "facet.inactive",
-                    message: "Interceptor dropped-operation is no longer active"
-                })
-            );
-
-            // The identical manifest, with the implementations resolved, runs both schedules —
-            // so the refusal is the missing implementation and not either cut point being empty.
-            const resolved = new FacetRuntimeHost([facetManifest], [facet]);
+            const resolved = new FacetRuntimeHost([facetManifest], [resolvedFacet]);
             await resolved.activate();
             const target = resolved.facets()[0]!;
             expect(
@@ -1093,7 +1075,6 @@ describe("Facet runtime", () => {
                 ).run("operation.before", "resolution", target, operation, 0, {}).traces
             ).toHaveLength(1);
             await resolved.dispose();
-            await dropped.dispose();
         }
     );
 
@@ -2286,7 +2267,7 @@ describe("Protected Operation gateway", () => {
                     command: valid,
                     target: { package: valid.operation.facet, descriptor }
                 }).id
-            ).toBe("acme.runtime:run");
+            ).toBe(commandInvocationSource(valid));
 
             const wrongLiteral = mappedCommand({
                 name: "literal",
@@ -2351,7 +2332,7 @@ describe("Protected Operation gateway", () => {
             expect(installed.subscription.source.toData()).toEqual({
                 acceptedTrust: ["owner", "authenticated", "self"],
                 kind: "command.invoked",
-                source: "acme.runtime:run"
+                source: commandInvocationSource(command)
             });
             expect(installed.subscription.target.equals(command.operation)).toBe(true);
             expect(installed.subscription.mapping?.toData()).toEqual([{ from: "/input", to: "" }]);

@@ -18,14 +18,17 @@ import {
     type WorkspaceSlotStore
 } from "../facets";
 import { FacetRuntimeHost } from "../operations/internal";
+import type { ValidatedFacetRuntime } from "../operations";
 import type { CommandEnvelope, FacetSlotCommandBackend } from "../protocol";
+
+type CorrespondentFacet = ValidatedFacetRuntime["facets"][number];
 
 export interface PackageFacetRoots<Loaded> {
     roots(modules: readonly LoadedPackageModule<Loaded>[]): readonly Facet[];
 }
 
 export interface PackageFacetMaterializationPort<Loaded> {
-    materialize(loaded: LoadedBlueprint<Loaded>, facets: readonly Facet[]): void;
+    materialize(loaded: LoadedBlueprint<Loaded>, facets: readonly CorrespondentFacet[]): void;
 }
 
 export class PackageFacetRuntime<Loaded> implements AsyncDisposable {
@@ -52,7 +55,7 @@ export class PackageFacetRuntime<Loaded> implements AsyncDisposable {
         const host = new FacetRuntimeHost(manifests, roots);
         try {
             await host.activate();
-            this.materialization.materialize(loaded, roots);
+            this.materialization.materialize(loaded, host.facets());
         } catch (error) {
             try {
                 await host.dispose();

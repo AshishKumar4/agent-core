@@ -260,6 +260,7 @@
       ],
       "testSelectors": [
         "test/composition/behavior-branches.test.ts#composition lifecycle branch coverage [C13-FACET-CONTRIBUTION-MATERIALIZATION] [C13-FACET-START-ATOMIC] owns loaded package handles, rejects double activation, and preserves cleanup failures",
+        "test/composition/behavior-branches.test.ts#composition lifecycle branch coverage [C13-FACET-CONTRIBUTION-MATERIALIZATION] materializes every validated child Facet before host publication",
         "test/composition/workspace-facet-materializer.test.ts#Workspace Facet materializer [C13-FACET-CONTRIBUTION-ATTRIBUTION] [C13-FACET-CONTRIBUTION-MATERIALIZATION] [facet.settings-layer] materializes every supported primitive atomically and replays as a no-op",
         "test/composition/workspace-facet-materializer.test.ts#Workspace Facet materializer [C13-FACET-CONTRIBUTION-MATERIALIZATION] [C13-FACET-START-ATOMIC] rolls back every primitive when one later record write fails"
       ],

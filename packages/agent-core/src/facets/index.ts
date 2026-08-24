@@ -69,7 +69,7 @@ export {
 export type { EventVisibility, TrustTier, VerificationScheme } from "./event";
 export { PromptSection, PromptSectionContributionOrigin } from "./prompt-section";
 export { Prompt, PromptContribution } from "./prompt";
-export { Command } from "./command";
+export { Command, commandAutomation, commandInvocationSource } from "./command";
 export type { CommandInit } from "./command";
 export { Automation } from "./automation";
 export type { AutomationAuthority, AutomationInit, DedupePolicy } from "./automation";

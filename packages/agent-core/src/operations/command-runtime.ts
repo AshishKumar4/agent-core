@@ -6,21 +6,20 @@ import {
 } from "../core";
 import { AgentCoreError } from "../errors";
 import {
-    Automation,
     Command,
-    EventPattern,
     FieldMove,
-    PayloadMapping,
     canonicalFacetData,
+    commandAutomation,
+    commandInvocationSource,
     isNumber,
     isString,
+    type Automation,
     type FacetData,
     type FacetPackageId,
     type FacetRef,
     type OperationDescriptor,
     type SurfaceId
 } from "../facets";
-const DEFAULT_COMMAND_TRUST = ["owner", "authenticated", "self"] as const;
 const commandKeyDecoder = new TextDecoder("utf-8", { fatal: true });
 
 export interface CommandInstallationTarget {
@@ -68,7 +67,7 @@ export class CommandRuntime {
     public install(installation: CommandInstallation): InstalledCommand {
         validateInstallation(installation);
         const scope = facetScope(installation.contributor);
-        const id = `${installation.command.operation.facet.value}:${installation.command.name}`;
+        const id = commandInvocationSource(installation.command);
         const key = commandKey(scope, id);
         const existing = this.#commands.get(key);
         if (existing !== undefined) {
@@ -82,18 +81,7 @@ export class CommandRuntime {
                 );
             }
         }
-        const subscription = new Automation({
-            source: new EventPattern(
-                "command.invoked",
-                installation.command.acceptedTrust ?? DEFAULT_COMMAND_TRUST,
-                id
-            ),
-            target: installation.command.operation,
-            binding: installation.command.binding,
-            mapping: new PayloadMapping([new FieldMove("", { from: "/input" })]),
-            dedupe: "event",
-            authority: "initiator"
-        });
+        const subscription = commandAutomation(installation.command);
         const installed = Object.freeze({
             id,
             scope,

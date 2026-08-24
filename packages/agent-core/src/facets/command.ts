@@ -1,4 +1,5 @@
-import { isNonempty, JsonSchema, TextId } from "../core";
+import { JsonSchema, TextId, canonicalTupleKey, isNonempty } from "../core";
+import { Automation } from "./automation";
 import type { FacetData } from "./data";
 import {
     DataRecordCodec,
@@ -12,9 +13,9 @@ import {
     requireSchemaDocument,
     requireString
 } from "./data";
-import { canonicalTrustTiers, type TrustTier } from "./event";
+import { EventPattern, canonicalTrustTiers, type TrustTier } from "./event";
 import { BindingName, FacetPackageId, OperationName, OperationRef, SlotName } from "./id";
-import { FieldMapping, FieldMove, JsonPointer, MappingRecord } from "./mapping";
+import { FieldMapping, FieldMove, JsonPointer, MappingRecord, PayloadMapping } from "./mapping";
 import { BoundOperationRef } from "./operation";
 
 export interface CommandInit {
@@ -132,6 +133,28 @@ export class Command {
             mapping: this.mapping?.toData()
         });
     }
+}
+
+export function commandInvocationSource(command: Command): string {
+    return canonicalTupleKey("command.invoked.source", [
+        command.operation.facet.value,
+        command.name
+    ]);
+}
+
+export function commandAutomation(command: Command): Automation {
+    return new Automation({
+        source: new EventPattern(
+            "command.invoked",
+            command.acceptedTrust ?? ["owner", "authenticated", "self"],
+            commandInvocationSource(command)
+        ),
+        target: command.operation,
+        binding: command.binding,
+        mapping: new PayloadMapping([new FieldMove("", { from: "/input" })]),
+        dedupe: "event",
+        authority: "initiator"
+    });
 }
 
 const commandCodec = new DataRecordCodec(

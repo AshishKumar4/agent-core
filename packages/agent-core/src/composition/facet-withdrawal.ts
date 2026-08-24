@@ -3,7 +3,6 @@ import { AgentCoreError } from "../errors";
 import type {
     CatalogEntryId,
     ContributionAttribution,
-    Facet,
     FacetLifecycleContext,
     FacetRef,
     PromptSectionId,
@@ -12,6 +11,7 @@ import type {
     SurfaceId,
     WorkspaceSlotStore
 } from "../facets";
+import type { ValidatedFacetRuntime } from "../operations";
 import type {
     IngressEndpointId,
     RoutingWithdrawal,
@@ -19,6 +19,8 @@ import type {
     WorkspaceRoutingWithdrawal
 } from "../workspaces";
 import type { WorkspaceFacetMaterializer } from "./workspace-facet-materializer";
+
+type CorrespondentFacet = ValidatedFacetRuntime["facets"][number];
 
 /** Opens one synchronous control transaction for the owning Workspace Actor. */
 export interface ControlTransaction<Transaction> {
@@ -190,7 +192,7 @@ export class FacetActivation<Transaction, Read, Context> {
     ) {}
 
     public async activate(
-        facet: Facet,
+        facet: CorrespondentFacet,
         read: Read,
         materializationContext: Context,
         lifecycleContext: FacetLifecycleContext
@@ -248,7 +250,7 @@ export class FacetActivation<Transaction, Read, Context> {
     }
 
     private async failed(
-        facet: Facet,
+        facet: CorrespondentFacet,
         failure: Error | string,
         context: FacetLifecycleContext
     ): Promise<FacetActivationOutcome> {

@@ -1,6 +1,14 @@
 import { describe, expect, test } from "vitest";
+import { Digest } from "../../src/core";
 import { AuditRecordId } from "../../src/interaction-references";
-import { FacetRef, SlotEntry, SlotName, type ContributionAttribution } from "../../src/facets";
+import {
+    FacetRef,
+    FacetManifest,
+    SlotEntry,
+    SlotName,
+    type ContributionAttribution,
+    type Facet
+} from "../../src/facets";
 import { ScopeRef, WorkspaceId } from "../../src/identity";
 import { AgentCoreError } from "../../src/errors";
 import {
@@ -8,6 +16,7 @@ import {
     FacetWithdrawal,
     WorkspaceFacetMaterializer
 } from "../../src/composition";
+import { FacetCorrespondenceValidator, type ValidatedFacetRuntime } from "../../src/operations";
 import {
     MemoryWorkspaceRecords,
     RouteDeliveryState,
@@ -35,8 +44,10 @@ import {
     authenticatedInstallationFixture,
     tenant
 } from "../workspaces/fixtures";
+
 import { attribution, contribute, declarerSlot, entry } from "./slot-store-contract";
 import { activationFacet } from "./facet-activation-fixture";
+type CorrespondentFacet = ValidatedFacetRuntime["facets"][number];
 
 class DurableRetention<Transaction> implements ContentRetentionPort<Transaction> {
     public verify(): boolean {
@@ -427,9 +438,11 @@ describe("Facet activation atomicity", () => {
             const contributor = attribution("workspace:partial");
             const activation = activationFor(harness, contributor);
             const before = harness.slots.entries(new SlotName("dashboard.card"));
-            const facet = activationFacet(contributor.contributor, () => {
-                throw new TypeError("start failed before publication");
-            });
+            const facet = validatedActivationFacet(
+                activationFacet(contributor.contributor, () => {
+                    throw new TypeError("start failed before publication");
+                })
+            );
 
             const outcome = await activation.activate(
                 facet,
@@ -462,9 +475,11 @@ describe("Facet activation atomicity", () => {
             const harness = crossPlaneHarness();
             const contributor = attribution("workspace:non-error");
             const activation = activationFor(harness, contributor);
-            const facet = activationFacet(contributor.contributor, () => {
-                throw "start rejected without an Error";
-            });
+            const facet = validatedActivationFacet(
+                activationFacet(contributor.contributor, () => {
+                    throw "start rejected without an Error";
+                })
+            );
 
             const outcome = await activation.activate(
                 facet,
@@ -494,7 +509,9 @@ describe("Facet activation atomicity", () => {
             const contributor = attribution("workspace:partial");
             const activation = activationFor(harness, contributor);
             contribute(harness.slots, entry("workspace:partial", 1, { title: "Stranded" }));
-            const facet = activationFacet(contributor.contributor, () => undefined);
+            const facet = validatedActivationFacet(
+                activationFacet(contributor.contributor, () => undefined)
+            );
 
             await expect(
                 activation.activate(
@@ -508,7 +525,7 @@ describe("Facet activation atomicity", () => {
             // A Facet whose activation was refused obstructs no other Facet's activation.
             const other = attribution("workspace:other");
             const outcome = await activationFor(harness, other).activate(
-                activationFacet(other.contributor, () => undefined),
+                validatedActivationFacet(activationFacet(other.contributor, () => undefined)),
                 harness.database,
                 { installationId: "installation" },
                 { signal: new AbortController().signal }
@@ -526,7 +543,9 @@ describe("Facet activation atomicity", () => {
             const activation = activationFor(harness, contribution);
             await expect(
                 activation.activate(
-                    activationFacet(new FacetRef("workspace:one"), () => undefined),
+                    validatedActivationFacet(
+                        activationFacet(new FacetRef("workspace:one"), () => undefined)
+                    ),
                     harness.database,
                     { installationId: "installation" },
                     { signal: new AbortController().signal }
@@ -601,9 +620,11 @@ function activationFor(
     harness: CrossPlaneHarness,
     contribution: ContributionAttribution
 ): FacetActivation<TransactionalSqlite, TransactionalSqlite, { readonly installationId: string }> {
+    const manifest = activationFacet(contribution.contributor, () => undefined).manifest;
     const base = authenticatedInstallationFixture(
         contribution.contributor.value,
-        contribution.package
+        contribution.package,
+        Digest.sha256(FacetManifest.encode(manifest))
     );
     const provenance = new TestPackageInstallationProvenance<TransactionalSqlite>({
         ...base,
@@ -619,4 +640,11 @@ function activationFor(
     return new FacetActivation(harness.withdrawal, materializer, (operation, ...guard) =>
         harness.database.transaction(() => operation(harness.database), ...guard)
     );
+}
+
+function validatedActivationFacet(facet: Facet): CorrespondentFacet {
+    const validated = new FacetCorrespondenceValidator().validate([facet.manifest], [facet])
+        .facets[0];
+    if (validated === undefined) throw new TypeError("Expected validated activation Facet");
+    return validated;
 }

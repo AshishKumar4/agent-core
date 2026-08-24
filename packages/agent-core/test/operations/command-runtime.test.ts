@@ -170,8 +170,7 @@ describe("CommandRuntime installation", () => {
             ).toThrowError(
                 expect.objectContaining({
                     code: "protocol.duplicate",
-                    message:
-                        "Command acme.tools:render conflicts with an installed command in workspace"
+                    message: `Command ${installed.id} conflicts with an installed command in workspace`
                 })
             );
             expect(runtime.install(installation())).toBe(installed);
@@ -1032,7 +1031,7 @@ describe("CommandRuntime binding and invocation", () => {
             runtime.invoke(installed, { value: 1 }, { surface: new SlotName("tray") }, events)
         ).rejects.toMatchObject({
             code: "operation.invalid-input",
-            message: "Command acme.tools:render is not installed for surface tray"
+            message: `Command ${installed.id} is not installed for surface tray`
         });
     });
 
@@ -1051,7 +1050,7 @@ describe("CommandRuntime binding and invocation", () => {
                 runtime.invoke(foreign, { value: 1 }, { surface: new SlotName("palette") }, events)
             ).rejects.toMatchObject({
                 code: "facet.inactive",
-                message: "Command acme.tools:render is not installed"
+                message: `Command ${foreign.id} is not installed`
             });
 
             await expect(

@@ -24,6 +24,7 @@ import {
     OperationRef,
     OperationDescriptor,
     SlotName,
+    commandInvocationSource,
     type TrustTier
 } from "../../src/facets";
 import {
@@ -331,7 +332,10 @@ function commandInvokedDraft(eventId: string): EventDraft {
         id,
         scope,
         sourceActor,
-        source: { kind: "facet", facet: new FacetPackageId(COMMAND_ID) },
+        source: {
+            kind: "facet",
+            facet: new FacetPackageId(commandInvocationSource(command()))
+        },
         kind: new EventKind("command.invoked"),
         payload: payload.ref,
         payloadDigest: payload.digest,

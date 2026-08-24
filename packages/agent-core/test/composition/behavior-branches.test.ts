@@ -26,6 +26,7 @@ import {
     type CanonicalSettlementSource,
     type RoutedInvocationProjection
 } from "../../src/composition";
+import type { ValidatedFacetRuntime } from "../../src/operations";
 import { SpawnReservationId } from "../../src/agents";
 import {
     CompatRange,
@@ -35,7 +36,8 @@ import {
     Revision,
     SemVer,
     isJsonValue,
-    jsonDataParser
+    jsonDataParser,
+    requireNonempty
 } from "../../src/core";
 import {
     PackageId,
@@ -106,6 +108,7 @@ import {
     tenant
 } from "../workspaces/fixtures";
 import { preparedReferenceCodecs } from "../invocations/fixture";
+type CorrespondentFacet = ValidatedFacetRuntime["facets"][number];
 
 const recordData = jsonDataParser((message) => new TypeError(message));
 
@@ -533,6 +536,38 @@ describe("W9 composition behavior branches", () => {
             await failedModuleCleanup.activate(reaching<Blueprint>({}));
             await expect(failedModuleCleanup.dispose()).rejects.toBe(moduleCleanupFailure);
             await expect(failedModuleCleanup.dispose()).resolves.toBeUndefined();
+        }
+    );
+
+    test(
+        "[C13-FACET-CONTRIBUTION-MATERIALIZATION] materializes every validated child Facet before host publication",
+        { tags: "p0" },
+        async () => {
+            const parentManifest = emptyManifest("composition.parent");
+            const childManifest = emptyManifest("composition.child");
+            const child = new LifecycleFacet(childManifest, undefined);
+            const parent = new LifecycleFacet(parentManifest, undefined, async () => undefined, [
+                child
+            ]);
+            const materialize = vi.fn(
+                (_loaded: LoadedBlueprint<unknown>, facets: readonly CorrespondentFacet[]) => {
+                    expect(facets.map((facet) => facet.manifest.id.value).sort()).toEqual([
+                        "composition.child",
+                        "composition.parent"
+                    ]);
+                }
+            );
+            const runtime = new PackageFacetRuntime(
+                loaderReturning(
+                    loadedBlueprint([parentManifest, childManifest], async () => undefined)
+                ),
+                { roots: () => [parent] },
+                { materialize }
+            );
+
+            await runtime.activate(reaching<Blueprint>({}));
+            expect(materialize).toHaveBeenCalledOnce();
+            await runtime.dispose();
         }
     );
 
@@ -1263,14 +1298,16 @@ function emptyManifest(id: string): FacetManifest {
 }
 
 class LifecycleFacet extends Facet {
-    public readonly ref = new FacetRef("workspace:composition-runtime");
+    public readonly ref: FacetRef;
 
     public constructor(
         public readonly manifest: FacetManifest,
         private readonly onStart: (() => Promise<void>) | undefined,
-        private readonly onStop: () => Promise<void> = async () => undefined
+        private readonly onStop: () => Promise<void> = async () => undefined,
+        private readonly childFacets: readonly Facet[] = []
     ) {
         super();
+        this.ref = new FacetRef(`${manifest.id.value}:runtime`);
     }
 
     public operation(_name: OperationName): Operation | undefined {
@@ -1283,7 +1320,7 @@ class LifecycleFacet extends Facet {
         return undefined;
     }
     public children(): readonly Facet[] {
-        return [];
+        return this.childFacets;
     }
     public start(_context: FacetLifecycleContext): Promise<void> {
         return this.onStart?.() ?? Promise.resolve();
@@ -1294,12 +1331,16 @@ class LifecycleFacet extends Facet {
 }
 
 function loadedBlueprint(
-    manifest: FacetManifest,
+    manifest: FacetManifest | readonly FacetManifest[],
     dispose: () => Promise<void>
 ): LoadedBlueprint<unknown> {
+    const manifests = requireNonempty(
+        manifest instanceof FacetManifest ? [manifest] : manifest,
+        "Loaded Blueprint manifests"
+    );
     return {
         validated: reaching<ValidatedBlueprint>({
-            releases: [reaching<PackageRelease>({ manifests: [manifest] })]
+            releases: [reaching<PackageRelease>({ manifests })]
         }),
         modules: [],
         dispose: async () => {
