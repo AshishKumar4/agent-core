@@ -21,6 +21,7 @@ import {
     passingLiveAtoms
 } from "./quality/release-chain-evidence.ts";
 import { specRequirements } from "./quality/spec.mjs";
+import { verifyControlledLanguage } from "./quality/cnl.mjs";
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const formalRoot = join(packageRoot, "formal");
@@ -997,6 +998,19 @@ async function checkReleaseChain() {
 
 await checkReleaseChain();
 
+// The controlled language binds reviewed SPEC rule units to kernel-checked propositions
+// over the model. Its digests are the same binding this gate enforces for claims, so a
+// stale pairing, a shrunk denominator, or an unaudited bridge fails here with the rest.
+const controlledLanguageSummary = await (async () => {
+    try {
+        return await verifyControlledLanguage();
+    } catch (error) {
+        fail(`controlled language verification failed: ${error.message}`);
+        reportFailures();
+        return null;
+    }
+})();
+
 if (failures.length > 0) reportFailures();
 
 runLakeOrExit(["build", "AgentCore"], "lake build AgentCore");
@@ -1078,6 +1092,7 @@ if (failures.length === 0) {
 if (failures.length > 0) reportFailures();
 
 console.log(
+    `${controlledLanguageSummary}; ` +
     `traceability verified: ${reported.size} designated (${substantiveTheoremCount} claims, ${witnessCount} witnesses), ` +
         `${witnessCoverageCount} witness links, ${definitions.size} definitions, ${observedAxioms.size} built-in axioms, ` +
         `${requirements.length} requirements, ` +

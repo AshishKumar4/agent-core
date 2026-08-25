@@ -1,0 +1,1000 @@
+{
+  "adversarial": {
+    "ambiguityCases": 2,
+    "negativeCases": 12,
+    "negativeRefused": 12,
+    "roundTripExact": 11,
+    "scrambles": 109,
+    "scramblesAdmitted": 0
+  },
+  "auditedNames": [
+    "SpecCnl.Sentences.cnl_C13_RUN_ANCESTRY",
+    "SpecCnl.Bridge.hand_C13_RUN_ANCESTRY",
+    "SpecCnl.Bridge.bridge_C13_RUN_ANCESTRY",
+    "SpecCnl.Proofs.proved_C13_RUN_ANCESTRY",
+    "SpecCnl.Sentences.cnl_C13_SUBSCRIPTION_ACCEPTED_TIERS",
+    "SpecCnl.Bridge.hand_C13_SUBSCRIPTION_ACCEPTED_TIERS",
+    "SpecCnl.Bridge.bridge_C13_SUBSCRIPTION_ACCEPTED_TIERS",
+    "SpecCnl.Proofs.proved_C13_SUBSCRIPTION_ACCEPTED_TIERS",
+    "SpecCnl.Sentences.cnl_C13_TRUST_VERIFIED_INGRESS",
+    "SpecCnl.Bridge.hand_C13_TRUST_VERIFIED_INGRESS",
+    "SpecCnl.Bridge.bridge_C13_TRUST_VERIFIED_INGRESS",
+    "SpecCnl.Proofs.proved_C13_TRUST_VERIFIED_INGRESS",
+    "SpecCnl.Sentences.cnl_C13_TURN_LEASE_EXPIRY",
+    "SpecCnl.Bridge.hand_C13_TURN_LEASE_EXPIRY",
+    "SpecCnl.Bridge.bridge_C13_TURN_LEASE_EXPIRY",
+    "SpecCnl.Proofs.proved_C13_TURN_LEASE_EXPIRY",
+    "SpecCnl.Sentences.cnl_C13_EFFECT_ATTEMPT_IMMUTABLE",
+    "SpecCnl.Bridge.hand_C13_EFFECT_ATTEMPT_IMMUTABLE",
+    "SpecCnl.Bridge.bridge_C13_EFFECT_ATTEMPT_IMMUTABLE",
+    "SpecCnl.Proofs.proved_C13_EFFECT_ATTEMPT_IMMUTABLE",
+    "SpecCnl.Sentences.cnl_C13_RECEIPT_ID_NAMESPACE",
+    "SpecCnl.Bridge.hand_C13_RECEIPT_ID_NAMESPACE",
+    "SpecCnl.Bridge.bridge_C13_RECEIPT_ID_NAMESPACE",
+    "SpecCnl.Proofs.proved_C13_RECEIPT_ID_NAMESPACE",
+    "SpecCnl.Sentences.cnl_C13_RUN_GRAPH_ARITY",
+    "SpecCnl.Bridge.hand_C13_RUN_GRAPH_ARITY",
+    "SpecCnl.Bridge.bridge_C13_RUN_GRAPH_ARITY",
+    "SpecCnl.Proofs.proved_C13_RUN_GRAPH_ARITY",
+    "SpecCnl.Sentences.cnl_C13_RUN_UNDO_FENCE",
+    "SpecCnl.Bridge.hand_C13_RUN_UNDO_FENCE",
+    "SpecCnl.Bridge.bridge_C13_RUN_UNDO_FENCE",
+    "SpecCnl.Proofs.proved_C13_RUN_UNDO_FENCE",
+    "SpecCnl.Sentences.cnl_C13_AUTH_GUEST_VERIFICATION",
+    "SpecCnl.Bridge.hand_C13_AUTH_GUEST_VERIFICATION",
+    "SpecCnl.Bridge.bridge_C13_AUTH_GUEST_VERIFICATION",
+    "SpecCnl.Proofs.proved_C13_AUTH_GUEST_VERIFICATION",
+    "SpecCnl.Sentences.cnl_C13_CONTENT_RESOLUTION",
+    "SpecCnl.Bridge.hand_C13_CONTENT_RESOLUTION",
+    "SpecCnl.Bridge.bridge_C13_CONTENT_RESOLUTION",
+    "SpecCnl.Proofs.proved_C13_CONTENT_RESOLUTION",
+    "SpecCnl.Sentences.cnl_C13_RUN_ACCEPTANCE_OBLIGATION",
+    "SpecCnl.Bridge.hand_C13_RUN_ACCEPTANCE_OBLIGATION",
+    "SpecCnl.Bridge.bridge_C13_RUN_ACCEPTANCE_OBLIGATION",
+    "SpecCnl.Proofs.proved_C13_RUN_ACCEPTANCE_OBLIGATION",
+    "SpecCnl.Divergence.preFixOrderingHolds",
+    "SpecCnl.Divergence.prefix_guest_verification_diverges",
+    "SpecCnl.Divergence.current_step_is_prefix_step",
+    "SpecCnl.Divergence.fix_is_strict"
+  ],
+  "divergenceNames": [
+    "SpecCnl.Divergence.preFixOrderingHolds",
+    "SpecCnl.Divergence.prefix_guest_verification_diverges",
+    "SpecCnl.Divergence.current_step_is_prefix_step",
+    "SpecCnl.Divergence.fix_is_strict"
+  ],
+  "grammar": {
+    "categoryAtoms": 8,
+    "contentEntries": 25,
+    "entries": 42,
+    "grammarEntries": 17,
+    "modelConstants": 32,
+    "multiwordEntries": 29,
+    "rules": 2
+  },
+  "lexicon": [
+    {
+      "category": "(S/(NP[a]\\S))/CN[a]",
+      "caveats": [],
+      "constants": [],
+      "denotation": "SpecCnl.qEvery",
+      "id": "every",
+      "kind": "grammar",
+      "surface": "every",
+      "words": 1
+    },
+    {
+      "category": "(((NP[a]\\S)/NP[t])\\(NP[a]\\S))/CN[t]",
+      "caveats": [],
+      "constants": [],
+      "denotation": "SpecCnl.qSomeObj",
+      "id": "some.object",
+      "kind": "grammar",
+      "surface": "some",
+      "words": 1
+    },
+    {
+      "category": "(((NP[a]\\S)/NP[t])\\(NP[a]\\S))/CN[t]",
+      "caveats": [],
+      "constants": [],
+      "denotation": "SpecCnl.qNoObj",
+      "id": "no.object",
+      "kind": "grammar",
+      "surface": "no",
+      "words": 1
+    },
+    {
+      "category": "(TR[s,l]\\S)/ST[s,l]",
+      "caveats": [],
+      "constants": [],
+      "denotation": "SpecCnl.trRequires",
+      "id": "requires",
+      "kind": "grammar",
+      "surface": "requires",
+      "words": 1
+    },
+    {
+      "category": "(ST[s,l]\\S)/TR[s,l]",
+      "caveats": [],
+      "constants": [],
+      "denotation": "SpecCnl.stHoldsBefore",
+      "id": "holds.before",
+      "kind": "grammar",
+      "surface": "holds before",
+      "words": 2
+    },
+    {
+      "category": "(TR[s,l]\\S)/CN[s]",
+      "caveats": [],
+      "constants": [],
+      "denotation": "SpecCnl.trPreserves",
+      "id": "preserves",
+      "kind": "grammar",
+      "surface": "preserves",
+      "words": 1
+    },
+    {
+      "category": "(TR[s,l]\\S)/PR[s]",
+      "caveats": [],
+      "constants": [],
+      "denotation": "SpecCnl.trMaintains",
+      "id": "maintains",
+      "kind": "grammar",
+      "surface": "maintains",
+      "words": 1
+    },
+    {
+      "category": "(S\\S)/S",
+      "caveats": [],
+      "constants": [],
+      "denotation": "SpecCnl.sAnd",
+      "id": "and.sentence",
+      "kind": "grammar",
+      "surface": "and",
+      "words": 1
+    },
+    {
+      "category": "(RE[s,k,v]\\RE[s,k,v])/RE[s,k,v]",
+      "caveats": [],
+      "constants": [],
+      "denotation": "SpecCnl.reOr",
+      "id": "or.relation",
+      "kind": "grammar",
+      "surface": "or",
+      "words": 1
+    },
+    {
+      "category": "(NU[s,p]\\ST[s,p])/NU[s,p]",
+      "caveats": [],
+      "constants": [],
+      "denotation": "SpecCnl.nuAtMost",
+      "id": "is.at.most",
+      "kind": "grammar",
+      "surface": "is at most",
+      "words": 3
+    },
+    {
+      "category": "(NU[s,p]\\ST[s,p])/NU[s,p]",
+      "caveats": [],
+      "constants": [],
+      "denotation": "SpecCnl.nuEquals",
+      "id": "equals",
+      "kind": "grammar",
+      "surface": "equals",
+      "words": 1
+    },
+    {
+      "category": "(RE[s,k,v]\\S)/NP[f]",
+      "caveats": [],
+      "constants": [],
+      "denotation": "SpecCnl.reDependsOnlyOn",
+      "id": "depends.only.on",
+      "kind": "grammar",
+      "surface": "depends only on",
+      "words": 3
+    },
+    {
+      "category": "RE[s,k,v]\\S",
+      "caveats": [],
+      "constants": [],
+      "denotation": "SpecCnl.reAtMostOneValue",
+      "id": "assigns.at.most.one.value",
+      "kind": "grammar",
+      "surface": "assigns at most one value",
+      "words": 5
+    },
+    {
+      "category": "NU[s,p]",
+      "caveats": [],
+      "constants": [],
+      "denotation": "SpecCnl.nuLiteral 2",
+      "id": "two",
+      "kind": "grammar",
+      "surface": "two",
+      "words": 1
+    },
+    {
+      "category": "RE[AgentCore.GraphStore,AgentCore.CommitId,AgentCore.CommitId]",
+      "caveats": [],
+      "constants": [
+        "AgentCore.Ancestor"
+      ],
+      "denotation": "AgentCore.Ancestor",
+      "id": "ancestry",
+      "kind": "content",
+      "surface": "ancestry",
+      "words": 1
+    },
+    {
+      "category": "NP[SpecCnl.CommitTable]",
+      "caveats": [],
+      "constants": [
+        "AgentCore.GraphStore.commits"
+      ],
+      "denotation": "AgentCore.GraphStore.commits",
+      "id": "the.commits",
+      "kind": "content",
+      "surface": "the commits",
+      "words": 2
+    },
+    {
+      "category": "RE[AgentCore.GraphStore,AgentCore.RunId,AgentCore.TreeId]",
+      "caveats": [],
+      "constants": [
+        "AgentCore.GraphStore.HeadTree"
+      ],
+      "denotation": "AgentCore.GraphStore.HeadTree",
+      "id": "the.head.tree",
+      "kind": "content",
+      "surface": "the head tree",
+      "words": 3
+    },
+    {
+      "category": "TR[AgentCore.GraphStore,AgentCore.GraphLabel]",
+      "caveats": [],
+      "constants": [
+        "AgentCore.GraphLabel.append",
+        "AgentCore.RunCommit.kind",
+        "AgentCore.RunCommitKind.merge",
+        "AgentCore.GraphStep"
+      ],
+      "denotation": "fun before label after => (∃ id expected commit conversation tree, label = AgentCore.GraphLabel.append id expected commit ∧ AgentCore.RunCommit.kind commit = AgentCore.RunCommitKind.merge conversation tree) ∧ ∃ effects events audit, AgentCore.GraphStep effects events audit before label after",
+      "id": "every.merge.append",
+      "kind": "content",
+      "surface": "every merge append",
+      "words": 3
+    },
+    {
+      "category": "TR[AgentCore.GraphStore,AgentCore.GraphLabel]",
+      "caveats": [],
+      "constants": [
+        "AgentCore.GraphLabel.append",
+        "AgentCore.RunCommit.kind",
+        "AgentCore.RunCommitKind.undo",
+        "AgentCore.GraphStep"
+      ],
+      "denotation": "fun before label after => (∃ id expected commit selected receipt, label = AgentCore.GraphLabel.append id expected commit ∧ AgentCore.RunCommit.kind commit = AgentCore.RunCommitKind.undo selected receipt) ∧ ∃ effects events audit, AgentCore.GraphStep effects events audit before label after",
+      "id": "every.undo.append",
+      "kind": "content",
+      "surface": "every undo append",
+      "words": 3
+    },
+    {
+      "category": "ST[AgentCore.GraphStore,AgentCore.RunCommit]\\ST[AgentCore.GraphStore,AgentCore.GraphLabel]",
+      "caveats": [],
+      "constants": [
+        "AgentCore.GraphLabel.append"
+      ],
+      "denotation": "fun cond before label => ∀ id expected commit, label = AgentCore.GraphLabel.append id expected commit → cond before commit",
+      "id": "for.the.appended.commit",
+      "kind": "content",
+      "surface": "for the appended commit",
+      "words": 4
+    },
+    {
+      "category": "NU[AgentCore.GraphStore,AgentCore.RunCommit]",
+      "caveats": [],
+      "constants": [
+        "AgentCore.RunCommit.parents"
+      ],
+      "denotation": "fun _ commit => List.length (AgentCore.RunCommit.parents commit)",
+      "id": "the.parent.count",
+      "kind": "content",
+      "surface": "the parent count",
+      "words": 3
+    },
+    {
+      "category": "ST[AgentCore.GraphStore,AgentCore.RunCommit]",
+      "caveats": [],
+      "constants": [
+        "AgentCore.BranchUnheld",
+        "AgentCore.RunCommit.run",
+        "AgentCore.RunCommit.branch"
+      ],
+      "denotation": "fun store commit => AgentCore.BranchUnheld store (AgentCore.RunCommit.run commit) (AgentCore.RunCommit.branch commit)",
+      "id": "an.unheld.branch",
+      "kind": "content",
+      "surface": "an unheld branch",
+      "words": 3
+    },
+    {
+      "category": "ST[AgentCore.GraphStore,AgentCore.RunCommit]",
+      "caveats": [],
+      "constants": [
+        "AgentCore.RunCommit.kind",
+        "AgentCore.RunCommitKind.undo",
+        "AgentCore.RunCommit.parents",
+        "AgentCore.Ancestor"
+      ],
+      "denotation": "fun store commit => ∀ selected receipt, AgentCore.RunCommit.kind commit = AgentCore.RunCommitKind.undo selected receipt → ∃ parent, parent ∈ AgentCore.RunCommit.parents commit ∧ AgentCore.Ancestor store selected parent",
+      "id": "a.selected.ancestor",
+      "kind": "content",
+      "surface": "a selected ancestor",
+      "words": 3
+    },
+    {
+      "category": "TR[AgentCore.TurnLease,AgentCore.LeaseLabel]",
+      "caveats": [],
+      "constants": [
+        "AgentCore.LeaseLabel.reclaim",
+        "AgentCore.LeaseStep"
+      ],
+      "denotation": "fun before label after => (∃ holder now expiresAt, label = AgentCore.LeaseLabel.reclaim holder now expiresAt) ∧ AgentCore.LeaseStep before label after",
+      "id": "every.lease.reclaim",
+      "kind": "content",
+      "surface": "every lease reclaim",
+      "words": 3
+    },
+    {
+      "category": "ST[AgentCore.TurnLease,AgentCore.Time]\\ST[AgentCore.TurnLease,AgentCore.LeaseLabel]",
+      "caveats": [],
+      "constants": [
+        "AgentCore.LeaseLabel.reclaim"
+      ],
+      "denotation": "fun cond before label => ∀ holder now expiresAt, label = AgentCore.LeaseLabel.reclaim holder now expiresAt → cond before now",
+      "id": "for.the.reclaim",
+      "kind": "content",
+      "surface": "for the reclaim",
+      "words": 3
+    },
+    {
+      "category": "NU[AgentCore.TurnLease,AgentCore.Time]",
+      "caveats": [],
+      "constants": [
+        "AgentCore.Time.tick",
+        "AgentCore.TurnLease.expiresAt"
+      ],
+      "denotation": "fun lease _ => AgentCore.Time.tick (AgentCore.TurnLease.expiresAt lease)",
+      "id": "the.recorded.expiry",
+      "kind": "content",
+      "surface": "the recorded expiry",
+      "words": 3
+    },
+    {
+      "category": "NU[AgentCore.TurnLease,AgentCore.Time]",
+      "caveats": [],
+      "constants": [
+        "AgentCore.Time.tick"
+      ],
+      "denotation": "fun _ now => AgentCore.Time.tick now",
+      "id": "the.stated.time",
+      "kind": "content",
+      "surface": "the stated time",
+      "words": 3
+    },
+    {
+      "category": "TR[AgentCore.EffectLedger,AgentCore.EffectLabel]",
+      "caveats": [],
+      "constants": [
+        "AgentCore.EffectStep"
+      ],
+      "denotation": "AgentCore.EffectStep",
+      "id": "every.effect.step",
+      "kind": "content",
+      "surface": "every effect step",
+      "words": 3
+    },
+    {
+      "category": "PR[AgentCore.EffectLedger]",
+      "caveats": [],
+      "constants": [
+        "AgentCore.EffectLedger.attempts"
+      ],
+      "denotation": "fun before after => ∀ id attempt, AgentCore.EffectLedger.attempts before id = some attempt → AgentCore.EffectLedger.attempts after id = some attempt",
+      "id": "attempt.immutability",
+      "kind": "content",
+      "surface": "attempt immutability",
+      "words": 2
+    },
+    {
+      "category": "CN[AgentCore.EffectLedger]",
+      "caveats": [],
+      "constants": [
+        "AgentCore.ReceiptIdsDisjoint"
+      ],
+      "denotation": "AgentCore.ReceiptIdsDisjoint",
+      "id": "disjoint.receipt.ids",
+      "kind": "content",
+      "surface": "disjoint receipt ids",
+      "words": 3
+    },
+    {
+      "category": "CN[SpecCnl.TierPredicate]",
+      "caveats": [
+        "type-as-common-noun"
+      ],
+      "constants": [],
+      "denotation": "fun _ => True",
+      "id": "tier.predicate",
+      "kind": "grammar",
+      "surface": "tier predicate",
+      "words": 2
+    },
+    {
+      "category": "CN[AgentCore.RoutedSubscription]",
+      "caveats": [
+        "type-as-common-noun"
+      ],
+      "constants": [],
+      "denotation": "fun _ => True",
+      "id": "subscription",
+      "kind": "grammar",
+      "surface": "subscription",
+      "words": 1
+    },
+    {
+      "category": "(NP[SpecCnl.TierPredicate]\\S)/NP[AgentCore.RoutedSubscription]",
+      "caveats": [],
+      "constants": [
+        "AgentCore.RoutedSubscription.admits"
+      ],
+      "denotation": "fun subscription predicate => AgentCore.RoutedSubscription.admits subscription = predicate",
+      "id": "is.the.accepted.set.of",
+      "kind": "content",
+      "surface": "is the accepted set of",
+      "words": 5
+    },
+    {
+      "category": "CN[AgentCore.Event]",
+      "caveats": [],
+      "constants": [
+        "AgentCore.EventStep",
+        "AgentCore.EventLabel.publish",
+        "AgentCore.EventStore.events"
+      ],
+      "denotation": "fun event => ∃ leases now before after id, AgentCore.EventStep leases now before (AgentCore.EventLabel.publish id) after ∧ AgentCore.EventStore.events after id = some event",
+      "id": "published.event",
+      "kind": "content",
+      "surface": "published event",
+      "words": 2
+    },
+    {
+      "category": "CN[AgentCore.TrustTier]",
+      "caveats": [
+        "type-as-common-noun"
+      ],
+      "constants": [],
+      "denotation": "fun _ => True",
+      "id": "asserted.tier",
+      "kind": "grammar",
+      "surface": "asserted tier",
+      "words": 2
+    },
+    {
+      "category": "(NP[AgentCore.Event]\\S)/NP[AgentCore.TrustTier]",
+      "caveats": [],
+      "constants": [
+        "AgentCore.Event.assertedTier"
+      ],
+      "denotation": "fun tier event => AgentCore.Event.assertedTier event = some tier",
+      "id": "has.asserted.tier",
+      "kind": "content",
+      "surface": "has",
+      "words": 1
+    },
+    {
+      "category": "TR[AgentCore.AuthorityLedger,AgentCore.Membership]",
+      "caveats": [],
+      "constants": [
+        "AgentCore.MaterializationStep"
+      ],
+      "denotation": "fun before membership after => ∃ role, AgentCore.MaterializationStep before membership role after",
+      "id": "every.role.materialization",
+      "kind": "content",
+      "surface": "every role materialization",
+      "words": 3
+    },
+    {
+      "category": "ST[AgentCore.AuthorityLedger,AgentCore.Membership]",
+      "caveats": [],
+      "constants": [
+        "AgentCore.Membership.subject",
+        "AgentCore.Subject.foreign",
+        "AgentCore.AuthorityLedger.foreignVerified"
+      ],
+      "denotation": "fun before membership => ∀ home principal scheme, AgentCore.Membership.subject membership = AgentCore.Subject.foreign home principal scheme → AgentCore.AuthorityLedger.foreignVerified before home principal",
+      "id": "a.verified.guest.subject",
+      "kind": "content",
+      "surface": "a verified guest subject",
+      "words": 4
+    },
+    {
+      "category": "TR[AgentCore.ContentLedger,AgentCore.ContentLabel]",
+      "caveats": [],
+      "constants": [
+        "AgentCore.ContentLabel.resolve",
+        "AgentCore.ContentStep"
+      ],
+      "denotation": "fun before label after => (∃ ref requester, label = AgentCore.ContentLabel.resolve ref requester) ∧ AgentCore.ContentStep before label after",
+      "id": "every.content.resolve",
+      "kind": "content",
+      "surface": "every content resolve",
+      "words": 3
+    },
+    {
+      "category": "RE[AgentCore.ContentLedger,AgentCore.ContentRef,AgentCore.TenantId]\\ST[AgentCore.ContentLedger,AgentCore.ContentLabel]",
+      "caveats": [],
+      "constants": [
+        "AgentCore.ContentLabel.resolve"
+      ],
+      "denotation": "fun cond before label => ∀ ref requester, label = AgentCore.ContentLabel.resolve ref requester → cond before ref requester",
+      "id": "for.the.resolved.reference",
+      "kind": "content",
+      "surface": "for the resolved reference",
+      "words": 4
+    },
+    {
+      "category": "RE[AgentCore.ContentLedger,AgentCore.ContentRef,AgentCore.TenantId]",
+      "caveats": [],
+      "constants": [
+        "AgentCore.ContentRef.tenant"
+      ],
+      "denotation": "fun _ ref requester => requester = AgentCore.ContentRef.tenant ref",
+      "id": "a.home.tenant",
+      "kind": "content",
+      "surface": "a home tenant",
+      "words": 3
+    },
+    {
+      "category": "RE[AgentCore.ContentLedger,AgentCore.ContentRef,AgentCore.TenantId]",
+      "caveats": [],
+      "constants": [
+        "AgentCore.ContentLedger.crossTenantGrants"
+      ],
+      "denotation": "fun ledger ref requester => AgentCore.ContentLedger.crossTenantGrants ledger requester ref",
+      "id": "a.granted.tenant",
+      "kind": "content",
+      "surface": "a granted tenant",
+      "words": 3
+    }
+  ],
+  "negativeCorpus": [
+    {
+      "kind": "alphabet",
+      "reason": "capitalisation. The controlled alphabet is lowercase letters and single spaces, so no normalisation step stands between the reviewed text and the parse",
+      "sentence": "Every published event has no asserted tier"
+    },
+    {
+      "kind": "alphabet",
+      "reason": "a full stop. Punctuation would have to be normalised away, and a normalisation step is where two readings become one",
+      "sentence": "every published event has no asserted tier."
+    },
+    {
+      "kind": "no-reading",
+      "reason": "word order. `requires` takes its condition to the right and its transition family to the left, and the grammar has no composition rule to recover a permutation",
+      "sentence": "requires an unheld branch every undo append"
+    },
+    {
+      "kind": "no-reading",
+      "reason": "the ontology refuses it. The sentence is grammatical English, and it is rejected only because the condition ranges over GraphStore while the transition family ranges over TurnLease. This is the model rejecting a sentence, which is the property worth having",
+      "sentence": "every lease reclaim requires an unheld branch for the appended commit"
+    },
+    {
+      "kind": "no-reading",
+      "reason": "`preserves` takes a one-state invariant and `attempt immutability` is a two-state relation. Immutability is not an invariant of a single state, and the categories keep the two apart",
+      "sentence": "every effect step preserves attempt immutability"
+    },
+    {
+      "kind": "no-reading",
+      "reason": "the converse clash: `maintains` takes a two-state relation and `disjoint receipt ids` is a one-state invariant",
+      "sentence": "every effect step maintains disjoint receipt ids"
+    },
+    {
+      "kind": "no-reading",
+      "reason": "a bare common noun in object position. A common noun is a predicate, not an individual, so it needs a determiner to become one",
+      "sentence": "every tier predicate is the accepted set of subscription"
+    },
+    {
+      "kind": "no-reading",
+      "reason": "a bare common noun in subject position, for the same reason",
+      "sentence": "published event has no asserted tier"
+    },
+    {
+      "kind": "no-reading",
+      "reason": "`depends only on` takes a state projection on the right and a state-relative relation on the left. `ancestry` is a relation, not a projection, so the two positions are not interchangeable",
+      "sentence": "ancestry depends only on ancestry"
+    },
+    {
+      "kind": "no-reading",
+      "reason": "an unlifted payload condition. `the parent count equals two` is a condition on a commit, and `requires` needs a condition on the transition's label, so the label match cannot be left implicit",
+      "sentence": "every merge append requires the parent count equals two"
+    },
+    {
+      "kind": "ambiguous(2)",
+      "reason": "three-way coordination. `or` is binary, so a three-term list has a left and a right reading. The grammar has no list construct, and rather than pick one association it refuses the sentence. Two-term coordination is what the corpus exercises and therefore all that is shipped",
+      "sentence": "every content resolve requires a home tenant or a granted tenant or a home tenant for the resolved reference"
+    },
+    {
+      "kind": "ambiguous(2)",
+      "reason": "the same defect at sentence level. Conjunction is associative in meaning, which is exactly why the grammar must not silently choose: an ambiguity it tolerates here is one it would tolerate where association changes the reading",
+      "sentence": "every effect step preserves disjoint receipt ids and every effect step preserves disjoint receipt ids and every effect step preserves disjoint receipt ids"
+    }
+  ],
+  "unexercisedEntries": [],
+  "units": [
+    {
+      "anchor": "SPEC.md:1601",
+      "ast": "depends.only.on(the.commits : NP[SpecCnl.CommitTable], ancestry : RE[AgentCore.GraphStore,AgentCore.CommitId,AgentCore.CommitId]) : S",
+      "atoms": [
+        "C13-RUN-ANCESTRY"
+      ],
+      "bridge": "SpecCnl.Bridge.bridge_C13_RUN_ANCESTRY",
+      "bridgeType": "Iff(const:SpecCnl.Sentences.cnl_C13_RUN_ANCESTRY,const:SpecCnl.Bridge.hand_C13_RUN_ANCESTRY)",
+      "digest": "a918901377c9455fd9632715990d25aecc26ace44315cdcd059b652f428b8ee0",
+      "discharge": "SpecCnl.Proofs.proved_C13_RUN_ANCESTRY",
+      "dischargeType": "const:SpecCnl.Bridge.hand_C13_RUN_ANCESTRY",
+      "dropped": [
+        "reachability queries as an obligation distinct from ancestry",
+        "'not merely head moves' as a negative claim about conforming stores, which is about store implementations rather than about the model"
+      ],
+      "handProposition": "SpecCnl.Bridge.hand_C13_RUN_ANCESTRY",
+      "handPropositionType": "Prop",
+      "heads": [
+        "depends.only.on",
+        "the.commits",
+        "ancestry"
+      ],
+      "key": "C13_RUN_ANCESTRY",
+      "lean": "((((SpecCnl.reDependsOnlyOn) : (SpecCnl.CommitTable) → (((AgentCore.GraphStore) → (AgentCore.CommitId) → (AgentCore.CommitId) → Prop) → (Prop))) ((AgentCore.GraphStore.commits) : SpecCnl.CommitTable)) ((AgentCore.Ancestor) : (AgentCore.GraphStore) → (AgentCore.CommitId) → (AgentCore.CommitId) → Prop))",
+      "proposition": "SpecCnl.Sentences.cnl_C13_RUN_ANCESTRY",
+      "propositionType": "Prop",
+      "sentence": "ancestry depends only on the commits",
+      "specSection": "5.2",
+      "words": 6
+    },
+    {
+      "anchor": "SPEC.md:2313",
+      "ast": "every(tier.predicate : CN[SpecCnl.TierPredicate], some.object(subscription : CN[AgentCore.RoutedSubscription], is.the.accepted.set.of : ((NP[SpecCnl.TierPredicate]\\S)/NP[AgentCore.RoutedSubscription])) : (NP[SpecCnl.TierPredicate]\\S)) : S",
+      "atoms": [
+        "C13-SUBSCRIPTION-ACCEPTED-TIERS"
+      ],
+      "bridge": "SpecCnl.Bridge.bridge_C13_SUBSCRIPTION_ACCEPTED_TIERS",
+      "bridgeType": "Iff(const:SpecCnl.Sentences.cnl_C13_SUBSCRIPTION_ACCEPTED_TIERS,const:SpecCnl.Bridge.hand_C13_SUBSCRIPTION_ACCEPTED_TIERS)",
+      "digest": "20e3a9bdfab3b04999e656fdcfedbe26a1912f6878e5862bc4fa1e03ee9f444d",
+      "discharge": "SpecCnl.Proofs.proved_C13_SUBSCRIPTION_ACCEPTED_TIERS",
+      "dischargeType": "const:SpecCnl.Bridge.hand_C13_SUBSCRIPTION_ACCEPTED_TIERS",
+      "dropped": [
+        "'TrustTier is categorical, not ordered': the absence of an order instance is a signature-level negative and is not statable inside the theory. The sentence states the strongest positive consequence instead, because an order would force the accepted set to be an up-set",
+        "'there is no minimum-tier comparison', the same signature-level negative"
+      ],
+      "handProposition": "SpecCnl.Bridge.hand_C13_SUBSCRIPTION_ACCEPTED_TIERS",
+      "handPropositionType": "Prop",
+      "heads": [
+        "every",
+        "tier.predicate",
+        "some.object",
+        "subscription",
+        "is.the.accepted.set.of"
+      ],
+      "key": "C13_SUBSCRIPTION_ACCEPTED_TIERS",
+      "lean": "((((SpecCnl.qEvery) : ((SpecCnl.TierPredicate) → Prop) → (((SpecCnl.TierPredicate) → (Prop)) → (Prop))) ((fun _ => True) : (SpecCnl.TierPredicate) → Prop)) ((((SpecCnl.qSomeObj) : ((AgentCore.RoutedSubscription) → Prop) → (((AgentCore.RoutedSubscription) → ((SpecCnl.TierPredicate) → (Prop))) → ((SpecCnl.TierPredicate) → (Prop)))) ((fun _ => True) : (AgentCore.RoutedSubscription) → Prop)) ((fun subscription predicate => AgentCore.RoutedSubscription.admits subscription = predicate) : (AgentCore.RoutedSubscription) → ((SpecCnl.TierPredicate) → (Prop)))))",
+      "proposition": "SpecCnl.Sentences.cnl_C13_SUBSCRIPTION_ACCEPTED_TIERS",
+      "propositionType": "Prop",
+      "sentence": "every tier predicate is the accepted set of some subscription",
+      "specSection": "6.1",
+      "words": 10
+    },
+    {
+      "anchor": "SPEC.md:2332",
+      "ast": "every(published.event : CN[AgentCore.Event], no.object(asserted.tier : CN[AgentCore.TrustTier], has.asserted.tier : ((NP[AgentCore.Event]\\S)/NP[AgentCore.TrustTier])) : (NP[AgentCore.Event]\\S)) : S",
+      "atoms": [
+        "C13-TRUST-VERIFIED-INGRESS"
+      ],
+      "bridge": "SpecCnl.Bridge.bridge_C13_TRUST_VERIFIED_INGRESS",
+      "bridgeType": "Iff(const:SpecCnl.Sentences.cnl_C13_TRUST_VERIFIED_INGRESS,const:SpecCnl.Bridge.hand_C13_TRUST_VERIFIED_INGRESS)",
+      "digest": "9ebcd9bde87e3425e17d8d52784607de4dc3f1ecd94dc56374becd3ef701dd26",
+      "discharge": "SpecCnl.Proofs.proved_C13_TRUST_VERIFIED_INGRESS",
+      "dischargeType": "const:SpecCnl.Bridge.hand_C13_TRUST_VERIFIED_INGRESS",
+      "dropped": [
+        "'exposes declared endpoints': the model has no endpoint-declaration relation",
+        "'verifies per verification': the model has no verification configuration",
+        "'unverified requests MUST NOT mint Events'. THE SENTENCE IS WEAKER THAN THE ATOM. The model has no ingress, and AgentCore.deriveChannelTrust maps unverified provenance to TrustTier.external, so the model admits an Event minted from an unverified request. The sentence carries only the host-derives-the-tier half. A green bridge here is not evidence for the atom's main clause"
+      ],
+      "handProposition": "SpecCnl.Bridge.hand_C13_TRUST_VERIFIED_INGRESS",
+      "handPropositionType": "Prop",
+      "heads": [
+        "every",
+        "published.event",
+        "no.object",
+        "asserted.tier",
+        "has.asserted.tier"
+      ],
+      "key": "C13_TRUST_VERIFIED_INGRESS",
+      "lean": "((((SpecCnl.qEvery) : ((AgentCore.Event) → Prop) → (((AgentCore.Event) → (Prop)) → (Prop))) ((fun event => ∃ leases now before after id, AgentCore.EventStep leases now before (AgentCore.EventLabel.publish id) after ∧ AgentCore.EventStore.events after id = some event) : (AgentCore.Event) → Prop)) ((((SpecCnl.qNoObj) : ((AgentCore.TrustTier) → Prop) → (((AgentCore.TrustTier) → ((AgentCore.Event) → (Prop))) → ((AgentCore.Event) → (Prop)))) ((fun _ => True) : (AgentCore.TrustTier) → Prop)) ((fun tier event => AgentCore.Event.assertedTier event = some tier) : (AgentCore.TrustTier) → ((AgentCore.Event) → (Prop)))))",
+      "proposition": "SpecCnl.Sentences.cnl_C13_TRUST_VERIFIED_INGRESS",
+      "propositionType": "Prop",
+      "sentence": "every published event has no asserted tier",
+      "specSection": "6.1",
+      "words": 7
+    },
+    {
+      "anchor": "SPEC.md:2003",
+      "ast": "requires(for.the.reclaim(is.at.most(the.stated.time : NU[AgentCore.TurnLease,AgentCore.Time], the.recorded.expiry : NU[AgentCore.TurnLease,AgentCore.Time]) : ST[AgentCore.TurnLease,AgentCore.Time]) : ST[AgentCore.TurnLease,AgentCore.LeaseLabel], every.lease.reclaim : TR[AgentCore.TurnLease,AgentCore.LeaseLabel]) : S",
+      "atoms": [
+        "C13-TURN-LEASE-EXPIRY"
+      ],
+      "bridge": "SpecCnl.Bridge.bridge_C13_TURN_LEASE_EXPIRY",
+      "bridgeType": "Iff(const:SpecCnl.Sentences.cnl_C13_TURN_LEASE_EXPIRY,const:SpecCnl.Bridge.hand_C13_TURN_LEASE_EXPIRY)",
+      "digest": "345c281041a50e304408102fe36242689c57f2b428dcc01eda7bbaf12e27ae03",
+      "discharge": "SpecCnl.Proofs.proved_C13_TURN_LEASE_EXPIRY",
+      "dischargeType": "const:SpecCnl.Bridge.hand_C13_TURN_LEASE_EXPIRY",
+      "dropped": [
+        "'expiresAt > now' as a requirement of every claim and renew, not only of reclaim",
+        "'MUST be rejected without it' as a statement about the rejection path"
+      ],
+      "handProposition": "SpecCnl.Bridge.hand_C13_TURN_LEASE_EXPIRY",
+      "handPropositionType": "Prop",
+      "heads": [
+        "requires",
+        "for.the.reclaim",
+        "is.at.most",
+        "the.stated.time",
+        "the.recorded.expiry",
+        "every.lease.reclaim"
+      ],
+      "key": "C13_TURN_LEASE_EXPIRY",
+      "lean": "((((SpecCnl.trRequires) : ((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → Prop) → (((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → (AgentCore.TurnLease) → Prop) → (Prop))) (((fun cond before label => ∀ holder now expiresAt, label = AgentCore.LeaseLabel.reclaim holder now expiresAt → cond before now) : ((AgentCore.TurnLease) → (AgentCore.Time) → Prop) → ((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → Prop)) ((((SpecCnl.nuAtMost) : ((AgentCore.TurnLease) → (AgentCore.Time) → Nat) → (((AgentCore.TurnLease) → (AgentCore.Time) → Nat) → ((AgentCore.TurnLease) → (AgentCore.Time) → Prop))) ((fun _ now => AgentCore.Time.tick now) : (AgentCore.TurnLease) → (AgentCore.Time) → Nat)) ((fun lease _ => AgentCore.Time.tick (AgentCore.TurnLease.expiresAt lease)) : (AgentCore.TurnLease) → (AgentCore.Time) → Nat)))) ((fun before label after => (∃ holder now expiresAt, label = AgentCore.LeaseLabel.reclaim holder now expiresAt) ∧ AgentCore.LeaseStep before label after) : (AgentCore.TurnLease) → (AgentCore.LeaseLabel) → (AgentCore.TurnLease) → Prop))",
+      "proposition": "SpecCnl.Sentences.cnl_C13_TURN_LEASE_EXPIRY",
+      "propositionType": "Prop",
+      "sentence": "every lease reclaim requires the recorded expiry is at most the stated time for the reclaim",
+      "specSection": "5.3",
+      "words": 16
+    },
+    {
+      "anchor": "SPEC.md:3023",
+      "ast": "maintains(attempt.immutability : PR[AgentCore.EffectLedger], every.effect.step : TR[AgentCore.EffectLedger,AgentCore.EffectLabel]) : S",
+      "atoms": [
+        "C13-EFFECT-ATTEMPT-IMMUTABLE"
+      ],
+      "bridge": "SpecCnl.Bridge.bridge_C13_EFFECT_ATTEMPT_IMMUTABLE",
+      "bridgeType": "Iff(const:SpecCnl.Sentences.cnl_C13_EFFECT_ATTEMPT_IMMUTABLE,const:SpecCnl.Bridge.hand_C13_EFFECT_ATTEMPT_IMMUTABLE)",
+      "digest": "741c0f0d88df53144d2be57aa6d78df5adccff0b2076413b7a3f11a87243f0c1",
+      "discharge": "SpecCnl.Proofs.proved_C13_EFFECT_ATTEMPT_IMMUTABLE",
+      "dischargeType": "const:SpecCnl.Bridge.hand_C13_EFFECT_ATTEMPT_IMMUTABLE",
+      "dropped": [
+        "'write-ahead': the model has no ordering between recording an attempt and the effect crossing the boundary",
+        "'that one item may cross the effect boundary'",
+        "'Retry appends a new ordinal'",
+        "'pre-effect denial or cancellation never creates one'"
+      ],
+      "handProposition": "SpecCnl.Bridge.hand_C13_EFFECT_ATTEMPT_IMMUTABLE",
+      "handPropositionType": "Prop",
+      "heads": [
+        "maintains",
+        "attempt.immutability",
+        "every.effect.step"
+      ],
+      "key": "C13_EFFECT_ATTEMPT_IMMUTABLE",
+      "lean": "((((SpecCnl.trMaintains) : ((AgentCore.EffectLedger) → (AgentCore.EffectLedger) → Prop) → (((AgentCore.EffectLedger) → (AgentCore.EffectLabel) → (AgentCore.EffectLedger) → Prop) → (Prop))) ((fun before after => ∀ id attempt, AgentCore.EffectLedger.attempts before id = some attempt → AgentCore.EffectLedger.attempts after id = some attempt) : (AgentCore.EffectLedger) → (AgentCore.EffectLedger) → Prop)) ((AgentCore.EffectStep) : (AgentCore.EffectLedger) → (AgentCore.EffectLabel) → (AgentCore.EffectLedger) → Prop))",
+      "proposition": "SpecCnl.Sentences.cnl_C13_EFFECT_ATTEMPT_IMMUTABLE",
+      "propositionType": "Prop",
+      "sentence": "every effect step maintains attempt immutability",
+      "specSection": "7.4",
+      "words": 6
+    },
+    {
+      "anchor": "SPEC.md:3131",
+      "ast": "preserves(disjoint.receipt.ids : CN[AgentCore.EffectLedger], every.effect.step : TR[AgentCore.EffectLedger,AgentCore.EffectLabel]) : S",
+      "atoms": [
+        "C13-RECEIPT-ID-NAMESPACE"
+      ],
+      "bridge": "SpecCnl.Bridge.bridge_C13_RECEIPT_ID_NAMESPACE",
+      "bridgeType": "Iff(const:SpecCnl.Sentences.cnl_C13_RECEIPT_ID_NAMESPACE,const:SpecCnl.Bridge.hand_C13_RECEIPT_ID_NAMESPACE)",
+      "digest": "9659de19ad013cec0d4bb18385758e5836b1dc48f940f3bbe7e633520cf48ca4",
+      "discharge": "SpecCnl.Proofs.proved_C13_RECEIPT_ID_NAMESPACE",
+      "dischargeType": "const:SpecCnl.Bridge.hand_C13_RECEIPT_ID_NAMESPACE",
+      "dropped": [
+        "'allocated from one owning-Actor namespace': AgentCore.ReceiptId carries no owner, so the namespace is unrepresented and only the disjointness half is expressible",
+        "'AttemptReceipt.previous and AuditKind.receiptSuperseded refer to that same namespace'",
+        "'An id is never reused' as a claim over a whole run rather than over one step"
+      ],
+      "handProposition": "SpecCnl.Bridge.hand_C13_RECEIPT_ID_NAMESPACE",
+      "handPropositionType": "Prop",
+      "heads": [
+        "preserves",
+        "disjoint.receipt.ids",
+        "every.effect.step"
+      ],
+      "key": "C13_RECEIPT_ID_NAMESPACE",
+      "lean": "((((SpecCnl.trPreserves) : ((AgentCore.EffectLedger) → Prop) → (((AgentCore.EffectLedger) → (AgentCore.EffectLabel) → (AgentCore.EffectLedger) → Prop) → (Prop))) ((AgentCore.ReceiptIdsDisjoint) : (AgentCore.EffectLedger) → Prop)) ((AgentCore.EffectStep) : (AgentCore.EffectLedger) → (AgentCore.EffectLabel) → (AgentCore.EffectLedger) → Prop))",
+      "proposition": "SpecCnl.Sentences.cnl_C13_RECEIPT_ID_NAMESPACE",
+      "propositionType": "Prop",
+      "sentence": "every effect step preserves disjoint receipt ids",
+      "specSection": "7.4",
+      "words": 7
+    },
+    {
+      "anchor": "SPEC.md:1607",
+      "ast": "requires(for.the.appended.commit(equals(two : NU[AgentCore.GraphStore,AgentCore.RunCommit], the.parent.count : NU[AgentCore.GraphStore,AgentCore.RunCommit]) : ST[AgentCore.GraphStore,AgentCore.RunCommit]) : ST[AgentCore.GraphStore,AgentCore.GraphLabel], every.merge.append : TR[AgentCore.GraphStore,AgentCore.GraphLabel]) : S",
+      "atoms": [
+        "C13-RUN-GRAPH-ARITY"
+      ],
+      "bridge": "SpecCnl.Bridge.bridge_C13_RUN_GRAPH_ARITY",
+      "bridgeType": "Iff(const:SpecCnl.Sentences.cnl_C13_RUN_GRAPH_ARITY,const:SpecCnl.Bridge.hand_C13_RUN_GRAPH_ARITY)",
+      "digest": "1c9071af12794d003755e252eeac45d387f51c84239c66ac5b57921a4f34c598",
+      "discharge": "SpecCnl.Proofs.proved_C13_RUN_GRAPH_ARITY",
+      "dischargeType": "const:SpecCnl.Bridge.hand_C13_RUN_GRAPH_ARITY",
+      "dropped": [
+        "'one root with zero parents': AgentCore.GraphLabel.append never carries a root commit, since a root arrives through startRun or spawnChild, so a root clause written over appends would be vacuously true and is refused rather than counted",
+        "'exactly one parent equal to its branch head at append'",
+        "'no other parent arity is valid' as an exhaustiveness claim over the arity rule, which is a property of the definition rather than of a transition",
+        "'Appending atomically advances only the target branch head'",
+        "'Commit records and parent order never change'"
+      ],
+      "handProposition": "SpecCnl.Bridge.hand_C13_RUN_GRAPH_ARITY",
+      "handPropositionType": "Prop",
+      "heads": [
+        "requires",
+        "for.the.appended.commit",
+        "equals",
+        "two",
+        "the.parent.count",
+        "every.merge.append"
+      ],
+      "key": "C13_RUN_GRAPH_ARITY",
+      "lean": "((((SpecCnl.trRequires) : ((AgentCore.GraphStore) → (AgentCore.GraphLabel) → Prop) → (((AgentCore.GraphStore) → (AgentCore.GraphLabel) → (AgentCore.GraphStore) → Prop) → (Prop))) (((fun cond before label => ∀ id expected commit, label = AgentCore.GraphLabel.append id expected commit → cond before commit) : ((AgentCore.GraphStore) → (AgentCore.RunCommit) → Prop) → ((AgentCore.GraphStore) → (AgentCore.GraphLabel) → Prop)) ((((SpecCnl.nuEquals) : ((AgentCore.GraphStore) → (AgentCore.RunCommit) → Nat) → (((AgentCore.GraphStore) → (AgentCore.RunCommit) → Nat) → ((AgentCore.GraphStore) → (AgentCore.RunCommit) → Prop))) ((SpecCnl.nuLiteral 2) : (AgentCore.GraphStore) → (AgentCore.RunCommit) → Nat)) ((fun _ commit => List.length (AgentCore.RunCommit.parents commit)) : (AgentCore.GraphStore) → (AgentCore.RunCommit) → Nat)))) ((fun before label after => (∃ id expected commit conversation tree, label = AgentCore.GraphLabel.append id expected commit ∧ AgentCore.RunCommit.kind commit = AgentCore.RunCommitKind.merge conversation tree) ∧ ∃ effects events audit, AgentCore.GraphStep effects events audit before label after) : (AgentCore.GraphStore) → (AgentCore.GraphLabel) → (AgentCore.GraphStore) → Prop))",
+      "proposition": "SpecCnl.Sentences.cnl_C13_RUN_GRAPH_ARITY",
+      "propositionType": "Prop",
+      "sentence": "every merge append requires the parent count equals two for the appended commit",
+      "specSection": "5.2",
+      "words": 13
+    },
+    {
+      "anchor": "SPEC.md:1592",
+      "ast": "and.sentence(requires(for.the.appended.commit(a.selected.ancestor : ST[AgentCore.GraphStore,AgentCore.RunCommit]) : ST[AgentCore.GraphStore,AgentCore.GraphLabel], every.undo.append : TR[AgentCore.GraphStore,AgentCore.GraphLabel]) : S, requires(for.the.appended.commit(an.unheld.branch : ST[AgentCore.GraphStore,AgentCore.RunCommit]) : ST[AgentCore.GraphStore,AgentCore.GraphLabel], every.undo.append : TR[AgentCore.GraphStore,AgentCore.GraphLabel]) : S) : S",
+      "atoms": [
+        "C13-RUN-UNDO-FENCE"
+      ],
+      "bridge": "SpecCnl.Bridge.bridge_C13_RUN_UNDO_FENCE",
+      "bridgeType": "Iff(const:SpecCnl.Sentences.cnl_C13_RUN_UNDO_FENCE,const:SpecCnl.Bridge.hand_C13_RUN_UNDO_FENCE)",
+      "digest": "98c0af4aa8faa9f44dffb722b1854786405837a5d32dac898a46eb376a146889",
+      "discharge": "SpecCnl.Proofs.proved_C13_RUN_UNDO_FENCE",
+      "dischargeType": "const:SpecCnl.Bridge.hand_C13_RUN_UNDO_FENCE",
+      "dropped": [
+        "'MUST FIRST fence': the ordering is rendered as the source-state precondition the model enforces, because the model has no temporal operator",
+        "the concessive 'whether or not its lease has expired'",
+        "the liveness half, 'rejected until the Turn is fenced or completes': a safety reformulation carries the refusal but not the eventual admission"
+      ],
+      "handProposition": "SpecCnl.Bridge.hand_C13_RUN_UNDO_FENCE",
+      "handPropositionType": "Prop",
+      "heads": [
+        "and.sentence",
+        "requires",
+        "for.the.appended.commit",
+        "a.selected.ancestor",
+        "every.undo.append",
+        "requires",
+        "for.the.appended.commit",
+        "an.unheld.branch",
+        "every.undo.append"
+      ],
+      "key": "C13_RUN_UNDO_FENCE",
+      "lean": "((((SpecCnl.sAnd) : (Prop) → ((Prop) → (Prop))) ((((SpecCnl.trRequires) : ((AgentCore.GraphStore) → (AgentCore.GraphLabel) → Prop) → (((AgentCore.GraphStore) → (AgentCore.GraphLabel) → (AgentCore.GraphStore) → Prop) → (Prop))) (((fun cond before label => ∀ id expected commit, label = AgentCore.GraphLabel.append id expected commit → cond before commit) : ((AgentCore.GraphStore) → (AgentCore.RunCommit) → Prop) → ((AgentCore.GraphStore) → (AgentCore.GraphLabel) → Prop)) ((fun store commit => ∀ selected receipt, AgentCore.RunCommit.kind commit = AgentCore.RunCommitKind.undo selected receipt → ∃ parent, parent ∈ AgentCore.RunCommit.parents commit ∧ AgentCore.Ancestor store selected parent) : (AgentCore.GraphStore) → (AgentCore.RunCommit) → Prop))) ((fun before label after => (∃ id expected commit selected receipt, label = AgentCore.GraphLabel.append id expected commit ∧ AgentCore.RunCommit.kind commit = AgentCore.RunCommitKind.undo selected receipt) ∧ ∃ effects events audit, AgentCore.GraphStep effects events audit before label after) : (AgentCore.GraphStore) → (AgentCore.GraphLabel) → (AgentCore.GraphStore) → Prop))) ((((SpecCnl.trRequires) : ((AgentCore.GraphStore) → (AgentCore.GraphLabel) → Prop) → (((AgentCore.GraphStore) → (AgentCore.GraphLabel) → (AgentCore.GraphStore) → Prop) → (Prop))) (((fun cond before label => ∀ id expected commit, label = AgentCore.GraphLabel.append id expected commit → cond before commit) : ((AgentCore.GraphStore) → (AgentCore.RunCommit) → Prop) → ((AgentCore.GraphStore) → (AgentCore.GraphLabel) → Prop)) ((fun store commit => AgentCore.BranchUnheld store (AgentCore.RunCommit.run commit) (AgentCore.RunCommit.branch commit)) : (AgentCore.GraphStore) → (AgentCore.RunCommit) → Prop))) ((fun before label after => (∃ id expected commit selected receipt, label = AgentCore.GraphLabel.append id expected commit ∧ AgentCore.RunCommit.kind commit = AgentCore.RunCommitKind.undo selected receipt) ∧ ∃ effects events audit, AgentCore.GraphStep effects events audit before label after) : (AgentCore.GraphStore) → (AgentCore.GraphLabel) → (AgentCore.GraphStore) → Prop)))",
+      "proposition": "SpecCnl.Sentences.cnl_C13_RUN_UNDO_FENCE",
+      "propositionType": "Prop",
+      "sentence": "every undo append requires an unheld branch for the appended commit and every undo append requires a selected ancestor for the appended commit",
+      "specSection": "5.2",
+      "words": 23
+    },
+    {
+      "anchor": "SPEC.md:394",
+      "ast": "holds.before(every.role.materialization : TR[AgentCore.AuthorityLedger,AgentCore.Membership], a.verified.guest.subject : ST[AgentCore.AuthorityLedger,AgentCore.Membership]) : S",
+      "atoms": [
+        "C13-AUTH-GUEST-VERIFICATION"
+      ],
+      "bridge": "SpecCnl.Bridge.bridge_C13_AUTH_GUEST_VERIFICATION",
+      "bridgeType": "Iff(const:SpecCnl.Sentences.cnl_C13_AUTH_GUEST_VERIFICATION,const:SpecCnl.Bridge.hand_C13_AUTH_GUEST_VERIFICATION)",
+      "digest": "8033772209b314ef230d10a32c48878e4ee1f41aef345f6067ad1aac42347b5f",
+      "discharge": "SpecCnl.Proofs.proved_C13_AUTH_GUEST_VERIFICATION",
+      "dischargeType": "const:SpecCnl.Bridge.hand_C13_AUTH_GUEST_VERIFICATION",
+      "dropped": [
+        "'a verification failure denies' as a statement about the denial path",
+        "'the wire protocol for a token or a callback is a substrate/profile concern'",
+        "'the host Tenant's policy declares the issuer or endpoint'",
+        "'this document fixes the three schemes': a claim about the specification document, not about the model"
+      ],
+      "handProposition": "SpecCnl.Bridge.hand_C13_AUTH_GUEST_VERIFICATION",
+      "handPropositionType": "Prop",
+      "heads": [
+        "holds.before",
+        "every.role.materialization",
+        "a.verified.guest.subject"
+      ],
+      "key": "C13_AUTH_GUEST_VERIFICATION",
+      "lean": "((((SpecCnl.stHoldsBefore) : ((AgentCore.AuthorityLedger) → (AgentCore.Membership) → (AgentCore.AuthorityLedger) → Prop) → (((AgentCore.AuthorityLedger) → (AgentCore.Membership) → Prop) → (Prop))) ((fun before membership after => ∃ role, AgentCore.MaterializationStep before membership role after) : (AgentCore.AuthorityLedger) → (AgentCore.Membership) → (AgentCore.AuthorityLedger) → Prop)) ((fun before membership => ∀ home principal scheme, AgentCore.Membership.subject membership = AgentCore.Subject.foreign home principal scheme → AgentCore.AuthorityLedger.foreignVerified before home principal) : (AgentCore.AuthorityLedger) → (AgentCore.Membership) → Prop))",
+      "proposition": "SpecCnl.Sentences.cnl_C13_AUTH_GUEST_VERIFICATION",
+      "propositionType": "Prop",
+      "sentence": "a verified guest subject holds before every role materialization",
+      "specSection": "3.3",
+      "words": 9
+    },
+    {
+      "anchor": "SPEC.md:3284",
+      "ast": "requires(for.the.resolved.reference(or.relation(a.granted.tenant : RE[AgentCore.ContentLedger,AgentCore.ContentRef,AgentCore.TenantId], a.home.tenant : RE[AgentCore.ContentLedger,AgentCore.ContentRef,AgentCore.TenantId]) : RE[AgentCore.ContentLedger,AgentCore.ContentRef,AgentCore.TenantId]) : ST[AgentCore.ContentLedger,AgentCore.ContentLabel], every.content.resolve : TR[AgentCore.ContentLedger,AgentCore.ContentLabel]) : S",
+      "atoms": [
+        "C13-CONTENT-RESOLUTION"
+      ],
+      "bridge": "SpecCnl.Bridge.bridge_C13_CONTENT_RESOLUTION",
+      "bridgeType": "Iff(const:SpecCnl.Sentences.cnl_C13_CONTENT_RESOLUTION,const:SpecCnl.Bridge.hand_C13_CONTENT_RESOLUTION)",
+      "digest": "b81e0e0a785868b07c2713bdc8f6fe8b656fbdfb5ff12312b7f61b4fb9786c01",
+      "discharge": "SpecCnl.Proofs.proved_C13_CONTENT_RESOLUTION",
+      "dischargeType": "const:SpecCnl.Bridge.hand_C13_CONTENT_RESOLUTION",
+      "dropped": [
+        "'Every ContentRef IN THIS SPECIFICATION': a claim about the specification document, not about the model",
+        "'MUST resolve through a ContentStore', and the enumeration of run inputs, checkpoints, instructions, results, and slate sources",
+        "'A ContentStore belongs to exactly one Tenant': AgentCore.ContentRef.tenant is a field, so a rendering of this clause would be functional by construction and therefore vacuous"
+      ],
+      "handProposition": "SpecCnl.Bridge.hand_C13_CONTENT_RESOLUTION",
+      "handPropositionType": "Prop",
+      "heads": [
+        "requires",
+        "for.the.resolved.reference",
+        "or.relation",
+        "a.granted.tenant",
+        "a.home.tenant",
+        "every.content.resolve"
+      ],
+      "key": "C13_CONTENT_RESOLUTION",
+      "lean": "((((SpecCnl.trRequires) : ((AgentCore.ContentLedger) → (AgentCore.ContentLabel) → Prop) → (((AgentCore.ContentLedger) → (AgentCore.ContentLabel) → (AgentCore.ContentLedger) → Prop) → (Prop))) (((fun cond before label => ∀ ref requester, label = AgentCore.ContentLabel.resolve ref requester → cond before ref requester) : ((AgentCore.ContentLedger) → (AgentCore.ContentRef) → (AgentCore.TenantId) → Prop) → ((AgentCore.ContentLedger) → (AgentCore.ContentLabel) → Prop)) ((((SpecCnl.reOr) : ((AgentCore.ContentLedger) → (AgentCore.ContentRef) → (AgentCore.TenantId) → Prop) → (((AgentCore.ContentLedger) → (AgentCore.ContentRef) → (AgentCore.TenantId) → Prop) → ((AgentCore.ContentLedger) → (AgentCore.ContentRef) → (AgentCore.TenantId) → Prop))) ((fun ledger ref requester => AgentCore.ContentLedger.crossTenantGrants ledger requester ref) : (AgentCore.ContentLedger) → (AgentCore.ContentRef) → (AgentCore.TenantId) → Prop)) ((fun _ ref requester => requester = AgentCore.ContentRef.tenant ref) : (AgentCore.ContentLedger) → (AgentCore.ContentRef) → (AgentCore.TenantId) → Prop)))) ((fun before label after => (∃ ref requester, label = AgentCore.ContentLabel.resolve ref requester) ∧ AgentCore.ContentStep before label after) : (AgentCore.ContentLedger) → (AgentCore.ContentLabel) → (AgentCore.ContentLedger) → Prop))",
+      "proposition": "SpecCnl.Sentences.cnl_C13_CONTENT_RESOLUTION",
+      "propositionType": "Prop",
+      "sentence": "every content resolve requires a home tenant or a granted tenant for the resolved reference",
+      "specSection": "8.2",
+      "words": 15
+    },
+    {
+      "anchor": "SPEC.md:1759",
+      "ast": "assigns.at.most.one.value(the.head.tree : RE[AgentCore.GraphStore,AgentCore.RunId,AgentCore.TreeId]) : S",
+      "atoms": [
+        "C13-RUN-ACCEPTANCE-OBLIGATION"
+      ],
+      "bridge": "SpecCnl.Bridge.bridge_C13_RUN_ACCEPTANCE_OBLIGATION",
+      "bridgeType": "Iff(const:SpecCnl.Sentences.cnl_C13_RUN_ACCEPTANCE_OBLIGATION,const:SpecCnl.Bridge.hand_C13_RUN_ACCEPTANCE_OBLIGATION)",
+      "digest": "956fa30bb46576efa28d801cbd136e8ec5765d57785f167829e33c93e5570063",
+      "discharge": "SpecCnl.Proofs.proved_C13_RUN_ACCEPTANCE_OBLIGATION",
+      "dischargeType": "const:SpecCnl.Bridge.hand_C13_RUN_ACCEPTANCE_OBLIGATION",
+      "dropped": [
+        "the declaration of criteria when a Run opens, and the refusal to redeclare one identity with different verifiers",
+        "'a verdict names exactly one criterion'",
+        "satisfaction by an AcceptanceVerdict naming an attempted Receipt whose outcome is succeeded and whose subject equals the head tree digest",
+        "'the Receipt MUST come from the exact Operation the criterion names'",
+        "snapshotting an unsatisfied obligation into the SettlementObligation, and the rule that a Run is not Settled while it stands",
+        "'A criterion bounds nothing', and the rule for a Run that declares none",
+        "the sentence carries only the clause 'satisfaction is never selectable by the caller that asks': the Run's head tree is a function of the store and the Run"
+      ],
+      "handProposition": "SpecCnl.Bridge.hand_C13_RUN_ACCEPTANCE_OBLIGATION",
+      "handPropositionType": "Prop",
+      "heads": [
+        "assigns.at.most.one.value",
+        "the.head.tree"
+      ],
+      "key": "C13_RUN_ACCEPTANCE_OBLIGATION",
+      "lean": "(((SpecCnl.reAtMostOneValue) : ((AgentCore.GraphStore) → (AgentCore.RunId) → (AgentCore.TreeId) → Prop) → (Prop)) ((AgentCore.GraphStore.HeadTree) : (AgentCore.GraphStore) → (AgentCore.RunId) → (AgentCore.TreeId) → Prop))",
+      "proposition": "SpecCnl.Sentences.cnl_C13_RUN_ACCEPTANCE_OBLIGATION",
+      "propositionType": "Prop",
+      "sentence": "the head tree assigns at most one value",
+      "specSection": "5.2",
+      "words": 8
+    }
+  ]
+}

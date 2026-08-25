@@ -1,0 +1,59 @@
+{
+  "bridgedFloor": 11,
+  "exclusions": [
+    {
+      "atoms": [
+        "C13-AUTH-WATERMARK-MONOTONE"
+      ],
+      "reason": "embedded-table"
+    },
+    {
+      "atoms": [
+        "C13-CLOUDFLARE-RUN-HOSTING"
+      ],
+      "reason": "embedded-table"
+    },
+    {
+      "atoms": [
+        "C13-FACET-CONTRIBUTION-MATERIALIZATION"
+      ],
+      "reason": "embedded-table"
+    },
+    {
+      "atoms": [
+        "C13-PROFILE-SOURCE-EVENT-CAUSALITY"
+      ],
+      "reason": "embedded-table"
+    },
+    {
+      "atoms": [
+        "C13-TURN-EXACT-LEASE",
+        "C13-TURN-EXECUTOR-WRITER"
+      ],
+      "reason": "embedded-table"
+    },
+    {
+      "atoms": [
+        "C13-TURN-LIFECYCLE"
+      ],
+      "reason": "embedded-table"
+    },
+    {
+      "atoms": [
+        "C13-WRITER-MATRIX",
+        "C13-WRITER-POST-FENCE-EVIDENCE",
+        "C13-WRITER-SYNTHESIS",
+        "C13-WRITER-SYSTEM-MERGE"
+      ],
+      "reason": "embedded-table"
+    }
+  ],
+  "measured": {
+    "distinctRuleUnits": 185,
+    "hardExclusions": 7,
+    "provedBridges": 11,
+    "reachable": 178
+  },
+  "note": "A rule unit is hard-excluded only for a reason scripts/quality/cnl.mjs verifies from the digested text. embedded-table means the unit's normative content embeds a Markdown table; without a table-to-sentences preprocessor there is nothing for a controlled sentence to carry. Earlier exclusion classes - naming no model type, document self-reference, section cross-references - were heuristics over wording and exclude nothing. measured is refreshed by --update and is compared field by field against a live recomputation on every run; both floors are ratchets that --update may raise and never lowers.",
+  "reachableFloor": 178
+}
