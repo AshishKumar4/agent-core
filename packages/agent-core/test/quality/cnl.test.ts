@@ -47,8 +47,8 @@ async function stubLake(scratch: string, stdout: string): Promise<void> {
         "\n"
     );
     await writeFile(bin, `${script}\n`, { mode: 0o755 });
-    previousLake = process.env.LEAN_LAKE;
-    process.env.LEAN_LAKE = bin;
+    previousLake = process.env["LEAN_LAKE"];
+    process.env["LEAN_LAKE"] = bin;
 }
 
 function runGate(root: string): GateRun {
@@ -62,7 +62,7 @@ function runGate(root: string): GateRun {
 
 const recordedReport: string = (() => {
     const result = runQualitySubprocess(
-        process.env.LEAN_LAKE?.trim() || "lake",
+        process.env["LEAN_LAKE"]?.trim() || "lake",
         ["env", "lean", join("SpecCnl", "Report.lean")],
         resolve(packageRoot, "formal"),
         120_000
@@ -72,6 +72,17 @@ const recordedReport: string = (() => {
     }
     return result.stdout;
 })();
+
+/** The first element of a recorded list, or a failure naming what was absent.
+ *
+ * Every fixture below perturbs the first unit of a real report. An empty list would make
+ * the perturbation a no-op and the case would pass while testing nothing, so absence is an
+ * error here rather than an `undefined` that flows onward. */
+function first<Element>(elements: readonly Element[], what: string): Element {
+    const [element] = elements;
+    if (element === undefined) throw new Error(`the recorded report carries no ${what}`);
+    return element;
+}
 
 function ledgerLine(output: string): string {
     const line = output.split(/\r?\n/u).find((candidate) => candidate.startsWith("cnl-ledger "));
@@ -84,8 +95,8 @@ describe("controlled language gate", () => {
 
     afterEach(async () => {
         if (previousLake !== undefined) {
-            if (previousLake === "") delete process.env.LEAN_LAKE;
-            else process.env.LEAN_LAKE = previousLake;
+            if (previousLake === "") delete process.env["LEAN_LAKE"];
+            else process.env["LEAN_LAKE"] = previousLake;
             previousLake = undefined;
         }
         if (scratch !== undefined) await rm(scratch, { recursive: true, force: true });
@@ -104,7 +115,7 @@ describe("controlled language gate", () => {
         const stale = JSON.parse(await readFile(ledgerPath, "utf8")) as {
             units: Array<{ sentence: string }>;
         };
-        stale.units[0].sentence = "ancestry depends only on the heads";
+        first(stale.units, "ledger units").sentence = "ancestry depends only on the heads";
         await writeFile(ledgerPath, `${JSON.stringify(stale, null, 2)}\n`);
         const refused = runGate(scratch);
         expect(refused.status).toBe(1);
@@ -118,8 +129,9 @@ describe("controlled language gate", () => {
         const parsed = JSON.parse(ledgerLine(recordedReport)) as {
             units: Array<{ key: string; digest: string }>;
         };
-        const digest = parsed.units[0].digest;
-        parsed.units[0].digest = `${digest.slice(0, 63)}${digest.endsWith("0") ? "1" : "0"}`;
+        const unit = first(parsed.units, "ledger units");
+        const digest = unit.digest;
+        unit.digest = `${digest.slice(0, 63)}${digest.endsWith("0") ? "1" : "0"}`;
         await stubLake(scratch, `cnl-ledger ${JSON.stringify(parsed)}`);
         const run = runGate(scratch);
         expect(run.status).toBe(1);
@@ -161,7 +173,7 @@ describe("controlled language gate", () => {
             units: Array<{ discharge: string }>;
             auditedNames: string[];
         };
-        const discharge = parsed.units[0].discharge;
+        const discharge = first(parsed.units, "ledger units").discharge;
         parsed.auditedNames = parsed.auditedNames.filter((name) => name !== discharge);
         await stubLake(scratch, `cnl-ledger ${JSON.stringify(parsed)}`);
         const unaudited = runGate(scratch);
@@ -172,7 +184,7 @@ describe("controlled language gate", () => {
         // SAFETY: recordedReport is captured from a real Lean run at module load; its
         // ledger line parsed successfully inside the gate before any fixture runs.
         const sorried = JSON.parse(ledgerLine(recordedReport)) as { auditedNames: string[] };
-        const designated = sorried.auditedNames[0];
+        const designated = first(sorried.auditedNames, "audited declarations");
         await stubLake(
             scratch,
             `'${designated}' depends on axioms: [sorryAx]\ncnl-ledger ${ledgerLine(recordedReport)}`
@@ -221,7 +233,7 @@ describe("controlled language gate", () => {
         const parsed = JSON.parse(ledgerLine(recordedReport)) as {
             units: Array<{ bridgeType: string; dischargeType: string }>;
         };
-        parsed.units[0].bridgeType = "Iff(const:True,const:True)";
+        first(parsed.units, "ledger units").bridgeType = "Iff(const:True,const:True)";
         await stubLake(scratch, `cnl-ledger ${JSON.stringify(parsed)}`);
         const wrongBridge = runGate(scratch);
         expect(wrongBridge.status).toBe(1);
@@ -232,7 +244,8 @@ describe("controlled language gate", () => {
         const discharged = JSON.parse(ledgerLine(recordedReport)) as {
             units: Array<{ dischargeType: string }>;
         };
-        discharged.units[0].dischargeType = "const:SpecCnl.Bridge.hand_C13_CONTENT_RESOLUTION";
+        first(discharged.units, "ledger units").dischargeType =
+            "const:SpecCnl.Bridge.hand_C13_CONTENT_RESOLUTION";
         await stubLake(scratch, `cnl-ledger ${JSON.stringify(discharged)}`);
         const wrongDischarge = runGate(scratch);
         expect(wrongDischarge.status).toBe(1);
@@ -259,7 +272,7 @@ describe("controlled language gate", () => {
         const path = resolve(scratch, "ratchet.json");
         // SAFETY: this test's own copy of ratchet.json, shape-enforced on acceptance.
         const record = JSON.parse(await readFile(path, "utf8")) as {
-            measured: Record<string, number>;
+            measured: { distinctRuleUnits: number };
         };
         record.measured.distinctRuleUnits += 1;
         await writeFile(path, `${JSON.stringify(record, null, 2)}\n`);
