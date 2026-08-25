@@ -85,6 +85,47 @@ function refusalOf(act: () => void): ShareOfferRefusal {
     throw new Error("expected a share offer redemption denial");
 }
 
+/** One successor per immutable term, each changing exactly that term and nothing else. */
+function driftedTerms(source: ShareOffer): readonly (readonly [string, ShareOffer])[] {
+    const successor = (
+        term: string,
+        override: {
+            readonly id?: ShareOfferId;
+            readonly scope?: ScopeRef;
+            readonly role?: RoleName;
+            readonly secretDigest?: Digest;
+            readonly createdAt?: Date;
+            readonly expiresAt?: Date;
+            readonly bound?: number;
+            readonly revision?: Revision;
+        }
+    ): readonly [string, ShareOffer] => [
+        term,
+        new ShareOffer(
+            override.id ?? source.id,
+            override.scope ?? source.scope,
+            override.role ?? source.role,
+            override.secretDigest ?? source.secretDigest,
+            override.createdAt ?? source.createdAt,
+            override.expiresAt ?? source.expiresAt,
+            override.bound ?? source.bound,
+            source.redemptions,
+            source.state,
+            override.revision ?? source.revision.next()
+        )
+    ];
+    return [
+        successor("id", { id: new ShareOfferId("offer-drifted") }),
+        successor("scope", { scope: ScopeRef.tenant(tenantId) }),
+        successor("role", { role: new RoleName("reader") }),
+        successor("secretDigest", { secretDigest: Digest.sha256(Uint8Array.of(1)) }),
+        successor("createdAt", { createdAt: new Date(1_100_000) }),
+        successor("expiresAt", { expiresAt: new Date(2_100_000) }),
+        successor("bound", { bound: source.bound + 1 }),
+        successor("revision", { revision: source.revision.next().next() })
+    ];
+}
+
 describe("share offers", () => {
     test(
         "[C13-AUTH-SHARE-OFFER] [identity.share-offer] grants nothing before redemption and mints one Membership on it",
@@ -211,6 +252,63 @@ describe("share offers", () => {
                         ]
                     })
             ).toThrow(AgentCoreError);
+        }
+    );
+
+    test(
+        "[C13-AUTH-SHARE-OFFER] [identity.share-offer] admits only an append-only successor over a stored offer",
+        { tags: "p0" },
+        () => {
+            const open = offer(2);
+            const redeemed = redeem(holder, open).offer;
+
+            expect(() => open.assertCanReplace(redeemed)).not.toThrow();
+            expect(() => open.assertCanReplace(open.revoke())).not.toThrow();
+            // A revoked offer is terminal, so nothing may be written over it.
+            expect(() => open.revoke().assertCanReplace(redeemed.revoke())).toThrow(
+                expect.objectContaining({
+                    code: "protocol.invalid-state",
+                    message: "Revoked share offers are terminal"
+                })
+            );
+            // Rewinding to the stored offer's own predecessor is a revision conflict.
+            expect(() => redeemed.assertCanReplace(offer(2))).toThrow(
+                expect.objectContaining({
+                    code: "protocol.revision-conflict",
+                    message: "Share offer terms are immutable and updates require the next revision"
+                })
+            );
+            // Dropping a recorded redemption would retract the Membership it minted.
+            expect(() =>
+                redeemed.assertCanReplace(
+                    new ShareOffer(
+                        redeemed.id,
+                        redeemed.scope,
+                        redeemed.role,
+                        redeemed.secretDigest,
+                        redeemed.createdAt,
+                        redeemed.expiresAt,
+                        redeemed.bound,
+                        [],
+                        "revoked",
+                        redeemed.revision.next()
+                    )
+                )
+            ).toThrow(
+                expect.objectContaining({
+                    code: "protocol.invalid-state",
+                    message: "Share offer redemptions are append-only"
+                })
+            );
+            for (const [term, drifted] of driftedTerms(redeemed)) {
+                expect(() => redeemed.assertCanReplace(drifted), term).toThrow(
+                    expect.objectContaining({
+                        code: "protocol.revision-conflict",
+                        message:
+                            "Share offer terms are immutable and updates require the next revision"
+                    })
+                );
+            }
         }
     );
 });
@@ -628,7 +726,11 @@ describe("share offer record integrity", () => {
         "[C13-AUTH-SHARE-OFFER] [identity.share-offer] refuses a presented secret that is not bytes before it compares anything",
         { tags: "p1" },
         () => {
-            const presentable = { subject: holder, membership: mintedMembership, now: withinWindow };
+            const presentable = {
+                subject: holder,
+                membership: mintedMembership,
+                now: withinWindow
+            };
             for (const presented of [secretDigest.value, [...secret], undefined, null]) {
                 const act = (): ShareOfferRedemptionOutcome =>
                     offer().redeem({ ...presentable, secret: forgedSecret(presented) });
@@ -673,9 +775,9 @@ describe("share offer record integrity", () => {
             if (!isJsonObject(recorded)) throw new TypeError("Expected redemption data");
             expect(ShareOfferRedemption.fromData(recorded).redeemedAt).toEqual(withinWindow);
             for (const redeemedAt of [1.5, "1500000", null, Number.MAX_SAFE_INTEGER + 2]) {
-                expect(() =>
-                    ShareOfferRedemption.fromData({ ...recorded, redeemedAt })
-                ).toThrow("Share offer redemption time must be a safe integer");
+                expect(() => ShareOfferRedemption.fromData({ ...recorded, redeemedAt })).toThrow(
+                    "Share offer redemption time must be a safe integer"
+                );
             }
 
             // A Date carries instants no wire integer can, so the same bound is re-derived from

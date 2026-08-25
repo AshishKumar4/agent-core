@@ -3,10 +3,12 @@ import {
     Actor,
     ActorFence,
     ActorId,
+    ActorRecoveryState,
     ActorRef,
     MemoryActorStore,
     type ActorContext
 } from "../../src/actors";
+import { CodecDeclaration } from "../../src/core";
 import { SqliteActorStore, type TransactionalSqlite } from "../../src/substrates";
 import { sqliteInteger, TestSqlite } from "../helpers/sqlite";
 
@@ -35,7 +37,9 @@ class ContractCounterActor<Transaction> extends Actor<Transaction> implements Co
         context: ActorContext<Transaction>,
         private readonly operations: CounterOperations<Transaction>
     ) {
-        super(context, (transaction) => operations.start(transaction));
+        super(context, CodecDeclaration.of([ActorRecoveryState.codec]), (transaction) =>
+            operations.start(transaction)
+        );
     }
 
     public increment(): Promise<number> {

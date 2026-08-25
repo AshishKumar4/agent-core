@@ -122,6 +122,8 @@
       "CanonicalBatchInvocationPort",
       "CapabilitySpec",
       "ClaimWorkerId",
+      "CodecCompatibility",
+      "CodecDeclaration",
       "Command",
       "CommandAuthenticator",
       "CommandCallerPolicy",
@@ -451,6 +453,7 @@
       "shareOfferHolderKey",
       "strictJsonSchemaValidator",
       "structuralCodec",
+      "supportsRecordVersion",
       "tenantBootstrapPayload",
       "terminalBatchOutcome",
       "trustPlacementModes",
@@ -474,10 +477,14 @@
       "requireSynchronousResult"
     ],
     "@agent-core/core/authority": [
+      "AuthorityCheckEvidence",
+      "AuthorityCheckRequest",
       "AuthorityPermit",
+      "AuthorityPermitAdmissionPort",
       "AuthorityPermitAuthenticator",
       "AuthorityPermitExpectation",
       "AuthorityPermitIssuedRecordSource",
+      "AuthorityPermitIssuer",
       "Binding",
       "BindingCredentialCustody",
       "FacetRef",
@@ -487,6 +494,7 @@
       "PathEpochEvidence",
       "RunTargetLeaseEvidenceStore",
       "ScopeEpoch",
+      "StoredAuthorityPermitAdmissionPort",
       "TargetAuthorityPermitDenial",
       "TargetAuthorityPermitRequest",
       "TargetLeaseEvidence",
@@ -594,6 +602,8 @@
       "widensResourceCeiling"
     ],
     "@agent-core/core/core": [
+      "CodecCompatibility",
+      "CodecDeclaration",
       "CompatRange",
       "ContentRef",
       "Digest",
@@ -624,7 +634,8 @@
       "isStringArray",
       "jsonDataParser",
       "requireNonempty",
-      "strictJsonSchemaValidator"
+      "strictJsonSchemaValidator",
+      "supportsRecordVersion"
     ],
     "@agent-core/core/content": [
       "ByteRange",
@@ -978,6 +989,8 @@
       "decodeSubmission"
     ],
     "@agent-core/core/protocol": [
+      "AuthorityPermitIssuanceReply",
+      "AuthorityPermitIssuanceRequest",
       "CommandAuthenticator",
       "CommandCallerPolicy",
       "CommandCommitUnknownError",
@@ -1159,6 +1172,8 @@
       "CapabilitySpec": "class",
       "CapabilitySpecInit": "interface",
       "ClaimWorkerId": "class",
+      "CodecCompatibility": "class",
+      "CodecDeclaration": "class",
       "Command": "class",
       "CommandAuthenticator": "class",
       "CommandCaller": "type",
@@ -1206,6 +1221,7 @@
       "CurrentLease": "interface",
       "CutPoint": "type",
       "DeclarationInput": "type",
+      "DeclaredCodecVersion": "interface",
       "DedupePolicy": "type",
       "DefinitionPinSet": "interface",
       "DefinitionSourceRevisionPort": "class",
@@ -1728,6 +1744,7 @@
       "shareOfferHolderKey": "function",
       "strictJsonSchemaValidator": "variable",
       "structuralCodec": "function",
+      "supportsRecordVersion": "function",
       "tenantBootstrapPayload": "function",
       "terminalBatchOutcome": "function",
       "trustPlacementModes": "function",
@@ -1764,12 +1781,16 @@
     },
     "@agent-core/core/authority": {
       "AuthenticatedAuthorityPermit": "class",
+      "AuthorityCheckEvidence": "class",
+      "AuthorityCheckRequest": "class",
       "AuthorityPermit": "class",
+      "AuthorityPermitAdmissionPort": "class",
       "AuthorityPermitAuthenticator": "class",
       "AuthorityPermitExpectation": "class",
       "AuthorityPermitExpectationInit": "interface",
       "AuthorityPermitIssueStore": "interface",
       "AuthorityPermitIssuedRecordSource": "class",
+      "AuthorityPermitIssuer": "class",
       "AuthorityPermitTargetAdmissionStore": "interface",
       "AuthorityPermitTargetDenialStore": "interface",
       "AuthorityPermitTargetRequestStore": "interface",
@@ -1783,6 +1804,7 @@
       "PathEpochEvidence": "class",
       "RunTargetLeaseEvidenceStore": "class",
       "ScopeEpoch": "class",
+      "StoredAuthorityPermitAdmissionPort": "class",
       "TargetAuthorityPermitDenial": "class",
       "TargetAuthorityPermitRequest": "class",
       "TargetLeaseEvidence": "class",
@@ -1962,8 +1984,11 @@
       "widensResourceCeiling": "function"
     },
     "@agent-core/core/core": {
+      "CodecCompatibility": "class",
+      "CodecDeclaration": "class",
       "CompatRange": "class",
       "ContentRef": "class",
+      "DeclaredCodecVersion": "interface",
       "Digest": "class",
       "DigestAlgorithm": "type",
       "JsonDataParser": "interface",
@@ -2004,7 +2029,8 @@
       "isStringArray": "function",
       "jsonDataParser": "function",
       "requireNonempty": "function",
-      "strictJsonSchemaValidator": "variable"
+      "strictJsonSchemaValidator": "variable",
+      "supportsRecordVersion": "function"
     },
     "@agent-core/core/content": {
       "ByteRange": "class",
@@ -2619,6 +2645,8 @@
       "decodeSubmission": "function"
     },
     "@agent-core/core/protocol": {
+      "AuthorityPermitIssuanceReply": "class",
+      "AuthorityPermitIssuanceRequest": "class",
       "CommandAuthenticator": "class",
       "CommandCaller": "type",
       "CommandCallerPolicy": "class",
@@ -2730,11 +2758,14 @@
   },
   "forbiddenSymbols": {
     "@agent-core/core": [
+      "AuthorityCheckEvidence",
       "AuthorityCheckPayloadCodec",
       "AuthorityCheckRequest",
       "AuthorityMutationService",
       "AuthorityPermitAdmissionPort",
       "AuthorityPermitAuthorityPort",
+      "AuthorityPermitIssuanceReply",
+      "AuthorityPermitIssuanceRequest",
       "AuthorityPermitIssuer",
       "BindingSet",
       "BindingStore",
@@ -2769,11 +2800,8 @@
     ],
     "@agent-core/core/authority": [
       "AuthorityCheckPayloadCodec",
-      "AuthorityCheckRequest",
       "AuthorityMutationService",
-      "AuthorityPermitAdmissionPort",
       "AuthorityPermitAuthorityPort",
-      "AuthorityPermitIssuer",
       "BindingStore",
       "BindingValidationPayloadCodec",
       "BindingValidationRequest",
@@ -2782,7 +2810,6 @@
       "MemoryBindingStore",
       "MemoryInvalidationWatermarkStore",
       "MemoryTenantControlStore",
-      "StoredAuthorityPermitAdmissionPort",
       "TenantAuthorityRuntime",
       "authorityKey",
       "scopeKey",
@@ -2813,9 +2840,7 @@
       "issueLeasedCommandPayload",
       "issueMalformedCommandPayload"
     ],
-    "@agent-core/core/invocations": [
-      "MediatedReplayShape"
-    ],
+    "@agent-core/core/invocations": ["MediatedReplayShape"],
     "@agent-core/core/operations": [
       "FacetRuntimeHost",
       "MemoryWorkspaceSlotStore",
@@ -2829,9 +2854,7 @@
       "WorkspaceSlotStore",
       "createProtectedProfileRuntime"
     ],
-    "@agent-core/core/substrates/sqlite": [
-      "SqliteWorkspaceSlotStore"
-    ],
+    "@agent-core/core/substrates/sqlite": ["SqliteWorkspaceSlotStore"],
     "@agent-core/core/mediation": [
       "CanonicalBatchInvocationPort",
       "FacetRuntimeHost",

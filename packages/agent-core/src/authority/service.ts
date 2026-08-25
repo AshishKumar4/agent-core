@@ -17,6 +17,8 @@ import {
     Role,
     RoleName,
     ScopeRef,
+    ShareOffer,
+    ShareOfferId,
     SubjectRef,
     Team,
     TeamId,
@@ -24,8 +26,13 @@ import {
     TenantId,
     WorkspaceId,
     Workspace,
+    requireSubjectTenant,
+    type ForeignPrincipalRef,
     type GuestTrustVerifier,
     type MembershipState,
+    type RoleImpact,
+    type ShareOfferRedemptionOutcome,
+    type ShareOfferRedemptionRequest,
     type TenantKind
 } from "../identity";
 import { bytesEqual } from "./data";
@@ -36,6 +43,9 @@ import { GrantId } from "./id";
 import { RoleGrantMaterializer } from "./materializer";
 import { EpochPlanner, type ResolverInputMutation } from "./planner";
 import { scopeKey, subjectKey } from "./reference";
+
+/** SPEC §3.3: issuing a share offer is an `administer`-impact act at the offer's Scope. */
+const ISSUANCE_IMPACT: RoleImpact = "administer";
 
 export interface TenantControlBootstrapAnchor {
     readonly actorId: ActorId;
@@ -131,6 +141,8 @@ export interface AuthorityReadStore {
     grants(): readonly Grant[];
     binding(key: string): Binding | undefined;
     bindings(): readonly Binding[];
+    shareOffer(id: ShareOfferId): ShareOffer | undefined;
+    shareOffers(): readonly ShareOffer[];
     epoch(scope: ScopeEpoch["scope"]): ScopeEpoch;
     epochs(): readonly ScopeEpoch[];
 }
@@ -147,6 +159,7 @@ export interface AuthorityMutationStore extends AuthorityReadStore {
     putMembership(membership: Membership): void;
     putGrant(grant: Grant): void;
     putBinding(binding: Binding): void;
+    putShareOffer(offer: ShareOffer): void;
     putEpoch(epoch: ScopeEpoch): void;
 }
 
@@ -365,20 +378,7 @@ export class AuthorityMutationService {
                     "New guest Memberships require a foreign active subject at revision zero"
                 );
             }
-            const trust = requireRecord(store.guestTrust(verification.trustId), "Guest trust");
-            if (
-                !trust.isActive ||
-                !trust.hostTenant.equals(store.tenantId) ||
-                !trust.homeTenant.equals(membership.subject.homeTenant) ||
-                trust.revision.value !== verification.trustRevision.value ||
-                trust.verifier.kind !== verification.verifiedVia.value ||
-                !verification.admits(membership.subject, now)
-            ) {
-                throw new AgentCoreError(
-                    "authority.denied",
-                    "Guest verification is not currently valid"
-                );
-            }
+            requireGuestVerificationEvidence(store, membership.subject, verification, now);
             const role = requireRecord(store.role(membership.role), "Role");
             requireCanonicalScope(store, membership.scope);
             const verifiedMembership = membership.withGuestVerification(verification);
@@ -496,6 +496,79 @@ export class AuthorityMutationService {
         });
     }
 
+    /**
+     * Issuing an offer is an `administer`-impact act at the offer's Scope, and the
+     * Membership a redemption mints is bounded by what the issuer could have assigned
+     * directly (§3.3). Nothing is materialized: an offer confers no Grant and resolves no
+     * Binding, so no Scope epoch moves.
+     */
+    public issueShareOffer(offer: ShareOffer, issuer: SubjectRef): ShareOffer {
+        return this.store.transaction((store) => {
+            requireAbsent(store.shareOffer(offer.id), "Share offer");
+            if (
+                !offer.isOpen ||
+                offer.redemptions.length !== 0 ||
+                offer.revision.value !== Revision.initial().value
+            ) {
+                throw new AgentCoreError(
+                    "protocol.invalid-state",
+                    "New share offers must be open and unredeemed at revision zero"
+                );
+            }
+            requireCanonicalScope(store, offer.scope);
+            const role = requireRecord(store.role(offer.role), "Role");
+            requireShareOfferIssuanceAuthority(store, offer, role, issuer);
+            store.putShareOffer(offer);
+            return offer;
+        });
+    }
+
+    /**
+     * Revocation stops every not-yet-recorded redemption and never retracts a Membership a
+     * recorded redemption already minted: only the offer record is written. An offer is not
+     * a resolver input, so nothing here advances a Scope epoch — the Memberships it already
+     * minted are revoked as Memberships, which is what advances their path epochs.
+     */
+    public revokeShareOffer(id: ShareOfferId): ShareOffer {
+        return this.store.transaction((store) => {
+            const current = requireRecord(store.shareOffer(id), "Share offer");
+            const revoked = current.revoke();
+            if (revoked.state === current.state) return current;
+            store.putShareOffer(revoked);
+            return revoked;
+        });
+    }
+
+    /**
+     * One transaction linearizes a redemption against the Grant plane and the path epochs:
+     * the minted Membership, the redemption recorded on the offer, the reconciled Role
+     * Grants, and every affected Scope epoch commit together or not at all. A replay writes
+     * nothing, because a duplicate delivery of an already-committed redemption mints no
+     * second Membership and consumes no second unit of the bound.
+     */
+    public redeemShareOffer(
+        id: ShareOfferId,
+        request: ShareOfferRedemptionRequest
+    ): ShareOfferRedemptionOutcome {
+        return this.store.transaction((store) => {
+            const outcome = requireRecord(store.shareOffer(id), "Share offer").redeem(request);
+            const minted = outcome.membership;
+            if (minted === undefined) return outcome;
+            requireAbsent(store.membership(minted.id), "Membership");
+            const role = requireRecord(store.role(minted.role), "Role");
+            requireCanonicalScope(store, minted.scope);
+            requireMembershipSubject(store, minted);
+            requireRedeemedProvenance(store, minted, request.now);
+            const affected = this.reconcile(store, minted, role);
+            store.putMembership(minted);
+            store.putShareOffer(outcome.offer);
+            this.bump(store, [
+                { kind: "membership", affectedScopes: nonEmpty([minted.scope, ...affected]) }
+            ]);
+            return outcome;
+        });
+    }
+
     private reconcile(
         store: AuthorityMutationStore,
         membership: Membership,
@@ -569,6 +642,115 @@ function validateDelegation(store: AuthorityMutationStore, grant: Grant): void {
     const parent = requireRecord(store.grant(grant.attenuationOf), "Parent Grant");
     if (!parent.canAttenuate(grant)) {
         throw new AgentCoreError("authority.denied", "Delegated Grant is not a live attenuation");
+    }
+}
+
+/**
+ * The bound §3.3 fixes on a share offer: the issuer must hold, reaching the offer's Scope,
+ * one live allow Grant that both carries `administer` and covers every capability the Role
+ * would materialize as an allow. One Grant, not a union of them, because "what the issuer
+ * could have assigned directly" is exactly the delegation bound `Grant.canAttenuate`
+ * already decides, and that bound names a single parent authority.
+ *
+ * Only the Role's allow rules are bounded. A deny rule materializes a deny Grant, which
+ * narrows the minted Membership rather than widening it, so requiring the issuer to cover
+ * it would refuse a strictly smaller offer.
+ *
+ * There is no second authorization mechanism here: authority is read from the one durable
+ * Grant plane, for the subjects the issuer acts under, over the Scope path a Binding is
+ * resolved against. A guest therefore cannot issue at all — guest Grants never carry
+ * elevation — without this naming guests as a case.
+ */
+function requireShareOfferIssuanceAuthority(
+    store: AuthorityMutationStore,
+    offer: ShareOffer,
+    role: Role,
+    issuer: SubjectRef
+): void {
+    const subjects = new Set(issuerSubjects(store, issuer).map(subjectKey));
+    const path = new Set(offer.scope.path.map(scopeKey));
+    const bounded = store
+        .grants()
+        .some(
+            (grant) =>
+                grant.isLive &&
+                grant.effect === "allow" &&
+                subjects.has(subjectKey(grant.subject)) &&
+                path.has(scopeKey(grant.scope)) &&
+                grant.capability.impacts.includes(ISSUANCE_IMPACT) &&
+                role.rules.every(
+                    (rule) => rule.effect !== "allow" || grant.capability.covers(rule.capability)
+                )
+        );
+    if (!bounded) {
+        throw new AgentCoreError(
+            "authority.denied",
+            "Issuing a share offer requires administer authority covering its Role at its Scope"
+        );
+    }
+}
+
+/**
+ * The subjects an issuer acts under: itself, plus every Team it belongs to. A foreign
+ * issuer acts only as itself, exactly as the Binding resolver's effective subjects do.
+ */
+function issuerSubjects(store: AuthorityMutationStore, issuer: SubjectRef): readonly SubjectRef[] {
+    if (issuer.kind !== "principal") return [issuer];
+    requireSubjectTenant(issuer, store.tenantId, "Share offer issuer");
+    const principalId = issuer.principal.principalId;
+    requireRecord(store.principal(principalId), "Share offer issuer Principal");
+    return [
+        issuer,
+        ...store
+            .teams()
+            .filter((team) => team.has(principalId))
+            .map((team) => SubjectRef.team(team.id))
+    ];
+}
+
+/**
+ * A guest holder passes the same trust-evidence gate a directly assigned guest Membership
+ * does. A local holder needs nothing here: the Membership record refuses to carry guest
+ * verification at all, and refuses one without host provenance, so an offer defers who is
+ * bound without opening a second provenance path (§3.3).
+ */
+function requireRedeemedProvenance(
+    store: AuthorityMutationStore,
+    minted: Membership,
+    now: Date
+): void {
+    if (minted.subject.kind !== "foreign") return;
+    const verification = minted.guestVerification;
+    if (verification === undefined) {
+        throw new AgentCoreError(
+            "authority.denied",
+            "Guest Memberships require verified provenance"
+        );
+    }
+    requireGuestVerificationEvidence(store, minted.subject, verification, now);
+}
+
+/**
+ * The one guest evidence gate: a live host trust for this Membership's home Tenant, at the
+ * exact revision and verification scheme the evidence names, that still admits the subject
+ * now. Both a directly assigned guest Membership and one a redemption mints pass it.
+ */
+function requireGuestVerificationEvidence(
+    store: AuthorityMutationStore,
+    subject: ForeignPrincipalRef,
+    verification: GuestVerification,
+    now: Date
+): void {
+    const trust = requireRecord(store.guestTrust(verification.trustId), "Guest trust");
+    if (
+        !trust.isActive ||
+        !trust.hostTenant.equals(store.tenantId) ||
+        !trust.homeTenant.equals(subject.homeTenant) ||
+        trust.revision.value !== verification.trustRevision.value ||
+        trust.verifier.kind !== verification.verifiedVia.value ||
+        !verification.admits(subject, now)
+    ) {
+        throw new AgentCoreError("authority.denied", "Guest verification is not currently valid");
     }
 }
 

@@ -457,6 +457,46 @@ export class ShareOffer {
         );
     }
 
+    /**
+     * What a store may accept over a stored offer. The offer's terms — Scope, Role, bearer
+     * secret digest, window and bound — are immutable, revision advances exactly once, a
+     * revoked offer is terminal, and recorded redemptions are append-only: dropping one
+     * would retract the Membership it minted, which §3.3 forbids.
+     */
+    public assertCanReplace(next: ShareOffer): void {
+        if (
+            !this.id.equals(next.id) ||
+            !this.scope.equals(next.scope) ||
+            !this.role.equals(next.role) ||
+            !this.secretDigest.equals(next.secretDigest) ||
+            this.#createdAt !== next.#createdAt ||
+            this.#expiresAt !== next.#expiresAt ||
+            this.bound !== next.bound ||
+            next.revision.value !== this.revision.value + 1
+        ) {
+            throw new AgentCoreError(
+                "protocol.revision-conflict",
+                "Share offer terms are immutable and updates require the next revision"
+            );
+        }
+        if (!this.isOpen) {
+            throw new AgentCoreError("protocol.invalid-state", "Revoked share offers are terminal");
+        }
+        if (
+            next.redemptions.length < this.redemptions.length ||
+            this.redemptions.some(
+                (recorded, index) =>
+                    next.redemptions[index]?.holderKey !== recorded.holderKey ||
+                    !next.redemptions[index]?.membership.equals(recorded.membership)
+            )
+        ) {
+            throw new AgentCoreError(
+                "protocol.invalid-state",
+                "Share offer redemptions are append-only"
+            );
+        }
+    }
+
     private transition(
         lifecycle: ShareOfferLifecycle,
         redemptions: readonly ShareOfferRedemption[]

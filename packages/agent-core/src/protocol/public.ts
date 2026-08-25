@@ -20,6 +20,7 @@ export type {
     RegisteredProtocolCommand
 } from "./dispatcher";
 export { CommandAuthenticator } from "./authentication";
+export { AuthorityPermitIssuanceReply, AuthorityPermitIssuanceRequest } from "./authority-evidence";
 export { CommandIngress } from "./ingress";
 export type {
     CommandIngressInit,

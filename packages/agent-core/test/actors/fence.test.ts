@@ -7,7 +7,7 @@ import {
     type ActorKind
 } from "../../src/actors";
 import { ActorId as CanonicalActorId } from "../../src/actors/id";
-import { encodeCanonicalJson, type JsonValue, TextId } from "../../src/core";
+import { CodecDeclaration, encodeCanonicalJson, type JsonValue, TextId } from "../../src/core";
 import { AgentCoreError } from "../../src/errors";
 
 const actorId = new ActorId("actor-codec");
@@ -236,6 +236,73 @@ describe("Actor identity", () => {
             ).toThrow(message);
         }
     });
+});
+
+/**
+ * `C13-CODEC-INCOMPATIBILITY-TOTAL`: the recovery state is where a reader reaches the codec
+ * versions this Actor's records were written under, so the declaration travels with the one
+ * record every store loads before it decodes anything else.
+ */
+describe("Actor record-set declaration", () => {
+    const declaration = CodecDeclaration.of([ActorRecoveryState.codec]);
+
+    test(
+        "[C13-CODEC-INCOMPATIBILITY-TOTAL] carries a declaration through every transition and its codec",
+        { tags: "p0" },
+        () => {
+            const declared = new ActorRecoveryState(actor, 7, 3, declaration);
+
+            expect(ActorRecoveryState.initial(actor).declaration.declared).toEqual([]);
+            expect(declared.declaring(declaration).declaration.equals(declaration)).toBe(true);
+            expect(declared.recover().declaration.equals(declaration)).toBe(true);
+            expect(declared.advance().declaration.equals(declaration)).toBe(true);
+            expect(
+                ActorRecoveryState.decode(ActorRecoveryState.encode(declared)).declaration.equals(
+                    declaration
+                )
+            ).toBe(true);
+            expect(
+                () =>
+                    // @ts-expect-error Runtime callers can supply a CodecDeclaration lookalike.
+                    new ActorRecoveryState(actor, 0, 1, { declared: [] })
+            ).toThrow(TypeError);
+        }
+    );
+
+    test(
+        "[C13-CODEC-INCOMPATIBILITY-TOTAL] upcasts a minor that predates the declaration and refuses an older reader",
+        { tags: "p0" },
+        () => {
+            const body = {
+                actor: { kind: actor.kind, id: actor.id.value },
+                epoch: 7,
+                recoveries: 3
+            };
+            const beforeDeclaration = ActorRecoveryState.codec.decode(envelope(body));
+
+            expect(beforeDeclaration.declaration.equals(CodecDeclaration.empty)).toBe(true);
+            expect(beforeDeclaration.epoch).toBe(7);
+            expect(() =>
+                ActorRecoveryState.codec.decode(
+                    envelope({ ...body, declaration: declaration.toData() })
+                )
+            ).toThrow(malformedError());
+            expect(() =>
+                ActorRecoveryState.codec.decode(
+                    encodeCanonicalJson({
+                        kind: "actor.recovery-state",
+                        payload: body,
+                        version: { major: 1, minor: 2 }
+                    })
+                )
+            ).toThrow(
+                new AgentCoreError(
+                    "codec.invalid",
+                    "Unsupported actor.recovery-state codec minor 2"
+                )
+            );
+        }
+    );
 });
 
 function envelope(payload: JsonValue): Uint8Array {

@@ -1,11 +1,13 @@
 import { AgentCoreError } from "../errors";
-import { decodeCanonicalJson, encodeCanonicalJson } from "./canonical";
+import { compareCanonicalText, decodeCanonicalJson, encodeCanonicalJson } from "./canonical";
 import {
     hasExactJsonKeys,
     isJsonNumber,
     isJsonObject,
     isJsonString,
     isObjectRecord,
+    jsonDataParser,
+    type JsonObject,
     type JsonValue
 } from "./json";
 import { hasOnlyUnicodeScalarValues } from "./unicode";
@@ -126,28 +128,237 @@ export abstract class RecordCodec<Record> {
 }
 
 /**
- * The single §8.3 compatibility decision shared by every record-codec reader:
- * an unknown major fails as codec.unknown-major, an unsupported newer minor
- * fails as codec.invalid, and an older minor tolerates read within the major.
+ * The single §8.3 compatibility decision. Every reader — one record's codec and a whole
+ * record set's declaration alike — asks this one predicate, so a record and the set that
+ * holds it can never disagree about whether a stored version is readable.
  * Both components must already be non-negative safe integers.
+ */
+export function supportsRecordVersion(declared: RecordVersion, supported: RecordVersion): boolean {
+    return declared.major === supported.major && declared.minor <= supported.minor;
+}
+
+/**
+ * Names the refusal `supportsRecordVersion` earned: an unknown major fails as
+ * codec.unknown-major and an unsupported newer minor fails as codec.invalid, while an
+ * older minor tolerates read within the major.
  */
 export function assertCompatibleRecordVersion(
     subject: string,
     declared: RecordVersion,
     supported: RecordVersion
 ): void {
+    if (supportsRecordVersion(declared, supported)) return;
     if (declared.major !== supported.major) {
         throw new AgentCoreError(
             "codec.unknown-major",
             `Unsupported ${subject} codec major ${declared.major}`
         );
     }
-    if (declared.minor > supported.minor) {
+    throw new AgentCoreError(
+        "codec.invalid",
+        `Unsupported ${subject} codec minor ${declared.minor}`
+    );
+}
+
+/**
+ * One record kind and the codec version the records of that kind were written under.
+ * A `RecordCodec` satisfies this shape, so a reader declares itself from its own codecs.
+ */
+export interface DeclaredCodecVersion {
+    readonly kind: string;
+    readonly version: RecordVersion;
+}
+
+/**
+ * The §8.3 verdict a reader reaches from a record set's declaration before it decodes any
+ * record of the set. The decision is total over declarations: the stored set is compatible,
+ * or it names a kind this reader does not declare, or it names a version this reader's codec
+ * refuses. There is no fourth answer and no undecided input.
+ */
+export abstract class CodecCompatibility {
+    public static get compatible(): CodecCompatibility {
+        return compatibleDeclaration;
+    }
+
+    /**
+     * Serves the reader only where the declaration is compatible. An incompatible set is
+     * left exactly as stored — no repair, no downgrade, no partial rewrite — and no record
+     * of it is decoded, so a derivation can never answer from the part that still reads.
+     */
+    public abstract admit(serve: () => void): void;
+
+    /** The refusal every operation over an incompatible record set owes its caller. */
+    public abstract requireCompatible(): void;
+}
+
+class CompatibleDeclaration extends CodecCompatibility {
+    public admit(serve: () => void): void {
+        serve();
+    }
+
+    public requireCompatible(): void {}
+}
+
+class UndeclaredKind extends CodecCompatibility {
+    public constructor(private readonly kind: string) {
+        super();
+        Object.freeze(this);
+    }
+
+    public admit(): void {}
+
+    public requireCompatible(): never {
         throw new AgentCoreError(
-            "codec.invalid",
-            `Unsupported ${subject} codec minor ${declared.minor}`
+            "schema.unreadable",
+            `Record set declares ${this.kind}, which this reader does not declare`
         );
     }
+}
+
+/**
+ * Only `compatibilityWith` constructs this, and only where `supportsRecordVersion` has
+ * already refused the pair, so naming the refusal is all that is left to do.
+ */
+class UnsupportedVersion extends CodecCompatibility {
+    public constructor(
+        private readonly kind: string,
+        private readonly declared: RecordVersion,
+        private readonly supported: RecordVersion
+    ) {
+        super();
+        Object.freeze(this);
+    }
+
+    public admit(): void {}
+
+    public requireCompatible(): void {
+        assertCompatibleRecordVersion(this.kind, this.declared, this.supported);
+    }
+}
+
+const compatibleDeclaration: CodecCompatibility = new CompatibleDeclaration();
+
+/**
+ * The codec versions the records one Actor owns were written under (§8.3). It is
+ * constituent data of the durable state a store already holds about its Actor, so a reader
+ * reaches it before it decodes any record of the set, and never a durable plane of its own.
+ */
+export class CodecDeclaration {
+    public static get empty(): CodecDeclaration {
+        return emptyDeclaration;
+    }
+
+    /** The declaration a reader makes of itself, from the codecs it holds. */
+    public static of(codecs: Iterable<DeclaredCodecVersion>): CodecDeclaration {
+        return new CodecDeclaration([...codecs]);
+    }
+
+    public readonly declared: readonly DeclaredCodecVersion[];
+
+    public constructor(declared: readonly DeclaredCodecVersion[]) {
+        this.declared = canonicalDeclared(declared);
+        Object.freeze(this);
+    }
+
+    public static fromData(value: JsonValue | undefined): CodecDeclaration {
+        const declared = data.array(value, "Codec declaration");
+        return new CodecDeclaration(declared.map(declaredVersionFromData));
+    }
+
+    public toData(): readonly JsonObject[] {
+        return this.declared.map((entry) => ({
+            kind: entry.kind,
+            version: { major: entry.version.major, minor: entry.version.minor }
+        }));
+    }
+
+    public versionOf(kind: string): RecordVersion | undefined {
+        return this.declared.find((entry) => entry.kind === kind)?.version;
+    }
+
+    /**
+     * Whether a reader declaring `reader` may serve this stored set. The version question is
+     * the one `supportsRecordVersion` already answers, so a record set and a single record
+     * never disagree about whether a stored version is readable.
+     */
+    public compatibilityWith(reader: CodecDeclaration): CodecCompatibility {
+        for (const entry of this.declared) {
+            const supported = reader.versionOf(entry.kind);
+            if (supported === undefined) {
+                return new UndeclaredKind(entry.kind);
+            }
+            if (!supportsRecordVersion(entry.version, supported)) {
+                return new UnsupportedVersion(entry.kind, entry.version, supported);
+            }
+        }
+        return CodecCompatibility.compatible;
+    }
+
+    public equals(other: CodecDeclaration): boolean {
+        return (
+            this.declared.length === other.declared.length &&
+            this.declared.every((entry, index) => {
+                const candidate = other.declared[index];
+                return (
+                    candidate !== undefined &&
+                    entry.kind === candidate.kind &&
+                    entry.version.major === candidate.version.major &&
+                    entry.version.minor === candidate.version.minor
+                );
+            })
+        );
+    }
+}
+
+const emptyDeclaration = new CodecDeclaration([]);
+
+const data = jsonDataParser(
+    (message) => new AgentCoreError("codec.invalid", `${message} in a codec declaration`)
+);
+
+function canonicalDeclared(
+    declared: readonly DeclaredCodecVersion[]
+): readonly DeclaredCodecVersion[] {
+    const byKind = new Map<string, RecordVersion>();
+    for (const entry of declared) {
+        const kind = entry.kind;
+        if (
+            kind.trim().length === 0 ||
+            kind !== kind.trim() ||
+            !hasOnlyUnicodeScalarValues(kind) ||
+            byKind.has(kind)
+        ) {
+            throw new TypeError(
+                "Codec declaration must name distinct nonblank canonical record kinds"
+            );
+        }
+        byKind.set(kind, validateAndDetachVersion(entry.version));
+    }
+    return Object.freeze(
+        [...byKind.entries()]
+            .sort(([left], [right]) => compareCanonicalText(left, right))
+            .map(([kind, version]) => Object.freeze({ kind, version }))
+    );
+}
+
+function declaredVersionFromData(entry: JsonValue): DeclaredCodecVersion {
+    const object = data.exact(
+        data.object(entry, "Declared codec version"),
+        ["kind", "version"],
+        "Declared codec version"
+    );
+    const version = data.exact(
+        data.object(object["version"], "Declared codec version"),
+        ["major", "minor"],
+        "Declared codec version"
+    );
+    return {
+        kind: data.nonemptyString(object["kind"], "Declared codec kind"),
+        version: {
+            major: data.safeInteger(version["major"], "Declared codec major"),
+            minor: data.safeInteger(version["minor"], "Declared codec minor")
+        }
+    };
 }
 
 function sealRecordClasses<Record>(recordClasses: RecordClasses<Record>): void {
@@ -219,6 +430,7 @@ function isEnvelope(value: JsonValue): value is JsonValue & RecordEnvelope {
     );
 }
 
+/** Detaches a caller-supplied version into a frozen pair of non-negative safe integers. */
 function validateAndDetachVersion(version: RecordVersion): RecordVersion {
     if (
         !isObjectRecord(version) ||

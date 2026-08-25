@@ -1,5 +1,42 @@
 export * from "./actors";
-export * from "./authority-public";
+// The §10.3 permit-plane boundary types stay on the `authority` and `protocol` subpaths.
+// A caller that mediates authority names the subpath it reaches into; the root surface is
+// for the records and value types every consumer already handles. `FacetRef` arrives
+// through `./facets-public` below, so it is deliberately absent here.
+export {
+    AuthorityPermit,
+    AuthorityPermitAuthenticator,
+    AuthorityPermitExpectation,
+    AuthorityPermitIssuedRecordSource,
+    Binding,
+    BindingCredentialCustody,
+    Grant,
+    GrantId,
+    InvalidationWatermark,
+    PathEpochEvidence,
+    RunTargetLeaseEvidenceStore,
+    ScopeEpoch,
+    TargetAuthorityPermitDenial,
+    TargetAuthorityPermitRequest,
+    TargetLeaseEvidence,
+    TargetLeaseEvidenceIssuer,
+    TargetLeaseEvidenceKey,
+    TargetLeaseEvidenceReference,
+    TargetLeaseEvidenceSourcePort,
+    type AuthenticatedAuthorityPermit,
+    type AuthorityPermitExpectationInit,
+    type AuthorityPermitIssueStore,
+    type AuthorityPermitTargetAdmissionStore,
+    type AuthorityPermitTargetDenialStore,
+    type AuthorityPermitTargetRequestStore,
+    type AuthorityPermitTargetStore,
+    type TargetLeaseEvidenceBinding,
+    type TargetLeaseEvidenceInit,
+    type TargetLeaseEvidenceSourceState,
+    type TargetLeaseEvidenceSourceStore,
+    type TargetLeaseEvidenceStore,
+    type TargetLeaseEvidenceTarget
+} from "./authority-public";
 export * from "./core";
 export * from "./content";
 export * from "./definition";

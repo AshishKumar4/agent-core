@@ -3,6 +3,12 @@ export { InvalidationWatermark, PathEpochEvidence, ScopeEpoch } from "./authorit
 export { Grant } from "./authority/grant";
 export { GrantId } from "./authority/id";
 export { AuthorityPermit, AuthorityPermitExpectation } from "./authority/permit";
+export {
+    AuthorityPermitAdmissionPort,
+    AuthorityPermitIssuer,
+    StoredAuthorityPermitAdmissionPort
+} from "./authority/permit-store";
+export { AuthorityCheckEvidence, AuthorityCheckRequest } from "./authority/evidence";
 export { TargetAuthorityPermitRequest } from "./authority/permit-request";
 export { TargetAuthorityPermitDenial } from "./authority/permit-denial";
 export {

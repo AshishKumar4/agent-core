@@ -10,7 +10,13 @@ import { TransientContentLeaseState } from "../../src/content/transient";
 import { decodeCanonicalJson, encodeCanonicalJson, isJsonObject } from "../../src/core";
 import { TenantId } from "../../src/identity";
 import { contentStoreContract } from "./contract";
-import { at, bindingFor, contentOwner, contentRetentionContract } from "./retention-contract";
+import {
+    at,
+    bindingFor,
+    contentOwner,
+    contentRetentionContract,
+    type ContentRetentionHarness
+} from "./retention-contract";
 import { expectAgentCoreError, expectAgentCoreRejection } from "../protocol/error-assertion";
 
 const encode = (value: string): Uint8Array => new TextEncoder().encode(value);
@@ -23,8 +29,11 @@ function defined<Value>(value: Value | undefined): Value {
 }
 
 contentStoreContract("memory", () => new MemoryContentStore());
-contentRetentionContract("memory", () => {
-    const store = new MemoryContentStore();
+contentRetentionContract("memory", () => memoryRetentionHarness(new MemoryContentStore()));
+
+function memoryRetentionHarness(
+    store: MemoryContentStore
+): ContentRetentionHarness<MemoryContentRetentionState> {
     const owner = contentOwner();
     const retention = store.retention(owner.tenant, owner.actor);
     let now = at(0);
@@ -44,9 +53,12 @@ contentRetentionContract("memory", () => {
         },
         acquireInTransaction(transaction, binding, operationAt, bytes) {
             return transient.acquireInTransaction(transaction, binding, operationAt, bytes);
+        },
+        reopen(): ContentRetentionHarness<MemoryContentRetentionState> {
+            return memoryRetentionHarness(MemoryContentStore.restore(store.snapshot()));
         }
     };
-});
+}
 
 describe("MemoryContentStore records", () => {
     test("keeps transient hold authority out of the public content surface", { tags: "p0" }, () => {

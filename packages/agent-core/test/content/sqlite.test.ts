@@ -9,14 +9,23 @@ import {
 } from "../../src/substrates";
 import { TestSqlite } from "../helpers/sqlite";
 import { contentStoreContract } from "./contract";
-import { at, bindingFor, contentOwner, contentRetentionContract } from "./retention-contract";
+import {
+    at,
+    bindingFor,
+    contentOwner,
+    contentRetentionContract,
+    type ContentRetentionHarness
+} from "./retention-contract";
 import { expectAgentCoreError, expectAgentCoreRejection } from "../protocol/error-assertion";
 
 const encode = (value: string): Uint8Array => new TextEncoder().encode(value);
 
 contentStoreContract("SQLite", () => new SqliteContentStore(new TestSqlite()));
-contentRetentionContract("SQLite", () => {
-    const database = new TestSqlite();
+contentRetentionContract("SQLite", () => sqliteRetentionHarness(new TestSqlite()));
+
+function sqliteRetentionHarness(
+    database: TestSqlite
+): ContentRetentionHarness<TransactionalSqlite> {
     const store = new SqliteContentStore(database);
     const owner = contentOwner();
     const retention = store.retention(owner.tenant, owner.actor);
@@ -37,9 +46,12 @@ contentRetentionContract("SQLite", () => {
         },
         acquireInTransaction(transaction, binding, operationAt, bytes) {
             return transient.acquireInTransaction(transaction, binding, operationAt, bytes);
+        },
+        reopen(): ContentRetentionHarness<TransactionalSqlite> {
+            return sqliteRetentionHarness(database);
         }
     };
-});
+}
 
 describe("SqliteContentStore", () => {
     test("does not expose transient hold or GC methods", { tags: "p0" }, () => {

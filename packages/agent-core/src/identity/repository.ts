@@ -52,6 +52,7 @@ export abstract class IdentityRepository {
     public abstract loadGuestTrust(id: GuestTrustId): GuestTrust | undefined;
     public abstract loadRole(name: RoleName): Role | undefined;
     public abstract loadMembership(id: MembershipId): Membership | undefined;
+    public abstract loadShareOffer(id: ShareOfferId): ShareOffer | undefined;
 }
 
 export class MemoryIdentityRepository extends IdentityRepository {

@@ -1,6 +1,7 @@
 import {
     Actor,
     ActorCommitUnknownError,
+    ActorRecoveryState,
     isActorActivationStore,
     requireSynchronousResult,
     type ActorContext,
@@ -8,7 +9,13 @@ import {
     type ActorRef,
     type SynchronousResultGuard
 } from "../actors";
-import { Digest, encodeCanonicalJson, isObjectRecord, type Revision } from "../core";
+import {
+    CodecDeclaration,
+    Digest,
+    encodeCanonicalJson,
+    isObjectRecord,
+    type Revision
+} from "../core";
 import { AgentCoreError } from "../errors";
 import type { TenantId } from "../identity";
 import {
@@ -153,6 +160,18 @@ export class CommandPreparationUnavailableError extends AgentCoreError {
     }
 }
 
+/**
+ * The codec versions a dispatcher's own record set is written under (§8.3): its durable
+ * Actor recovery state and the write and audit evidence its persistence holds. A stored set
+ * that declares any of these under a version this build cannot read refuses every command
+ * rather than serving the records that still decode.
+ */
+const DISPATCHER_CODECS: CodecDeclaration = CodecDeclaration.of([
+    ActorRecoveryState.codec,
+    AuditRecord.codec,
+    WriteRecord.codec
+]);
+
 export class CommandDispatcher<
     Transaction,
     Read,
@@ -179,7 +198,7 @@ export class CommandDispatcher<
         }
         validateLimit(init.limits.envelopeBytes, "envelope");
         validateLimit(init.limits.payloadBytes, "payload");
-        super(context, (transaction) => init.persistence.repair?.(transaction));
+        super(context, DISPATCHER_CODECS, (transaction) => init.persistence.repair?.(transaction));
         this.#store = init.store;
         this.#persistence = init.persistence;
         this.#ids = init.ids;

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { Revision } from "../../../src/core";
+import { Digest, Revision } from "../../../src/core";
 import {
     GuestTrust,
     GuestTrustId,
@@ -13,6 +13,8 @@ import {
     Role,
     RoleName,
     ScopeRef,
+    ShareOffer,
+    ShareOfferId,
     SubjectRef,
     Team,
     TeamId,
@@ -42,6 +44,7 @@ const workspaceId = new WorkspaceId("workspace-a");
 const trustId = new GuestTrustId("trust-a");
 const roleName = new RoleName("auditor");
 const membershipId = new MembershipId("membership-a");
+const shareOfferId = new ShareOfferId("offer-a");
 const tenantScope = ScopeRef.tenant(tenantAId);
 
 const tenantA = new Tenant(tenantAId, "organization", "active", new Revision(3));
@@ -66,6 +69,18 @@ const membership = new Membership(
     "active",
     new Revision(4)
 );
+const shareOffer = new ShareOffer(
+    shareOfferId,
+    tenantScope,
+    roleName,
+    Digest.sha256(Uint8Array.of(5, 6, 7)),
+    new Date(100),
+    new Date(200),
+    2,
+    [],
+    "open",
+    new Revision(0)
+);
 
 const corruptRecord = expect.objectContaining({
     code: "codec.invalid",
@@ -73,7 +88,8 @@ const corruptRecord = expect.objectContaining({
 });
 
 /** An identity record the reader projects from the key column that stores it. */
-type ProjectedIdentity = GuestTrust | Membership | Project | Role | Team | Tenant | Workspace;
+type ProjectedIdentity =
+    GuestTrust | Membership | Project | Role | ShareOffer | Team | Tenant | Workspace;
 
 interface DriftCase {
     readonly title: string;
@@ -198,6 +214,62 @@ const driftCases: readonly DriftCase[] = [
         corrupt: (database) =>
             database.run("UPDATE tenant_memberships SET id = 'membership-moved'", []),
         load: (reader) => reader.loadMembership(new MembershipId("membership-moved"))
+    },
+    {
+        title: "share offer scope drift",
+        corrupt: (database) =>
+            database.run("UPDATE tenant_share_offers SET scope_key = 'drifted-scope'", []),
+        load: (reader) => reader.loadShareOffer(shareOfferId)
+    },
+    {
+        title: "share offer role drift",
+        corrupt: (database) =>
+            database.run("UPDATE tenant_share_offers SET role_name = 'drifted-role'", []),
+        load: (reader) => reader.loadShareOffer(shareOfferId)
+    },
+    {
+        title: "share offer secret digest drift",
+        corrupt: (database) =>
+            database.run("UPDATE tenant_share_offers SET secret_digest = 'drifted-digest'", []),
+        load: (reader) => reader.loadShareOffer(shareOfferId)
+    },
+    {
+        title: "share offer state drift",
+        corrupt: (database) => database.run("UPDATE tenant_share_offers SET state = 'revoked'", []),
+        load: (reader) => reader.loadShareOffer(shareOfferId)
+    },
+    {
+        title: "share offer creation drift",
+        corrupt: (database) => database.run("UPDATE tenant_share_offers SET created_at = 150", []),
+        load: (reader) => reader.loadShareOffer(shareOfferId)
+    },
+    {
+        title: "share offer expiry drift",
+        corrupt: (database) => database.run("UPDATE tenant_share_offers SET expires_at = 300", []),
+        load: (reader) => reader.loadShareOffer(shareOfferId)
+    },
+    {
+        title: "share offer bound drift",
+        corrupt: (database) =>
+            database.run("UPDATE tenant_share_offers SET redemption_bound = 5", []),
+        load: (reader) => reader.loadShareOffer(shareOfferId)
+    },
+    {
+        title: "share offer redemption count drift",
+        corrupt: (database) =>
+            database.run("UPDATE tenant_share_offers SET redemption_count = 1", []),
+        load: (reader) => reader.loadShareOffer(shareOfferId)
+    },
+    {
+        title: "share offer revision drift",
+        corrupt: (database) => database.run("UPDATE tenant_share_offers SET revision = 7", []),
+        load: (reader) => reader.loadShareOffer(shareOfferId)
+    },
+    {
+        title: "share offer id drift",
+        corrupt: (database) =>
+            database.run("UPDATE tenant_share_offers SET id = 'offer-moved'", []),
+        load: (reader) => reader.loadShareOffer(new ShareOfferId("offer-moved"))
     }
 ];
 
@@ -237,6 +309,13 @@ describe("SQLite identity reader", () => {
         expect(reader.teams().map((item) => item.id.value)).toEqual(["team-a"]);
         expect(reader.memberships().map((item) => item.id.value)).toEqual(["membership-a"]);
         expect(reader.guestTrusts().map((item) => item.id.value)).toEqual(["trust-a"]);
+        const storedOffer = reader.loadShareOffer(shareOfferId);
+        expect(storedOffer?.role.value).toBe("auditor");
+        expect(storedOffer?.state).toBe("open");
+        expect(storedOffer?.bound).toBe(2);
+        expect(storedOffer?.expiresAt.getTime()).toBe(200);
+        expect(storedOffer?.secretDigest.value).toBe(shareOffer.secretDigest.value);
+        expect(reader.shareOffers().map((item) => item.id.value)).toEqual(["offer-a"]);
         expect(reader.loadTenant(new TenantId("tenant-missing"))).toBeUndefined();
     });
 
@@ -320,6 +399,11 @@ describe("SQLite identity reader", () => {
                 title: "membership",
                 column: "id",
                 load: (reader) => reader.loadMembership(membershipId)
+            },
+            {
+                title: "share offer",
+                column: "id",
+                load: (reader) => reader.loadShareOffer(shareOfferId)
             }
         ];
 
@@ -356,7 +440,8 @@ describe("SQLite identity reader", () => {
             { title: "projects", list: (reader) => reader.projects() },
             { title: "workspaces", list: (reader) => reader.workspaces() },
             { title: "memberships", list: (reader) => reader.memberships() },
-            { title: "guest trusts", list: (reader) => reader.guestTrusts() }
+            { title: "guest trusts", list: (reader) => reader.guestTrusts() },
+            { title: "share offers", list: (reader) => reader.shareOffers() }
         ];
 
         for (const item of enumerations) {
@@ -450,6 +535,25 @@ function seed<Database extends TestSqlite>(database: Database): Database {
             Membership.encode(membership)
         ]
     );
+    database.run(
+        `INSERT INTO tenant_share_offers
+         (id, scope_key, role_name, secret_digest, state, created_at, expires_at,
+          redemption_bound, redemption_count, revision, record)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+            shareOffer.id.value,
+            sqliteScopeKey(shareOffer.scope),
+            shareOffer.role.value,
+            shareOffer.secretDigest.value,
+            shareOffer.state,
+            shareOffer.createdAt.getTime(),
+            shareOffer.expiresAt.getTime(),
+            shareOffer.bound,
+            shareOffer.redemptions.length,
+            shareOffer.revision.value,
+            ShareOffer.encode(shareOffer)
+        ]
+    );
     return database;
 }
 
@@ -457,7 +561,10 @@ class TamperedProjectionSqlite extends TestSqlite {
     public replacement: readonly [string, SqliteValue] | undefined;
     public dropped: string | undefined;
 
-    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+    protected override query(
+        statement: string,
+        bindings: readonly SqliteValue[]
+    ): readonly SqliteRow[] {
         const rows = super.query(statement, bindings);
         const replacement = this.replacement;
         const dropped = this.dropped;
@@ -475,7 +582,10 @@ class TamperedProjectionSqlite extends TestSqlite {
 class PhantomEnumerationSqlite extends TestSqlite {
     public phantomId: string | undefined;
 
-    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+    protected override query(
+        statement: string,
+        bindings: readonly SqliteValue[]
+    ): readonly SqliteRow[] {
         const rows = super.query(statement, bindings);
         const phantom = this.phantomId;
         return phantom === undefined || !statement.includes("ORDER BY")

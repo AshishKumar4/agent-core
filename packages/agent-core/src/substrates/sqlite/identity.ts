@@ -12,6 +12,8 @@ import {
     ProjectId,
     Role,
     RoleName,
+    ShareOffer,
+    ShareOfferId,
     Team,
     TeamId,
     Tenant,
@@ -90,6 +92,21 @@ const CREATE_MEMBERSHIPS = `CREATE TABLE IF NOT EXISTS tenant_memberships (
 const CREATE_MEMBERSHIP_INDEX = `CREATE INDEX IF NOT EXISTS tenant_memberships_subject
     ON tenant_memberships (subject_key, scope_key, state)`;
 
+const CREATE_SHARE_OFFERS = `CREATE TABLE IF NOT EXISTS tenant_share_offers (
+    id TEXT PRIMARY KEY CHECK (length(id) > 0),
+    scope_key TEXT NOT NULL CHECK (length(scope_key) > 0),
+    role_name TEXT NOT NULL CHECK (length(role_name) > 0),
+    secret_digest TEXT NOT NULL CHECK (length(secret_digest) > 0),
+    state TEXT NOT NULL CHECK (state IN ('open', 'revoked')),
+    created_at INTEGER NOT NULL CHECK (created_at >= 0),
+    expires_at INTEGER NOT NULL CHECK (expires_at > created_at),
+    redemption_bound INTEGER NOT NULL CHECK (redemption_bound > 0),
+    redemption_count INTEGER NOT NULL CHECK (redemption_count >= 0),
+    revision INTEGER NOT NULL CHECK (revision >= 0),
+    record BLOB NOT NULL,
+    CHECK (redemption_count <= redemption_bound)
+) STRICT`;
+
 export function initializeSqliteIdentitySchema(database: TransactionalSqlite): void {
     runIdentityWrite(database, CREATE_TENANTS);
     runIdentityWrite(database, CREATE_PRINCIPALS);
@@ -100,6 +117,7 @@ export function initializeSqliteIdentitySchema(database: TransactionalSqlite): v
     runIdentityWrite(database, CREATE_ROLES);
     runIdentityWrite(database, CREATE_MEMBERSHIPS);
     runIdentityWrite(database, CREATE_MEMBERSHIP_INDEX);
+    runIdentityWrite(database, CREATE_SHARE_OFFERS);
 }
 
 export class SqliteIdentityReader extends IdentityRepository {
@@ -230,6 +248,28 @@ export class SqliteIdentityReader extends IdentityRepository {
         return membership;
     }
 
+    public loadShareOffer(id: ShareOfferId): ShareOffer | undefined {
+        const row = select(this.readDatabase, "tenant_share_offers", "id", id.value);
+        if (row === undefined) return undefined;
+        const offer = ShareOffer.decode(bytes(row, "record").slice());
+        if (
+            !offer.id.equals(id) ||
+            offer.id.value !== text(row, "id") ||
+            sqliteScopeKey(offer.scope) !== text(row, "scope_key") ||
+            offer.role.value !== text(row, "role_name") ||
+            offer.secretDigest.value !== text(row, "secret_digest") ||
+            offer.state !== text(row, "state") ||
+            offer.createdAt.getTime() !== integer(row, "created_at") ||
+            offer.expiresAt.getTime() !== integer(row, "expires_at") ||
+            offer.bound !== integer(row, "redemption_bound") ||
+            offer.redemptions.length !== integer(row, "redemption_count") ||
+            offer.revision.value !== integer(row, "revision")
+        ) {
+            throw corruptIdentity();
+        }
+        return offer;
+    }
+
     public teams(): readonly Team[] {
         return Object.freeze(
             readIdentity(this.readDatabase, "SELECT id FROM tenant_teams ORDER BY id", []).map(
@@ -275,6 +315,18 @@ export class SqliteIdentityReader extends IdentityRepository {
                 []
             ).map((row) =>
                 projectedRecord(this.loadGuestTrust(projectedId(GuestTrustId, text(row, "id"))))
+            )
+        );
+    }
+
+    public shareOffers(): readonly ShareOffer[] {
+        return Object.freeze(
+            readIdentity(
+                this.readDatabase,
+                "SELECT id FROM tenant_share_offers ORDER BY id",
+                []
+            ).map((row) =>
+                projectedRecord(this.loadShareOffer(projectedId(ShareOfferId, text(row, "id"))))
             )
         );
     }

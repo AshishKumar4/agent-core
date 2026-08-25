@@ -5,6 +5,7 @@ import type {
     Project,
     Role,
     ScopeRef,
+    ShareOffer,
     Team,
     TenantId,
     Workspace
@@ -59,6 +60,7 @@ export class AuthorityChangeSet {
     public readonly memberships = new AuthorityRecordChanges<Membership>();
     public readonly grants = new AuthorityRecordChanges<Grant>();
     public readonly bindings = new AuthorityRecordChanges<Binding>();
+    public readonly shareOffers = new AuthorityRecordChanges<ShareOffer>();
     /** Nothing points at a Scope epoch, so stores record every epoch write as replaced. */
     public readonly epochs = new AuthorityRecordChanges<ScopeEpoch>();
 }
@@ -66,9 +68,9 @@ export class AuthorityChangeSet {
 /**
  * Re-derives every invariant that spans more than one Tenant authority record: Scope
  * canonicality, subject and Role existence, guest trust evidence, Binding-to-Grant
- * closure, attenuation acyclicity, and Role Grant materialization equality. Both the
- * Memory store and the SQLite ledger call it, so one implementation decides what a
- * consistent Tenant is on either backing.
+ * closure, attenuation acyclicity, share offer redemption evidence, and Role Grant
+ * materialization equality. Both the Memory store and the SQLite ledger call it, so one
+ * implementation decides what a consistent Tenant is on either backing.
  *
  * Passing the transaction's `changed` records audits those records and the ones whose
  * validity their change can break; passing nothing sweeps the whole store, which is what
@@ -109,6 +111,7 @@ class AuthorityClosure {
         for (const membership of this.#auditedMemberships()) this.#assertMembership(membership);
         for (const grant of this.#auditedGrants()) this.#assertGrant(grant);
         for (const binding of this.#auditedBindings()) this.#assertBinding(binding);
+        for (const offer of this.#auditedShareOffers()) this.#assertShareOffer(offer);
         for (const epoch of this.#auditedEpochs()) this.#requireCanonicalScope(epoch.scope);
         for (const membership of this.#materializedMemberships()) {
             this.#assertMaterialization(membership);
@@ -220,6 +223,31 @@ class AuthorityClosure {
         }
     }
 
+    /**
+     * An offer names a canonical Scope and an existing Role, and every redemption it
+     * records names the Membership that redemption minted for exactly the holder it
+     * records. A Membership's subject and Scope are immutable and a Membership is never
+     * deleted, so only writing the offer can break these — which is why no other written
+     * kind pulls offers into an incremental audit.
+     */
+    #assertShareOffer(offer: ShareOffer): void {
+        this.#requireCanonicalScope(offer.scope);
+        if (this.store.role(offer.role) === undefined) {
+            throw corruptAuthorityClosure("Share offer references a missing Role");
+        }
+        for (const redemption of offer.redemptions) {
+            const membership = this.store.membership(redemption.membership);
+            if (
+                membership === undefined ||
+                subjectKey(membership.subject) !== subjectKey(redemption.subject)
+            ) {
+                throw corruptAuthorityClosure(
+                    "Share offer redemption references invalid Membership evidence"
+                );
+            }
+        }
+    }
+
     #assertMaterialization(membership: Membership): void {
         const role = this.store.role(membership.role);
         if (role === undefined) {
@@ -280,6 +308,12 @@ class AuthorityClosure {
         return this.changed === undefined
             ? this.store.guestTrusts()
             : this.changed.guestTrusts.written();
+    }
+
+    #auditedShareOffers(): readonly ShareOffer[] {
+        return this.changed === undefined
+            ? this.store.shareOffers()
+            : this.changed.shareOffers.written();
     }
 
     #auditedEpochs(): readonly ScopeEpoch[] {

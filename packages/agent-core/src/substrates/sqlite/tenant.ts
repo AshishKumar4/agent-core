@@ -22,6 +22,8 @@ import {
     Project,
     Role,
     RoleName,
+    ShareOffer,
+    ShareOfferId,
     Team,
     TeamId,
     Tenant,
@@ -304,6 +306,7 @@ export class SqliteTenantControlStore
              UNION ALL SELECT 1 AS present FROM tenant_memberships
              UNION ALL SELECT 1 AS present FROM tenant_grants
              UNION ALL SELECT 1 AS present FROM tenant_bindings
+             UNION ALL SELECT 1 AS present FROM tenant_share_offers
              UNION ALL SELECT 1 AS present FROM tenant_scope_epochs
              LIMIT 1`,
                 []
@@ -401,6 +404,14 @@ export class SqliteTenantControlStore
         const presence = recordPresence(this.binding(binding.key));
         saveSqliteBinding(write.database, binding);
         write.changes.bindings.record(binding.key, binding, presence);
+    }
+
+    public shareOffer(id: ShareOfferId): ShareOffer | undefined {
+        return this.loadShareOffer(id);
+    }
+
+    public putShareOffer(offer: ShareOffer): void {
+        this.saveShareOffer(offer);
     }
 
     public epochs(): readonly ScopeEpoch[] {
@@ -700,6 +711,53 @@ export class SqliteTenantControlStore
         this.activeWrite().changes.memberships.record(
             membership.id.value,
             membership,
+            recordPresence(previous)
+        );
+    }
+
+    public saveShareOffer(offer: ShareOffer): void {
+        requireCanonicalScope(this, offer.scope);
+        const previous = this.loadShareOffer(offer.id);
+        if (previous === undefined) {
+            if (offer.revision.value !== 0 || !offer.isOpen || offer.redemptions.length !== 0) {
+                throw new AgentCoreError(
+                    "protocol.invalid-state",
+                    "New share offers must be open and unredeemed at revision zero"
+                );
+            }
+        } else {
+            if (equalBytes(ShareOffer.encode(previous), ShareOffer.encode(offer))) return;
+            previous.assertCanReplace(offer);
+        }
+        this.writeDatabase().run(
+            `INSERT INTO tenant_share_offers (
+                id, scope_key, role_name, secret_digest, state, created_at, expires_at,
+                redemption_bound, redemption_count, revision, record
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             ON CONFLICT(id) DO UPDATE SET scope_key = excluded.scope_key,
+                role_name = excluded.role_name, secret_digest = excluded.secret_digest,
+                state = excluded.state, created_at = excluded.created_at,
+                expires_at = excluded.expires_at, redemption_bound = excluded.redemption_bound,
+                redemption_count = excluded.redemption_count, revision = excluded.revision,
+                record = excluded.record`,
+            [
+                offer.id.value,
+                sqliteScopeKey(offer.scope),
+                offer.role.value,
+                offer.secretDigest.value,
+                offer.state,
+                offer.createdAt.getTime(),
+                offer.expiresAt.getTime(),
+                offer.bound,
+                offer.redemptions.length,
+                offer.revision.value,
+                ShareOffer.encode(offer)
+            ]
+        );
+        requireSaved(this.loadShareOffer(offer.id), offer, ShareOffer.encode);
+        this.activeWrite().changes.shareOffers.record(
+            offer.id.value,
+            offer,
             recordPresence(previous)
         );
     }

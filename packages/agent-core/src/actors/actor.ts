@@ -1,4 +1,4 @@
-import { isObjectRecord } from "../core";
+import { CodecCompatibility, isObjectRecord, type CodecDeclaration } from "../core";
 import { AgentCoreError, type AgentCoreErrorCode } from "../errors";
 import { createActorContext, type ActorContext } from "./context";
 import { ActorRecoveryState } from "./fence";
@@ -35,13 +35,28 @@ export abstract class Actor<TTransaction> {
     #closing = false;
     #closePromise: Promise<void> | undefined;
     #fence: ActorFence;
+    #compatibility: CodecCompatibility = CodecCompatibility.compatible;
 
+    /**
+     * `declaration` names the codec versions this Actor reads its own records under (§8.3).
+     * Activation reaches the stored declaration before any record of the set is decoded, so
+     * an incompatible set never reaches `start`: construction still succeeds, and every
+     * operation raises the codec's typed error while the stored bytes stay untouched.
+     */
     protected constructor(
         context: ActorContext<TTransaction>,
+        declaration: CodecDeclaration,
         start: ActorStartOperation<TTransaction>
     ) {
         this.#context = createActorContext(context.actor, context.store);
-        this.#fence = this.#context.store.activateActor(context.actor, start).fence;
+        const store = this.#context.store;
+        this.#fence = store.activateActor(context.actor, (transaction, activation) => {
+            this.#compatibility = activation.recovery.declaration.compatibilityWith(declaration);
+            this.#compatibility.admit(() => {
+                store.saveRecoveryState(transaction, activation.recovery.declaring(declaration));
+                requireSynchronousResult(start(transaction, activation));
+            });
+        }).fence;
     }
 
     public get id(): ActorId {
@@ -207,6 +222,7 @@ export abstract class Actor<TTransaction> {
         if (this.#closed) {
             throw new AgentCoreError("actor.closed", "Actor is closed");
         }
+        this.#compatibility.requireCompatible();
     }
 }
 

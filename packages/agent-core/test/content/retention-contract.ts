@@ -12,13 +12,14 @@ import type {
     TransientContentBinding,
     TransientContentLease
 } from "../../src/content/transient";
-import { ContentRef, Digest } from "../../src/core";
+import { compareCanonicalText, ContentRef, Digest } from "../../src/core";
 import { TenantId } from "../../src/identity";
 import { expectAgentCoreError, expectAgentCoreRejection } from "../protocol/error-assertion";
 
 const encode = (value: string): Uint8Array => new TextEncoder().encode(value);
 const tenant = new TenantId("tenant-a");
 const actor = new ActorRef("workspace", new ActorId("actor-a"));
+const custodyNamespace: readonly string[] = ["record:"];
 
 export interface TestContentOwner {
     readonly tenant: TenantId;
@@ -45,6 +46,7 @@ export interface ContentRetentionHarness<TTransaction> {
         operationAt: Date,
         bytes?: Uint8Array
     ): TransientContentLease | undefined;
+    reopen(): ContentRetentionHarness<TTransaction>;
 }
 
 export function contentRetentionContract<TTransaction>(
@@ -518,6 +520,402 @@ export function contentRetentionContract<TTransaction>(
                 await expect(harness.store.get(stored.ref)).resolves.toEqual(encode("rollback"));
             }
         );
+
+        test(
+            "[C13-CONTENT-CUSTODY] registers an owner edge for named content inside the owning transaction",
+            { tags: "p0" },
+            async () => {
+                const harness = create();
+                const stored = await harness.store.put(encode("named"));
+                const edge = new ContentOwnerEdge(
+                    tenant,
+                    actor,
+                    "record:turn.record:1:t:input",
+                    stored.ref
+                );
+
+                harness.transaction((transaction) => {
+                    harness.retention.verifyExactNamespace(transaction, custodyNamespace, []);
+                    harness.retention.retain(transaction, edge, at(10));
+                    harness.retention.verifyExactNamespace(transaction, custodyNamespace, [edge]);
+                });
+                harness.transaction((transaction) =>
+                    harness.retention.verifyExactNamespace(transaction, custodyNamespace, [edge])
+                );
+                expect(collect(harness, at(20), true)).toEqual({ candidates: [], refs: [] });
+                await expect(harness.store.get(stored.ref)).resolves.toEqual(encode("named"));
+            }
+        );
+
+        test(
+            "[C13-CONTENT-CUSTODY] swaps an owner key onto new content atomically and refuses a bare re-registration",
+            { tags: "p0" },
+            async () => {
+                const harness = create();
+                const original = await harness.store.put(encode("original"));
+                const replacement = await harness.store.put(encode("replacement"));
+                const ownerKey = "record:workspace.view:1:v:content";
+                const before = new ContentOwnerEdge(tenant, actor, ownerKey, original.ref);
+                const after = new ContentOwnerEdge(tenant, actor, ownerKey, replacement.ref);
+
+                harness.transaction((transaction) =>
+                    harness.retention.retain(transaction, before, at(10))
+                );
+                expectAgentCoreError(
+                    () =>
+                        harness.transaction((transaction) => {
+                            harness.retention.retain(transaction, after, at(11));
+                        }),
+                    "protocol.invalid-state"
+                );
+                expect(() =>
+                    harness.transaction((transaction) => {
+                        harness.retention.release(transaction, before, at(12));
+                        harness.retention.retain(transaction, after, at(12));
+                        throw new TypeError("swap fault");
+                    })
+                ).toThrow("swap fault");
+                harness.transaction((transaction) =>
+                    harness.retention.verifyExactNamespace(transaction, custodyNamespace, [before])
+                );
+
+                harness.transaction((transaction) => {
+                    harness.retention.release(transaction, before, at(20));
+                    harness.retention.retain(transaction, after, at(20));
+                    harness.retention.verifyExactNamespace(transaction, custodyNamespace, [after]);
+                });
+                const collected = collect(harness, at(21), true);
+                expect(refValues(collected.refs)).toEqual([original.ref.value]);
+                expect(collected.candidates[0]?.unownedSince).toEqual(at(20));
+                await expect(harness.store.get(replacement.ref)).resolves.toEqual(
+                    encode("replacement")
+                );
+            }
+        );
+
+        test(
+            "[C13-CONTENT-CUSTODY] a faulted transaction leaves no owner edge and no retained content",
+            { tags: "p0" },
+            async () => {
+                const harness = create();
+                const stored = await harness.store.put(encode("rolled back"));
+                const edge = new ContentOwnerEdge(
+                    tenant,
+                    actor,
+                    "record:run.commit:1:c:content",
+                    stored.ref
+                );
+                expect(() =>
+                    harness.transaction((transaction) => {
+                        harness.retention.retain(transaction, edge, at(10));
+                        harness.retention.verifyExactNamespace(transaction, custodyNamespace, [
+                            edge
+                        ]);
+                        throw new TypeError("commit fault");
+                    })
+                ).toThrow("commit fault");
+                harness.transaction((transaction) =>
+                    harness.retention.verifyExactNamespace(transaction, custodyNamespace, [])
+                );
+                expect(collect(harness, at(11), true)).toEqual({ candidates: [], refs: [] });
+                harness.transaction((transaction) =>
+                    harness.retention.retain(transaction, edge, at(12))
+                );
+                harness.transaction((transaction) =>
+                    harness.retention.verifyExactNamespace(transaction, custodyNamespace, [edge])
+                );
+            }
+        );
+
+        test(
+            "[C13-CONTENT-CUSTODY] a fresh store over the same durable state holds exactly what committed",
+            { tags: "p0" },
+            async () => {
+                const harness = create();
+                const kept = await harness.store.put(encode("kept"));
+                const dropped = await harness.store.put(encode("dropped"));
+                const uncommitted = await harness.store.put(encode("uncommitted"));
+                const keptEdge = new ContentOwnerEdge(
+                    tenant,
+                    actor,
+                    "record:run.commit:1:c:content",
+                    kept.ref
+                );
+                const droppedEdge = new ContentOwnerEdge(
+                    tenant,
+                    actor,
+                    "record:workspace.view:1:v:content",
+                    dropped.ref
+                );
+                const uncommittedEdge = new ContentOwnerEdge(
+                    tenant,
+                    actor,
+                    "record:turn.record:1:t:input",
+                    uncommitted.ref
+                );
+                harness.transaction((transaction) => {
+                    harness.retention.retain(transaction, keptEdge, at(10));
+                    harness.retention.retain(transaction, droppedEdge, at(10));
+                });
+                harness.transaction((transaction) =>
+                    harness.retention.release(transaction, droppedEdge, at(20))
+                );
+                expect(() =>
+                    harness.transaction((transaction) => {
+                        harness.retention.retain(transaction, uncommittedEdge, at(21));
+                        throw new TypeError("restart fault");
+                    })
+                ).toThrow("restart fault");
+
+                const restarted = harness.reopen();
+                restarted.transaction((transaction) =>
+                    restarted.retention.verifyExactNamespace(transaction, custodyNamespace, [
+                        keptEdge
+                    ])
+                );
+                const collected = collect(restarted, at(30), true);
+                expect(refValues(collected.refs)).toEqual([dropped.ref.value]);
+                await expect(restarted.store.get(kept.ref)).resolves.toEqual(encode("kept"));
+                await expect(restarted.store.get(uncommitted.ref)).resolves.toEqual(
+                    encode("uncommitted")
+                );
+                restarted.transaction((transaction) =>
+                    restarted.retention.verifyExactNamespace(transaction, custodyNamespace, [
+                        keptEdge
+                    ])
+                );
+            }
+        );
+
+        test(
+            "[C13-CONTENT-CUSTODY] a defined removal path releases the edge in the same transaction",
+            { tags: "p0" },
+            async () => {
+                const harness = create();
+                const stored = await harness.store.put(encode("removed"));
+                const edge = new ContentOwnerEdge(
+                    tenant,
+                    actor,
+                    "record:workspace.view:1:v:content",
+                    stored.ref
+                );
+                harness.transaction((transaction) =>
+                    harness.retention.retain(transaction, edge, at(10))
+                );
+                const collected = harness.transaction((transaction) => {
+                    harness.retention.release(transaction, edge, at(20));
+                    harness.retention.verifyExactNamespace(transaction, custodyNamespace, []);
+                    return harness.retention.collect(
+                        transaction,
+                        { allowsCollection: () => true },
+                        at(20)
+                    );
+                });
+                expect(refValues(collected)).toEqual([stored.ref.value]);
+                await expectAgentCoreRejection(harness.store.get(stored.ref), "content.not-found");
+            }
+        );
+
+        test(
+            "[C13-CONTENT-CUSTODY] an append-only kind never releases, so every collection pass leaves its content",
+            { tags: "p0" },
+            async () => {
+                const harness = create();
+                const appended = await harness.store.put(encode("append-only result"));
+                const removable = await harness.store.put(encode("removable revision"));
+                const receipt = new ContentOwnerEdge(
+                    tenant,
+                    actor,
+                    "record:invocation.receipt:1:r:result",
+                    appended.ref
+                );
+                const view = new ContentOwnerEdge(
+                    tenant,
+                    actor,
+                    "record:workspace.view:1:v:content",
+                    removable.ref
+                );
+                harness.transaction((transaction) => {
+                    harness.retention.retain(transaction, receipt, at(10));
+                    harness.retention.retain(transaction, view, at(10));
+                    harness.retention.release(transaction, view, at(20));
+                });
+                for (const observedAt of [at(21), at(1_000), at(1_000_000)]) {
+                    const collected = collect(harness, observedAt, true);
+                    expect(
+                        refValues(collected.candidates.map((candidate) => candidate.stat.ref))
+                    ).not.toContain(appended.ref.value);
+                    expect(refValues(collected.refs)).not.toContain(appended.ref.value);
+                    await expect(harness.store.get(appended.ref)).resolves.toEqual(
+                        encode("append-only result")
+                    );
+                }
+                harness.transaction((transaction) =>
+                    harness.retention.verifyExactNamespace(transaction, custodyNamespace, [receipt])
+                );
+            }
+        );
+
+        test(
+            "[C13-CONTENT-CUSTODY] collection offers only content no declared owner holds",
+            { tags: "p0" },
+            async () => {
+                const harness = create();
+                const held = await harness.store.put(encode("held"));
+                const shared = await harness.store.put(encode("shared by two owners"));
+                const freed = await harness.store.put(encode("freed"));
+                const holder = new ContentOwnerEdge(
+                    tenant,
+                    actor,
+                    "record:run.commit:1:c:content",
+                    held.ref
+                );
+                const firstShare = new ContentOwnerEdge(
+                    tenant,
+                    actor,
+                    "record:turn.record:1:t:input",
+                    shared.ref
+                );
+                const secondShare = new ContentOwnerEdge(
+                    tenant,
+                    actor,
+                    "record:turn.record:1:t:result",
+                    shared.ref
+                );
+                const released = new ContentOwnerEdge(
+                    tenant,
+                    actor,
+                    "record:workspace.view:1:v:content",
+                    freed.ref
+                );
+                harness.transaction((transaction) => {
+                    for (const edge of [holder, firstShare, secondShare, released]) {
+                        harness.retention.retain(transaction, edge, at(10));
+                    }
+                    harness.retention.release(transaction, released, at(20));
+                });
+
+                const first = collect(harness, at(21), true);
+                expect(refValues(first.candidates.map((candidate) => candidate.stat.ref))).toEqual([
+                    freed.ref.value
+                ]);
+                expect(refValues(first.refs)).toEqual([freed.ref.value]);
+
+                harness.transaction((transaction) =>
+                    harness.retention.release(transaction, firstShare, at(30))
+                );
+                expect(collect(harness, at(31), true)).toEqual({ candidates: [], refs: [] });
+                await expect(harness.store.get(shared.ref)).resolves.toEqual(
+                    encode("shared by two owners")
+                );
+
+                harness.transaction((transaction) =>
+                    harness.retention.release(transaction, secondShare, at(40))
+                );
+                const third = collect(harness, at(41), true);
+                expect(refValues(third.refs)).toEqual([shared.ref.value]);
+                await expect(harness.store.get(held.ref)).resolves.toEqual(encode("held"));
+                harness.transaction((transaction) =>
+                    harness.retention.verifyExactNamespace(transaction, custodyNamespace, [holder])
+                );
+            }
+        );
+
+        test(
+            "[C13-CONTENT-CUSTODY] repeated collection passes never double-collect and never take content a concurrent retain saved",
+            { tags: "p0" },
+            async () => {
+                const harness = create();
+                const rescued = await harness.store.put(encode("rescued candidate"));
+                const doomed = await harness.store.put(encode("doomed candidate"));
+                const rescuedEdge = new ContentOwnerEdge(
+                    tenant,
+                    actor,
+                    "record:workspace.view:1:rescued:content",
+                    rescued.ref
+                );
+                const doomedEdge = new ContentOwnerEdge(
+                    tenant,
+                    actor,
+                    "record:workspace.view:1:doomed:content",
+                    doomed.ref
+                );
+                harness.transaction((transaction) => {
+                    harness.retention.retain(transaction, rescuedEdge, at(10));
+                    harness.retention.retain(transaction, doomedEdge, at(10));
+                    harness.retention.release(transaction, rescuedEdge, at(20));
+                    harness.retention.release(transaction, doomedEdge, at(20));
+                });
+
+                const offered: string[] = [];
+                const raced = harness.transaction((transaction) =>
+                    harness.retention.collect(
+                        transaction,
+                        {
+                            allowsCollection(_transaction, candidate): boolean {
+                                offered.push(candidate.stat.ref.value);
+                                if (candidate.stat.ref.equals(rescued.ref)) {
+                                    harness.retention.retain(transaction, rescuedEdge, at(25));
+                                }
+                                return true;
+                            }
+                        },
+                        at(25)
+                    )
+                );
+                expect([...offered].sort(compareCanonicalText)).toEqual(
+                    [doomed.ref.value, rescued.ref.value].sort(compareCanonicalText)
+                );
+                expect(refValues(raced)).toEqual([doomed.ref.value]);
+                await expect(harness.store.get(rescued.ref)).resolves.toEqual(
+                    encode("rescued candidate")
+                );
+                expect(collect(harness, at(26), true)).toEqual({ candidates: [], refs: [] });
+
+                harness.transaction((transaction) =>
+                    harness.retention.release(transaction, rescuedEdge, at(30))
+                );
+                expect(refValues(collect(harness, at(31), true).refs)).toEqual([rescued.ref.value]);
+                expect(collect(harness, at(32), true)).toEqual({ candidates: [], refs: [] });
+            }
+        );
+
+        test(
+            "[C13-CONTENT-CUSTODY] a transient lease holds its content across a restart and stops holding it when the lease ends",
+            { tags: "p0" },
+            async () => {
+                for (const closeEarly of [true, false]) {
+                    const harness = create();
+                    harness.setNow(at(10));
+                    const binding = bindingFor(
+                        "leased across restart",
+                        `restart-${closeEarly}`,
+                        at(30)
+                    );
+                    expect(
+                        await harness.transient.acquire(binding, encode("leased across restart"))
+                    ).toBeDefined();
+
+                    const restarted = harness.reopen();
+                    restarted.setNow(at(20));
+                    expect(collect(restarted, at(20), true)).toEqual({ candidates: [], refs: [] });
+                    await expect(restarted.store.get(binding.ref)).resolves.toEqual(
+                        encode("leased across restart")
+                    );
+
+                    const reacquired = await restarted.transient.acquire(binding);
+                    expect(reacquired?.matches(binding, at(20))).toBe(true);
+                    const endedAt = closeEarly ? at(25) : at(30);
+                    if (closeEarly) {
+                        restarted.setNow(endedAt);
+                        await reacquired!.close();
+                    }
+                    const collected = collect(restarted, endedAt, true);
+                    expect(refValues(collected.refs)).toEqual([binding.ref.value]);
+                    expect(collected.candidates[0]?.unownedSince).toEqual(endedAt);
+                }
+            }
+        );
     });
 }
 
@@ -564,4 +962,8 @@ function collect<TTransaction>(
         harness.retention.collect(transaction, policy, observedAt)
     );
     return { refs, candidates };
+}
+
+function refValues(refs: readonly ContentRef[]): readonly string[] {
+    return refs.map((ref) => ref.value);
 }

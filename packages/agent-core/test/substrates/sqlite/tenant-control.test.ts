@@ -70,6 +70,7 @@ describe("SQLite Tenant control storage", () => {
             "tenant_projects",
             "tenant_roles",
             "tenant_scope_epochs",
+            "tenant_share_offers",
             "tenant_teams",
             "tenant_workspaces"
         ]);
@@ -656,7 +657,10 @@ function tableNames(database: TransactionalSqlite): readonly string[] {
 class MarkerTamperSqlite extends TestSqlite {
     public tampered = false;
 
-    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+    protected override query(
+        statement: string,
+        bindings: readonly SqliteValue[]
+    ): readonly SqliteRow[] {
         const rows = super.query(statement, bindings);
         if (!this.tampered || !statement.includes("FROM tenant_bootstrap_marker")) return rows;
         return rows.map((row) => ({ ...row, tenant_id: null }));

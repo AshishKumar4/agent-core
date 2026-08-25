@@ -13,6 +13,8 @@ import {
     ProjectId,
     Role,
     RoleName,
+    ShareOffer,
+    ShareOfferId,
     Team,
     TeamId,
     Tenant,
@@ -369,6 +371,14 @@ export class MemoryTenantControlStore implements AuthorityMutationStore {
         return this.identityRecords("membership", Membership.decode);
     }
 
+    public shareOffer(id: ShareOfferId): ShareOffer | undefined {
+        return this.identityRecord("shareOffer", id.value, ShareOffer.decode);
+    }
+
+    public shareOffers(): readonly ShareOffer[] {
+        return this.identityRecords("shareOffer", ShareOffer.decode);
+    }
+
     public grant(id: GrantId): Grant | undefined {
         return decodeRecord(
             this.#grants,
@@ -495,6 +505,25 @@ export class MemoryTenantControlStore implements AuthorityMutationStore {
         }
         this.putIdentity("membership", membership.id.value, Membership.encode(membership));
         this.#changes.memberships.record(membership.id.value, membership, presence(previous));
+    }
+
+    public putShareOffer(offer: ShareOffer): void {
+        this.requireWrite();
+        requireCanonicalScope(this, offer.scope);
+        const previous = this.shareOffer(offer.id);
+        if (previous === undefined) {
+            if (offer.revision.value !== 0 || !offer.isOpen || offer.redemptions.length !== 0) {
+                throw new AgentCoreError(
+                    "protocol.invalid-state",
+                    "New share offers must be open and unredeemed at revision zero"
+                );
+            }
+        } else {
+            if (bytesEqual(ShareOffer.encode(previous), ShareOffer.encode(offer))) return;
+            previous.assertCanReplace(offer);
+        }
+        this.putIdentity("shareOffer", offer.id.value, ShareOffer.encode(offer));
+        this.#changes.shareOffers.record(offer.id.value, offer, presence(previous));
     }
 
     public putGrant(record: Grant): void {

@@ -9,7 +9,7 @@ import {
     type ActorContext,
     type ActorKind
 } from "../../src/actors";
-import { type JsonObject } from "../../src/core";
+import { CodecDeclaration, type JsonObject } from "../../src/core";
 import { AgentCoreError } from "../../src/errors";
 import { SqliteActorStore } from "../../src/substrates";
 import { TestSqlite } from "../helpers/sqlite";
@@ -149,7 +149,9 @@ function memoryActivationAdmitted(stored: StoredActorState): Outcome {
                         ? null
                         : { kind: stored.identity.kind, id: stored.identity.id.value },
                 recoveryState:
-                    stored.recovery === null ? null : ActorRecoveryState.codec.encode(stored.recovery)
+                    stored.recovery === null
+                        ? null
+                        : ActorRecoveryState.codec.encode(stored.recovery)
             },
             structuredClone
         );
@@ -199,7 +201,7 @@ interface Counter {
 
 class GateActor extends Actor<Counter> {
     public constructor(context: ActorContext<Counter>) {
-        super(context, () => {});
+        super(context, CodecDeclaration.of([ActorRecoveryState.codec]), () => {});
     }
 
     public bump(fence: ActorFence): Promise<number> {

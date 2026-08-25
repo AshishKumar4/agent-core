@@ -18,6 +18,9 @@ import {
     RoleName,
     RoleRule,
     ScopeRef,
+    ShareOffer,
+    ShareOfferId,
+    ShareOfferRedemption,
     SubjectRef,
     Team,
     TeamId,
@@ -167,6 +170,7 @@ describe("Tenant authority closure incremental audit", () => {
         expect(divergence.memberships.reads).toBe(0);
         expect(divergence.grants.reads).toBe(0);
         expect(divergence.bindings.reads).toBe(0);
+        expect(divergence.shareOffers.reads).toBe(0);
         expect(divergence.epochs.reads).toBe(0);
     });
 
@@ -453,6 +457,40 @@ describe("Tenant authority closure record evidence", () => {
             assertAuthorityClosure(new DivergentAuthorityStore(store, divergence))
         ).toThrow(corrupt("Role Grant references invalid Membership evidence"));
     });
+
+    test(
+        "refuses a share offer redemption that names no Membership of its own holder",
+        { tags: "p0" },
+        () => {
+            const { store, service } = open();
+            const member = membership("closure-gate-offer-member", workspaceScope);
+            service.assignMembership(member);
+            const fault = corrupt("Share offer redemption references invalid Membership evidence");
+
+            for (const broken of [
+                shareOffer("closure-gate-absent-membership", readerName, [
+                    new ShareOfferRedemption(
+                        memberSubject,
+                        new MembershipId("closure-gate-never-minted"),
+                        new Date(150)
+                    )
+                ]),
+                shareOffer("closure-gate-stray-holder", readerName, [
+                    new ShareOfferRedemption(ghostSubject, member.id, new Date(150))
+                ])
+            ]) {
+                expect(
+                    () => assertAuthorityClosure(store, wroteOffer(broken)),
+                    broken.id.value
+                ).toThrow(fault);
+            }
+
+            const sound = shareOffer("closure-gate-sound-offer", readerName, [
+                new ShareOfferRedemption(memberSubject, member.id, new Date(150))
+            ]);
+            expect(() => assertAuthorityClosure(store, wroteOffer(sound))).not.toThrow();
+        }
+    );
 });
 
 function corrupt(message: string): ReturnType<typeof expect.objectContaining> {
@@ -589,8 +627,45 @@ function brokenTables(): readonly {
                 );
                 divergence.bindings.answer(stray.key, stray);
             }
+        },
+        {
+            name: "share offers",
+            fault: corrupt("Share offer references a missing Role"),
+            plant: (divergence) =>
+                divergence.shareOffers.answer(
+                    "closure-gate-roleless-offer",
+                    shareOffer(
+                        "closure-gate-roleless-offer",
+                        new RoleName("closure-gate-absent-role")
+                    )
+                )
         }
     ];
+}
+
+function shareOffer(
+    id: string,
+    role: RoleName,
+    redemptions: readonly ShareOfferRedemption[] = []
+): ShareOffer {
+    return new ShareOffer(
+        new ShareOfferId(id),
+        workspaceScope,
+        role,
+        Digest.sha256(Uint8Array.of(11, 13)),
+        new Date(100),
+        new Date(200),
+        2,
+        redemptions,
+        "open",
+        Revision.initial()
+    );
+}
+
+function wroteOffer(offer: ShareOffer): AuthorityChangeSet {
+    const changed = new AuthorityChangeSet();
+    changed.shareOffers.record(offer.id.value, offer, "created");
+    return changed;
 }
 
 /** A store whose Scope epoch table answers with one epoch on `scope`. */

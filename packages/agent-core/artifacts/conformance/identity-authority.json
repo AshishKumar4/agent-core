@@ -47,21 +47,34 @@
       "owner": "W2",
       "specAnchor": "C13-ADV-MEDIATED-STALE",
       "specTextSha256": "sha256:96bdcfef71d88dbf656a603915c7887f5ce724d075a27d1a3aef59f0ccdd6ebb",
-      "status": "implemented",
+      "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [
         "src/composition/authority-state.ts#ActorAuthorityState",
         "src/composition/authority.ts#TenantOperationAuthority",
+        "src/authority/runtime.ts#TenantAuthorityRuntime",
+        "src/authority/epoch.ts#PathEpochEvidence",
+        "src/authority/epoch.ts#InvalidationWatermark",
         "src/authority/watermark-store.ts#MemoryInvalidationWatermarkStore",
         "src/substrates/sqlite/watermark.ts#SqliteInvalidationWatermarkStore"
       ],
       "testSelectors": [
+        "test/authority/mediated-stale-adversarial.test.ts#adversarial stale mediated reads [C13-ADV-MEDIATED-STALE] refuses the exact evidence it admitted one epoch earlier",
+        "test/authority/mediated-stale-adversarial.test.ts#adversarial stale mediated reads [C13-ADV-MEDIATED-STALE] refuses evidence whose ancestor Scope advanced while its target did not",
+        "test/authority/mediated-stale-adversarial.test.ts#adversarial stale mediated reads [C13-ADV-MEDIATED-STALE] refuses a sibling Scope's current path and cannot be handed a truncated one",
+        "test/authority/mediated-stale-adversarial.test.ts#the invalidation watermark a stale observation advances: memory [C13-ADV-MEDIATED-STALE] joins monotonically and refuses a non-dominating advance",
+        "test/authority/mediated-stale-adversarial.test.ts#the invalidation watermark a stale observation advances: memory [C13-ADV-MEDIATED-STALE] a join whose span then fails leaves no advance behind",
+        "test/authority/mediated-stale-adversarial.test.ts#the invalidation watermark a stale observation advances: sqlite [C13-ADV-MEDIATED-STALE] joins monotonically and refuses a non-dominating advance",
+        "test/authority/mediated-stale-adversarial.test.ts#the invalidation watermark a stale observation advances: sqlite [C13-ADV-MEDIATED-STALE] a join whose span then fails leaves no advance behind",
         "test/composition/authority-state.test.ts#production authority state (memory) [C13-ADV-MEDIATED-STALE] a failed denial append propagates and leaves no partial denial evidence",
-        "test/composition/authority-state.test.ts#production authority state (sqlite) [C13-ADV-MEDIATED-STALE] a failed denial append propagates and leaves no partial denial evidence"
+        "test/composition/authority-state.test.ts#production authority state (sqlite) [C13-ADV-MEDIATED-STALE] a failed denial append propagates and leaves no partial denial evidence",
+        "test/authority/mediated-stale-adversarial.test.ts#the durable target-local denial a stale mediated read commits: memory [C13-AUTH-MEDIATED-STALE] [C13-ADV-MEDIATED-STALE] advances the watermark strictly before it appends the denial",
+        "test/authority/mediated-stale-adversarial.test.ts#the durable target-local denial a stale mediated read commits: sqlite [C13-AUTH-MEDIATED-STALE] [C13-ADV-MEDIATED-STALE] advances the watermark strictly before it appends the denial"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
-      "remainingEvidence": [
-        "Names mediated stale observation. Its only tests assert that a failed denial append propagates and leaves no partial denial evidence, which is append atomicity, not a stale mediated read."
+      "remainingEvidence": [],
+      "bounds": [
+        "The join-before-denial order is observed AT the two seams as they are called, not reconstructed from durable state after the commit. Both writes land in one Actor transaction, so no post-commit witness can tell the required order from the reverse; the cited tests therefore record the sequence through the host's own InvalidationWatermarkStore and denial-append ports, both of which the production code already calls through interfaces. This rule claims that sequence inside the one transaction and claims no durable artefact that would let a later reader re-derive it."
       ]
     },
     {
@@ -357,7 +370,7 @@
         "W3 holds the isolate channel: src/operations/authored-code.ts#AuthoredCodeCapabilitySet keys the namespace by a Map and GatewayAuthoredCodeInvocationPort checks passed-set membership before resolving, with test/operations/authored-code.test.ts covering an unpassed language-supplied name, a passed one, and the fixed set, so a W2 row cannot cite them under the evidence-ownership rule",
         "Closure is unproven for the Slate-backend and agent-authored-facet consumers: only the programmatic-tool-call channel has a covered namespace",
         "No checker forbids a host from assembling a capability namespace as a prototype-bearing structure, so the Map keying is a convention rather than an enforced one",
-        "The no-renaming half is unproven: no test asserts a host refuses rather than normalizes a passed capability whose name is inadmissible"
+        "The no-renaming half is now proven in test/authority/isolate-namespace-refusal.test.ts, which is why this row stays planned only on the three items above: for every repair a host might apply — trim, case-fold, NFKC, combining-mark strip, truncate to the 256-character limit — the file first proves the repaired spelling is admissible and already bound, then proves the inadmissible spelling is refused at the BindingName, at the Binding record, and at Binding.fromData, leaving exactly the one Binding that was written. An empty name is refused with no substituted default, and the longest canonical name is admitted while the next character is refused rather than truncated. A mutation making Binding.fromData normalize the decoded name instead of refusing it turns that file red."
       ]
     },
     {
@@ -401,13 +414,26 @@
       ],
       "testSelectors": [
         "test/authority/runtime-foundation.test.ts#Tenant authority runtime [C13-AUTH-MEDIATED-STALE] returns current path evidence and detects stale evidence",
+        "test/authority/mediated-stale-adversarial.test.ts#the durable target-local denial a stale mediated read commits: memory [C13-AUTH-MEDIATED-STALE] commits the Receipt, its AuditRecord and the watermark join in one target-local transaction",
+        "test/authority/mediated-stale-adversarial.test.ts#the durable target-local denial a stale mediated read commits: memory [C13-AUTH-MEDIATED-STALE] refuses the denial AuditRecord unless its Receipt is already durable in the same span",
+        "test/authority/mediated-stale-adversarial.test.ts#the durable target-local denial a stale mediated read commits: memory [C13-AUTH-MEDIATED-STALE] a failure afterReceipt leaves no Receipt, no AuditRecord and no watermark advance",
+        "test/authority/mediated-stale-adversarial.test.ts#the durable target-local denial a stale mediated read commits: memory [C13-AUTH-MEDIATED-STALE] a failure afterAudit leaves no Receipt, no AuditRecord and no watermark advance",
+        "test/authority/mediated-stale-adversarial.test.ts#the durable target-local denial a stale mediated read commits: sqlite [C13-AUTH-MEDIATED-STALE] commits the Receipt, its AuditRecord and the watermark join in one target-local transaction",
+        "test/authority/mediated-stale-adversarial.test.ts#the durable target-local denial a stale mediated read commits: sqlite [C13-AUTH-MEDIATED-STALE] refuses the denial AuditRecord unless its Receipt is already durable in the same span",
+        "test/authority/mediated-stale-adversarial.test.ts#the durable target-local denial a stale mediated read commits: sqlite [C13-AUTH-MEDIATED-STALE] a failure afterReceipt leaves no Receipt, no AuditRecord and no watermark advance",
+        "test/authority/mediated-stale-adversarial.test.ts#the durable target-local denial a stale mediated read commits: sqlite [C13-AUTH-MEDIATED-STALE] a failure afterAudit leaves no Receipt, no AuditRecord and no watermark advance",
         "test/composition/authority-state.test.ts#production authority state (memory) [C13-AUTH-MEDIATED-STALE] [C13-AUTH-RESOLUTION-LIFETIME] a stale observation atomically joins the watermark, invalidates the cache, and records the denial without an EffectAttempt",
         "test/composition/authority-state.test.ts#production authority state (sqlite) [C13-AUTH-MEDIATED-STALE] [C13-AUTH-RESOLUTION-LIFETIME] a stale observation atomically joins the watermark, invalidates the cache, and records the denial without an EffectAttempt",
-        "test/composition/stale-denial.test.ts#stale mediated authority produces durable denial evidence (§3.4 rule 7) [C13-AUTH-MEDIATED-STALE] advancing a scope epoch denies mediated with joined watermark, invalidation, and evidence"
+        "test/composition/stale-denial.test.ts#stale mediated authority produces durable denial evidence (§3.4 rule 7) [C13-AUTH-MEDIATED-STALE] advancing a scope epoch denies mediated with joined watermark, invalidation, and evidence",
+        "test/authority/mediated-stale-adversarial.test.ts#the durable target-local denial a stale mediated read commits: memory [C13-AUTH-MEDIATED-STALE] [C13-ADV-MEDIATED-STALE] advances the watermark strictly before it appends the denial",
+        "test/authority/mediated-stale-adversarial.test.ts#the durable target-local denial a stale mediated read commits: sqlite [C13-AUTH-MEDIATED-STALE] [C13-ADV-MEDIATED-STALE] advances the watermark strictly before it appends the denial"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": [
-        "Authenticated Tenant denial joins target watermark state, but the full target-local Receipt and Audit transaction remains to be verified end to end"
+        "One clause remains, and it is no longer the order. No production ActorAuthorityHost exists in the tree: src/composition/authority-state.ts#ActorAuthorityHost is implemented only by test harnesses, so the Receipt and AuditRecord CONTENT a deployment would write is still host-supplied rather than derived by shipped code. That file is W9's and this stream may not add the production host, so the clause is owed by whoever lands it"
+      ],
+      "bounds": [
+        "The order clause that used to be recorded here as undischargeable is discharged, and how it is discharged is the bound. The join-before-denial sequence is observed AT the InvalidationWatermarkStore and denial-append seams as the production code calls them, not reconstructed from durable state after the commit, because both writes land in one Actor transaction and no post-commit witness can tell the required order from the reverse. Reversing the two statements in ActorAuthorityState.observeStale turns exactly the two cited order tests red and nothing else, which is what makes them the sole discriminator of that clause"
       ]
     },
     {
@@ -540,11 +566,11 @@
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "The downward half needs discrimination rather than construction for authority and has no evidence at all for policy: src/authority/runtime.ts#TenantAuthorityRuntime and src/composition/authority.ts already resolve along the ordered Tenant-to-target path under C13-AUTH-DENY-PRECEDENCE and C13-AUTH-PATH-ORDER, while nothing asserts that declared PolicySet material — enforcement tiers, quotas, retention — resolves along that same path, so a host resolving policy per-Workspace only would satisfy every current test",
+        "The authority half of the downward direction is now discriminated and stays uncited only because a planned row may carry no selectors: test/authority/scope-direction.test.ts proves against src/identity/scope.ts#scopePath and src/authority/runtime.ts#TenantAuthorityRuntime that the resolution path is the exact ordered ancestry and names no sibling or descendant; that a live allow Grant held at the Tenant or the Project reaches a Workspace beneath it at both validateBinding and check; that the same deny held at a sibling Workspace reaches nothing while one held at the Project does; that a Binding backed by a sibling's Grant is refused at src/authority/service.ts#requireBindingAuthority, at validateBinding, and by the closure src/authority/closure.ts asserts on every commit; and that an attenuation from a descendant is refused by Grant.canAttenuate, by createGrant, and by that same closure. The POLICY half is still absent: nothing asserts that declared PolicySet material — enforcement tiers, quotas, retention — resolves along the same path, and src/definition/policy.ts is W4, so a host resolving policy per-Workspace only would satisfy every current test",
         "The composition conjunct is true by construction and unasserted, which is the direction a regression arrives from: src/facets/slot-store.ts#WorkspaceSlotCatalog reads a WorkspaceSlotStore and can only return the queried Workspace's own entries, so an ancestor's install cannot compose into a descendant today because no ancestor-scoped slot store exists. Closure needs the adversarial case — a Facet installed at the Tenant, a slot query at a Workspace beneath it, no entry returned — so the confinement survives the day a Tenant-scoped store is added",
         "The Event conjunct cannot be proved by the matcher and has to be proved at the store that supplies candidate Subscriptions: src/workspaces/policy.ts#eventMatches compares kind, source and accepted trust only, so a Subscription (src/workspaces/subscription.ts#Subscription) whose pattern matches an Event accepted by a sibling or ancestor Actor exactly must still be shown never to receive it, and a mutation widening the candidate set past the accepting Actor must break a cited test",
         "The positive cross-Scope path is untested as a Scope statement: a Tenant reacting to a Workspace Event must be shown to require a declared Subscription whose delivery authority is checked under C13-SUBSCRIPTION-AUTHORITY, and the same reaction must be impossible without that Subscription and its Grant, which is what separates a declared route from inherited visibility",
-        "Nothing keeps the two directions from being conflated, so the rule needs two mutations of its own: a Grant that stops at the Scope holding it instead of reaching descendants, and a slot entry or an Event that traverses the chain the way a Grant does, each killing a distinct test — a host doing either would violate this rule while satisfying every atom it cites"
+        "The first of the two mutations this rule needs is now proven and the second is not. Narrowing the resolver's reach set in src/authority/runtime.ts#TenantAuthorityRuntime from the target's ancestry to the Scope holding the Grant turns the two positive reach tests red, and narrowing scopeReaches in the same file to an equality turns the validateBinding half red; both were applied, observed red, reverted, and observed green. The companion mutation — a slot entry or an Event that traverses the chain the way a Grant does — cannot be authored by W2: it needs src/facets/slot-store.ts (W3) and src/workspaces/{policy,subscription}.ts (W7)"
       ]
     },
     {
@@ -574,30 +600,55 @@
       "owner": "W2",
       "specAnchor": "C13-AUTH-SHARE-OFFER",
       "specTextSha256": "sha256:b5228f658644d620bdfd0c1c6e0e6420e285eb622961c2535085d58921d38ee6",
-      "status": "implemented",
+      "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [
         "src/identity/share-offer.ts#ShareOffer",
         "src/identity/share-offer.ts#ShareOfferRedemption",
         "src/identity/share-offer.ts#ShareOfferRedemptionOutcome",
-        "src/identity/repository.ts#MemoryIdentityRepository"
+        "src/identity/repository.ts#IdentityRepository.loadShareOffer",
+        "src/authority/service.ts#AuthorityMutationService.issueShareOffer",
+        "src/authority/service.ts#AuthorityMutationService.revokeShareOffer",
+        "src/authority/service.ts#AuthorityMutationService.redeemShareOffer",
+        "src/authority/closure.ts#assertAuthorityClosure",
+        "src/authority/memory.ts#MemoryTenantControlStore.putShareOffer",
+        "src/substrates/sqlite/identity.ts#SqliteIdentityReader.loadShareOffer",
+        "src/substrates/sqlite/tenant.ts#SqliteTenantControlStore.saveShareOffer"
       ],
       "testSelectors": [
         "test/identity/share-offer.test.ts#share offers [C13-AUTH-SHARE-OFFER] [identity.share-offer] grants nothing before redemption and mints one Membership on it",
         "test/identity/share-offer.test.ts#share offers [C13-AUTH-SHARE-OFFER] [identity.share-offer] round-trips every redemption through its codec",
         "test/identity/share-offer.test.ts#share offers [C13-AUTH-SHARE-OFFER] [identity.share-offer] is durable in the identity store it is revoked through",
+        "test/identity/share-offer.test.ts#share offers [C13-AUTH-SHARE-OFFER] [identity.share-offer] admits only an append-only successor over a stored offer",
         "test/identity/share-offer.test.ts#share offer adversarial redemption [C13-AUTH-SHARE-OFFER] [identity.share-offer] refuses a wrong bearer secret before revealing any offer state",
         "test/identity/share-offer.test.ts#share offer adversarial redemption [C13-AUTH-SHARE-OFFER] [identity.share-offer] refuses an expired offer at its exact expiry",
         "test/identity/share-offer.test.ts#share offer adversarial redemption [C13-AUTH-SHARE-OFFER] [identity.share-offer] revocation stops redemption and never retracts a minted Membership",
         "test/identity/share-offer.test.ts#share offer adversarial redemption [C13-AUTH-SHARE-OFFER] [identity.share-offer] redeems idempotently per holder under at-least-once delivery",
         "test/identity/share-offer.test.ts#share offer adversarial redemption [C13-AUTH-SHARE-OFFER] [identity.share-offer] keys redemption on the holder, not on a guest's verification scheme",
-        "test/identity/share-offer.test.ts#share offer adversarial redemption [C13-AUTH-SHARE-OFFER] [identity.share-offer] refuses an exhausted bound, a Team holder, and an unbounded offer"
+        "test/identity/share-offer.test.ts#share offer adversarial redemption [C13-AUTH-SHARE-OFFER] [identity.share-offer] refuses an exhausted bound, a Team holder, and an unbounded offer",
+        "test/authority/share-offer-service.test.ts#share offer authority in the memory Tenant control store [C13-AUTH-SHARE-OFFER] refuses an issuer whose authority does not cover the offered Scope and Role, and admits one whose does",
+        "test/authority/share-offer-service.test.ts#share offer authority in the memory Tenant control store [C13-AUTH-SHARE-OFFER] refuses a duplicate issuance, an unknown issuer or Role, a pre-redeemed record, and a second revocation writes nothing",
+        "test/authority/share-offer-service.test.ts#share offer authority in the memory Tenant control store [C13-AUTH-SHARE-OFFER] commits a redemption's Membership, redemption record, Role Grants and epoch together, and rolls every one of them back when the last step fails",
+        "test/authority/share-offer-service.test.ts#share offer authority in the memory Tenant control store [C13-AUTH-SHARE-OFFER] refuses a redemption after a revocation commits and still replays one recorded before it",
+        "test/authority/share-offer-service.test.ts#share offer authority in the memory Tenant control store [C13-AUTH-SHARE-OFFER] answers a second at-least-once delivery across a restart exactly as the first",
+        "test/authority/share-offer-service.test.ts#share offer authority in the memory Tenant control store [C13-AUTH-SHARE-OFFER] [identity.share-offer] keeps an issued and redeemed offer byte-identical across a restart",
+        "test/authority/share-offer-service.test.ts#share offer authority in the memory Tenant control store [C13-AUTH-SHARE-OFFER] mints a guest holder's Membership only against current host-minted verification",
+        "test/authority/share-offer-service.test.ts#share offer authority in the memory Tenant control store [C13-AUTH-SHARE-OFFER] refuses the widest guest issuer, and never widens a foreign issuer through a Team",
+        "test/authority/share-offer-service.test.ts#share offer authority in the sqlite Tenant control store [C13-AUTH-SHARE-OFFER] refuses an issuer whose authority does not cover the offered Scope and Role, and admits one whose does",
+        "test/authority/share-offer-service.test.ts#share offer authority in the sqlite Tenant control store [C13-AUTH-SHARE-OFFER] refuses a duplicate issuance, an unknown issuer or Role, a pre-redeemed record, and a second revocation writes nothing",
+        "test/authority/share-offer-service.test.ts#share offer authority in the sqlite Tenant control store [C13-AUTH-SHARE-OFFER] commits a redemption's Membership, redemption record, Role Grants and epoch together, and rolls every one of them back when the last step fails",
+        "test/authority/share-offer-service.test.ts#share offer authority in the sqlite Tenant control store [C13-AUTH-SHARE-OFFER] refuses a redemption after a revocation commits and still replays one recorded before it",
+        "test/authority/share-offer-service.test.ts#share offer authority in the sqlite Tenant control store [C13-AUTH-SHARE-OFFER] answers a second at-least-once delivery across a restart exactly as the first",
+        "test/authority/share-offer-service.test.ts#share offer authority in the sqlite Tenant control store [C13-AUTH-SHARE-OFFER] [identity.share-offer] keeps an issued and redeemed offer byte-identical across a restart",
+        "test/authority/share-offer-service.test.ts#share offer authority in the sqlite Tenant control store [C13-AUTH-SHARE-OFFER] mints a guest holder's Membership only against current host-minted verification",
+        "test/authority/share-offer-service.test.ts#share offer authority in the sqlite Tenant control store [C13-AUTH-SHARE-OFFER] refuses the widest guest issuer, and never widens a foreign issuer through a Team"
       ],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "The record and its redemption semantics are complete and adversarially evidenced: grants-nothing-before-redemption, secret-before-state check order, per-holder idempotency keyed without a guest's verifiedVia, revocation before redemption, the exact expiry boundary, the exhausted bound, the Team-holder refusal, the mandatory expiry and positive bound, and revocation never retracting a minted Membership",
-        "No AuthorityService operation issues, revokes, or redeems a ShareOffer yet, so the guarded Tenant-Actor transaction that must linearize a redemption against Grant and path-epoch mutation is unevidenced, as is the administer-impact authorization of issuance and the requirement that a minted Membership be bounded by what the issuer could have assigned directly",
-        "Durability is evidenced through the Memory identity store only. The SQLite substrate has no share-offer table, writer, or authority-closure change bucket, so store parity and restart-replay behaviour for an offer revoked between deliveries are unevidenced"
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": [],
+      "bounds": [
+        "This rule does not claim that the subject named as issuer is the authenticated caller. issueShareOffer decides the administer-impact bound against the authority that named subject actually holds on the one durable Grant plane; binding a name to a caller is the section 8.5 dispatcher obligation evidenced by the C13-PROTOCOL-* atoms, exactly as every other AuthorityMutationService mutation names its subject as an argument.",
+        "The issuance bound is decided by one live allow Grant rather than by the union of the issuer's Grants. 'Bounded by what the issuer could have assigned directly' is read as the delegation bound Grant.canAttenuate already decides, and that bound names a single parent authority, so an issuer holding administer over two facet patterns through two separate Grants cannot issue an offer for a Role spanning both. Widening it to a union would be a second, weaker containment rule beside the attenuation one.",
+        "Issuer authority is decided once, at issuance. The offer that results carries no authority of its own, so a later redemption is governed by the offer's own terms rather than by the issuer's standing: the expiry window, the remaining bound and the offer's revocation state decide it, and an issuer whose administer Grant is revoked after issuance does not thereby stop a redemption. What such a revocation does reach is the Memberships already minted, which are revoked as Memberships and advance their own path epochs. Nothing here claims that a redemption re-checks the issuer."
       ]
     },
     {

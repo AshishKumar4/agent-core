@@ -9,6 +9,8 @@ import type {
     ProjectId,
     Role,
     RoleName,
+    ShareOffer,
+    ShareOfferId,
     Team,
     TeamId,
     TenantId,
@@ -65,9 +67,7 @@ export class RecordDivergence<Record> {
         const held = new Set(stored.map(key));
         return [
             ...stored.map((record) => this.point(key(record), record)),
-            ...[...this.records]
-                .filter(([id]) => !held.has(id))
-                .map(([, record]) => record)
+            ...[...this.records].filter(([id]) => !held.has(id)).map(([, record]) => record)
         ].filter((record): record is Record => record !== undefined);
     }
 
@@ -89,6 +89,7 @@ export class AuthorityDivergence {
     public readonly memberships = new RecordDivergence<Membership>();
     public readonly grants = new RecordDivergence<Grant>();
     public readonly bindings = new RecordDivergence<Binding>();
+    public readonly shareOffers = new RecordDivergence<ShareOffer>();
     public readonly epochs = new RecordDivergence<ScopeEpoch>();
 }
 
@@ -139,10 +140,7 @@ export class DivergentAuthorityStore implements AuthorityMutationStore {
     }
 
     public projects(): readonly Project[] {
-        return this.divergence.projects.list(
-            this.inner.projects(),
-            (project) => project.id.value
-        );
+        return this.divergence.projects.list(this.inner.projects(), (project) => project.id.value);
     }
 
     public putProject(project: Project): void {
@@ -232,6 +230,23 @@ export class DivergentAuthorityStore implements AuthorityMutationStore {
 
     public putBinding(binding: Binding): void {
         if (!this.divergence.bindings.wrote(binding.key, binding)) this.inner.putBinding(binding);
+    }
+
+    public shareOffer(id: ShareOfferId): ShareOffer | undefined {
+        return this.divergence.shareOffers.point(id.value, this.inner.shareOffer(id));
+    }
+
+    public shareOffers(): readonly ShareOffer[] {
+        return this.divergence.shareOffers.list(
+            this.inner.shareOffers(),
+            (offer) => offer.id.value
+        );
+    }
+
+    public putShareOffer(offer: ShareOffer): void {
+        if (!this.divergence.shareOffers.wrote(offer.id.value, offer)) {
+            this.inner.putShareOffer(offer);
+        }
     }
 
     public epoch(scope: ScopeEpoch["scope"]): ScopeEpoch {
