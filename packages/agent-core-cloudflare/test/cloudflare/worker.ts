@@ -18,10 +18,40 @@ import {
 } from "@agent-core/core/operations";
 import { ActorId, ActorRef } from "@agent-core/core/actors";
 import { ProviderDescriptor, ProviderId } from "@agent-core/core/environment-provider";
-import { SqliteActorStore, SqliteContentStore } from "@agent-core/core/substrates/sqlite";
-import { DurableObject, WorkerEntrypoint } from "cloudflare:workers";
+import {
+    SqliteActorStore,
+    SqliteAuthorityPermitStore,
+    SqliteContentStore,
+    type TransactionalSqlite
+} from "@agent-core/core/substrates/sqlite";
+import {
+    AuthorityPermit,
+    AuthorityPermitAdmissionPort,
+    AuthorityPermitAuthenticator,
+    AuthorityPermitIssuer,
+    StoredAuthorityPermitAdmissionPort
+} from "@agent-core/core/authority";
+import {
+    AuthorityPermitIssuanceReply,
+    AuthorityPermitIssuanceRequest
+} from "@agent-core/core/protocol";
+import { DurableObject, RpcTarget, WorkerEntrypoint } from "cloudflare:workers";
+import {
+    BASE_PERMIT_SPEC,
+    buildExpectation,
+    buildTargetRequest,
+    tenantDecision,
+    tenantActorRef,
+    targetActorRef,
+    type PermitSpec
+} from "./permit-fixture.js";
 import {
     AlarmOutboxReconciler,
+    CapabilityAuthorityPermitIssuance,
+    CapabilityAuthorityPermitRecords,
+    TargetBoundTenantAuthority,
+    TenantAuthorityPermitSink,
+    type TenantAuthorityCapabilityStub,
     AtLeastOnceQueueAdapter,
     CloudflareSqlite,
     DurableObjectEnvironmentProvider,
@@ -416,6 +446,318 @@ export class SlateProviderDurableObject extends DurableObject<TestEnvironment> {
     public fetch(): Response {
         return new Response("slate-provider");
     }
+}
+
+export const PERMIT_TENANT = BASE_PERMIT_SPEC.tenant;
+
+export interface ForwardedPermitCall {
+    readonly caller: string;
+    readonly bytes: Uint8Array;
+    readonly idempotencyKey: string;
+}
+
+/**
+ * The capability as it crosses a Durable Object boundary. A stub is the only handle a
+ * target can obtain, and only this Tenant can construct the object behind one, which is
+ * what makes the binding unforgeable rather than conventional. The disposer runs after the
+ * last stub is disposed, so the platform's own lifetime rule is what closes it.
+ */
+export class TenantAuthorityCapability extends RpcTarget {
+    public constructor(
+        private readonly bound: TargetBoundTenantAuthority,
+        private readonly onDispose: () => void
+    ) {
+        super();
+    }
+
+    public issuePermit(request: Uint8Array, idempotencyKey: string): Promise<Uint8Array> {
+        return this.bound.issuePermit(request, idempotencyKey);
+    }
+
+    public issuedPermit(nonce: string, digest: string): Promise<Uint8Array | undefined> {
+        return this.bound.issuedPermit(nonce, digest);
+    }
+
+    public projectLeaseEvidence(evidence: Uint8Array, idempotencyKey: string): Promise<Uint8Array> {
+        return this.bound.projectLeaseEvidence(evidence, idempotencyKey);
+    }
+
+    public [Symbol.dispose](): void {
+        this.bound[Symbol.dispose]();
+        this.onDispose();
+    }
+}
+
+/**
+ * The Tenant Actor object behind the permit plane. One real `SqliteAuthorityPermitStore`
+ * in its own private storage, one real `AuthorityPermitIssuer` over it, and one
+ * target-bound capability per caller. The issuance decision is core's: this object
+ * authenticates who asked, derives the check evidence from the request the caller sent, and
+ * hands both to the issuer inside a single Tenant transaction.
+ */
+export class TenantAuthorityDurableObject extends DurableObject<TestEnvironment> {
+    readonly #permits: SqliteAuthorityPermitStore;
+    readonly #forwarded: ForwardedPermitCall[] = [];
+    readonly #sink: TenantAuthorityPermitSink;
+    #decision: "allow" | "deny" = "allow";
+    #clockMs = BASE_PERMIT_SPEC.issuedAtMs;
+    #disposals = 0;
+
+    public constructor(state: DurableObjectState, environment: TestEnvironment) {
+        super(state, environment);
+        const sqlite = new CloudflareSqlite(state.storage, errors);
+        const permits = new SqliteAuthorityPermitStore(sqlite, tenantActorRef(BASE_PERMIT_SPEC));
+        permits.transaction(() => undefined);
+        this.#permits = permits;
+        const issuer = new AuthorityPermitIssuer(permits);
+        const forwarded = this.#forwarded;
+        const tenantClock = (): number => this.#clockMs;
+        const tenantDecisionKind = (): "allow" | "deny" => this.#decision;
+        this.#sink = new (class extends TenantAuthorityPermitSink {
+            public async issue(
+                caller: ActorRef,
+                request: Uint8Array,
+                idempotencyKey: string
+            ): Promise<Uint8Array> {
+                forwarded.push(
+                    Object.freeze({
+                        caller: `${caller.kind}:${caller.id.value}`,
+                        bytes: request.slice(),
+                        idempotencyKey
+                    })
+                );
+                const targetRequest = AuthorityPermitIssuanceRequest.decode(request).targetRequest;
+                // SPEC section 10.3: the authenticated transport caller MUST be the target
+                // Actor the request names. The caller arrives from the capability, so a
+                // holder cannot answer for anyone else by editing the payload.
+                if (!targetRequest.expectation.target.actor.equals(caller)) {
+                    throw new AgentCoreError(
+                        "authority.denied",
+                        "The authenticated caller is not the target the request names"
+                    );
+                }
+                const checkedAt = new Date(tenantClock());
+                const evidence = tenantDecision(targetRequest, tenantDecisionKind(), checkedAt);
+                if (!evidence.allowed) {
+                    return AuthorityPermitIssuanceReply.encode(
+                        AuthorityPermitIssuanceReply.denied(evidence)
+                    );
+                }
+                const permit = permits.transaction((transaction) =>
+                    issuer.issue(transaction, targetRequest, evidence, checkedAt)
+                );
+                return AuthorityPermitIssuanceReply.encode(
+                    AuthorityPermitIssuanceReply.issued(evidence, permit)
+                );
+            }
+
+            public async issued(
+                caller: ActorRef,
+                nonce: string,
+                digest: string
+            ): Promise<Uint8Array | undefined> {
+                const held = permits.transaction((transaction) =>
+                    permits.issued(transaction, nonce)
+                );
+                if (held === undefined || held.digest().value !== digest) return undefined;
+                if (!held.expectation.target.actor.equals(caller)) return undefined;
+                return AuthorityPermit.encode(held);
+            }
+
+            public async project(
+                _caller: ActorRef,
+                evidence: Uint8Array,
+                _idempotencyKey: string
+            ): Promise<Uint8Array> {
+                return evidence.slice();
+            }
+        })();
+    }
+
+    /**
+     * The trusted profile bootstrap. Only the deployed platform Worker holds this namespace
+     * binding, so only it can ask for a capability, and it names the exact Actor that
+     * capability speaks for. A holder cannot re-point one.
+     */
+    public bindTarget(actorKind: string, actorId: string): TenantAuthorityCapability {
+        return new TenantAuthorityCapability(
+            new TargetBoundTenantAuthority({
+                tenantActor: tenantActorRef(BASE_PERMIT_SPEC),
+                caller: new ActorRef(requireActorKind(actorKind), new ActorId(actorId)),
+                sink: this.#sink,
+                errors
+            }),
+            () => {
+                this.#disposals += 1;
+            }
+        );
+    }
+
+    /** Fixes the Tenant's issuance clock, so a scenario decides the issuance instant. */
+    public setClock(milliseconds: number): void {
+        this.#clockMs = milliseconds;
+    }
+
+    /** Chooses what this Tenant decides next, so a denial is a decision and not a fault. */
+    public setDecision(decision: "allow" | "deny"): void {
+        this.#decision = decision;
+    }
+
+    public clock(): number {
+        return this.#clockMs;
+    }
+
+    public decision(): "allow" | "deny" {
+        return this.#decision;
+    }
+
+    /**
+     * How many capabilities this Tenant has seen released. The platform runs an RpcTarget
+     * disposer only after the LAST stub pointing at it is disposed, so this counter is the
+     * observable that distinguishes a released capability from a leaked one.
+     */
+    public disposals(): number {
+        return this.#disposals;
+    }
+
+    /** The digest of the issuance this Tenant holds, read from its own storage. */
+    public heldDigest(nonce: string): string | undefined {
+        return this.#permits
+            .transaction((transaction) => this.#permits.issued(transaction, nonce))
+            ?.digest().value;
+    }
+
+    /** What the capability forwarded, so a scenario can assert exact-byte carriage. */
+    public forwarded(): readonly ForwardedPermitCall[] {
+        return Object.freeze([...this.#forwarded]);
+    }
+
+    public fetch(): Response {
+        return new Response("tenant-authority");
+    }
+}
+
+/**
+ * The target Actor object. It retains its own immutable request, asks its Tenant through
+ * the capability it was handed, authenticates the reply against the Tenant's own record,
+ * and admits the permit in one Durable Object transaction over its private SQLite.
+ */
+export class TargetMediationDurableObject extends DurableObject<TestEnvironment> {
+    public readonly sqlite: CloudflareSqlite;
+    readonly #permits: SqliteAuthorityPermitStore;
+    readonly #admission: AuthorityPermitAdmissionPort<TransactionalSqlite>;
+
+    public constructor(state: DurableObjectState, environment: TestEnvironment) {
+        super(state, environment);
+        this.sqlite = new CloudflareSqlite(state.storage, errors);
+        this.#permits = new SqliteAuthorityPermitStore(
+            this.sqlite,
+            targetActorRef(BASE_PERMIT_SPEC)
+        );
+        this.#permits.transaction(() => undefined);
+        this.#admission = new StoredAuthorityPermitAdmissionPort(this.#permits);
+    }
+
+    /**
+     * Retains the immutable request for `requested`, asks the Tenant for a permit,
+     * authenticates the reply against the Tenant's own record, and admits it against the
+     * expectation for `expected` at `nowMs`. `capability` is a stub the platform Worker
+     * minted and still owns, so this object never disposes it.
+     */
+    public async admit(
+        capability: TenantAuthorityCapabilityStub,
+        requested: PermitSpec,
+        expected: PermitSpec,
+        nowMs: number
+    ): Promise<string> {
+        const channel = {
+            issuer: tenantActorRef(BASE_PERMIT_SPEC),
+            capability,
+            errors
+        };
+        const request = buildTargetRequest(requested);
+        this.#permits.transaction((transaction) => this.#permits.request(transaction, request));
+        const replyBytes = await new CapabilityAuthorityPermitIssuance(channel).issue(
+            AuthorityPermitIssuanceRequest.encode(new AuthorityPermitIssuanceRequest(request)),
+            requested.nonce
+        );
+        const reply = AuthorityPermitIssuanceReply.decode(replyBytes);
+        if (reply.kind === "denied") {
+            throw new AgentCoreError(
+                "authority.denied",
+                `Tenant authority denied permit issuance: ${reply.evidence.reason}`
+            );
+        }
+        const permit = reply.requirePermit();
+        const authentication = await new AuthorityPermitAuthenticator(
+            new CapabilityAuthorityPermitRecords(channel)
+        ).authenticate(permit, buildExpectation(expected));
+        // One Durable Object transaction: the exact-permit consumption and nothing between.
+        this.#permits.transaction((transaction) =>
+            this.#admission.consume(
+                transaction,
+                authentication,
+                permit,
+                buildExpectation(expected),
+                new Date(nowMs)
+            )
+        );
+        return permit.digest().value;
+    }
+
+    /**
+     * Retains the immutable request and asks the Tenant, and stops there. This is what a
+     * lost response leaves behind: the Tenant has issued and the target has admitted
+     * nothing, which is the state a retry has to be safe against.
+     */
+    public async request(
+        capability: TenantAuthorityCapabilityStub,
+        requested: PermitSpec
+    ): Promise<void> {
+        const request = buildTargetRequest(requested);
+        this.#permits.transaction((transaction) => this.#permits.request(transaction, request));
+        await new CapabilityAuthorityPermitIssuance({
+            issuer: tenantActorRef(BASE_PERMIT_SPEC),
+            capability,
+            errors
+        }).issue(
+            AuthorityPermitIssuanceRequest.encode(new AuthorityPermitIssuanceRequest(request)),
+            requested.nonce
+        );
+    }
+
+    /** Whether this object has consumed that nonce, read from its durable storage. */
+    public consumed(nonce: string): string | undefined {
+        return this.#permits.transaction(
+            (transaction) => this.#permits.consumed(transaction, nonce)?.value
+        );
+    }
+
+    /** Whether this object still retains the immutable request for that nonce. */
+    public retains(nonce: string): boolean {
+        return (
+            this.#permits.transaction((transaction) =>
+                this.#permits.requested(transaction, nonce)
+            ) !== undefined
+        );
+    }
+
+    public fetch(): Response {
+        return new Response("target-mediation");
+    }
+}
+
+function requireActorKind(value: string): ActorRef["kind"] {
+    if (
+        value === "tenant" ||
+        value === "workspace" ||
+        value === "run" ||
+        value === "environment" ||
+        value === "slate"
+    ) {
+        return value;
+    }
+    throw new AgentCoreError("operation.invalid-input", `Unknown Actor kind ${value}`);
 }
 
 export default createCloudflareWorker<TestEnvironment, RouteReservationId, JsonValue>({

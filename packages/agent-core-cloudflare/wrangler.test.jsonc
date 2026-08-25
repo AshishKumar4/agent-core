@@ -11,7 +11,9 @@
       { "name": "SLATES", "class_name": "SlateProviderDurableObject" },
       { "name": "PLACEMENTS", "class_name": "PlacementRegistryDurableObject" },
       { "name": "RUN_WORKSPACES", "class_name": "RunWorkspaceDurableObject" },
-      { "name": "RUN_OBJECTS", "class_name": "RunDurableObject" }
+      { "name": "RUN_OBJECTS", "class_name": "RunDurableObject" },
+      { "name": "TENANT_AUTHORITY", "class_name": "TenantAuthorityDurableObject" },
+      { "name": "TARGET_MEDIATION", "class_name": "TargetMediationDurableObject" }
     ]
   },
   "migrations": [
@@ -25,6 +27,10 @@
     {
       "tag": "v6",
       "new_sqlite_classes": ["RunWorkspaceDurableObject", "RunDurableObject"]
+    },
+    {
+      "tag": "v7",
+      "new_sqlite_classes": ["TenantAuthorityDurableObject", "TargetMediationDurableObject"]
     }
   ],
   "r2_buckets": [{ "binding": "CONTENT", "bucket_name": "agent-core-cloudflare-test-content" }],

@@ -18,6 +18,7 @@ import { contentRepositoryFromR2Binding, type R2BucketBinding } from "./r2.js";
 import type { R2ContentObjectRepository } from "./content-object.js";
 import type { AlarmStorageLike } from "./reconciliation.js";
 import { DurableAlarmClaims } from "./alarm-claims.js";
+import { AlarmInvocation, type CloudflareAlarmInvocationInfoLike } from "./alarm-invocation.js";
 
 export interface CloudflareDurableObjectAlarmStorage
     extends CloudflareDurableObjectStorage, AlarmStorageLike {}
@@ -29,6 +30,17 @@ export interface CloudflareDurableObjectStateLike extends HibernatingWebSocketCo
 
 /** The runtime's own claim on the object's single alarm. */
 const RUNTIME_ALARM_OWNER = "agent-core.runtime";
+
+/**
+ * How long the object's own start-time alarm repair may take. `blockConcurrencyWhile`
+ * stalls the whole object and the platform resets it at thirty seconds or on any throw
+ * (https://developers.cloudflare.com/durable-objects/api/state/#blockconcurrencywhile), so
+ * a host callback that never settles would take the object down with no diagnosis. A
+ * budget well inside that window turns the stall into a refusal the platform recovers
+ * from: the outbox is untouched, the next instantiation repairs again, and no schedule is
+ * lost because the outbox and not the alarm slot is the state repair reads.
+ */
+const STARTUP_REPAIR_BUDGET_MILLISECONDS = 10_000;
 
 export interface CloudflareDurableObjectRuntime<Environment> {
     readonly state: CloudflareDurableObjectStateLike;
@@ -46,7 +58,12 @@ export interface CloudflareDurableObjectRuntime<Environment> {
 export interface AuthoritativeDurableObjectHost {
     repairAlarm(): Promise<void>;
     fetch(request: Request): Response | Promise<Response>;
-    alarm(): void | Promise<void>;
+    /**
+     * Runs one delivery of the object's single alarm. `invocation` reports what the
+     * platform said about this delivery, so a sweep can see the re-firing budget running
+     * out; a host that does not care may declare `alarm()` with no parameter.
+     */
+    alarm(invocation: AlarmInvocation): void | Promise<void>;
     webSocketMessage(
         socket: HibernatingWebSocketLike,
         message: string | ArrayBuffer
@@ -73,7 +90,7 @@ export interface CloudflareDurableObjectClassOptions<Environment> {
 
 export interface CloudflareDurableObjectInstance {
     fetch(request: Request): Response | Promise<Response>;
-    alarm(): void | Promise<void>;
+    alarm(alarmInfo?: CloudflareAlarmInvocationInfoLike): void | Promise<void>;
     webSocketMessage(
         socket: HibernatingWebSocketLike,
         message: string | ArrayBuffer
@@ -153,10 +170,18 @@ export function createCloudflareDurableObjectClass<Environment>(
                           )
             });
             const host = options.host.create(runtime);
+            // Touching the alarm from the constructor is a documented hazard, because the
+            // constructor runs before the alarm handler on wake
+            // (https://developers.cloudflare.com/durable-objects/api/alarms/#setalarm). It is
+            // sound here for one reason: the repair derives the wakeup from the claim table
+            // rather than calling setAlarm unconditionally, so an armed schedule the object
+            // is about to serve survives being rebuilt from the state it was armed out of.
             // A throwing callback resets the object in the real runtime; retaining the
             // rejection keeps every entry point fail-closed everywhere else. The extra
             // handler only marks it observed — `#serving` is what reports it.
-            const startup = state.blockConcurrencyWhile(() => host.repairAlarm());
+            const startup = state.blockConcurrencyWhile(() =>
+                withinStartupBudget(host.repairAlarm())
+            );
             startup.catch(() => undefined);
             this.#admission = Object.freeze({ serving: true, host, startup });
         }
@@ -181,8 +206,8 @@ export function createCloudflareDurableObjectClass<Environment>(
             return (await this.#serving()).fetch(request);
         }
 
-        public async alarm(): Promise<void> {
-            return (await this.#serving()).alarm();
+        public async alarm(alarmInfo?: CloudflareAlarmInvocationInfoLike): Promise<void> {
+            return (await this.#serving()).alarm(AlarmInvocation.from(alarmInfo));
         }
 
         public async webSocketMessage(
@@ -205,4 +230,29 @@ export function createCloudflareDurableObjectClass<Environment>(
             return (await this.#serving()).webSocketError(socket, error);
         }
     };
+}
+
+/**
+ * Settles with the repair, or rejects once the startup budget passes. The timer is always
+ * cleared, because a pending one would hold the object alive past the work it was watching.
+ */
+async function withinStartupBudget(repair: Promise<void>): Promise<void> {
+    let cancel: (() => void) | undefined;
+    const budget = new Promise<never>((_resolve, reject) => {
+        const handle = setTimeout(() => {
+            reject(
+                new AgentCoreError(
+                    "protocol.invalid-state",
+                    "Durable Object startup alarm repair exceeded its " +
+                        `${STARTUP_REPAIR_BUDGET_MILLISECONDS}ms budget`
+                )
+            );
+        }, STARTUP_REPAIR_BUDGET_MILLISECONDS);
+        cancel = () => clearTimeout(handle);
+    });
+    try {
+        await Promise.race([repair, budget]);
+    } finally {
+        cancel?.();
+    }
 }

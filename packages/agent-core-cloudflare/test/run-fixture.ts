@@ -234,6 +234,18 @@ export class TestEvidencePort<Transaction> extends RunEvidencePort<Transaction> 
         return undefined;
     }
 
+    public storedReceipt(
+        ..._arguments: Parameters<RunEvidencePort<Transaction>["storedReceipt"]>
+    ): undefined {
+        return undefined;
+    }
+
+    public publishedHandle(
+        ..._arguments: Parameters<RunEvidencePort<Transaction>["publishedHandle"]>
+    ): undefined {
+        return undefined;
+    }
+
     public synthesis(): undefined {
         return undefined;
     }

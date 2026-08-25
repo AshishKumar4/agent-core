@@ -4,9 +4,10 @@ import {
     type SqliteValue as CoreSqliteValue
 } from "@agent-core/core/substrates/sqlite";
 import type { SynchronousResultGuard as CoreSynchronousResultGuard } from "@agent-core/core/actors";
-import type { CloudflareErrorPort } from "./error.js";
+import type { CloudflareCapturedCause, CloudflareErrorPort } from "./error.js";
 import { operationalFailure } from "./error.js";
 import { isFiniteNumber, isPlatformMethod, isPlatformObject, isText } from "./platform-value.js";
+import { CloudflareStorageFailure } from "./storage-failure.js";
 
 export type SqliteValue = CoreSqliteValue;
 export type SqliteRow = CoreSqliteRow;
@@ -55,6 +56,50 @@ export function requireStorableBlob(
             "operation.invalid-input",
             `${subject} of ${bytes.byteLength} bytes exceeds the ` +
                 `${SQL_BLOB_LIMIT_BYTES}-byte Durable Object SQLite limit`
+        );
+    }
+}
+
+/**
+ * Cloudflare documents 100 KB as the maximum SQL statement length and 100 as the maximum
+ * number of bound parameters per query
+ * (https://developers.cloudflare.com/durable-objects/platform/limits/#sql-storage-limits).
+ */
+export const SQL_STATEMENT_LIMIT_BYTES = 100_000;
+export const SQL_BOUND_PARAMETER_LIMIT = 100;
+
+/**
+ * Refuses a statement the platform would refuse, before the platform sees it. Both
+ * bounds surface from the runtime as opaque statement failures, and one raised partway
+ * through a transaction is indistinguishable from a real corruption, so the seam that
+ * knows the bound is the seam that has to hold it.
+ *
+ * The length bound is on bytes and the check reads code units, so it measures only when
+ * it must: UTF-8 never spends more than three bytes per UTF-16 code unit, so a statement
+ * under a third of the bound is under the bound and needs no encoding pass, and every
+ * statement in this package is a module constant well inside that.
+ */
+export function requireExecutableStatement(
+    statement: string,
+    bindings: readonly SqliteValue[],
+    errors: CloudflareErrorPort
+): void {
+    if (bindings.length > SQL_BOUND_PARAMETER_LIMIT) {
+        operationalFailure(
+            errors,
+            "operation.invalid-input",
+            `A statement binding ${bindings.length} parameters exceeds the ` +
+                `${SQL_BOUND_PARAMETER_LIMIT}-parameter Durable Object SQLite limit`
+        );
+    }
+    if (statement.length * 3 <= SQL_STATEMENT_LIMIT_BYTES) return;
+    const length = new TextEncoder().encode(statement).byteLength;
+    if (length > SQL_STATEMENT_LIMIT_BYTES) {
+        operationalFailure(
+            errors,
+            "operation.invalid-input",
+            `A statement of ${length} bytes exceeds the ` +
+                `${SQL_STATEMENT_LIMIT_BYTES}-byte Durable Object SQLite limit`
         );
     }
 }
@@ -155,12 +200,7 @@ export class CloudflareSqlite extends TransactionalSqlite {
                 });
             } catch (cause) {
                 if (callbackFailed) throw cause;
-                operationalFailure(
-                    this.#errors,
-                    "protocol.invalid-state",
-                    "Cloudflare SQLite transaction failed",
-                    { value: cause }
-                );
+                raiseStorageFailure(this.#errors, "transaction", { value: cause });
             }
         } finally {
             this.#state.transactionActive = false;
@@ -186,12 +226,7 @@ function readRows(
     try {
         for (const row of cursor) rows.push(row);
     } catch (cause) {
-        operationalFailure(
-            errors,
-            "protocol.invalid-state",
-            "Cloudflare SQLite query iteration failed",
-            { value: cause }
-        );
+        raiseStorageFailure(errors, "query iteration", { value: cause });
     }
     return rows.map((row) => normalizeRow(row, errors));
 }
@@ -210,12 +245,7 @@ function runStatement(
             // SQL cursors can be lazy; exhaustion is part of executing the statement.
         }
     } catch (cause) {
-        operationalFailure(
-            errors,
-            "protocol.invalid-state",
-            "Cloudflare SQLite statement execution failed",
-            { value: cause }
-        );
+        raiseStorageFailure(errors, "statement execution", { value: cause });
     }
 }
 
@@ -225,16 +255,32 @@ function execute(
     statement: string,
     bindings: readonly SqliteValue[]
 ): CloudflareSqlCursor<Record<string, CloudflareSqlValue>> {
+    requireExecutableStatement(statement, bindings, errors);
     try {
         return storage.sql.exec(statement, ...bindings.map(binding));
     } catch (cause) {
-        operationalFailure(
-            errors,
-            "protocol.invalid-state",
-            "Cloudflare SQLite statement preparation failed",
-            { value: cause }
-        );
+        raiseStorageFailure(errors, "statement preparation", { value: cause });
     }
+}
+
+/**
+ * Names which of the three documented storage conditions failed, so a full object stays
+ * distinguishable from a reset one and from a refused statement. The thrown value travels
+ * as the failure's cause, which is what lets a host re-read the classification and take
+ * the drain or the retry the condition actually permits.
+ */
+function raiseStorageFailure(
+    errors: CloudflareErrorPort,
+    stage: string,
+    cause: CloudflareCapturedCause
+): never {
+    const failure = CloudflareStorageFailure.classify(cause);
+    operationalFailure(
+        errors,
+        "protocol.invalid-state",
+        `Cloudflare SQLite ${stage} failed: ${failure.summary}`,
+        cause
+    );
 }
 
 function requireAvailable(state: CloudflareSqliteState, errors: CloudflareErrorPort): void {

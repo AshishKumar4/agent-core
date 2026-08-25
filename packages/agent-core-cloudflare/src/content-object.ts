@@ -10,6 +10,29 @@ const TENANT_DIGEST_METADATA = "agent-core-tenant-sha256";
 const FORMAT_METADATA = "agent-core-format";
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 
+/**
+ * How large one content object may be for this repository to carry it whole. R2 itself
+ * stores far more (https://developers.cloudflare.com/r2/platform/limits/), but this path
+ * buffers the object in the isolate on both sides, and an isolate has 128 MB for the
+ * whole request (https://developers.cloudflare.com/workers/platform/limits/#memory). So
+ * the binding constraint here is memory rather than storage, and 32 MiB is the figure the
+ * platform itself uses for one in-memory value crossing a boundary — the serialized RPC
+ * ceiling and the received WebSocket message ceiling are both 32 MiB. Past it the seam
+ * refuses as invalid input rather than letting the isolate die with no diagnosis.
+ */
+export const R2_BUFFERED_OBJECT_LIMIT_BYTES = 33_554_432;
+
+/**
+ * R2 bounds an object key at 1,024 bytes and its custom metadata at 8,192 bytes
+ * (https://developers.cloudflare.com/r2/platform/limits/). Both are satisfied by
+ * construction rather than by a guard: a key is `KEY_PREFIX` plus two fixed-width
+ * SHA-256 hexadecimal digests, and the metadata is three entries whose values are one
+ * digest each and one format version, so neither grows with the caller's input. The
+ * constants below carry the measurement so a future key or metadata change is caught.
+ */
+export const R2_KEY_LIMIT_BYTES = 1_024;
+export const R2_METADATA_LIMIT_BYTES = 8_192;
+
 export interface R2ChecksumsLike {
     readonly sha256?: ArrayBuffer;
 }
@@ -66,6 +89,7 @@ export class R2ContentObjectRepository {
     ) {}
 
     public async put(tenantId: TenantId, bytes: Uint8Array): Promise<ContentObjectPutResult> {
+        this.requireBufferable("write", bytes.byteLength);
         // The one copy this path needs: the address is computed across an await, and a
         // caller mutating its own array afterwards must not change what R2 stores.
         const detached = bytes.slice();
@@ -105,6 +129,9 @@ export class R2ContentObjectRepository {
             this.bucket.get(address.key)
         );
         if (object === null) return undefined;
+        // R2 reports the stored size before the body is fetched, so the refusal happens
+        // while the object is still on the far side of the boundary.
+        this.requireBufferable("read", object.size);
         const body = new Uint8Array(
             await this.callR2("R2 content body read failed", () => object.arrayBuffer())
         );
@@ -123,6 +150,22 @@ export class R2ContentObjectRepository {
             return await operation();
         } catch (cause) {
             operationalFailure(this.errors, "protocol.invalid-state", message, { value: cause });
+        }
+    }
+
+    /**
+     * Refuses an object this repository cannot carry whole. Large content belongs behind a
+     * stream, and refusing is what keeps that a decision rather than an isolate that died
+     * without saying why.
+     */
+    private requireBufferable(direction: string, length: number): void {
+        if (length > R2_BUFFERED_OBJECT_LIMIT_BYTES) {
+            operationalFailure(
+                this.errors,
+                "operation.invalid-input",
+                `A content object ${direction} of ${length} bytes exceeds the ` +
+                    `${R2_BUFFERED_OBJECT_LIMIT_BYTES}-byte buffered object limit`
+            );
         }
     }
 

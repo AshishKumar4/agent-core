@@ -20,3 +20,8 @@ export function isText(value: unknown): value is string {
 export function isBoolean(value: unknown): value is boolean {
     return typeof value === "boolean";
 }
+
+/** Establishes that a thrown platform value carries a readable message. */
+export function isPlatformMessage(value: unknown): value is { readonly message: string } {
+    return isPlatformObject(value) && "message" in value && isText(value.message);
+}

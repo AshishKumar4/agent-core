@@ -71,10 +71,15 @@ describe("AlarmOutboxReconciler", () => {
         );
 
         expect(await driver.handleAlarm()).toEqual({
+            exhausted: false,
             succeededIds: [outboxId("effect-1")],
             failures: []
         });
-        expect(await driver.handleAlarm()).toEqual({ succeededIds: [], failures: [] });
+        expect(await driver.handleAlarm()).toEqual({
+            exhausted: false,
+            succeededIds: [],
+            failures: []
+        });
         expect(calls).toEqual(["effect-1"]);
         expect(alarms.scheduledAt).toBeNull();
     });
@@ -108,6 +113,7 @@ describe("AlarmOutboxReconciler", () => {
         fail = false;
         now = 125;
         expect(await driver.handleAlarm()).toEqual({
+            exhausted: false,
             succeededIds: [outboxId("a")],
             failures: []
         });
@@ -135,6 +141,7 @@ describe("AlarmOutboxReconciler", () => {
         // Reconciliation itself succeeded; the acknowledgement is fenced out, so the
         // newer schedule and its physical alarm survive.
         expect(await driver.handleAlarm()).toEqual({
+            exhausted: false,
             succeededIds: [outboxId("a")],
             failures: []
         });
@@ -234,6 +241,7 @@ describe("AlarmOutboxReconciler", () => {
             clock: { now: () => now }
         });
         expect(await afterRestart.handleAlarm()).toEqual({
+            exhausted: false,
             succeededIds: [outboxId("effect-id")],
             failures: []
         });

@@ -9,6 +9,17 @@ import type { SqliteValue } from "./sqlite.js";
 const DEFAULT_BATCH_SIZE = 100;
 const DEFAULT_RETRY_DELAY_MS = 30_000;
 
+/**
+ * How long one sweep may keep working before it stops and re-arms for the rest. An alarm
+ * handler has fifteen minutes of wall time
+ * (https://developers.cloudflare.com/durable-objects/platform/limits/#wall-time-limits-by-invocation-type),
+ * and being killed at that boundary is not a throw: it reaches neither the retry path nor
+ * the floored re-arm, so a batch of slow entries would lose its wakeup silently. Stopping
+ * inside the budget turns that into an ordinary reschedule, and the margin leaves room for
+ * the re-arm itself to complete.
+ */
+const DEFAULT_SWEEP_BUDGET_MS = 600_000;
+
 export interface AlarmStorageLike {
     getAlarm(): Promise<number | null>;
     setAlarm(scheduledTime: number): Promise<void>;
@@ -45,6 +56,8 @@ export interface ReconciliationClock {
 export interface AlarmReconciliationOptions {
     readonly batchSize?: number;
     readonly retryDelayMs?: number;
+    /** Wall-clock milliseconds one sweep may spend before it re-arms for the remainder. */
+    readonly sweepBudgetMs?: number;
     readonly clock?: ReconciliationClock;
 }
 
@@ -55,6 +68,12 @@ export interface ReconciliationFailure {
 }
 
 export interface AlarmReconciliationResult {
+    /**
+     * Whether the sweep stopped inside its wall-time budget with due entries unreached.
+     * True means the alarm was floored one retry delay out rather than repaired, so those
+     * entries settle under the same driver on a later sweep.
+     */
+    readonly exhausted: boolean;
     readonly succeededIds: readonly ReconciliationOutboxId[];
     readonly failures: readonly ReconciliationFailure[];
 }
@@ -62,6 +81,7 @@ export interface AlarmReconciliationResult {
 export class AlarmOutboxReconciler {
     readonly #batchSize: number;
     readonly #retryDelayMs: number;
+    readonly #sweepBudgetMs: number;
     readonly #clock: ReconciliationClock;
 
     public constructor(
@@ -78,6 +98,10 @@ export class AlarmOutboxReconciler {
         this.#retryDelayMs = requirePositiveConfigInteger(
             options.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS,
             "retry delay"
+        );
+        this.#sweepBudgetMs = requirePositiveConfigInteger(
+            options.sweepBudgetMs ?? DEFAULT_SWEEP_BUDGET_MS,
+            "sweep budget"
         );
         this.#clock = options.clock ?? { now: Date.now };
     }
@@ -107,9 +131,7 @@ export class AlarmOutboxReconciler {
             // as. Gating the release on a non-null read left the claim behind once the
             // platform had consumed the alarm, and the object then reported a claim for
             // work that no longer existed. Release is idempotent.
-            await this.operation("Physical alarm deletion failed", () =>
-                this.alarms.deleteAlarm()
-            );
+            await this.operation("Physical alarm deletion failed", () => this.alarms.deleteAlarm());
             return;
         }
         const scheduledAt = Math.max(expected, notBefore);
@@ -125,12 +147,17 @@ export class AlarmOutboxReconciler {
         requireOutputTime(now, "Reconciliation clock time", this.errors);
         const succeededIds: ReconciliationOutboxId[] = [];
         const failures: ReconciliationFailure[] = [];
+        let exhausted = false;
         const visited = new Set<string>();
         try {
             const due = await this.operation("Reconciliation outbox due query failed", () =>
                 this.outbox.dueIds(now, this.#batchSize)
             );
             for (const entry of due) {
+                if (this.#clock.now() - now >= this.#sweepBudgetMs) {
+                    exhausted = true;
+                    break;
+                }
                 requireOutputId(entry?.id, this.errors);
                 requireOutputTime(entry.scheduledAt, "Due reconciliation schedule", this.errors);
                 const id = entry.id;
@@ -170,8 +197,13 @@ export class AlarmOutboxReconciler {
             }
             throw cause;
         }
-        await this.repairAlarm();
+        // An exhausted sweep leaves its unreached entries due in the past, so re-arming at
+        // the outbox schedule would refire immediately and spin. Floor the wakeup one retry
+        // delay out, exactly as an interrupted sweep does, and leave every unreached entry
+        // due at its own schedule.
+        await (exhausted ? this.synchronizeAlarm(this.retryTime(now)) : this.repairAlarm());
         return Object.freeze({
+            exhausted,
             succeededIds: Object.freeze(succeededIds),
             failures: Object.freeze(failures)
         });

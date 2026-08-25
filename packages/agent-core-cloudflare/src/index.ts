@@ -1,6 +1,12 @@
 export { actorObjectName, parseActorObjectName } from "./actor-name.js";
 export type { ActorObjectIdentity } from "./actor-name.js";
-export { R2ContentObjectRepository, contentObjectAddress } from "./content-object.js";
+export {
+    R2ContentObjectRepository,
+    R2_BUFFERED_OBJECT_LIMIT_BYTES,
+    R2_KEY_LIMIT_BYTES,
+    R2_METADATA_LIMIT_BYTES,
+    contentObjectAddress
+} from "./content-object.js";
 export type {
     ContentObject,
     ContentObjectAddress,
@@ -13,6 +19,34 @@ export type {
 } from "./content-object.js";
 export { locateActorObject } from "./namespace.js";
 export type { ActorNamespaceLocation, DurableObjectNamespaceLike } from "./namespace.js";
+export { throughActorObject } from "./namespace.js";
+export type { ActorObjectCallOptions } from "./namespace.js";
+export { CloudflareStubFailure, throughFreshStub } from "./stub-failure.js";
+export type {
+    CloudflareStubCallOptions,
+    CloudflareStubFactory,
+    CloudflareStubRetryPolicy
+} from "./stub-failure.js";
+export { CloudflareStorageFailure } from "./storage-failure.js";
+export { AlarmInvocation, PLATFORM_ALARM_RETRY_LIMIT } from "./alarm-invocation.js";
+export type { CloudflareAlarmInvocationInfoLike } from "./alarm-invocation.js";
+export {
+    MAXIMUM_IDEMPOTENCY_KEY_LENGTH,
+    MAXIMUM_KEYED_CALLS,
+    TargetBoundCommandAuthenticator,
+    TargetBoundCommandTransport,
+    TargetBoundTenantAuthority,
+    TenantAuthorityPermitSink
+} from "./permit-capability.js";
+export {
+    CapabilityAuthorityPermitIssuance,
+    CapabilityAuthorityPermitRecords,
+    CapabilityTargetLeaseEvidenceProjection
+} from "./permit-transport.js";
+export type {
+    TenantAuthorityCapabilityChannel,
+    TenantAuthorityCapabilityStub
+} from "./permit-transport.js";
 export {
     ActorPlacement,
     PlacementResolver,
@@ -127,7 +161,14 @@ export type {
     CloudflareDurableObjectRuntime,
     CloudflareDurableObjectStateLike
 } from "./durable-object.js";
-export { CloudflareSqlite } from "./sqlite.js";
+export {
+    CloudflareSqlite,
+    SQL_BLOB_LIMIT_BYTES,
+    SQL_BOUND_PARAMETER_LIMIT,
+    SQL_STATEMENT_LIMIT_BYTES,
+    requireExecutableStatement,
+    requireStorableBlob
+} from "./sqlite.js";
 export type {
     CloudflareDurableObjectStorage,
     CloudflareSqlBinding,

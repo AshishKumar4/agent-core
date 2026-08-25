@@ -23,7 +23,7 @@
       "owner": "W8",
       "specAnchor": "C13-CLOUDFLARE-ALARM-CLAIMS",
       "specTextSha256": "sha256:111af561855888e7d7ed8348e36d281cfaf252b4cc98edfe093e72c2c33d07c3",
-      "status": "verified",
+      "status": "implemented",
       "prerequisites": [],
       "sourceSymbols": ["cloudflare/src/alarm-claims.ts#DurableAlarmClaims"],
       "testSelectors": [
@@ -31,7 +31,9 @@
         "cloudflare/test/live/phase-2.test.ts#live Cloudflare substrate evidence after redeployment [C13-CLOUDFLARE-ALARM-CLAIMS] keeps an alarm claim and its physical alarm across a full worker redeployment"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-LIVE", "ACQ-TEST"],
-      "remainingEvidence": []
+      "remainingEvidence": [
+        "This row is held below verified because its live evidence cannot resolve. The committed manifest at artifacts/conformance/live-evidence/run.json fingerprints cloudflare/src/durable-object.ts and cloudflare/src/reconciliation.ts, both changed by the W8 platform-behaviour work in this change, so validateLiveEvidence fails closed with 'Live evidence is stale' and every cloudflare/test/live selector this row cited stops resolving. The source symbols and the hermetic selectors are unchanged and still pass; what is gone is the deployed observation, and a verified claim that rests on a deployed observation may not outlive it. The single prerequisite is one operator re-run of `pnpm --filter @agent-core/cloudflare live:evidence` against the account, which regenerates run.json and the four phase reports at the current commit and restores this row to verified with its citations untouched. No fingerprint was re-pinned by hand, because re-pinning ratifies a deployment that did not happen."
+      ]
     },
     {
       "id": "C13-CLOUDFLARE-ALARM-DURABILITY",
@@ -41,8 +43,10 @@
       "status": "implemented",
       "prerequisites": ["C13-CLOUDFLARE-RECONCILIATION-DRIVER"],
       "sourceSymbols": [
+        "cloudflare/src/alarm-invocation.ts#AlarmInvocation",
         "cloudflare/src/durable-object.ts#createCloudflareDurableObjectClass",
         "cloudflare/src/reconciliation.ts#AlarmOutboxReconciler",
+        "cloudflare/src/reconciliation.ts#AlarmReconciliationResult",
         "cloudflare/src/resumption.ts#DurableOperationJournal"
       ],
       "testSelectors": [
@@ -54,10 +58,11 @@
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-LIVE", "ACQ-TEST"],
       "remainingEvidence": [
-        "The corrected §10.4 rule bounds platform re-firing and requires the Actor to rebuild the alarm from the outbox on start. createCloudflareDurableObjectClass arms that rebuild under blockConcurrencyWhile, but no test named here exercises a start that recovers an alarm the platform stopped re-firing, and the live lane owes that scenario under ACQ-LIVE.",
-        "The platform exposes alarmInfo.retryCount and alarmInfo.isRetry (https://developers.cloudflare.com/durable-objects/api/alarms/#alarm) and the adapter reads neither: durable-object.ts#alarm takes no parameter, so the object cannot tell how close the platform is to abandoning a schedule and cannot record it. Owed as evidence for the bounded-re-firing clause.",
-        "blockConcurrencyWhile is a documented whole-object stall that resets the object at thirty seconds and on any throw (https://developers.cloudflare.com/durable-objects/api/state/#blockconcurrencywhile), and setAlarm inside a constructor is a documented hazard because the constructor runs before the alarm handler on wake (https://developers.cloudflare.com/durable-objects/api/alarms/#setalarm). durable-object.ts calls a host-supplied repairAlarm inside blockConcurrencyWhile, which is both at once. It converges because the repair is derived from the outbox rather than an unconditional setAlarm, but nothing in the package bounds the host callback or records why the constructor may touch the alarm at all.",
-        "The fifteen-minute alarm wall-time cap (https://developers.cloudflare.com/durable-objects/platform/limits/#wall-time-limits-by-invocation-type) and the CPU budget between network events (same page, footnote 4) are unmodelled: a sweep killed at either boundary is not a throw, so it reaches neither AlarmOutboxReconciler's retry path nor its floored re-arm. The resumption journal bounds the loss to one uncommitted step but nothing bounds the sweep itself."
+        "The corrected \u00a710.4 rule bounds platform re-firing and requires the Actor to rebuild the alarm from the outbox on start. createCloudflareDurableObjectClass arms that rebuild under blockConcurrencyWhile, but no test named here exercises a start that recovers an alarm the platform stopped re-firing, and the live lane owes that scenario under ACQ-LIVE.",
+        "The platform's own alarmInfo is now read. AlarmInvocation carries retryCount and isRetry from the handler argument and reports retriable against the documented six-retry ceiling, so a sweep can see the re-firing budget running out and knows when its own start-time rebuild is the only recovery left. A missing or malformed alarmInfo reads as a first delivery, which neither suppresses work nor asserts a retry budget the platform never reported.",
+        "The host callback inside blockConcurrencyWhile is now bounded. The startup alarm repair has a ten-second budget, well inside the documented thirty-second whole-object stall, and exceeding it rejects into the object's existing single captured refusal rather than hanging the object with no diagnosis; the timer is always cleared so a settled repair leaves nothing holding the object alive. Why construction may touch the alarm at all is now recorded at the call site: the repair derives the wakeup from the claim table rather than calling setAlarm unconditionally, so an armed schedule survives being rebuilt from the state it was armed out of.",
+        "The fifteen-minute alarm wall-time cap is now modelled. A sweep stops inside a ten-minute budget and floors its re-arm one retry delay out, exactly as an interrupted sweep does, leaving every unreached entry due at its own schedule and reporting exhausted on the result, so being killed at the platform boundary is no longer the only outcome. The CPU budget between network events is still unmodelled and is not measurable from inside the isolate.",
+        "The committed live evidence at artifacts/conformance/live-evidence/run.json is now stale for this row's sources: it fingerprints cloudflare/src/durable-object.ts and cloudflare/src/reconciliation.ts, and both changed here, so validateLiveEvidence fails closed with 'Live evidence is stale'. The single prerequisite is one operator re-run of `pnpm --filter @agent-core/cloudflare live:evidence` against the real account, which regenerates run.json and the four phase reports at the current commit. No fingerprint was re-pinned by hand, because re-pinning ratifies a deployment that did not happen."
       ]
     },
     {
@@ -65,15 +70,30 @@
       "owner": "W8",
       "specAnchor": "C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING",
       "specTextSha256": "sha256:42fc7b3809b55fa9b8fba00e7cdb976f94e114cd8612256f21696b510b06d1a5",
-      "status": "planned",
+      "status": "implemented",
       "prerequisites": ["C13-AUTH-MEDIATED-ADMISSION"],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
+      "sourceSymbols": [
+        "cloudflare/src/permit-capability.ts#MAXIMUM_IDEMPOTENCY_KEY_LENGTH",
+        "cloudflare/src/permit-capability.ts#MAXIMUM_KEYED_CALLS",
+        "cloudflare/src/permit-capability.ts#TargetBoundCommandAuthenticator",
+        "cloudflare/src/permit-capability.ts#TargetBoundTenantAuthority",
+        "cloudflare/src/permit-capability.ts#TenantAuthorityPermitSink",
+        "cloudflare/src/permit-transport.ts#CapabilityAuthorityPermitIssuance"
+      ],
+      "testSelectors": [
+        "cloudflare/test/cloudflare/permit.test.ts#Cloudflare cross-object authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING] carries the exact request bytes to the Tenant under the Actor the capability was minted for",
+        "cloudflare/test/cloudflare/permit.test.ts#Cloudflare cross-object authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING] refuses a request whose target the capability does not speak for",
+        "cloudflare/test/cloudflare/permit.test.ts#Cloudflare cross-object authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING] retries a lost response and consumes the replayed issuance exactly once",
+        "cloudflare/test/cloudflare/permit.test.ts#Cloudflare cross-object authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING] keeps a duplicated capability answering after the original handle is released",
+        "cloudflare/test/cloudflare/permit.test.ts#Cloudflare cross-object authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING] refuses a redelivery that rebinds one idempotency key to different bytes",
+        "cloudflare/test/cloudflare/permit.test.ts#Cloudflare cross-object authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING] carries an authenticated Tenant denial back without an admission"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": [
-        "A trusted profile bootstrap must mint an unforgeable target-bound RPC capability before the Tenant accepts a permit command; direct Durable Object RPC does not authenticate the calling Actor",
-        "The target capability must carry the exact immutable request through the Tenant command dispatcher, preserve duplicate and response-loss semantics, and authenticate every issued or denied reply in a real isolate",
-        "Deployed evidence must bind the exact Tenant and target source hashes without replacing the target capability with caller-supplied identity"
+        "The unforgeable target-bound capability now exists. TargetBoundTenantAuthority is minted by the Tenant for one exact caller ActorRef, takes no caller argument on any method, and stamps that identity on every forwarded call, so a holder cannot answer for another Actor by editing a payload. The payload itself stays opaque in this profile: SPEC section 10.3 places the issuance decision in the Tenant, so the capability carries bytes and authenticates who sent them and decides nothing about them.",
+        "Duplicate and response-loss semantics are held rather than emulated. A repeat of one idempotency key with byte-identical content is forwarded again, because the Tenant's own permit record is the single source of truth for whether it already issued and answering in transit would be a second durable copy of an authority decision; a repeat with different bytes is refused before the Tenant sees it, because it would ask one nonce to bind two requests. The guard retains one canonical digest per key rather than the payload, because both the key and the payload are attacker-supplied and a guard that grows with what a holder sends is memory exhaustion inside a 128 MB isolate rather than a safety check. Three bounds hold it, each declared once and each tested at the exact value it admits and the first value it refuses: MAXIMUM_KEYED_CALLS distinct keys per capability, MAXIMUM_IDEMPOTENCY_KEY_LENGTH characters per key, and SQL_BLOB_LIMIT_BYTES per payload. Every refusal is proven to occur before the sink, by a recording sink whose call count does not move, and an over-limit payload is proven not to consume a distinct-key slot either. A lost response is exercised end to end: the Tenant issues, the target admits nothing, the retry replays that exact issuance, and the admission happens once.",
+        "The seven approved core boundary symbols are now public on the authority and protocol subpaths and remain forbidden on the root package. The packed consumer verifies those exact surfaces, and the real-workerd permit lane exercises the composed path without re-implementing any authority decision in this profile.",
+        "Deployed evidence is still owed for the third clause. On workerd 1.20260708.1 the Tenant capability's RpcTarget disposer runs after the client execution context ends, so final release cannot be observed inside this hermetic lane. The lane proves that releasing the original handle does not sever its duplicate. The structural capability test proves refusal after the final local release, and the Tenant exposes a release count for a live lane that outlives one request."
       ]
     },
     {
@@ -81,15 +101,28 @@
       "owner": "W8",
       "specAnchor": "C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION",
       "specTextSha256": "sha256:4b8ac05886f2fbfd5360f6f792d0bd6f38001d44c03b95c3a68fa63d2d69c30b",
-      "status": "planned",
+      "status": "implemented",
       "prerequisites": ["C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING"],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
+      "sourceSymbols": [
+        "cloudflare/src/permit-transport.ts#CapabilityAuthorityPermitRecords",
+        "cloudflare/src/permit-transport.ts#CapabilityTargetLeaseEvidenceProjection",
+        "cloudflare/src/permit-transport.ts#TenantAuthorityCapabilityChannel"
+      ],
+      "testSelectors": [
+        "cloudflare/test/cloudflare/permit.test.ts#Cloudflare authority permit consumption [C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] retains the request beside the consumption and survives losing the instance",
+        "cloudflare/test/cloudflare/permit.test.ts#Cloudflare authority permit consumption [C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] refuses an issued permit the target expectation disagrees with on target-fence",
+        "cloudflare/test/cloudflare/permit.test.ts#Cloudflare authority permit consumption [C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] refuses an issued permit the target expectation disagrees with on path-epoch",
+        "cloudflare/test/cloudflare/permit.test.ts#Cloudflare authority permit consumption [C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] refuses an issued permit the target expectation disagrees with on item-key",
+        "cloudflare/test/cloudflare/permit.test.ts#Cloudflare authority permit consumption [C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] refuses an issued permit the target expectation disagrees with on arguments",
+        "cloudflare/test/cloudflare/permit.test.ts#Cloudflare authority permit consumption [C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] refuses a permit whose window has closed",
+        "cloudflare/test/cloudflare/permit.test.ts#Cloudflare authority permit consumption [C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] writes nothing to the target's consumption table when the admission is refused"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": [
-        "The complete target mediation aggregate must be hosted in one Durable Object transaction and consume only an issued permit authenticated through the target-bound capability path",
-        "Real-isolate adversaries must cover request retention, exact claim and reservation admission, single use, expiry, rollback, restart, authenticated Tenant denial, response loss, and post-issuance watermark movement",
-        "Deployed cross-Actor evidence remains required after the local real-isolate vertical is complete"
+        "The target-side aggregate is hosted with no adapter of its own: CloudflareSqlite extends the core TransactionalSqlite, so SqliteAuthorityPermitStore and StoredAuthorityPermitAdmissionPort run directly over Durable Object storage and the consumption is one synchronous transactionSync span with no intervening await. This profile adds the authenticated channel and nothing else, which is why no second permit store exists here.",
+        "Real-isolate adversaries measured green in workerd: wrong target Actor, authenticated Tenant denial, single use on redelivery, expiry at the admission instant, expectation mismatch on target fence, path epoch, item key and argument digest, retention of the immutable request beside the consumption across instance loss, and no consumption row written when the admission is refused. The wrong-Tenant lookup is refused by CapabilityAuthorityPermitRecords before the stub is reached, so a target cannot authenticate against a Tenant its capability does not name.",
+        "The seven approved core boundary symbols are now public on the authority and protocol subpaths and remain forbidden on the root package. The packed consumer verifies those exact surfaces, and the real-workerd consumption lane exercises the composed path without duplicating the core permit store or admission policy.",
+        "Deployed cross-Actor evidence remains owed after the local real-isolate vertical: rollback under a real rollout, and a post-issuance watermark movement that must not cancel an admitted permit, are both account-level scenarios no local lane reaches."
       ]
     },
     {
@@ -99,7 +132,12 @@
       "specTextSha256": "sha256:667eba9093ab3ac811f0c3f01938db604b49da102488b551ce838725c800012f",
       "status": "implemented",
       "prerequisites": ["C13-CLOUDFLARE-ALARM-DURABILITY"],
-      "sourceSymbols": ["cloudflare/src/durable-object.ts#createCloudflareDurableObjectClass"],
+      "sourceSymbols": [
+        "cloudflare/src/durable-object.ts#createCloudflareDurableObjectClass",
+        "cloudflare/src/namespace.ts#throughActorObject",
+        "cloudflare/src/stub-failure.ts#CloudflareStubFailure",
+        "cloudflare/src/stub-failure.ts#throughFreshStub"
+      ],
       "testSelectors": [
         "cloudflare/test/deployment-rollback.test.ts#Cloudflare release rollback [C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY] keeps durable work across N to N+1 and back to N",
         "cloudflare/test/live/phase-1.test.ts#live Cloudflare platform-semantics evidence [C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY] arms durable reconciliation work for the redeployed worker to finish",
@@ -110,8 +148,9 @@
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-LIVE", "ACQ-TEST"],
       "remainingEvidence": [
         "Its prerequisite C13-CLOUDFLARE-ALARM-DURABILITY carries an open obligation, so continuity cannot rest on it yet.",
-        "The rollback direction is now stated in §10.4 and implemented: createCloudflareDurableObjectClass constructs an object whose applied schema this release cannot read and refuses each operation with schema.unreadable, leaving the durable state untouched. cloudflare/test/deployment-rollback.test.ts covers N to N+1 to N and back to N+1 on real SQLite, which closes the structural half of the obligation this atom carried.",
-        "Continuity across a rollout is not only schema continuity. Cloudflare documents that a request can reach a new Worker version and call a Durable Object still running the previous version for seconds to minutes (https://developers.cloudflare.com/durable-objects/platform/known-issues/#code-updates), that many exceptions leave a stub permanently broken, that errors carry .retryable and .overloaded properties, and that a retryable error should be retried with backoff on a freshly created stub while an overloaded one must not be retried at all (https://developers.cloudflare.com/durable-objects/best-practices/error-handling/). The adapter classifies none of this: grep for retryable and overloaded across cloudflare/src returns nothing, namespace.ts and placement.ts hand back raw stubs, and neither property is declared in the generated worker-configuration.d.ts, so reading them needs an explicit narrowing at the boundary that does not exist. The documented stub-lookup rate limit and the thousand-request-per-second soft limit reach the caller the same unclassified way. This is the most production-proven gap in the corpus and it has no §10 clause; the clause is owed before the code."
+        "The rollback direction is now stated in \u00a710.4 and implemented: createCloudflareDurableObjectClass constructs an object whose applied schema this release cannot read and refuses each operation with schema.unreadable, leaving the durable state untouched. cloudflare/test/deployment-rollback.test.ts covers N to N+1 to N and back to N+1 on real SQLite, which closes the structural half of the obligation this atom carried.",
+        "Continuity across a rollout is now classified. CloudflareStubFailure reads the platform's own retryable and overloaded dispositions, decides overload first so a failure carrying both is never retried, and throughFreshStub resolves a NEW stub per attempt because Cloudflare documents a thrown-on stub as permanently broken. Minting sits outside the attempt's try, so a namespace lookup that fails is not misreported as a refusal by a callee that was never reached. The backoff is exponential and deterministic: this policy governs one caller retrying one keyed call, not a fleet converging on one object, so a reproducible schedule costs nothing.",
+        "The committed live evidence at artifacts/conformance/live-evidence/run.json is now stale for this row's sources: it fingerprints cloudflare/src/durable-object.ts and cloudflare/src/reconciliation.ts, and both changed here, so validateLiveEvidence fails closed with 'Live evidence is stale'. The single prerequisite is one operator re-run of `pnpm --filter @agent-core/cloudflare live:evidence` against the real account, which regenerates run.json and the four phase reports at the current commit. No fingerprint was re-pinned by hand, because re-pinning ratifies a deployment that did not happen."
       ]
     },
     {
@@ -133,7 +172,7 @@
       "remainingEvidence": [
         "DynamicWorkerLimits is a construction argument of DynamicWorkerLoaderAdapter and DynamicWorkerLoadOptions.limits is required where the platform's own workerdResourceLimits is optional, so no load without a bound is expressible and no runtime refusal path is reachable from inside this package. The rule's refuse-rather-than-inherit clause is therefore discharged by the type here and is untested as a runtime branch; a substrate whose loader offers no per-load bound would need its own refusal and its own test.",
         "Nothing yet proves Cloudflare enforces the bound it is handed. cpuMs and subRequests are documented as thrown-at-the-boundary (/dynamic-workers/usage/limits/, updated 2026-05-05) and the workerd lane does not exercise them, so the live lane owes a submission that spins past a small cpuMs and a submission that exceeds subRequests, each asserting the platform's immediate throw rather than a completed run. That evidence is a live run and this atom stays below verified until it has been taken.",
-        "The bound is one per adapter, not one per §4.7 consumer. A profile that wants a different budget for programmatic tool calling than for a Slate backend constructs a second adapter today; whether the consumer-to-bound mapping belongs in policies.placement beside the consumer-to-backing mapping (§9.2) is undecided and owned by W4."
+        "The bound is one per adapter, not one per \u00a74.7 consumer. A profile that wants a different budget for programmatic tool calling than for a Slate backend constructs a second adapter today; whether the consumer-to-bound mapping belongs in policies.placement beside the consumer-to-backing mapping (\u00a79.2) is undecided and owned by W4."
       ]
     },
     {
@@ -174,7 +213,7 @@
       ],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "The half this package can enforce is enforced: the startup record handed to ctx.facets.get is rebuilt to exactly {class} or {class, id}, and the host exposes open, suspend and retire and no reader. The half it cannot is the prohibition itself, that no record type §8.4 assigns an owning Actor is written into such a store, which is a property of whatever code a supervisor loads rather than of the supervisor. The mechanical form of that half is a column on the §8.4 rule 6 ownership map naming, for each record type, whether a dynamic domain may hold it; that artifact is W0's and the registered invariant id in artifacts/quality/rules.json is W0's to grant.",
+        "The half this package can enforce is enforced: the startup record handed to ctx.facets.get is rebuilt to exactly {class} or {class, id}, and the host exposes open, suspend and retire and no reader. The half it cannot is the prohibition itself, that no record type \u00a78.4 assigns an owning Actor is written into such a store, which is a property of whatever code a supervisor loads rather than of the supervisor. The mechanical form of that half is a column on the \u00a78.4 rule 6 ownership map naming, for each record type, whether a dynamic domain may hold it; that artifact is W0's and the registered invariant id in artifacts/quality/rules.json is W0's to grant.",
         "No facet has been created against a real Durable Object. Storage isolation in both directions is Cloudflare's documented claim (/dynamic-workers/usage/durable-object-facets/, updated 2026-04-21: the dynamic code cannot read the supervisor's database) and the local lane models it with a fake rather than observing it. The live lane owes one scenario that writes a row from the supervisor, writes a row from the facet, and shows neither side can read the other's. That is a live run, so this atom stays below verified.",
         "Facet memory is undocumented and prior-art PA-15 remains open. Cloudflare documents storage co-location and storage isolation and says nothing about whether a facet shares the parent's 128 MB isolate, so this atom deliberately states nothing about memory and no test asserts anything about it. If a profile ever depends on a facet's memory being its own, that dependency needs its own measurement first."
       ]
@@ -194,8 +233,8 @@
       ],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "The two verbs are named and tested against a fake that models the platform's own consequence, abort keeping the database and delete destroying it, so swapping either implementation fails a test. What is not wired is the caller: no withdrawal path in this package calls retire, because no §4.1 withdrawal reaches a hosted dynamic domain yet. Until one does, the rule that a withdrawal destroys rather than stops is stated and unexercised end to end.",
-        "The restart-under-a-different-class clause is discharged by reference rather than by a test here: RunPins fixes the Package closure by code digest and re-materialization preserves those pins (§5.2, §9.3), so the hazard is already refused by C13-BLUEPRINT-RUN-PINS and this profile adds no rule of its own. The evidence for that refusal belongs to W4's atom rather than to this one; if that atom weakens, this clause loses its ground and this row is where that has to be said.",
+        "The two verbs are named and tested against a fake that models the platform's own consequence, abort keeping the database and delete destroying it, so swapping either implementation fails a test. What is not wired is the caller: no withdrawal path in this package calls retire, because no \u00a74.1 withdrawal reaches a hosted dynamic domain yet. Until one does, the rule that a withdrawal destroys rather than stops is stated and unexercised end to end.",
+        "The restart-under-a-different-class clause is discharged by reference rather than by a test here: RunPins fixes the Package closure by code digest and re-materialization preserves those pins (\u00a75.2, \u00a79.3), so the hazard is already refused by C13-BLUEPRINT-RUN-PINS and this profile adds no rule of its own. The evidence for that refusal belongs to W4's atom rather than to this one; if that atom weakens, this clause loses its ground and this row is where that has to be said.",
         "Cloudflare's abort and delete differ by one word and by everything, and the prior-art corpus records the exact mistake being made (AUDIT_cloudflare.md PA-14: an abort-named cleanup evicted the instance and kept the database, leaving one orphan per branch). Nothing here proves delete on a real facet reclaims the database rather than merely detaching it, and the live lane owes that confirmation."
       ]
     },
@@ -221,21 +260,23 @@
       "owner": "W8",
       "specAnchor": "C13-CLOUDFLARE-QUEUE-DISPOSITION",
       "specTextSha256": "sha256:f93842f2c776fdc589e6534a0667ea3350fd71c6c7a0444620b733f48500ab89",
-      "status": "verified",
+      "status": "implemented",
       "prerequisites": [],
       "sourceSymbols": ["cloudflare/src/queue.ts#AtLeastOnceQueueAdapter"],
       "testSelectors": [
         "cloudflare/test/live/phase-1.test.ts#live Cloudflare platform-semantics evidence [C13-CLOUDFLARE-QUEUE-DISPOSITION] acknowledges, redelivers, and dead-letters through a real queue"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-LIVE", "ACQ-TEST"],
-      "remainingEvidence": []
+      "remainingEvidence": [
+        "This row is held below verified because its live evidence cannot resolve. The committed manifest at artifacts/conformance/live-evidence/run.json fingerprints cloudflare/src/durable-object.ts and cloudflare/src/reconciliation.ts, both changed by the W8 platform-behaviour work in this change, so validateLiveEvidence fails closed with 'Live evidence is stale' and every cloudflare/test/live selector this row cited stops resolving. The source symbols and the hermetic selectors are unchanged and still pass; what is gone is the deployed observation, and a verified claim that rests on a deployed observation may not outlive it. The single prerequisite is one operator re-run of `pnpm --filter @agent-core/cloudflare live:evidence` against the account, which regenerates run.json and the four phase reports at the current commit and restores this row to verified with its citations untouched. No fingerprint was re-pinned by hand, because re-pinning ratifies a deployment that did not happen."
+      ]
     },
     {
       "id": "C13-CLOUDFLARE-RECONCILIATION-DRIVER",
       "owner": "W8",
       "specAnchor": "C13-CLOUDFLARE-RECONCILIATION-DRIVER",
       "specTextSha256": "sha256:26d74a52eddb03130915f8ef61fce22c9f2fe0dbcdea5295751b29d6ec0d3f5e",
-      "status": "verified",
+      "status": "implemented",
       "prerequisites": ["C13-CLOUDFLARE-ALARM-CLAIMS", "C13-EFFECT-RECONCILIATION-DRIVER"],
       "sourceSymbols": [
         "cloudflare/src/reconciliation.ts#AlarmOutboxReconciler",
@@ -245,14 +286,16 @@
         "cloudflare/test/live/phase-1.test.ts#live Cloudflare platform-semantics evidence [C13-CLOUDFLARE-RECONCILIATION-DRIVER] arms a real alarm from the outbox, fires it, and tears the alarm down"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-LIVE", "ACQ-TEST"],
-      "remainingEvidence": []
+      "remainingEvidence": [
+        "This row is held below verified because its live evidence cannot resolve. The committed manifest at artifacts/conformance/live-evidence/run.json fingerprints cloudflare/src/durable-object.ts and cloudflare/src/reconciliation.ts, both changed by the W8 platform-behaviour work in this change, so validateLiveEvidence fails closed with 'Live evidence is stale' and every cloudflare/test/live selector this row cited stops resolving. The source symbols and the hermetic selectors are unchanged and still pass; what is gone is the deployed observation, and a verified claim that rests on a deployed observation may not outlive it. The single prerequisite is one operator re-run of `pnpm --filter @agent-core/cloudflare live:evidence` against the account, which regenerates run.json and the four phase reports at the current commit and restores this row to verified with its citations untouched. No fingerprint was re-pinned by hand, because re-pinning ratifies a deployment that did not happen."
+      ]
     },
     {
       "id": "C13-CLOUDFLARE-RECONCILIATION-FENCE",
       "owner": "W8",
       "specAnchor": "C13-CLOUDFLARE-RECONCILIATION-FENCE",
       "specTextSha256": "sha256:496c8768173b995272afb5633f90c98b2e15142eb26a197c64a7b4944e9f52fc",
-      "status": "verified",
+      "status": "implemented",
       "prerequisites": ["C13-CLOUDFLARE-RECONCILIATION-DRIVER"],
       "sourceSymbols": [
         "cloudflare/src/reconciliation.ts#AlarmOutboxReconciler",
@@ -262,21 +305,25 @@
         "cloudflare/test/live/phase-1.test.ts#live Cloudflare platform-semantics evidence [C13-CLOUDFLARE-RECONCILIATION-FENCE] keeps a schedule written while reconciliation was in flight"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-LIVE", "ACQ-TEST"],
-      "remainingEvidence": []
+      "remainingEvidence": [
+        "This row is held below verified because its live evidence cannot resolve. The committed manifest at artifacts/conformance/live-evidence/run.json fingerprints cloudflare/src/durable-object.ts and cloudflare/src/reconciliation.ts, both changed by the W8 platform-behaviour work in this change, so validateLiveEvidence fails closed with 'Live evidence is stale' and every cloudflare/test/live selector this row cited stops resolving. The source symbols and the hermetic selectors are unchanged and still pass; what is gone is the deployed observation, and a verified claim that rests on a deployed observation may not outlive it. The single prerequisite is one operator re-run of `pnpm --filter @agent-core/cloudflare live:evidence` against the account, which regenerates run.json and the four phase reports at the current commit and restores this row to verified with its citations untouched. No fingerprint was re-pinned by hand, because re-pinning ratifies a deployment that did not happen."
+      ]
     },
     {
       "id": "C13-CLOUDFLARE-RECONCILIATION-RETRY",
       "owner": "W8",
       "specAnchor": "C13-CLOUDFLARE-RECONCILIATION-RETRY",
       "specTextSha256": "sha256:75715c649403aae26f3daf99ae7786dc92fd76c56340399203b2c0c0263bc078",
-      "status": "verified",
+      "status": "implemented",
       "prerequisites": ["C13-CLOUDFLARE-RECONCILIATION-DRIVER"],
       "sourceSymbols": ["cloudflare/src/reconciliation.ts#AlarmOutboxReconciler"],
       "testSelectors": [
         "cloudflare/test/live/phase-1.test.ts#live Cloudflare platform-semantics evidence [C13-CLOUDFLARE-RECONCILIATION-RETRY] reschedules a failed reconciliation onto a real alarm and settles it"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-LIVE", "ACQ-TEST"],
-      "remainingEvidence": []
+      "remainingEvidence": [
+        "This row is held below verified because its live evidence cannot resolve. The committed manifest at artifacts/conformance/live-evidence/run.json fingerprints cloudflare/src/durable-object.ts and cloudflare/src/reconciliation.ts, both changed by the W8 platform-behaviour work in this change, so validateLiveEvidence fails closed with 'Live evidence is stale' and every cloudflare/test/live selector this row cited stops resolving. The source symbols and the hermetic selectors are unchanged and still pass; what is gone is the deployed observation, and a verified claim that rests on a deployed observation may not outlive it. The single prerequisite is one operator re-run of `pnpm --filter @agent-core/cloudflare live:evidence` against the account, which regenerates run.json and the four phase reports at the current commit and restores this row to verified with its citations untouched. No fingerprint was re-pinned by hand, because re-pinning ratifies a deployment that did not happen."
+      ]
     },
     {
       "id": "C13-CLOUDFLARE-ROLLBACK-WINDOW",
@@ -334,8 +381,11 @@
       "status": "implemented",
       "prerequisites": [],
       "sourceSymbols": [
+        "cloudflare/src/content-object.ts#R2_BUFFERED_OBJECT_LIMIT_BYTES",
         "cloudflare/src/revision-log.ts#DurableViewRevisionLog",
-        "cloudflare/src/sqlite.ts#requireStorableBlob"
+        "cloudflare/src/sqlite.ts#requireExecutableStatement",
+        "cloudflare/src/sqlite.ts#requireStorableBlob",
+        "cloudflare/src/storage-failure.ts#CloudflareStorageFailure"
       ],
       "testSelectors": [
         "cloudflare/test/live/phase-1.test.ts#live Cloudflare platform-semantics evidence [C13-CLOUDFLARE-STORAGE-LIMIT] stores a row at the declared blob limit and refuses one past it"
@@ -343,10 +393,11 @@
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-LIVE", "ACQ-TEST"],
       "remainingEvidence": [
         "The named live case claims it stores a row at the declared limit, and its own comment says the seam is only correct if production accepts a row that large with overhead included, but it wrote SQL_BLOB_LIMIT_BYTES - 1_000 and exercised neither boundary. It now writes at the limit and owes a live run. The documented bound covers a string, BLOB or row while requireStorableBlob measures only the payload, so at-limit acceptance rests on workerd's undocumented SQLITE_LIMIT_LENGTH headroom rather than on anything Cloudflare promises.",
-        "SQLITE_FULL is documented as the failure a Durable Object at its ten-gigabyte storage limit returns for every write while reads and DELETEs keep working, and a storage operation that exceeds the platform's internal timeout is documented to reset the object (https://developers.cloudflare.com/durable-objects/platform/limits/#what-happens-when-a-durable-object-exceeds-its-storage-limit, https://developers.cloudflare.com/durable-objects/observability/troubleshooting/). Neither is classified: CloudflareSqlite maps both to a generic protocol.invalid-state, so a full object is indistinguishable from a malformed statement and the documented drain-to-recover path cannot be taken.",
-        "Two further documented SQL bounds are unenforced: the hundred-kilobyte statement length and the hundred-bound-parameter cap (https://developers.cloudflare.com/durable-objects/platform/limits/#sql-storage-limits). Nothing in the package approaches either today, and nothing prevents a host from doing so.",
-        "The two size seams in this package measure bytes the platform does not. requireStorableBlob measures the payload against a bound the documentation applies to the whole row, and the WebSocket attachment guard measures UTF-8 JSON bytes against a bound the platform applies to the structured clone (https://developers.cloudflare.com/durable-objects/best-practices/websockets/#websocketserializeattachment). Both approximations are stated in comments; neither is derived. A payload the storage seam accepts is also not bounded against the transport that has to carry it: a near-limit ViewDelta becomes roughly 2.7 MB of base64 in one frame, and the outbound frame ceiling is undocumented, so the delta can be unsendable to its own subscribers as an opaque socket failure.",
-        "The R2 content path buffers whole objects inside a 128 MB isolate — content-object.ts copies the payload on put and reads the entire body on get — with no size, key-length or metadata guard against R2's documented 1,024-byte key and 8,192-byte metadata bounds (https://developers.cloudflare.com/r2/platform/limits/, https://developers.cloudflare.com/workers/platform/limits/#memory). §10.1 routes the ContentStore to R2 expressly for large content, so this is the one path where the memory limit rather than the storage limit is the binding constraint."
+        "SQLITE_FULL and the storage-timeout reset are now classified rather than flattened. CloudflareStorageFailure reads the platform's documented marker and reports drainable and transient separately, so a full object is distinguishable from a reset one and from a refused statement, and the raised AgentCoreError names the classification while the thrown platform value survives as its cause. The code stays protocol.invalid-state because the closed AgentCoreErrorCode union has no storage-exhaustion member and inventing one is W0's call, not this profile's.",
+        "The hundred-kilobyte statement length and the hundred-bound-parameter cap are enforced. requireExecutableStatement refuses both as operation.invalid-input before the statement reaches the platform, and it measures UTF-8 bytes only when a statement's code-unit count could possibly exceed a third of the bound, so no real statement in this package pays an encoding pass.",
+        "Two size approximations remain and are stated rather than derived, because neither quantity is measurable in-isolate. requireStorableBlob measures the payload against a bound the documentation applies to the whole row, and the WebSocket attachment guard measures UTF-8 JSON bytes against a bound the platform applies to the structured clone. A near-limit ViewDelta is also not bounded against the outbound frame that has to carry it, and the outbound ceiling is undocumented.",
+        "The R2 content path is now bounded where memory rather than storage binds it: a content object over 32 MiB is refused as operation.invalid-input on write, and on read the refusal happens against R2's reported size before the body is fetched, so an oversized object never enters the 128 MB isolate. R2's 1,024-byte key and 8,192-byte metadata bounds are satisfied by construction rather than by a guard, since a key is the fixed prefix plus two fixed-width digests and the metadata is three fixed-width entries; the measured constants are exported so a future key change is caught.",
+        "The committed live evidence at artifacts/conformance/live-evidence/run.json is now stale for this row's sources: it fingerprints cloudflare/src/durable-object.ts and cloudflare/src/reconciliation.ts, and both changed here, so validateLiveEvidence fails closed with 'Live evidence is stale'. The single prerequisite is one operator re-run of `pnpm --filter @agent-core/cloudflare live:evidence` against the real account, which regenerates run.json and the four phase reports at the current commit. No fingerprint was re-pinned by hand, because re-pinning ratifies a deployment that did not happen."
       ]
     },
     {
@@ -354,7 +405,7 @@
       "owner": "W8",
       "specAnchor": "C13-CLOUDFLARE-VIEW-ATTACHMENT",
       "specTextSha256": "sha256:280c5ecd83aa92359007c348fddb36b6874feade3723776eec7cf198b91ee3b0",
-      "status": "verified",
+      "status": "implemented",
       "prerequisites": ["C13-VIEW-DELTA-REPLAY"],
       "sourceSymbols": [
         "cloudflare/src/revision-log.ts#DurableViewRevisionLog",
@@ -364,7 +415,9 @@
         "cloudflare/test/live/phase-1.test.ts#live Cloudflare platform-semantics evidence [C13-CLOUDFLARE-VIEW-ATTACHMENT] replays a hibernating WebSocket and keeps its attachment across an idle eviction window"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-LIVE", "ACQ-TEST"],
-      "remainingEvidence": []
+      "remainingEvidence": [
+        "This row is held below verified because its live evidence cannot resolve. The committed manifest at artifacts/conformance/live-evidence/run.json fingerprints cloudflare/src/durable-object.ts and cloudflare/src/reconciliation.ts, both changed by the W8 platform-behaviour work in this change, so validateLiveEvidence fails closed with 'Live evidence is stale' and every cloudflare/test/live selector this row cited stops resolving. The source symbols and the hermetic selectors are unchanged and still pass; what is gone is the deployed observation, and a verified claim that rests on a deployed observation may not outlive it. The single prerequisite is one operator re-run of `pnpm --filter @agent-core/cloudflare live:evidence` against the account, which regenerates run.json and the four phase reports at the current commit and restores this row to verified with its citations untouched. No fingerprint was re-pinned by hand, because re-pinning ratifies a deployment that did not happen."
+      ]
     },
     {
       "id": "C13-ENVIRONMENT-DISPOSE-CLOSE",
@@ -454,7 +507,7 @@
       "remainingEvidence": [
         "The cited test kills seven discriminating mutants measured by hand at this rev -- lineage recorded on the instantiated Slate, unsatisfied reported empty, the source-digest comparison removed, and the intent key set unenforced each fail it -- but src/slates/skeleton.ts is new and src/slates/{runtime,intent,codec}.ts changed, so artifacts/quality/discrimination/slates.json holds no attribution for any of it. A mutation re-measurement of the slates area is required before this atom may be raised to verified",
         "checkerInvariants is empty because no invariant in artifacts/quality/rules.json asserts anything about this rule; naming ACQ-IMPORT/ACQ-TEST would be evidence for the module graph and the test style, not for the no-lineage rule",
-        "The §11 profile surface does not reach this Operation: SLATE_OPERATION_CONTRACTS in src/facets/slate/facet.ts still declares six operations and SlateRuntimePort in src/composition/slate-profile.ts still picks six, so instantiate is reachable through SlateRuntime only. A P11-SLATE-INSTANTIATE contract and its wire codec are a separate slice",
+        "The \u00a711 profile surface does not reach this Operation: SLATE_OPERATION_CONTRACTS in src/facets/slate/facet.ts still declares six operations and SlateRuntimePort in src/composition/slate-profile.ts still picks six, so instantiate is reachable through SlateRuntime only. A P11-SLATE-INSTANTIATE contract and its wire codec are a separate slice",
         "The skeletonDigest this Operation records is a durable value derived from canonical declaration bytes another wave owns: Digest.sha256(SlateSkeleton.encode(skeleton)) covers SlateSkeleton.toData() -> {bindings, sourceDigest} -> BindingRequirement.toData() -> {compat, facet, name}. Checked against MIGRATE-OPERATION-DESCRIPTOR-PRESENCE: manifest.ts carries zero interceptable/requireOfferedCapability references, so BindingRequirement is disjoint from the OperationDescriptor digest sites and this derivation did NOT fork. Two standing exposures remain and they fail differently. If BindingName's canonical form moves (C13-AUTH-BINDING-NAME-CANONICAL, W2) or BindingRequirement's three fields change (W3), a recorded intent's digest silently stops matching a re-derived one -- no throw and no failing test -- unlike the descriptor fork, which surfaces as a re-dispatch. A silently forking identity and a loudly forking one are different hazards and this is the quieter. Second: applying the presence idiom to bindings, which the declared-nothing/never-asked collapse would otherwise invite, changes toData()'s canonical key set and is therefore a migration rather than a refactor. The migration question is vacuous today -- slate.skeleton is durability value with store null, the digest lives only in an intent record, and no committed slate instantiate rows exist -- and stops being vacuous at the first recorded instantiate"
       ]
     },
@@ -1072,7 +1125,7 @@
       "owner": "W8",
       "specAnchor": "P11-ENVIRONMENT-EPHEMERAL-DURABILITY",
       "specTextSha256": "sha256:b7ab5a3236d620394183a2f7c4201ae795518ce13a41a8a20f5d930a5269b5d1",
-      "status": "verified",
+      "status": "implemented",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
       "sourceSymbols": [
         "cloudflare/src/environment-provider.ts#DurableObjectEnvironmentProvider",
@@ -1086,7 +1139,9 @@
         "cloudflare/test/live/phase-2.test.ts#live Cloudflare substrate evidence after redeployment [P11-ENVIRONMENT-EPHEMERAL-DURABILITY] keeps session state across a full worker redeployment"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-LIVE", "ACQ-TEST"],
-      "remainingEvidence": []
+      "remainingEvidence": [
+        "This row is held below verified because its live evidence cannot resolve. The committed manifest at artifacts/conformance/live-evidence/run.json fingerprints cloudflare/src/durable-object.ts and cloudflare/src/reconciliation.ts, both changed by the W8 platform-behaviour work in this change, so validateLiveEvidence fails closed with 'Live evidence is stale' and every cloudflare/test/live selector this row cited stops resolving. The source symbols and the hermetic selectors are unchanged and still pass; what is gone is the deployed observation, and a verified claim that rests on a deployed observation may not outlive it. The single prerequisite is one operator re-run of `pnpm --filter @agent-core/cloudflare live:evidence` against the account, which regenerates run.json and the four phase reports at the current commit and restores this row to verified with its citations untouched. No fingerprint was re-pinned by hand, because re-pinning ratifies a deployment that did not happen."
+      ]
     },
     {
       "id": "P11-ENVIRONMENT-FAIL-CLOSED",
@@ -1114,7 +1169,7 @@
       "checkerInvariants": [],
       "remainingEvidence": [
         "No Session egress plane exists in the runtime: environments model files, snapshots, and exposures but no EgressGrant or destination Binding, so the positive half (a send reaches exactly its named Binding's destination and an unbound destination refuses) has no source symbol; it is currently claimed only formally (AC-ENVIRONMENT-001, session_egress_is_explicitly_bound / unbound_send_is_refused) with NC-ENVIRONMENT-LIFECYCLE deferring the runtime",
-        "The adversarial half — code inside the Session cannot open a connection the platform did not pass — is a substrate property (globalOutbound: null, cf. the Slate loader) and needs either an isolate-backed Session provider with a local negative test or a new W8 consent gate and ACQ-LIVE scenario; no local emulation may substitute",
+        "The adversarial half \u2014 code inside the Session cannot open a connection the platform did not pass \u2014 is a substrate property (globalOutbound: null, cf. the Slate loader) and needs either an isolate-backed Session provider with a local negative test or a new W8 consent gate and ACQ-LIVE scenario; no local emulation may substitute",
         "Checked at HEAD: the only globalOutbound assertion in the tree is packages/agent-core-cloudflare/test/hosting.test.ts \"forces one-time Dynamic Worker load with null outbound and only passed Bindings\", which drives DynamicWorkerLoaderAdapter against FakeWorkerLoader and so records the argument the adapter passes, never a refused connection; being local emulation it is exactly what this atom excludes, and it is cited by no requirement"
       ]
     },
@@ -1165,7 +1220,7 @@
       "owner": "W8",
       "specAnchor": "P11-ENVIRONMENT-PREVIEW",
       "specTextSha256": "sha256:8c22d8da15746482125fe29d68e55b0eb62bba52c84e2c3598da1907335bf3a9",
-      "status": "verified",
+      "status": "implemented",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
       "sourceSymbols": [
         "cloudflare/src/environment-provider.ts#DurableObjectEnvironmentProvider",
@@ -1176,7 +1231,9 @@
         "cloudflare/test/live/phase-1.test.ts#live Cloudflare substrate evidence [P11-ENVIRONMENT-PREVIEW] derives the deterministic preview URL, keeps it across an instance kill, and revokes fail-closed"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-LIVE", "ACQ-TEST"],
-      "remainingEvidence": []
+      "remainingEvidence": [
+        "This row is held below verified because its live evidence cannot resolve. The committed manifest at artifacts/conformance/live-evidence/run.json fingerprints cloudflare/src/durable-object.ts and cloudflare/src/reconciliation.ts, both changed by the W8 platform-behaviour work in this change, so validateLiveEvidence fails closed with 'Live evidence is stale' and every cloudflare/test/live selector this row cited stops resolving. The source symbols and the hermetic selectors are unchanged and still pass; what is gone is the deployed observation, and a verified claim that rests on a deployed observation may not outlive it. The single prerequisite is one operator re-run of `pnpm --filter @agent-core/cloudflare live:evidence` against the account, which regenerates run.json and the four phase reports at the current commit and restores this row to verified with its citations untouched. No fingerprint was re-pinned by hand, because re-pinning ratifies a deployment that did not happen."
+      ]
     },
     {
       "id": "P11-ENVIRONMENT-ROTATION",
@@ -1197,7 +1254,7 @@
       "owner": "W8",
       "specAnchor": "P11-ENVIRONMENT-SNAPSHOT",
       "specTextSha256": "sha256:d4032d243774cfedcf8a37104ce5069c0c662e9415f432203a202590bab9a849",
-      "status": "verified",
+      "status": "implemented",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
       "sourceSymbols": [
         "cloudflare/src/environment-provider.ts#DurableObjectEnvironmentProvider",
@@ -1209,7 +1266,9 @@
         "cloudflare/test/live/phase-1.test.ts#live Cloudflare substrate evidence [P11-ENVIRONMENT-SNAPSHOT] snapshots through real R2 and restores exactly on a different instance"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-LIVE", "ACQ-TEST"],
-      "remainingEvidence": []
+      "remainingEvidence": [
+        "This row is held below verified because its live evidence cannot resolve. The committed manifest at artifacts/conformance/live-evidence/run.json fingerprints cloudflare/src/durable-object.ts and cloudflare/src/reconciliation.ts, both changed by the W8 platform-behaviour work in this change, so validateLiveEvidence fails closed with 'Live evidence is stale' and every cloudflare/test/live selector this row cited stops resolving. The source symbols and the hermetic selectors are unchanged and still pass; what is gone is the deployed observation, and a verified claim that rests on a deployed observation may not outlive it. The single prerequisite is one operator re-run of `pnpm --filter @agent-core/cloudflare live:evidence` against the account, which regenerates run.json and the four phase reports at the current commit and restores this row to verified with its citations untouched. No fingerprint was re-pinned by hand, because re-pinning ratifies a deployment that did not happen."
+      ]
     },
     {
       "id": "P11-ENVIRONMENT-SPECIFICATION",
@@ -1608,7 +1667,7 @@
       "remainingEvidence": [
         "There is no comparison to make atomic yet, so this atom cannot precede P11-FILESYSTEM-WRITE-OBSERVED. What is owed beyond it is that the comparison and the replacement occupy the single atomic step P11-FILESYSTEM-ATOMIC-WRITE already requires: a backend that reads the current content, compares, and then writes through a second store call satisfies the guard's wording and loses the guarantee, because a concurrent write landing between the two produces a write that passed a check against content it did not replace",
         "The conformance test is owed as an interleaving, not as a sequential case: a guarded `replace` whose comparison observes matching content while another write lands before the replacement must reject rather than apply. src/facets/filesystem/memory.ts is synchronous and cannot express the interleaving, so the owed test drives it through a backend seam that can, or through an instrumented backend whose comparison step yields, and asserts the prior content survived",
-        "The adversarial case is a guard that is checked at admission rather than at the store. A precondition evaluated during §7.3 preparation and then trusted at effect time is a time-of-check-to-time-of-use hole precisely because §7.3 freezes intent before the effect, so the test must fail a host that discharges the guard anywhere other than the atomic store step",
+        "The adversarial case is a guard that is checked at admission rather than at the store. A precondition evaluated during \u00a77.3 preparation and then trusted at effect time is a time-of-check-to-time-of-use hole precisely because \u00a77.3 freezes intent before the effect, so the test must fail a host that discharges the guard anywhere other than the atomic store step",
         "testSelectors is empty because scripts/quality/ledger.mjs#validateStatus rejects a planned requirement that carries source symbols, test selectors, or checker invariants; the selectors above are named as prose obligations until the code exists and the status moves to implemented"
       ]
     },
@@ -1628,7 +1687,7 @@
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "The choice this atom fixes is not yet expressible, and it is the reason the guard is a `Digest` (§1.4) rather than a store-native token: src/facets/filesystem/facet.ts#FilesystemStat reports `{ path, kind, size, modifiedAt }`, and a modification time is a per-store heuristic that a mount composition would have to translate between backings. Owed: the guard value is derived from content and from nothing else, so the same guard is meaningful against every backing store without a translation layer, and no backend introduces a private token as an alternative",
+        "The choice this atom fixes is not yet expressible, and it is the reason the guard is a `Digest` (\u00a71.4) rather than a store-native token: src/facets/filesystem/facet.ts#FilesystemStat reports `{ path, kind, size, modifiedAt }`, and a modification time is a per-store heuristic that a mount composition would have to translate between backings. Owed: the guard value is derived from content and from nothing else, so the same guard is meaningful against every backing store without a translation layer, and no backend introduces a private token as an alternative",
         "The conformance test is owed as a cross-backing assertion rather than a single-store one: a guard produced by reading through one backing store and presented to a write through a different backing store holding identical content must be accepted, and one presented against different content must reject. src/facets/filesystem/mount.ts routes a write to whichever mount resolves the path, so the mount composition is where a per-store token would break and where the digest must not",
         "A negative obligation is owed as well: `stat` MUST NOT be extended to always report a content digest, because the profile's cheap metadata Operation would then pay a full read per call. The guard is derived by the caller from the content a `read` already returned, which is what keeps the observation requirement free of any new per-session state and keeps `stat` at its current cost",
         "testSelectors is empty because scripts/quality/ledger.mjs#validateStatus rejects a planned requirement that carries source symbols, test selectors, or checker invariants; the selectors above are named as prose obligations until the code exists and the status moves to implemented"
@@ -1677,7 +1736,7 @@
       "remainingEvidence": [
         "The distinction this atom draws does not yet exist, because today every mode overwrites without naming content and `upsert` is merely the mode with no existence precondition (src/facets/filesystem/facet.ts#UpsertWriteMode has an empty `requireWritable`). Once `replace` is guarded, `upsert` becomes the profile's single unobserved overwrite, and what is owed is that this is the only such path: no default, no absent-mode fallback, and no third route to overwriting content the caller never read",
         "src/facets/filesystem/memory.ts defaults an omitted mode to `FilesystemWriteMode.upsert`, and test/profiles/facets/filesystem.test.ts exercises `filesystem.write(\"/fresh\", new Uint8Array([5]))` with no mode at all, so an unobserved overwrite is currently reachable without being declared. Owed: whether an omitted mode remains admissible at the backend seam is a decision this rule forces, and the model-facing Operation input must not admit one, because a declared intent that a caller can decline to declare is not a declaration",
-        "The policy half is owed and is what makes the rule worth stating: `upsert` carries `mutate` impact like every other write, so the fact that a Workspace policy can refuse it specifically depends on policy resolving on the mode and not only on the Operation. A test is owed showing a policy that admits `create` and guarded `replace` while denying `upsert`, and showing that the denial is a pre-effect outcome under §7.3 rather than a store-level rejection",
+        "The policy half is owed and is what makes the rule worth stating: `upsert` carries `mutate` impact like every other write, so the fact that a Workspace policy can refuse it specifically depends on policy resolving on the mode and not only on the Operation. A test is owed showing a policy that admits `create` and guarded `replace` while denying `upsert`, and showing that the denial is a pre-effect outcome under \u00a77.3 rather than a store-level rejection",
         "The conformance test is owed in two shapes: an `upsert` over a present target succeeds and replaces content the caller never observed, which is the behaviour this rule permits rather than forbids; and the Receipt for that write records the mode, so an unobserved overwrite is distinguishable in the audit trail from a guarded one after the fact",
         "testSelectors is empty because scripts/quality/ledger.mjs#validateStatus rejects a planned requirement that carries source symbols, test selectors, or checker invariants; the selectors above are named as prose obligations until the code exists and the status moves to implemented"
       ]
@@ -2625,7 +2684,7 @@
       "owner": "W8",
       "specAnchor": "P11-SLATE-DEPLOY",
       "specTextSha256": "sha256:07124f5fe93b5bfac4224331da6b5a1f063e6971639eefc3d91a3d0b53ba1709",
-      "status": "verified",
+      "status": "implemented",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
       "sourceSymbols": [
         "cloudflare/src/slate-provider.ts#DurableObjectSlateProvider",
@@ -2637,7 +2696,9 @@
         "test/profiles/facets/conformance-ledger.test.ts#[P11-SLATE-DEPLOY] exact profile manifest or runtime contract"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-LIVE", "ACQ-TEST"],
-      "remainingEvidence": []
+      "remainingEvidence": [
+        "This row is held below verified because its live evidence cannot resolve. The committed manifest at artifacts/conformance/live-evidence/run.json fingerprints cloudflare/src/durable-object.ts and cloudflare/src/reconciliation.ts, both changed by the W8 platform-behaviour work in this change, so validateLiveEvidence fails closed with 'Live evidence is stale' and every cloudflare/test/live selector this row cited stops resolving. The source symbols and the hermetic selectors are unchanged and still pass; what is gone is the deployed observation, and a verified claim that rests on a deployed observation may not outlive it. The single prerequisite is one operator re-run of `pnpm --filter @agent-core/cloudflare live:evidence` against the account, which regenerates run.json and the four phase reports at the current commit and restores this row to verified with its citations untouched. No fingerprint was re-pinned by hand, because re-pinning ratifies a deployment that did not happen."
+      ]
     },
     {
       "id": "P11-SLATE-DYNAMIC",
@@ -2686,7 +2747,7 @@
       "owner": "W8",
       "specAnchor": "P11-SLATE-MEDIATED-DEPLOY",
       "specTextSha256": "sha256:f46cae567e5d31cbe8c3f36a72af9eaad62143453204e248412944b8db66891c",
-      "status": "verified",
+      "status": "implemented",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
       "sourceSymbols": [
         "cloudflare/src/slate-provider.ts#DurableObjectSlateProvider",
@@ -2697,7 +2758,9 @@
         "test/slates/runtime.test.ts#SlateRuntime [P11-SLATE-MEDIATED-DEPLOY] passes the same frozen deployment intent through prepare, invoke, and reconcile"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-LIVE", "ACQ-TEST"],
-      "remainingEvidence": []
+      "remainingEvidence": [
+        "This row is held below verified because its live evidence cannot resolve. The committed manifest at artifacts/conformance/live-evidence/run.json fingerprints cloudflare/src/durable-object.ts and cloudflare/src/reconciliation.ts, both changed by the W8 platform-behaviour work in this change, so validateLiveEvidence fails closed with 'Live evidence is stale' and every cloudflare/test/live selector this row cited stops resolving. The source symbols and the hermetic selectors are unchanged and still pass; what is gone is the deployed observation, and a verified claim that rests on a deployed observation may not outlive it. The single prerequisite is one operator re-run of `pnpm --filter @agent-core/cloudflare live:evidence` against the account, which regenerates run.json and the four phase reports at the current commit and restores this row to verified with its citations untouched. No fingerprint was re-pinned by hand, because re-pinning ratifies a deployment that did not happen."
+      ]
     },
     {
       "id": "P11-SLATE-PREVIEW",
