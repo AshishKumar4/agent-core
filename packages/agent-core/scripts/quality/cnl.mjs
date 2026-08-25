@@ -63,8 +63,25 @@ function reportFailures(exitCode = 1) {
 const AXIOM_DESIGNATION_PATTERN = /^'([A-Za-z_][A-Za-z0-9_.]*)' does not depend on any axioms$/u;
 const AXIOM_LIST_PATTERN = /^'([A-Za-z_][A-Za-z0-9_.]*)' depends on axioms: \[(.*)\]$/u;
 
-/** Runs the Lean report and splits its two outputs. */
+/** Runs the Lean report and splits its outputs.
+ *
+ * The library is built first, and that is not a convenience. `Report.lean` asserts every
+ * declaration shape and `Hostile.lean` asserts every refusal, and both of those run while
+ * the *library* elaborates. Reading the report off a cold or stale cache would run neither,
+ * so a tree whose guards fail could still produce a clean report. Building first means the
+ * guards have executed before a single line is parsed. */
 function runLeanReport() {
+    const build = spawnSync(lakeCommand, ["build", "SpecCnl"], {
+        cwd: formalRoot,
+        encoding: "utf8",
+        maxBuffer: 64 * 1024 * 1024
+    });
+    if (build.status !== 0) {
+        throw new TypeError(
+            `lake build SpecCnl failed with status ${build.status}: ` +
+                `${[build.stdout, build.stderr].filter(Boolean).join("\n")}`
+        );
+    }
     const result = spawnSync(lakeCommand, ["env", "lean", join("SpecCnl", "Report.lean")], {
         cwd: formalRoot,
         encoding: "utf8",
@@ -238,15 +255,15 @@ async function verify(artifactsRoot) {
      * heuristic over wording, so it excludes nothing here. */
     const exclusionReasons = Object.freeze(["embedded-table"]);
 
-    function verifyExclusions(artifactsRoot) {
-        const exclusionsPath = join(artifactsRoot, "exclusions.json");
-        const parsed = JSON.parse(readFileSync(exclusionsPath, "utf8"));
+    function verifyRatchet(artifactsRoot) {
+        const ratchetPath = join(artifactsRoot, "ratchet.json");
+        const parsed = JSON.parse(readFileSync(ratchetPath, "utf8"));
         const keys = Object.keys(parsed).sort();
         if (
             JSON.stringify(keys) !==
-            JSON.stringify(["exclusions", "measured", "note", "reachableFloor"])
+            JSON.stringify(["bridgedFloor", "exclusions", "measured", "note", "reachableFloor"])
         ) {
-            fail("exclusions.json does not have exactly the expected fields");
+            fail("ratchet.json does not have exactly the expected fields");
             return null;
         }
         const excludedAtoms = new Set();
@@ -288,30 +305,54 @@ async function verify(artifactsRoot) {
     }
 
     mkdirSync(artifactsRoot, { recursive: true });
+    const updating = process.argv.includes("--update");
     let reachability = null;
     try {
-        reachability = verifyExclusions(artifactsRoot);
+        reachability = verifyRatchet(artifactsRoot);
     } catch (error) {
-        fail(`could not check exclusions.json: ${error.message}`);
+        if (!updating) fail(`could not check ratchet.json: ${error.message}`);
     }
 
+    const totalUnits = ruleUnits.size;
+    const excludedUnits =
+        reachability === null
+            ? 0
+            : [...ruleUnits.values()].filter((unit) =>
+                  unit.atoms.some((atom) => reachability.excludedAtoms.has(atom))
+              ).length;
+    const measured = {
+        distinctRuleUnits: totalUnits,
+        hardExclusions: excludedUnits,
+        provedBridges: ledger.units.length,
+        reachable: totalUnits - excludedUnits
+    };
+
     if (reachability !== null) {
-        const totalUnits = ruleUnits.size;
-        const excludedUnits = [...ruleUnits.values()].filter((unit) =>
-            unit.atoms.some((atom) => reachability.excludedAtoms.has(atom))
-        ).length;
-        const reachable = totalUnits - excludedUnits;
-        const measured = {
-            distinctRuleUnits: totalUnits,
-            hardExclusions: excludedUnits,
-            reachable,
-            provedBridges: ledger.units.length
-        };
-        if (reachable < reachability.record.reachableFloor) {
+        // Both floors are the ratchet. `--update` may raise them and may refresh every
+        // measurement, but it can never lower a floor, so regenerating the artifact is not
+        // a way to make a failing run pass.
+        if (measured.reachable < reachability.record.reachableFloor) {
             fail(
-                `the reachable denominator shrank: ${reachable} reachable units against a ` +
-                    `recorded floor of ${reachability.record.reachableFloor}`
+                `the reachable denominator shrank: ${measured.reachable} reachable units ` +
+                    `against a recorded floor of ${reachability.record.reachableFloor}`
             );
+        }
+        if (measured.provedBridges < reachability.record.bridgedFloor) {
+            fail(
+                `the proved numerator shrank: ${measured.provedBridges} bridged units ` +
+                    `against a recorded floor of ${reachability.record.bridgedFloor}`
+            );
+        }
+        // A recorded measurement that no longer matches the live one is stale evidence.
+        // Reporting it would publish a count nobody recomputed, so each field is compared.
+        for (const [field, live] of Object.entries(measured)) {
+            const recorded = reachability.record.measured?.[field];
+            if (recorded !== live) {
+                fail(
+                    `ratchet.json measured.${field} records ${recorded} but the live value ` +
+                        `is ${live}; regenerate with --update and review the diff`
+                );
+            }
         }
         reachability.measured = measured;
     }
@@ -332,11 +373,33 @@ async function verify(artifactsRoot) {
             "heads",
             "dropped",
             "proposition",
+            "propositionType",
             "handProposition",
+            "handPropositionType",
             "bridge",
-            "discharge"
+            "bridgeType",
+            "discharge",
+            "dischargeType"
         ]) {
             if (!(required in unit)) fail(`ledger unit ${unit.key} is missing ${required}`);
+        }
+        // The bridge must relate exactly this unit's two propositions, and the discharge
+        // must inhabit exactly its hand proposition. Lean refuses the build when either
+        // shape is wrong; re-deriving the expected shapes here from the unit's own names
+        // means the claim is checked on both sides rather than taken on trust.
+        const expectedShapes = {
+            propositionType: "Prop",
+            handPropositionType: "Prop",
+            bridgeType: `Iff(const:${unit.proposition},const:${unit.handProposition})`,
+            dischargeType: `const:${unit.handProposition}`
+        };
+        for (const [field, expected] of Object.entries(expectedShapes)) {
+            if (unit[field] !== expected) {
+                fail(
+                    `${unit.key}.${field} is ${unit[field]}, not ${expected}; the bridge does ` +
+                        "not relate this unit's own propositions"
+                );
+            }
         }
         if (!Array.isArray(unit.dropped) || unit.dropped.length === 0) {
             fail(`${unit.key} records no dropped clause`);
@@ -372,15 +435,37 @@ async function verify(artifactsRoot) {
 
     // --- Snapshot -----------------------------------------------------------------
 
+    // A missing snapshot is a refusal, not a bootstrap. Writing one silently would mean
+    // deleting the artifact is a way to make drift undetectable, so a fresh snapshot is
+    // only ever written when the caller asks for one with `--update`.
     const ledgerPath = join(artifactsRoot, "ledger.json");
     const rendered = `${JSON.stringify(ledger, null, 2)}\n`;
-    if (!existsSync(ledgerPath)) {
+    if (updating) {
+        const previous = reachability?.record;
+        const record = {
+            bridgedFloor: Math.max(previous?.bridgedFloor ?? 0, measured.provedBridges),
+            exclusions: previous?.exclusions ?? [],
+            measured,
+            note:
+                previous?.note ??
+                "A rule unit is hard-excluded only for a reason scripts/quality/cnl.mjs " +
+                    "verifies from the digested text.",
+            reachableFloor: Math.max(previous?.reachableFloor ?? 0, measured.reachable)
+        };
+        writeFileSync(join(artifactsRoot, "ratchet.json"), `${JSON.stringify(record, null, 2)}\n`);
         writeFileSync(ledgerPath, rendered, "utf8");
-        console.log(`cnl: wrote ${ledgerPath}; review it and commit`);
+        console.log(`cnl: refreshed ${artifactsRoot}; review the diff and commit`);
+        return "controlled language artifacts refreshed";
+    }
+    if (!existsSync(ledgerPath)) {
+        fail(
+            "artifacts/cnl/ledger.json is absent; run this checker with --update to write it, " +
+                "then review the diff and commit"
+        );
     } else if (readFileSync(ledgerPath, "utf8") !== rendered) {
         fail(
-            `artifacts/cnl/ledger.json is stale against the current Lean report; regenerate ` +
-                "it, review the diff, and commit"
+            "artifacts/cnl/ledger.json is stale against the current Lean report; regenerate " +
+                "it with --update, review the diff, and commit"
         );
     }
 

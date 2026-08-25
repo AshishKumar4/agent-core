@@ -288,15 +288,34 @@ def lexicon : List LexEntry :=
   grammarEntries ++ runGraphEntries ++ leaseEntries ++ effectEntries ++ eventEntries ++
     authorityEntries
 
-/-- Structural refusals of the lexicon itself, independent of any sentence: a duplicate
-id, a duplicate (surface, category) pair, or a category that does not read. A duplicate
-surface with the *same* category would make one reading appear twice and mask a genuine
-ambiguity, so it is refused here rather than reported later. -/
+/-- An entry id may use lowercase letters, digits, and dots, and must start with a
+letter.
+
+This is not cosmetic. `Item.key` identifies a reading by writing its head ids into a
+nested `head(arg,arg)` string, and distinct readings are counted by distinct keys. An id
+carrying `(`, `,` or `)` could make two genuinely different readings produce the same key,
+which would report an ambiguous sentence as having one reading — the exact failure the
+grammar exists to prevent. The charset keeps the key injective. -/
+def isSafeEntryId (id : String) : Bool :=
+  match id.toList with
+  | [] => false
+  | head :: rest =>
+      head.isLower &&
+        rest.all (fun c => (c.isLower && c.isAlpha) || c.isDigit || c == '.')
+
+/-- Structural refusals of the lexicon itself, independent of any sentence: an unsafe id,
+a duplicate id, a duplicate (surface, category) pair, or a category that does not read. A
+duplicate surface with the *same* category would make one reading appear twice and mask a
+genuine ambiguity, so it is refused here rather than reported later. -/
 def lexiconRefusals : List String := Id.run do
   let mut refusals : List String := []
   let mut ids : List String := []
   let mut shapes : List String := []
   for entry in lexicon do
+    if !isSafeEntryId entry.id then
+      refusals := refusals ++
+        [s!"lexicon entry id '{entry.id}' is outside the safe charset; a reading key \
+            built from it would not be injective"]
     if ids.contains entry.id then
       refusals := refusals ++ [s!"duplicate lexicon entry id '{entry.id}'"]
     ids := entry.id :: ids

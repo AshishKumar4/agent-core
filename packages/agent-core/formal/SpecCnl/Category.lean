@@ -81,11 +81,23 @@ def render : Ty → String
   | .con name => name
   | .var name => name
 
-def apply (σ : Subst) : Ty → Ty
-  | .con name => .con name
-  | .var name => match σ.lookup name with
-    | some ty => ty
-    | none => .var name
+/-- Resolves a type argument under a substitution, following chains.
+
+Unification records variable-to-variable bindings, so `a` may resolve to `b` while `b`
+resolves to a constant. A single lookup would stop at `b` and report an unresolved slot
+for a derivation that is in fact fully determined, so the chase is load-bearing rather
+than defensive. The fuel bound is the substitution's own length: each step consumes one
+distinct binding, so a well-formed substitution always terminates before it runs out, and
+a malformed cyclic one stops with a variable that `interp` then refuses. -/
+private def chase (σ : Subst) : Nat → Ty → Ty
+  | 0, ty => ty
+  | _ + 1, .con name => .con name
+  | fuel + 1, .var name =>
+      match σ.lookup name with
+      | some ty => chase σ fuel ty
+      | none => .var name
+
+def apply (σ : Subst) (ty : Ty) : Ty := chase σ (σ.length + 1) ty
 
 def freshen (tag : Nat) : Ty → Ty
   | .con name => .con name

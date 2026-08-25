@@ -1,5 +1,6 @@
 import SpecCnl.Adversarial
 import SpecCnl.Divergence
+import SpecCnl.Report
 
 /-!
 # Hostile assertions
@@ -131,5 +132,84 @@ cannot be dropped without a visible diff. -/
 #guard Corpus.divergenceNames.length == 4
 #guard Corpus.divergenceNames.contains "SpecCnl.Divergence.fix_is_strict"
 #guard Corpus.divergenceNames.contains "SpecCnl.Divergence.prefix_guest_verification_diverges"
+
+/-! ## Substitution chains resolve
+
+`Ty.apply` follows variable-to-variable bindings. A single lookup would stop at the first
+hop and report an unresolved category slot for a derivation that is in fact determined,
+which would refuse admissible sentences and, worse, make admission depend on the order
+unification happened to record its bindings. The chain below is the shape unification
+actually produces: `a` bound to `b`, `b` bound to a model type. -/
+
+#guard Ty.apply [("a", Ty.var "b"), ("b", Ty.con "AgentCore.Event")] (Ty.var "a") ==
+  Ty.con "AgentCore.Event"
+
+#guard (Cat.st (Ty.var "a") (Ty.var "b")).apply
+  [("a", Ty.con "AgentCore.GraphStore"), ("b", Ty.var "c"),
+    ("c", Ty.con "AgentCore.GraphLabel")] ==
+  Cat.st (Ty.con "AgentCore.GraphStore") (Ty.con "AgentCore.GraphLabel")
+
+/-! A chain that closes on itself resolves to a variable rather than looping, and `interp`
+then refuses it. Fail-closed, not fail-slow. -/
+
+#guard (Ty.apply [("a", Ty.var "b"), ("b", Ty.var "a")] (Ty.var "a")).interp.toOption.isNone
+
+/-! ## An entry id cannot break reading identity
+
+`Item.key` writes head ids into a nested `head(arg,arg)` string and distinct readings are
+counted by distinct keys, so an id carrying a bracket or a comma could make two different
+readings collide and report an ambiguous sentence as unambiguous. -/
+
+#guard lexicon.all (fun entry => isSafeEntryId entry.id)
+#guard !isSafeEntryId "bad(id"
+#guard !isSafeEntryId "bad,id"
+#guard !isSafeEntryId "bad)id"
+#guard !isSafeEntryId "Bad"
+#guard !isSafeEntryId ""
+
+/-! ## The declaration-shape check discriminates
+
+`SpecCnl.Report.shapeRefusals` is what stops a bridge from being audited, sorry-free, and
+meaningless: without it `bridge_X` could relate two propositions that are not this unit's.
+A check that accepted everything would look identical in a green run, so both directions
+are demonstrated here on throwaway declarations, at build time.
+
+`bridgeShapedRight` has the shape a corpus bridge must have. `bridgeShapedWrong` is a
+perfectly good theorem that relates the wrong propositions, which is exactly the mistake
+the check exists to catch. The probes are not `private`, because a private declaration
+carries a mangled internal name and the check reads declarations by the name the corpus
+records. -/
+
+def cnl_probe : Prop := True
+
+def hand_probe : Prop := True
+
+theorem bridgeShapedRight : cnl_probe ↔ hand_probe := Iff.rfl
+
+theorem bridgeShapedWrong : True ↔ True := Iff.rfl
+
+theorem dischargeShapedRight : hand_probe := trivial
+
+open Lean Elab Command in
+/-- Refuses the build unless the shape check accepts the right shape, rejects a bridge over
+the wrong propositions, and reports a missing declaration as missing. -/
+elab "#cnl_assert_shape_discrimination" : command => do
+  let env ← getEnv
+  let expectedBridge :=
+    "Iff(const:SpecCnl.Hostile.cnl_probe,const:SpecCnl.Hostile.hand_probe)"
+  let expectedDischarge := "const:SpecCnl.Hostile.hand_probe"
+  if Report.renderedType env "SpecCnl.Hostile.bridgeShapedRight" != some expectedBridge then
+    throwError "the shape check does not recognise a correctly shaped bridge"
+  if Report.renderedType env "SpecCnl.Hostile.bridgeShapedWrong" == some expectedBridge then
+    throwError "the shape check cannot tell a bridge over the wrong propositions from a \
+      correct one"
+  if Report.renderedType env "SpecCnl.Hostile.dischargeShapedRight" != some expectedDischarge then
+    throwError "the shape check does not recognise a correctly shaped discharge"
+  if Report.renderedType env "SpecCnl.Hostile.bridgeShapedWrong" == some expectedDischarge then
+    throwError "the shape check confuses a bridge with a discharge"
+  if (Report.renderedType env "SpecCnl.Hostile.thisDoesNotExist").isSome then
+    throwError "a missing declaration was reported as existing"
+
+#cnl_assert_shape_discrimination
 
 end SpecCnl.Hostile

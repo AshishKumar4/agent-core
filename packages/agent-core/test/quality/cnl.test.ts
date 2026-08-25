@@ -130,8 +130,8 @@ describe("controlled language gate", () => {
     test("refuses a shrinking denominator and an unjustified exclusion", async () => {
         scratch = await prepareScratch();
         await stubLake(scratch, recordedReport);
-        const path = resolve(scratch, "exclusions.json");
-        // SAFETY: the scratch record is this test's own copy of exclusions.json, whose
+        const path = resolve(scratch, "ratchet.json");
+        // SAFETY: the scratch record is this test's own copy of ratchet.json, whose
         // exact-field shape the gate itself enforced when the tree was accepted.
         const record = JSON.parse(await readFile(path, "utf8")) as { reachableFloor: number };
         record.reachableFloor += 1;
@@ -140,7 +140,7 @@ describe("controlled language gate", () => {
         expect(shrunk.status).toBe(1);
         expect(shrunk.stderr).toContain("reachable denominator shrank");
 
-        // SAFETY: same scratch record as above, re-read after this test's own write.
+        // SAFETY: same scratch ratchet record as above, re-read after this test's own write.
         const unjustified = JSON.parse(await readFile(path, "utf8")) as {
             exclusions: Array<{ atoms: string[]; reason: string }>;
             reachableFloor: number;
@@ -185,8 +185,8 @@ describe("controlled language gate", () => {
     test("refuses a bridge over an excluded rule unit and a silent adversarial decay", async () => {
         scratch = await prepareScratch();
         await stubLake(scratch, recordedReport);
-        const path = resolve(scratch, "exclusions.json");
-        // SAFETY: the scratch record is this test's own copy of exclusions.json, whose
+        const path = resolve(scratch, "ratchet.json");
+        // SAFETY: the scratch record is this test's own copy of ratchet.json, whose
         // exact-field shape the gate itself enforced when the tree was accepted.
         const record = JSON.parse(await readFile(path, "utf8")) as {
             exclusions: Array<{ atoms: string[]; reason: string }>;
@@ -212,5 +212,107 @@ describe("controlled language gate", () => {
         const decayed = runGate(scratch);
         expect(decayed.status).toBe(1);
         expect(decayed.stderr).toContain("scrambles were admitted");
+    });
+
+    test("refuses a bridge that relates the wrong propositions", async () => {
+        scratch = await prepareScratch();
+        // SAFETY: recordedReport is captured from a real Lean run at module load; its
+        // ledger line parsed successfully inside the gate before any fixture runs.
+        const parsed = JSON.parse(ledgerLine(recordedReport)) as {
+            units: Array<{ bridgeType: string; dischargeType: string }>;
+        };
+        parsed.units[0].bridgeType = "Iff(const:True,const:True)";
+        await stubLake(scratch, `cnl-ledger ${JSON.stringify(parsed)}`);
+        const wrongBridge = runGate(scratch);
+        expect(wrongBridge.status).toBe(1);
+        expect(wrongBridge.stderr).toContain("does not relate this unit's own propositions");
+
+        scratch = await prepareScratch();
+        // SAFETY: as above; only the discharge shape is perturbed.
+        const discharged = JSON.parse(ledgerLine(recordedReport)) as {
+            units: Array<{ dischargeType: string }>;
+        };
+        discharged.units[0].dischargeType = "const:SpecCnl.Bridge.hand_C13_CONTENT_RESOLUTION";
+        await stubLake(scratch, `cnl-ledger ${JSON.stringify(discharged)}`);
+        const wrongDischarge = runGate(scratch);
+        expect(wrongDischarge.status).toBe(1);
+        expect(wrongDischarge.stderr).toContain("dischargeType is");
+    });
+
+    test("refuses a shrinking numerator", async () => {
+        scratch = await prepareScratch();
+        await stubLake(scratch, recordedReport);
+        const path = resolve(scratch, "ratchet.json");
+        // SAFETY: this test's own copy of ratchet.json, whose exact-field shape the gate
+        // enforced when the tree was accepted.
+        const record = JSON.parse(await readFile(path, "utf8")) as { bridgedFloor: number };
+        record.bridgedFloor += 1;
+        await writeFile(path, `${JSON.stringify(record, null, 2)}\n`);
+        const run = runGate(scratch);
+        expect(run.status).toBe(1);
+        expect(run.stderr).toContain("the proved numerator shrank");
+    });
+
+    test("refuses a stale measured field", async () => {
+        scratch = await prepareScratch();
+        await stubLake(scratch, recordedReport);
+        const path = resolve(scratch, "ratchet.json");
+        // SAFETY: this test's own copy of ratchet.json, shape-enforced on acceptance.
+        const record = JSON.parse(await readFile(path, "utf8")) as {
+            measured: Record<string, number>;
+        };
+        record.measured.distinctRuleUnits += 1;
+        await writeFile(path, `${JSON.stringify(record, null, 2)}\n`);
+        const run = runGate(scratch);
+        expect(run.status).toBe(1);
+        expect(run.stderr).toContain("measured.distinctRuleUnits records");
+        expect(run.stderr).toContain("regenerate with --update");
+    });
+
+    test("refuses an absent ledger unless an update is asked for", async () => {
+        scratch = await prepareScratch();
+        await stubLake(scratch, recordedReport);
+        await rm(resolve(scratch, "ledger.json"));
+        const absent = runGate(scratch);
+        expect(absent.status).toBe(1);
+        expect(absent.stderr).toContain("is absent");
+        expect(absent.stderr).toContain("--update");
+
+        const updated = runQualitySubprocess(
+            process.execPath,
+            [checker, "--artifact-root", scratch, "--update"],
+            packageRoot,
+            subprocessTestOptions.timeout
+        );
+        expect(updated.status).toBe(0);
+        const restored = runGate(scratch);
+        expect(restored.status).toBe(0);
+    });
+
+    test("an update raises a floor and never lowers one", async () => {
+        scratch = await prepareScratch();
+        await stubLake(scratch, recordedReport);
+        const path = resolve(scratch, "ratchet.json");
+        // SAFETY: this test's own copy of ratchet.json, shape-enforced on acceptance.
+        const before = JSON.parse(await readFile(path, "utf8")) as {
+            bridgedFloor: number;
+            reachableFloor: number;
+        };
+        const lowered = { ...before, bridgedFloor: 1, reachableFloor: 1 };
+        await writeFile(path, `${JSON.stringify(lowered, null, 2)}\n`);
+        const updated = runQualitySubprocess(
+            process.execPath,
+            [checker, "--artifact-root", scratch, "--update"],
+            packageRoot,
+            subprocessTestOptions.timeout
+        );
+        expect(updated.status).toBe(0);
+        // SAFETY: written by the checker's own canonical serialisation one line above.
+        const after = JSON.parse(await readFile(path, "utf8")) as {
+            bridgedFloor: number;
+            reachableFloor: number;
+        };
+        expect(after.bridgedFloor).toBe(before.bridgedFloor);
+        expect(after.reachableFloor).toBe(before.reachableFloor);
     });
 });
