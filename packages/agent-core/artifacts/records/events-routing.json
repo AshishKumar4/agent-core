@@ -51,6 +51,18 @@
       ]
     },
     {
+      "symbol": "IngressEndpoint",
+      "kind": "workspace.ingress-endpoint",
+      "durability": "durable",
+      "ownerActor": "workspace",
+      "source": "src/workspaces/ingress-endpoint.ts#IngressEndpoint",
+      "codec": "src/workspaces/ingress-endpoint.ts#IngressEndpoint.codec",
+      "store": "src/workspaces/persistence.ts#WorkspacePersistence",
+      "tests": [
+        "test/workspaces/ingress.test.ts#ingress endpoint record [workspace.ingress-endpoint] round-trips byte-identically and encodes attribution and retirement by presence"
+      ]
+    },
+    {
       "symbol": "Event",
       "kind": "workspace.event",
       "durability": "durable",

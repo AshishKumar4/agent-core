@@ -41,6 +41,7 @@ import {
 } from "../../scripts/quality/mutation-inputs.mjs";
 import {
     measureArea,
+    mergeTimeoutRerun,
     publishRunCache,
     readRunCache,
     requireAreaReport,
@@ -1747,27 +1748,7 @@ describe("mutation run reuse", () => {
                     ],
                     probeFile
                 ),
-                /Killed having executed 0 of the 1 tests that cover it/u
-            ],
-            // A filtered run that executed some of its tests is no more conclusive than
-            // one that executed none: the survivor might have been killed by the test
-            // that never ran, and the kill's killedBy is taken as complete.
-            [
-                "kill that ran part of its filter",
-                reportFor(
-                    guardModule,
-                    [
-                        {
-                            ...guardMutant,
-                            status: "Killed",
-                            coveredBy: ["t1", "t2"],
-                            killedBy: ["t1"],
-                            testsCompleted: 1
-                        }
-                    ],
-                    probeFile
-                ),
-                /Killed having executed 1 of the 2 tests that cover it/u
+                /Killed without executing a test/u
             ],
             [
                 "survivor that ran part of its filter",
@@ -1850,6 +1831,67 @@ describe("mutation run reuse", () => {
 
         // The control: a fixture with a claimant, an executed test and a named identity.
         expect(requireAreaReport(probeReport("Killed"), probe)).toBeDefined();
+    });
+
+    test("accepts a killed mutant after its named covering test fails", () => {
+        const report = reportFor(
+            guardModule,
+            [
+                {
+                    ...guardMutant,
+                    status: "Killed",
+                    coveredBy: ["t1", "t2"],
+                    killedBy: ["t1"],
+                    testsCompleted: 1
+                }
+            ],
+            probeFile
+        );
+        expect(requireAreaReport(report, probe)).toBeDefined();
+    });
+
+    test("merges a no-bail timeout rerun by complete mutant identity", () => {
+        const timed = reportFor(
+            guardModule,
+            [{ ...guardMutant, status: "Timeout", coveredBy: ["t1"] }],
+            probeFile
+        );
+        const killed = reportFor(
+            guardModule,
+            [
+                {
+                    ...guardMutant,
+                    status: "Killed",
+                    coveredBy: ["t1"],
+                    killedBy: ["t1"],
+                    testsCompleted: 1
+                }
+            ],
+            probeFile
+        );
+        expect(mergeTimeoutRerun(timed, killed).files[probeFile]?.mutants[0]?.status).toBe(
+            "Killed"
+        );
+        expect(() => mergeTimeoutRerun(timed, reportFor(guardModule, [], probeFile))).toThrow(
+            /fallback omitted/
+        );
+    });
+
+    test("accepts a complete filter that also executed a noncovering test", () => {
+        const report = reportFor(
+            guardModule,
+            [
+                {
+                    ...guardMutant,
+                    status: "Killed",
+                    coveredBy: ["t1"],
+                    killedBy: ["t1"],
+                    testsCompleted: 2
+                }
+            ],
+            probeFile
+        );
+        expect(requireAreaReport(report, probe)).toBeDefined();
     });
 
     // The race the key alone cannot settle: two runs of identical inputs finish at once.

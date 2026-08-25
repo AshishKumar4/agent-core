@@ -1093,7 +1093,7 @@ describe("source protocol adversarial coverage", () => {
             );
             const prepared = await setup.protocol.prepare(snapshot);
             setup.protocol.commit(setup.state, prepared);
-            setup.state.records.deleteCompactedRecords(
+            setup.state.records.deleteRecords(
                 "contentRetention",
                 setup.state.records.listRecords("contentRetention").map((record) => record.id)
             );

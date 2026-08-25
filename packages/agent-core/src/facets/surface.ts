@@ -16,6 +16,10 @@ import { FacetPackageId, FacetRef, SurfaceId } from "./id";
  * the Surface in that Facet's §4.1 withdrawal set.
  */
 export class SurfaceRegistration {
+    public static get codec(): DataRecordCodec<SurfaceRegistration> {
+        return surfaceRegistrationCodec;
+    }
+
     public constructor(
         public readonly descriptor: SurfaceDescriptor,
         public readonly attribution: ContributionAttribution

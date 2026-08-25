@@ -1,10 +1,38 @@
 import { describe, expect, test } from "vitest";
+import type { SynchronousResultGuard } from "../../src/actors";
+import { Digest } from "../../src/core";
 import { AuditRecordId } from "../../src/interaction-references";
-import { FacetRef, MemoryWorkspaceSlotStore, SlotEntry, SlotName } from "../../src/facets";
-import { WorkspaceId } from "../../src/identity";
-import { AgentCoreError } from "../../src/errors";
-import { FacetActivation, FacetWithdrawal } from "../../src/composition";
 import {
+    CatalogEntry,
+    CatalogEntryId,
+    FacetManifest,
+    FacetRef,
+    PromptSection,
+    PromptSectionId,
+    PackageInstallationRef,
+    SettingsLayer,
+    SettingsLayerId,
+    SlotEntry,
+    SlotName,
+    SlotWithdrawalSet,
+    SurfaceDescriptor,
+    SurfaceId,
+    SurfaceRegistration,
+    type ContributionAttribution,
+    type Facet,
+    type WorkspaceSlotStore
+} from "../../src/facets";
+import { ScopeRef, WorkspaceId } from "../../src/identity";
+import { AgentCoreError } from "../../src/errors";
+import {
+    FacetActivation,
+    FacetWithdrawal,
+    WorkspaceFacetMaterializer
+} from "../../src/composition";
+import { FacetCorrespondenceValidator, type ValidatedFacetRuntime } from "../../src/operations";
+import {
+    IngressEndpoint,
+    IngressEndpointId,
     MemoryWorkspaceRecords,
     RouteDeliveryState,
     WITHDRAWN_TARGET_REASON,
@@ -12,6 +40,12 @@ import {
     WorkspaceRoutingWithdrawal,
     type ContentRetentionPort
 } from "../../src/workspaces";
+import {
+    SqliteWorkspaceRecords,
+    SqliteWorkspaceSlotStore,
+    type TransactionalSqlite
+} from "../../src/substrates";
+import { TestSqlite } from "../helpers/sqlite";
 import {
     authenticatedProjectionFixture,
     projectionRetention,
@@ -21,12 +55,25 @@ import {
     sourceActor,
     subscriptionFixture,
     targetActor,
+    TestPackageInstallationProvenance,
+    authenticatedInstallationFixture,
     tenant
 } from "../workspaces/fixtures";
+
+import { reaching } from "../composition/fixture";
 import { attribution, contribute, declarerSlot, entry } from "./slot-store-contract";
 import { activationFacet } from "./facet-activation-fixture";
+type CorrespondentFacet = ValidatedFacetRuntime["facets"][number];
 
-class DurableRetention implements ContentRetentionPort<MemoryWorkspaceRecords> {
+interface TestWorkspaceTransaction {
+    readonly kind: "test-workspace-transaction";
+}
+
+const testWorkspaceTransaction: TestWorkspaceTransaction = Object.freeze({
+    kind: "test-workspace-transaction"
+});
+
+class DurableRetention<Transaction> implements ContentRetentionPort<Transaction> {
     public verify(): boolean {
         return true;
     }
@@ -152,7 +199,8 @@ describe("Facet withdrawal across owning Actors", () => {
             // An unattributed Subscription is nobody's contribution, so no withdrawal names it.
             expect(() => unattributed.retire()).toThrow(/Only a contributed Subscription/);
             expect(
-                harness.routing.retire(harness.records, attribution("workspace:owner")).subscriptions
+                harness.routing.retire(harness.records, attribution("workspace:owner"))
+                    .subscriptions
             ).toHaveLength(1);
             expect(
                 harness.persistence.currentSubscription(harness.records, unattributed.id)?.retired
@@ -284,18 +332,12 @@ describe("Facet withdrawal across owning Actors", () => {
             const harness = crossPlaneHarness();
             const releaseA = attribution("workspace:dual", "1.0.0");
             const releaseB = attribution("workspace:dual", "2.0.0");
-            const entryA = new SlotEntry(
-                new SlotName("dashboard.card"),
-                releaseA,
-                1,
-                { title: "Release A" }
-            );
-            const entryB = new SlotEntry(
-                new SlotName("dashboard.card"),
-                releaseB,
-                2,
-                { title: "Release B" }
-            );
+            const entryA = new SlotEntry(new SlotName("dashboard.card"), releaseA, 1, {
+                title: "Release A"
+            });
+            const entryB = new SlotEntry(new SlotName("dashboard.card"), releaseB, 2, {
+                title: "Release B"
+            });
             contribute(harness.slots, entryA);
             contribute(harness.slots, entryB);
             const subscriptionA = materializeAttributedSubscription(
@@ -328,9 +370,7 @@ describe("Facet withdrawal across owning Actors", () => {
                 harness.persistence.currentSubscription(harness.records, subscriptionB.id)?.retired
             ).toBeUndefined();
 
-            const wrongPin = harness.withdrawal.withdraw(
-                attribution("workspace:dual", "9.9.9")
-            );
+            const wrongPin = harness.withdrawal.withdraw(attribution("workspace:dual", "9.9.9"));
             expect(wrongPin.slots.entries).toEqual([]);
             expect(wrongPin.routing.subscriptions).toEqual([]);
             const replay = harness.withdrawal.withdraw(releaseA);
@@ -352,7 +392,7 @@ describe("Facet withdrawal across owning Actors", () => {
             harness.routingFails = true;
 
             expect(() => harness.withdrawal.withdraw(attribution("workspace:withdrawn"))).toThrow(
-                /not computable from the routing plane/
+                /not computable from the Workspace Actor transaction/
             );
             // No plane was written, so the slot record the set named is still present.
             expect(
@@ -367,18 +407,17 @@ describe("Facet withdrawal across owning Actors", () => {
         "[C13-FACET-WITHDRAWAL-EXACT] carries a non-Error refusal from a plane into the reason it reports",
         { tags: "p2" },
         () => {
-            // A control transaction that rejects with something other than an Error still has
-            // to name why the set is incomputable, so the raised value is reported as text
-            // rather than swallowed into an empty reason.
+            // A control transaction that rejects with something other than an Error still
+            // names why the set is incomputable.
             const harness = crossPlaneHarness();
             contribute(harness.slots, entry("workspace:withdrawn", 1, { title: "Withdrawn" }));
             harness.routingFails = true;
-            harness.routingFailure = "routing Actor rejected without an Error";
+            harness.routingFailure = "Workspace Actor rejected without an Error";
 
             expect(() => harness.withdrawal.plan(attribution("workspace:withdrawn"))).toThrow(
                 new AgentCoreError(
                     "protocol.invalid-state",
-                    "Withdrawal set is not computable from the routing plane: routing Actor rejected without an Error"
+                    "Withdrawal set is not computable from the Workspace Actor transaction: Workspace Actor rejected without an Error"
                 )
             );
         }
@@ -412,6 +451,123 @@ describe("Facet withdrawal across owning Actors", () => {
             ).toEqual(["subscription-refused"]);
         }
     );
+    test(
+        "retires every Workspace contribution record from the queried exact set",
+        { tags: "p1" },
+        () => {
+            const contribution = attribution("workspace:all-records");
+            const catalog = new CatalogEntryId("catalog:all-records");
+            const ingress = new IngressEndpointId("ingress-all-records");
+            const prompt = new PromptSectionId("prompt:all-records");
+            const settings = new SettingsLayerId("settings:all-records");
+            const surface = new SurfaceId("surface.all-records");
+            const retired: string[] = [];
+            const persistence = reaching<WorkspacePersistence<TestWorkspaceTransaction>>({
+                listContributedCatalogEntries: () => [reaching<CatalogEntry>({ id: catalog })],
+                listContributedIngressEndpoints: () => [reaching<IngressEndpoint>({ id: ingress })],
+                listContributedPromptSections: () => [reaching<PromptSection>({ id: prompt })],
+                listContributedSettingsLayers: () => [reaching<SettingsLayer>({ id: settings })],
+                listContributedSurfaceRegistrations: () => [
+                    reaching<SurfaceRegistration>({
+                        descriptor: reaching<SurfaceDescriptor>({ id: surface })
+                    })
+                ],
+                retireCatalogEntry: () => {
+                    retired.push(catalog.value);
+                },
+                retireIngressEndpoint: () => {
+                    retired.push(ingress.value);
+                },
+                retirePromptSection: () => {
+                    retired.push(prompt.value);
+                },
+                retireSettingsLayer: () => {
+                    retired.push(settings.value);
+                },
+                retireSurfaceRegistration: () => {
+                    retired.push(surface.value);
+                }
+            });
+            const slots = reaching<WorkspaceSlotStore<TestWorkspaceTransaction>>({
+                withdrawalSet: () => new SlotWithdrawalSet(contribution, [], []),
+                requireWithdrawable: () => undefined,
+                retireWithdrawalSet: () => {
+                    retired.push("slots");
+                    return true;
+                }
+            });
+            const routing = reaching<WorkspaceRoutingWithdrawal<TestWorkspaceTransaction>>({
+                contributed: () => [],
+                retire: () => ({ subscriptions: [], rejected: [] })
+            });
+            const withdrawal = new FacetWithdrawal(slots, routing, persistence, objectTransaction);
+
+            const result = withdrawal.withdraw(contribution);
+            expect(result.records).toEqual({
+                catalogEntries: [catalog],
+                ingressEndpoints: [ingress],
+                promptSections: [prompt],
+                settingsLayers: [settings],
+                surfaces: [surface]
+            });
+            expect(retired).toEqual([
+                "slots",
+                catalog.value,
+                ingress.value,
+                prompt.value,
+                settings.value,
+                surface.value
+            ]);
+        }
+    );
+
+    test(
+        "wraps record query failures and non-Error withdrawal transaction failures",
+        { tags: "p1" },
+        () => {
+            const contribution = attribution("workspace:failure");
+            const slots = reaching<WorkspaceSlotStore<TestWorkspaceTransaction>>({
+                withdrawalSet: () => {
+                    throw new TypeError("record decode failed");
+                }
+            });
+            const routing = reaching<WorkspaceRoutingWithdrawal<TestWorkspaceTransaction>>({});
+            const persistence = reaching<WorkspacePersistence<TestWorkspaceTransaction>>({});
+            const queryFailure = new FacetWithdrawal(
+                slots,
+                routing,
+                persistence,
+                objectTransaction
+            );
+            expect(() => queryFailure.plan(contribution)).toThrow(
+                /not computable from Workspace records: record decode failed/
+            );
+
+            const controlFailure = new FacetWithdrawal(
+                reaching<WorkspaceSlotStore<TestWorkspaceTransaction>>({}),
+                routing,
+                persistence,
+                () => {
+                    throw "control rejected";
+                }
+            );
+            expect(() => controlFailure.withdraw(contribution)).toThrow(
+                /Workspace Actor transaction: control rejected/
+            );
+
+            const errorControl = new FacetWithdrawal(
+                reaching<WorkspaceSlotStore<TestWorkspaceTransaction>>({}),
+                routing,
+                persistence,
+                () => {
+                    throw new TypeError("control failed");
+                }
+            );
+            expect(() => errorControl.plan(contribution)).toThrow(
+                /Workspace Actor transaction: control failed/
+            );
+        }
+    );
 });
 
 describe("Facet activation atomicity", () => {
@@ -420,29 +576,26 @@ describe("Facet activation atomicity", () => {
         { tags: "p0" },
         async () => {
             const harness = crossPlaneHarness();
-            const activation = new FacetActivation(harness.withdrawal);
             const contributor = attribution("workspace:partial");
+            const activation = activationFor(harness, contributor);
             const before = harness.slots.entries(new SlotName("dashboard.card"));
-            const facet = activationFacet(contributor.contributor, () => {
-                // A partial activation: two committed contributions, then a failure.
-                contribute(harness.slots, entry("workspace:partial", 1, { title: "One" }));
-                materializeAttributedSubscription(
-                    harness.persistence,
-                    harness.records,
-                    contributor,
-                    subscriptionFixture("partial")
-                );
-                throw new TypeError("start failed after materializing");
-            });
+            const facet = validatedActivationFacet(
+                activationFacet(contributor.contributor, () => {
+                    throw new TypeError("start failed before publication");
+                })
+            );
 
-            const outcome = await activation.activate(facet, contributor, {
-                signal: new AbortController().signal
-            });
+            const outcome = await activation.activate(
+                facet,
+                harness.database,
+                { installationId: "installation" },
+                { signal: new AbortController().signal }
+            );
 
             expect(outcome).toEqual({
                 kind: "failed",
                 facet: contributor.contributor,
-                reason: "start failed after materializing"
+                reason: "start failed before publication"
             });
             expect(harness.slots.entries(new SlotName("dashboard.card"))).toEqual(before);
             expect(harness.persistence.listSubscriptions(harness.records)).toEqual([]);
@@ -461,16 +614,20 @@ describe("Facet activation atomicity", () => {
             // The outcome is the record of the install, so a Facet that rejects with a value
             // that is not an Error still has to say what it rejected with.
             const harness = crossPlaneHarness();
-            const activation = new FacetActivation(harness.withdrawal);
             const contributor = attribution("workspace:non-error");
-            const facet = activationFacet(contributor.contributor, () => {
-                contribute(harness.slots, entry("workspace:non-error", 1, { title: "One" }));
-                throw "start rejected without an Error";
-            });
+            const activation = activationFor(harness, contributor);
+            const facet = validatedActivationFacet(
+                activationFacet(contributor.contributor, () => {
+                    throw "start rejected without an Error";
+                })
+            );
 
-            const outcome = await activation.activate(facet, contributor, {
-                signal: new AbortController().signal
-            });
+            const outcome = await activation.activate(
+                facet,
+                harness.database,
+                { installationId: "installation" },
+                { signal: new AbortController().signal }
+            );
 
             expect(outcome).toEqual({
                 kind: "failed",
@@ -490,20 +647,28 @@ describe("Facet activation atomicity", () => {
         { tags: "p0" },
         async () => {
             const harness = crossPlaneHarness();
-            const activation = new FacetActivation(harness.withdrawal);
             const contributor = attribution("workspace:partial");
+            const activation = activationFor(harness, contributor);
             contribute(harness.slots, entry("workspace:partial", 1, { title: "Stranded" }));
-            const facet = activationFacet(contributor.contributor, () => undefined);
+            const facet = validatedActivationFacet(
+                activationFacet(contributor.contributor, () => undefined)
+            );
 
             await expect(
-                activation.activate(facet, contributor, { signal: new AbortController().signal })
+                activation.activate(
+                    facet,
+                    harness.database,
+                    { installationId: "installation" },
+                    { signal: new AbortController().signal }
+                )
             ).rejects.toThrow(/still holds materialized contributions/);
 
             // A Facet whose activation was refused obstructs no other Facet's activation.
             const other = attribution("workspace:other");
-            const outcome = await activation.activate(
-                activationFacet(other.contributor, () => undefined),
-                other,
+            const outcome = await activationFor(harness, other).activate(
+                validatedActivationFacet(activationFacet(other.contributor, () => undefined)),
+                harness.database,
+                { installationId: "installation" },
                 { signal: new AbortController().signal }
             );
             expect(outcome.kind).toBe("active");
@@ -515,14 +680,103 @@ describe("Facet activation atomicity", () => {
         { tags: "p1" },
         async () => {
             const harness = crossPlaneHarness();
-            const activation = new FacetActivation(harness.withdrawal);
+            const contribution = attribution("workspace:two");
+            const activation = activationFor(harness, contribution);
             await expect(
                 activation.activate(
-                    activationFacet(new FacetRef("workspace:one"), () => undefined),
-                    attribution("workspace:two"),
+                    validatedActivationFacet(
+                        activationFacet(new FacetRef("workspace:one"), () => undefined)
+                    ),
+                    harness.database,
+                    { installationId: "installation" },
                     { signal: new AbortController().signal }
                 )
             ).rejects.toThrow(/names another Facet/);
+        }
+    );
+
+    test(
+        "refuses absent provenance and reports materialization plus stop failures",
+        { tags: "p1" },
+        async () => {
+            const contribution = attribution("workspace:activation-failure");
+            const raw = activationFacet(
+                contribution.contributor,
+                () => undefined,
+                () => {
+                    throw "stop rejected";
+                }
+            );
+            const facet = validatedActivationFacet(raw);
+            const emptyPlan = {
+                attribution: contribution,
+                records: {
+                    catalogEntries: [],
+                    ingressEndpoints: [],
+                    promptSections: [],
+                    settingsLayers: [],
+                    surfaces: []
+                },
+                slots: new SlotWithdrawalSet(contribution, [], []),
+                subscriptions: 0
+            };
+            const withdrawal = reaching<FacetWithdrawal<TestWorkspaceTransaction>>({
+                plan: () => emptyPlan
+            });
+            const missing = new FacetActivation(
+                withdrawal,
+                reaching<
+                    WorkspaceFacetMaterializer<
+                        TestWorkspaceTransaction,
+                        TestWorkspaceTransaction,
+                        TestWorkspaceTransaction
+                    >
+                >({
+                    prepareContribution: () => undefined
+                }),
+                objectTransaction
+            );
+            await expect(
+                missing.activate(facet, testWorkspaceTransaction, testWorkspaceTransaction, {
+                    signal: new AbortController().signal
+                })
+            ).rejects.toThrow(/requires current package installation provenance/);
+
+            const installation = authenticatedInstallationFixture(
+                contribution.contributor.value,
+                contribution.package,
+                Digest.sha256(FacetManifest.encode(facet.manifest))
+            );
+            const prepared = {
+                reference: new PackageInstallationRef(contribution, installation.packageFacet),
+                manifestDigest: installation.manifestDigest,
+                materialization: installation.materialization,
+                stamp: Object.freeze({})
+            };
+            const failing = new FacetActivation(
+                withdrawal,
+                reaching<
+                    WorkspaceFacetMaterializer<
+                        TestWorkspaceTransaction,
+                        TestWorkspaceTransaction,
+                        TestWorkspaceTransaction
+                    >
+                >({
+                    prepareContribution: () => prepared,
+                    materialize: () => {
+                        throw "materialization rejected";
+                    }
+                }),
+                objectTransaction
+            );
+            await expect(
+                failing.activate(facet, testWorkspaceTransaction, testWorkspaceTransaction, {
+                    signal: new AbortController().signal
+                })
+            ).resolves.toMatchObject({
+                kind: "failed",
+                reason: "materialization rejected; Facet stop failed: stop rejected"
+            });
         }
     );
 });
@@ -537,7 +791,7 @@ function routingHarness(actor = sourceActor): RoutingHarness {
     const records = new MemoryWorkspaceRecords();
     const persistence = new WorkspacePersistence<MemoryWorkspaceRecords>(
         (state) => state,
-        new DurableRetention(),
+        new DurableRetention<MemoryWorkspaceRecords>(),
         actor,
         tenant
     );
@@ -548,32 +802,82 @@ function routingHarness(actor = sourceActor): RoutingHarness {
     };
 }
 
-type SlotTransaction = Parameters<Parameters<MemoryWorkspaceSlotStore["transaction"]>[0]>[0];
-
 interface CrossPlaneHarness {
-    readonly records: MemoryWorkspaceRecords;
-    readonly persistence: WorkspacePersistence<MemoryWorkspaceRecords>;
-    readonly slots: MemoryWorkspaceSlotStore;
-    readonly withdrawal: FacetWithdrawal<SlotTransaction, MemoryWorkspaceRecords>;
+    readonly database: TestSqlite;
+    readonly records: TransactionalSqlite;
+    readonly storage: SqliteWorkspaceRecords;
+    readonly persistence: WorkspacePersistence<TransactionalSqlite>;
+    readonly slots: SqliteWorkspaceSlotStore;
+    readonly withdrawal: FacetWithdrawal<TransactionalSqlite>;
     routingFails: boolean;
-    /** What the routing Actor's control transaction raises when it fails. */
+    /** What the Workspace Actor's control transaction raises when it fails. */
     routingFailure: unknown;
 }
 
 function crossPlaneHarness(): CrossPlaneHarness {
-    const routing = routingHarness();
-    const slots = new MemoryWorkspaceSlotStore(new WorkspaceId("workspace"));
+    const database = new TestSqlite();
+    const records = new SqliteWorkspaceRecords(database);
+    const persistence = new WorkspacePersistence<TransactionalSqlite>(
+        () => records,
+        new DurableRetention<TransactionalSqlite>(),
+        sourceActor,
+        tenant
+    );
+    const routing = new WorkspaceRoutingWithdrawal(persistence, new CountingAudits());
+    const slots = new SqliteWorkspaceSlotStore(new WorkspaceId("workspace"), database);
     slots.install(declarerSlot("dashboard.card"));
     const harness: CrossPlaneHarness = {
-        records: routing.records,
-        persistence: routing.persistence,
+        database,
+        records: database,
+        storage: records,
+        persistence,
         slots,
-        withdrawal: new FacetWithdrawal(slots, routing.routing, (operation) => {
+        withdrawal: new FacetWithdrawal(slots, routing, persistence, (operation, ...guard) => {
             if (harness.routingFails) throw harness.routingFailure;
-            return operation(routing.records);
+            return database.transaction(() => operation(database), ...guard);
         }),
         routingFails: false,
-        routingFailure: new TypeError("routing Actor is unreachable")
+        routingFailure: new TypeError("Workspace Actor is unreachable")
     };
     return harness;
+}
+
+function activationFor(
+    harness: CrossPlaneHarness,
+    contribution: ContributionAttribution
+): FacetActivation<TransactionalSqlite, TransactionalSqlite, { readonly installationId: string }> {
+    const manifest = activationFacet(contribution.contributor, () => undefined).manifest;
+    const base = authenticatedInstallationFixture(
+        contribution.contributor.value,
+        contribution.package,
+        Digest.sha256(FacetManifest.encode(manifest))
+    );
+    const provenance = new TestPackageInstallationProvenance<TransactionalSqlite>({
+        ...base,
+        facet: contribution.contributor,
+        packageFacet: contribution.contributor.packageId
+    });
+    const materializer = new WorkspaceFacetMaterializer(
+        harness.persistence,
+        harness.slots,
+        provenance,
+        ScopeRef.workspace(tenant, new WorkspaceId("workspace"))
+    );
+    return new FacetActivation(harness.withdrawal, materializer, (operation, ...guard) =>
+        harness.database.transaction(() => operation(harness.database), ...guard)
+    );
+}
+
+function validatedActivationFacet(facet: Facet): CorrespondentFacet {
+    const validated = new FacetCorrespondenceValidator().validate([facet.manifest], [facet])
+        .facets[0];
+    if (validated === undefined) throw new TypeError("Expected validated activation Facet");
+    return validated;
+}
+
+function objectTransaction<Result>(
+    operation: (transaction: TestWorkspaceTransaction) => Result,
+    ..._guard: SynchronousResultGuard<Result>
+): Result {
+    return operation(testWorkspaceTransaction);
 }

@@ -119,6 +119,10 @@ const fieldMappingCodec = new DataRecordCodec(
 );
 
 export class PayloadMapping extends MappingRecord {
+    public static get identity(): PayloadMapping {
+        return identityPayloadMapping;
+    }
+
     public constructor(moves: readonly FieldMove[]) {
         super(moves);
         Object.freeze(this);
@@ -132,6 +136,7 @@ export class PayloadMapping extends MappingRecord {
         return payloadMappingCodec.decode(bytes);
     }
 }
+const identityPayloadMapping = new PayloadMapping([new FieldMove("", { from: "" })]);
 
 const payloadMappingCodec = new DataRecordCodec(
     [PayloadMapping, FieldMove, MappingRecord, JsonPointer],

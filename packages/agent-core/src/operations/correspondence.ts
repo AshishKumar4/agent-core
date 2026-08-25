@@ -18,11 +18,15 @@ import type {
     Surface
 } from "./runtime";
 
+const validatedFacetToken = Object.freeze({});
+const validatedFacets = new WeakSet<ValidatedFacet>();
+
 export class ValidatedFacet {
     public readonly ref: Facet["ref"];
     public readonly manifest: FacetManifest;
 
     public constructor(
+        token: typeof validatedFacetToken,
         private readonly source: Facet,
         ref: Facet["ref"],
         manifest: FacetManifest,
@@ -30,8 +34,12 @@ export class ValidatedFacet {
         private readonly surfaceMap: ReadonlyMap<string, Surface>,
         private readonly interceptorMap: ReadonlyMap<string, Interceptor>
     ) {
+        if (token !== validatedFacetToken) {
+            throw runtimeMismatch("Validated Facet must come from correspondence validation");
+        }
         this.ref = ref;
         this.manifest = manifest;
+        validatedFacets.add(this);
         Object.freeze(this);
     }
 
@@ -75,6 +83,12 @@ export interface ValidatedFacetRuntime {
 }
 
 export class FacetCorrespondenceValidator {
+    public static require(candidate: ValidatedFacet): ValidatedFacet {
+        if (!(candidate instanceof ValidatedFacet) || !validatedFacets.has(candidate)) {
+            throw runtimeMismatch("Facet has no correspondence validation evidence");
+        }
+        return candidate;
+    }
     public validate(
         expectedManifests: readonly FacetManifest[],
         roots: readonly Facet[]
@@ -103,6 +117,7 @@ export class FacetCorrespondenceValidator {
             const implementations = validateImplementations(candidate.source, manifest);
             facets.push(
                 new ValidatedFacet(
+                    validatedFacetToken,
                     candidate.source,
                     candidate.ref,
                     FacetManifest.decode(FacetManifest.encode(manifest)),

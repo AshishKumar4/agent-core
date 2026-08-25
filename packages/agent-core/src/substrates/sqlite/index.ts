@@ -6,10 +6,8 @@ export { SqliteContentRetention, SqliteTransientContentAccess } from "./content-
 export { SqliteIdentityReader } from "./identity";
 export { SqlitePackageStore } from "./package";
 export { SqliteProtocolPersistence } from "./protocol";
-export {
-    SqliteInvocationMediationPersistence,
-    SqliteInvocationPersistence
-} from "./invocations";
+export { SqliteWorkspaceRecords } from "./workspace-records";
+export { SqliteInvocationMediationPersistence, SqliteInvocationPersistence } from "./invocations";
 export type {
     ApprovalProjection,
     AttemptProjection,
@@ -22,10 +20,7 @@ export type {
 export { SqliteRunStorage } from "./run";
 export { ReadableSqlite, TransactionalSqlite, ownSqliteMutations } from "./sqlite";
 export type { SqliteRow, SqliteValue } from "./sqlite";
-export {
-    SqliteAuthorityPermitStore,
-    SqliteTenantAuthorityPermitStore
-} from "./permit";
+export { SqliteAuthorityPermitStore, SqliteTenantAuthorityPermitStore } from "./permit";
 export { SqliteInvalidationWatermarkStore } from "./watermark";
 export {
     SqliteTargetPermitMediationAggregate,

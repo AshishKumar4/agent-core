@@ -25,6 +25,7 @@ import {
     OperationRef,
     PayloadMapping,
     SlotDeclaration,
+    commandAutomation,
     matchesGlob,
     type FacetManifest,
     type IsolationMode
@@ -51,8 +52,6 @@ import { PackagePin } from "./package-lock";
 import { PackageId } from "../definition-references";
 import { compareText } from "./order";
 import { invalidDefinition } from "./error";
-
-const DERIVED_COMMAND_TRUST: readonly string[] = Object.freeze(["owner", "authenticated", "self"]);
 
 const PLACEMENT_RECORD_KIND = "facet-placement";
 
@@ -614,21 +613,9 @@ function commandSubscriptionProjection(
         commandNames.add(command.name);
         commandNamesBySurface.set(surface.value, commandNames);
     }
-    const template: JsonValue = {
-        authority: "initiator",
-        binding: command.binding.value,
-        dedupe: "event",
-        mapping: [{ from: "/input", to: "" }],
-        source: {
-            acceptedTrust: command.acceptedTrust ?? DERIVED_COMMAND_TRUST,
-            kind: "command.invoked",
-            source: `${declaration.contributor}:${command.name}`
-        },
-        target: command.operation.value
-    };
     return subscriptionProjection(
         `subscription:command:${declaration.contributor}:${command.name}`,
-        template
+        commandAutomation(command).toData()
     );
 }
 

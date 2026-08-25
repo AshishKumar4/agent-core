@@ -10,6 +10,8 @@ export {
 } from "../interaction-references";
 export { Event } from "./event";
 export type { EventInit } from "./event";
+export { IngressEndpoint } from "./ingress-endpoint";
+export type { IngressEndpointInit, IngressEndpointMaterializationInit } from "./ingress-endpoint";
 export {
     CoherenceFinding,
     CoherenceVerdict,
@@ -33,6 +35,7 @@ export {
     CoherenceFindingId,
     ContentRetentionId,
     EventCursor,
+    IngressEndpointId,
     InboxReferenceId,
     RetainedRecordRef
 } from "./id";
@@ -48,9 +51,13 @@ export {
 export type { EventIntentInput } from "./origin";
 export { MemoryWorkspaceRecords } from "./memory";
 export type { MemoryWorkspaceSnapshot } from "./memory";
-export { WorkspacePersistence } from "./persistence";
+export {
+    DELETABLE_WORKSPACE_RECORD_KINDS,
+    WORKSPACE_RECORD_KINDS,
+    WorkspacePersistence
+} from "./persistence";
 export type {
-    CompactableWorkspaceRecordKind,
+    DeletableWorkspaceRecordKind,
     StoredWorkspacePointer,
     StoredWorkspaceRecord,
     StoredWorkspaceUnique,

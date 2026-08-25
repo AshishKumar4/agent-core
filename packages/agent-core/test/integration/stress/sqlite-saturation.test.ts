@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 import { Revision } from "../../../src/core";
-import { SqliteProtocolPersistence, SqliteWorkspaceEventRecords } from "../../../src/substrates";
+import { SqliteProtocolPersistence, SqliteWorkspaceRecords } from "../../../src/substrates";
 import { WorkspacePersistence } from "../../../src/workspaces";
 import type { Event } from "../../../src/workspaces";
 import { FileSqlite, sqliteInteger } from "../../helpers/sqlite";
@@ -58,8 +58,8 @@ async function withDatabaseFile(
     }
 }
 
-function persistenceFor(): WorkspacePersistence<SqliteWorkspaceEventRecords> {
-    return new WorkspacePersistence<SqliteWorkspaceEventRecords>(
+function persistenceFor(): WorkspacePersistence<SqliteWorkspaceRecords> {
+    return new WorkspacePersistence<SqliteWorkspaceRecords>(
         (value) => value,
         retentionPort,
         sourceActor,
@@ -88,7 +88,7 @@ describe("sqlite saturation", () => {
         async () => {
             await withDatabaseFile("append-only", (file) => {
                 const database = file.open();
-                const records = new SqliteWorkspaceEventRecords(database);
+                const records = new SqliteWorkspaceRecords(database);
                 const persistence = persistenceFor();
                 const random = new StressRandom("sqlite-saturation-append");
                 const committed: Event[] = [];
@@ -99,7 +99,7 @@ describe("sqlite saturation", () => {
                 for (let batch = 0; batch < BATCHES; batch += 1) {
                     const events = batchEvents(batch);
                     const rollback = random.integer(ROLLED_BACK_IN) === 0;
-                    const before = rowCount(database, "workspace_event_records");
+                    const before = rowCount(database, "workspace_records");
 
                     if (rollback) {
                         expect(() =>
@@ -111,7 +111,7 @@ describe("sqlite saturation", () => {
                             })
                         ).toThrow(TypeError);
                         discarded.push(...events);
-                        expect(rowCount(database, "workspace_event_records")).toBe(before);
+                        expect(rowCount(database, "workspace_records")).toBe(before);
                         continue;
                     }
 
@@ -129,7 +129,7 @@ describe("sqlite saturation", () => {
                     });
                     subscriptionRevision = next;
                     committed.push(...events);
-                    expect(rowCount(database, "workspace_event_records")).toBe(
+                    expect(rowCount(database, "workspace_records")).toBe(
                         before + events.length * 2 + 1
                     );
 
@@ -159,11 +159,11 @@ describe("sqlite saturation", () => {
                 expect(committed.length + discarded.length).toBe(BATCHES * BATCH_SIZE);
                 expect(discarded.length).toBeGreaterThan(0);
                 expect(conflicts).toBe(committed.length / BATCH_SIZE);
-                expect(rowCount(database, "workspace_event_records")).toBe(
+                expect(rowCount(database, "workspace_records")).toBe(
                     committed.length * 2 + committed.length / BATCH_SIZE
                 );
-                expect(rowCount(database, "workspace_event_uniques")).toBe(committed.length);
-                expect(rowCount(database, "workspace_event_pointers")).toBe(1);
+                expect(rowCount(database, "workspace_uniques")).toBe(committed.length);
+                expect(rowCount(database, "workspace_pointers")).toBe(1);
                 for (const event of discarded) {
                     expect(persistence.findEvent(records, event.id)).toBeUndefined();
                     expect(
@@ -180,7 +180,7 @@ describe("sqlite saturation", () => {
         async () => {
             await withDatabaseFile("reopen", (file) => {
                 const first = file.open();
-                const firstRecords = new SqliteWorkspaceEventRecords(first);
+                const firstRecords = new SqliteWorkspaceRecords(first);
                 const persistence = persistenceFor();
                 const events: Event[] = [];
                 for (let batch = 0; batch < BATCHES; batch += 1) {
@@ -192,16 +192,16 @@ describe("sqlite saturation", () => {
                     });
                     events.push(...batched);
                 }
-                const expectedRecords = rowCount(first, "workspace_event_records");
-                const expectedUniques = rowCount(first, "workspace_event_uniques");
+                const expectedRecords = rowCount(first, "workspace_records");
+                const expectedUniques = rowCount(first, "workspace_uniques");
                 file.close(first);
 
                 const reopened = file.open();
-                const reopenedRecords = new SqliteWorkspaceEventRecords(reopened);
+                const reopenedRecords = new SqliteWorkspaceRecords(reopened);
                 const reopenedPersistence = persistenceFor();
 
-                expect(rowCount(reopened, "workspace_event_records")).toBe(expectedRecords);
-                expect(rowCount(reopened, "workspace_event_uniques")).toBe(expectedUniques);
+                expect(rowCount(reopened, "workspace_records")).toBe(expectedRecords);
+                expect(rowCount(reopened, "workspace_uniques")).toBe(expectedUniques);
                 expect(expectedUniques).toBe(events.length);
                 for (const event of events) {
                     expect(
@@ -224,7 +224,7 @@ describe("sqlite saturation", () => {
                         ),
                     "protocol.duplicate"
                 );
-                expect(rowCount(reopened, "workspace_event_records")).toBe(expectedRecords);
+                expect(rowCount(reopened, "workspace_records")).toBe(expectedRecords);
             });
         }
     );

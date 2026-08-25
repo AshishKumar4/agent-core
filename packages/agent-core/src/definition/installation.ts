@@ -1,3 +1,4 @@
+import { Digest } from "../core";
 import {
     ContributionAttribution,
     FacetPackageId,
@@ -11,11 +12,14 @@ export interface AuthenticatedPackageInstallation {
     readonly package: PackagePin;
     readonly packageFacet: FacetPackageId;
     readonly facet: FacetRef;
+    readonly manifestDigest: Digest;
     readonly materialization: ManagedOrigin;
 }
 
 export interface PreparedPackageContribution {
     readonly reference: PackageInstallationRef;
+    readonly manifestDigest: Digest;
+    readonly materialization: ManagedOrigin;
     readonly stamp: object;
 }
 
@@ -96,9 +100,15 @@ export abstract class PackageInstallationProvenancePort<State, Context> {
         );
         this.#prepared.set(stamp, prepared);
         return Object.freeze({
+            manifestDigest: new Digest(prepared.manifestDigest.value),
+            materialization: ManagedOrigin.decode(ManagedOrigin.encode(prepared.materialization)),
             reference,
             stamp
         });
+    }
+
+    public discardPreparedContribution(stamp: PreparedPackageContribution["stamp"]): void {
+        this.#prepared.delete(stamp);
     }
 
     public resolveContributionForApply(
@@ -144,10 +154,11 @@ export abstract class PackageInstallationProvenancePort<State, Context> {
 function requireInstallation(installation: AuthenticatedPackageInstallation): void {
     if (
         !(installation.package instanceof PackagePin) ||
+        !(installation.manifestDigest instanceof Digest) ||
         !(installation.materialization instanceof ManagedOrigin)
     ) {
         throw new TypeError(
-            "Authenticated package installation requires canonical pin and materialization provenance"
+            "Authenticated package installation requires canonical pin, manifest, and materialization provenance"
         );
     }
 }
@@ -158,6 +169,7 @@ function copyInstallation(
     return Object.freeze({
         package: PackagePin.fromData(installation.package.toData()),
         packageFacet: new FacetPackageId(installation.packageFacet.value),
+        manifestDigest: new Digest(installation.manifestDigest.value),
         facet: new FacetRef(installation.facet.value),
         materialization: ManagedOrigin.fromData(installation.materialization.toData())
     });
@@ -171,6 +183,7 @@ function sameInstallation(
         left.package.equals(right.package) &&
         left.packageFacet.equals(right.packageFacet) &&
         left.facet.equals(right.facet) &&
+        left.manifestDigest.equals(right.manifestDigest) &&
         left.materialization.equals(right.materialization)
     );
 }

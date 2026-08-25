@@ -317,13 +317,8 @@ class BindingValidationCommand<Transaction, Read> implements ProtocolCommandRegi
         return true;
     }
 
-    public currentRevision(): undefined {
-        return undefined;
-    }
-
-    public currentLease(): undefined {
-        return undefined;
-    }
+    public readonly currentRevision = noCurrentRevision;
+    public readonly currentLease = noCurrentLease;
 
     public execute(
         transaction: Transaction,
@@ -386,9 +381,7 @@ class AuthorityCheckCommand<Transaction, Read> implements ProtocolCommandRegistr
         return true;
     }
 
-    public currentRevision(): undefined {
-        return undefined;
-    }
+    public readonly currentRevision = noCurrentRevision;
 
     public currentLease(
         read: Read,
@@ -456,13 +449,8 @@ class TargetLeaseEvidenceProjectionCommand<Transaction, Read> implements Protoco
         return true;
     }
 
-    public currentRevision(): undefined {
-        return undefined;
-    }
-
-    public currentLease(): undefined {
-        return undefined;
-    }
+    public readonly currentRevision = noCurrentRevision;
+    public readonly currentLease = noCurrentLease;
 
     public execute(
         transaction: Transaction,
@@ -534,13 +522,8 @@ class AuthorityPermitIssuanceCommand<Transaction, Read> implements ProtocolComma
         return true;
     }
 
-    public currentRevision(): undefined {
-        return undefined;
-    }
-
-    public currentLease(): undefined {
-        return undefined;
-    }
+    public readonly currentRevision = noCurrentRevision;
+    public readonly currentLease = noCurrentLease;
 
     public execute(
         transaction: Transaction,
@@ -555,6 +538,14 @@ class AuthorityPermitIssuanceCommand<Transaction, Read> implements ProtocolComma
         }
         return { outcome: "rejectedAuthority", reply };
     }
+}
+
+function noCurrentRevision(): undefined {
+    return undefined;
+}
+
+function noCurrentLease(): undefined {
+    return undefined;
 }
 
 class AnyActorCallerPolicy extends CommandCallerPolicy {

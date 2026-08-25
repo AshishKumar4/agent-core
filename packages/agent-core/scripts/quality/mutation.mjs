@@ -33,7 +33,7 @@ import { spawnSync } from "node:child_process";
 import * as ts from "typescript/unstable/ast";
 import { sourceFiles } from "./compiler.mjs";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { mutationFingerprint, sourceAreas } from "./mutation-inputs.mjs";
 import { generatedMutants } from "./mutation-instrumenter.mjs";
 import {
@@ -168,11 +168,14 @@ const measured = await measurement();
 // files scored 100% and overwrote an area's committed discrimination attribution with
 // nothing. A contaminated run has already written its ledger by now, so the refusals here
 // name what went wrong without discarding what it cost to find out.
-const report = requireCompleteMutationReport(
-    measured.barrel
-        ? requireNothingToMutate(measured.report)
-        : requireAreaReport(measured.report, options.area)
+const reportCandidate = measured.barrel
+    ? requireNothingToMutate(measured.report)
+    : requireAreaReport(measured.report, options.area);
+await writeCanonicalJson(
+    join(packageRoot, "reports", "mutation", `latest-${options.area}.json`),
+    reportCandidate
 );
+const report = requireCompleteMutationReport(reportCandidate);
 
 /**
  * Where this run's mutant statuses come from. `--report` names a report a run already

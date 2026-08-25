@@ -30,6 +30,11 @@ export type {
     FacetWithdrawalPlan,
     FacetWithdrawalResult
 } from "./facet-withdrawal";
+export {
+    WorkspaceFacetMaterializer,
+    WorkspacePackageFacetMaterialization
+} from "./workspace-facet-materializer";
+export type { WorkspaceFacetMaterializationResult } from "./workspace-facet-materializer";
 export { createClosedCommandDispatcher } from "./dispatcher";
 export type { ClosedCommandFamilies, ClosedDispatcherInit } from "./dispatcher";
 export { DeviceConsentFinalAdmissionPort } from "./device-consent";
@@ -40,6 +45,7 @@ export { PackageFacetRuntime, ProvenanceFacetSlotBackend } from "./package-runti
 export type {
     FacetSlotAuthorityPort,
     FacetSlotReadPort,
+    PackageFacetMaterializationPort,
     PackageFacetRoots
 } from "./package-runtime";
 export {

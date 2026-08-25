@@ -111,6 +111,30 @@ export class SlotEntryId extends TextId {
     }
 }
 
+export class PromptSectionId extends TextId {
+    public constructor(value: string) {
+        super(value, "Prompt section ID");
+        requireCanonicalId(value, "Prompt section ID");
+        Object.freeze(this);
+    }
+}
+
+export class SettingsLayerId extends TextId {
+    public constructor(value: string) {
+        super(value, "Settings layer ID");
+        requireCanonicalId(value, "Settings layer ID");
+        Object.freeze(this);
+    }
+}
+
+export class CatalogEntryId extends TextId {
+    public constructor(value: string) {
+        super(value, "Catalog entry ID");
+        requireCanonicalId(value, "Catalog entry ID");
+        Object.freeze(this);
+    }
+}
+
 function requireCanonicalId(value: string, subject: string): void {
     if (value.length === 0 || value !== value.trim()) {
         throw new TypeError(`${subject} must be a nonblank canonical string`);

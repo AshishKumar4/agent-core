@@ -52,12 +52,10 @@ export interface MutationRunRecord {
     report: MutationReport;
 }
 
-export function publishRunCache(
-    area: string,
-    record: MutationRunRecord
-): "converged" | "published";
+export function publishRunCache(area: string, record: MutationRunRecord): "converged" | "published";
 
 export function requireAreaReport(report: MutationReport, area: string): MutationReport;
+export function mergeTimeoutRerun(report: MutationReport, rerun: MutationReport): MutationReport;
 
 export function gitHead(): string;
 

@@ -8,7 +8,7 @@
       "contract": "src/workspaces/persistence.ts#WorkspaceRecordStorage",
       "implementations": [
         "src/workspaces/memory.ts#MemoryWorkspaceRecords",
-        "src/substrates/sqlite/events/records.ts#SqliteWorkspaceEventRecords"
+        "src/substrates/sqlite/workspace-records.ts#SqliteWorkspaceRecords"
       ],
       "memoryReference": "src/workspaces/memory.ts#MemoryWorkspaceRecords",
       "contractTest": "test/substrates/sqlite/events-seam.test.ts#[workspace-record-storage] memory and SQLite satisfy the shared storage contract"

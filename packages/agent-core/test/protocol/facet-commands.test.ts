@@ -1137,6 +1137,7 @@ function installation(
         package: packagePin,
         packageFacet: new FacetPackageId("package.facet"),
         facet: new FacetRef(facet),
+        manifestDigest: digest,
         materialization: new ManagedOrigin({
             tenantId: new TenantId("tenant"),
             deploymentId: new DeploymentId("b".repeat(64)),

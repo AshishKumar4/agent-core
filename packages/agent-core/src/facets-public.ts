@@ -14,6 +14,7 @@ export {
     InterceptorId,
     OperationName,
     OperationRef,
+    PromptSectionId,
     SlotEntryId,
     SlotName,
     SurfaceId
@@ -43,6 +44,7 @@ export {
 } from "./facets/event";
 export type { EventVisibility, TrustTier, VerificationScheme } from "./facets/event";
 export { Prompt, PromptContribution } from "./facets/prompt";
+export { PromptSection } from "./facets/prompt-section";
 export { Command } from "./facets/command";
 export type { CommandInit } from "./facets/command";
 export { Automation } from "./facets/automation";

@@ -1,9 +1,6 @@
 {
   "edition": "3.0.0",
-  "owners": [
-    "W0",
-    "W9"
-  ],
+  "owners": ["W0", "W9"],
   "wave": "W4",
   "inventory": "artifacts/quality/w4-source-inventory.json",
   "checker": "artifacts/quality/check-w4-error-taxonomy.mjs",
@@ -535,10 +532,10 @@
       "occurrence": 1
     },
     {
-      "declarationSha256": "5aae21c163241b3aef3d9b03aa85448538c2a332349025e8219595e84d3f6eb8",
+      "declarationSha256": "f5ec8f0896a69432dd1e5089ac8195e72e5d8bde1f5bc7e0d4db0ff270a3d462",
       "file": "src/definition/installation.ts",
       "symbol": "requireInstallation",
-      "statementSha256": "352e6da83e755cf28a1a982325059d105f9d778e9ce96976084a8aa77fd30b96",
+      "statementSha256": "9cec9dac2d0f823468806ebfec724cbfe379354f9689925cf540d174b54b1aee",
       "occurrence": 1
     },
     {

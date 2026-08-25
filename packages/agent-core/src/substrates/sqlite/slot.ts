@@ -76,9 +76,11 @@ export class SqliteWorkspaceSlotStore extends WorkspaceSlotStore<TransactionalSq
 
     public transaction<Result>(
         operation: TransactionOperation<TransactionalSqlite, Result>,
-        ..._guard: SynchronousResultGuard<Result>
+        ...guard: SynchronousResultGuard<Result>
     ): Result {
-        if (this.#active) throw invalidState("Nested SQLite Slot transactions are not supported");
+        if (this.#active) {
+            throw invalidState("Nested SQLite Slot transactions are not supported");
+        }
         return this.database.transaction(
             () => {
                 this.#active = true;
@@ -88,7 +90,7 @@ export class SqliteWorkspaceSlotStore extends WorkspaceSlotStore<TransactionalSq
                     this.#active = false;
                 }
             },
-            ..._guard
+            ...guard
         );
     }
 
@@ -259,8 +261,8 @@ export class SqliteWorkspaceSlotStore extends WorkspaceSlotStore<TransactionalSq
     }
 
     private requireDatabase(transaction: TransactionalSqlite): void {
-        if (transaction !== this.database || !this.#active) {
-            throw invalidState("SQLite Slot access requires its owning transaction");
+        if (transaction !== this.database) {
+            throw invalidState("SQLite Slot access requires its owning database");
         }
     }
 

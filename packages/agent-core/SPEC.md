@@ -894,7 +894,7 @@ approval, and audit machinery applies to it automatically.
 
 ```ts
 interface Command {
-  readonly name: string;                    // canonical id is `${facetId}:${name}`
+  readonly name: string;                    // command name; source identity is derived below
   readonly title: string;                   // localizable (string or i18n key)
   readonly help?: string;
   readonly arguments: JsonSchema;           // validation + autocomplete
@@ -918,13 +918,17 @@ interface SubscriptionTemplate {
 
 Materialization is deterministic. A Command first applies `mapping`, or identity when
 absent, and emits `command.invoked` with the validated Operation input at `/input`. Its
-derived Subscription is exactly:
+derived Subscription uses `canonicalTupleKey(namespace, components)`, the canonical JSON
+text of `[namespace, ...components]`, so component boundaries are injective. It is exactly:
 
 ```ts
 {
   source: {
     kind: "command.invoked",
-    source: `${facetId}:${command.name}`,
+    source: canonicalTupleKey(
+      "command.invoked.source",
+      [command.operation.facet, command.name],
+    ),
     acceptedTrust: command.acceptedTrust ?? ["owner", "authenticated", "self"],
   },
   target: command.operation,

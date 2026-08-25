@@ -11,7 +11,7 @@ import {
     validateWorkspacePointer,
     validateWorkspacePointerAdvance,
     validateWorkspaceUnique,
-    type CompactableWorkspaceRecordKind,
+    type DeletableWorkspaceRecordKind,
     type StoredWorkspacePointer,
     type StoredWorkspaceRecord,
     type StoredWorkspaceUnique,
@@ -100,11 +100,8 @@ class DelegatingStorage implements WorkspaceRecordStorage {
         this.inner.insertRecord(record);
     }
 
-    public deleteCompactedRecords(
-        kind: CompactableWorkspaceRecordKind,
-        ids: readonly string[]
-    ): void {
-        this.inner.deleteCompactedRecords(kind, ids);
+    public deleteRecords(kind: DeletableWorkspaceRecordKind, ids: readonly string[]): void {
+        this.inner.deleteRecords(kind, ids);
     }
 
     public findUnique(namespace: string, key: string): StoredWorkspaceUnique | undefined {
@@ -124,6 +121,10 @@ class DelegatingStorage implements WorkspaceRecordStorage {
         expectedRecordKey: string | undefined
     ): void {
         this.inner.compareAndSetPointer(pointer, expectedRecordKey);
+    }
+
+    public deletePointer(namespace: string, key: string, expectedRecordKey: string): void {
+        this.inner.deletePointer(namespace, key, expectedRecordKey);
     }
 }
 
@@ -1090,16 +1091,16 @@ describe("workspace validators", () => {
 });
 
 describe("storage trust boundary kills", () => {
-    test("compaction refuses kinds outside the compactable set", { tags: "p0" }, () => {
+    test("deletion refuses kinds outside the deletable set", { tags: "p0" }, () => {
         const records = new MemoryWorkspaceRecords();
         records.insertRecord({ kind: "event", id: "event-keep", bytes: Uint8Array.of(1) });
-        // SAFETY: "event" is outside the compactable kinds the parameter admits, which is
+        // SAFETY: "event" is outside the deletable kinds the parameter admits, which is
         // what the storage layer must refuse rather than trust its caller for.
-        expect(() => records.deleteCompactedRecords("event" as never, ["event-keep"])).toThrow(
+        expect(() => records.deleteRecords("event" as never, ["event-keep"])).toThrow(
             expect.objectContaining({
                 name: "AgentCoreError",
                 code: "protocol.invalid-state",
-                message: "Record kind is not compactable"
+                message: "Record kind is not deletable"
             })
         );
         expect(records.findRecord("event", "event-keep")).toBeDefined();

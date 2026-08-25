@@ -67,7 +67,7 @@
   ],
   "acceptance": [
     "Building quality completes for owner W9 from checkpoint aedf0d7",
-    "Core and Cloudflare structural, workerd, generated-type, and consumer lanes pass",
+    "Packed core and Cloudflare consumer lanes plus structural, workerd, and generated-type lanes pass",
     "Global raw coverage, records, seams, migrations, ledger, traceability, and integration pass",
     "Post-candidate closure records the exact commit, tree, artifact blobs, and completed W9 disposition"
   ],
@@ -4839,7 +4839,8 @@
     ],
     "tests": [
       "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition uses canonical constructors and keeps composition off the package surface"
-    ]
+    ],
+    "checks": ["exports"]
   },
   "closureManifest": {
     "base": "38872d38a5bc4077f048031680f6db90da49d0ee",

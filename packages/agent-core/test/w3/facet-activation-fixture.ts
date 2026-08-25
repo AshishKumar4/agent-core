@@ -2,7 +2,6 @@ import {
     Contributions,
     Facet,
     FacetManifest,
-    FacetPackageId,
     type FacetLifecycleContext,
     type FacetRef,
     type Interceptor,
@@ -19,8 +18,12 @@ import { CompatRange, SemVer } from "../../src/core";
  * test decides for itself whether the body commits, throws after committing, or does
  * nothing.
  */
-export function activationFacet(ref: FacetRef, start: () => void): Facet {
-    return new ActivationFacet(ref, start);
+export function activationFacet(
+    ref: FacetRef,
+    start: () => void,
+    stop: () => void = () => undefined
+): Facet {
+    return new ActivationFacet(ref, start, stop);
 }
 
 class ActivationFacet extends Facet {
@@ -28,11 +31,12 @@ class ActivationFacet extends Facet {
 
     public constructor(
         public readonly ref: FacetRef,
-        private readonly body: () => void
+        private readonly body: () => void,
+        private readonly cleanup: () => void
     ) {
         super();
         this.manifest = new FacetManifest({
-            id: new FacetPackageId("activation.fixture"),
+            id: ref.packageId,
             version: new SemVer("1.0.0"),
             compat: new CompatRange("^1.0.0", "^1.0.0"),
             isolation: ["dynamic"],
@@ -61,5 +65,7 @@ class ActivationFacet extends Facet {
         this.body();
     }
 
-    public async stop(_context: FacetLifecycleContext): Promise<void> {}
+    public async stop(_context: FacetLifecycleContext): Promise<void> {
+        this.cleanup();
+    }
 }

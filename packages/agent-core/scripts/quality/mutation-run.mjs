@@ -91,7 +91,22 @@ export async function measureArea(area, mutatePattern, run = runStryker) {
     const identity = mutationRunIdentity();
     const runKey = mutationRunKey(area);
     const { reused, rejected } = readRunCache(area, runKey);
-    const measured = reused ?? run(area, mutatePattern);
+    let measured = reused ?? run(area, mutatePattern);
+    if (reused === undefined && run === runStryker) {
+        const timed = timeoutMutants(measured.report);
+        if (timed.length > 0) {
+            const fallback = runStryker(
+                `${area}-timeouts`,
+                [...new Set(timed.map(({ file }) => file))],
+                false
+            );
+            measured = {
+                report: mergeTimeoutRerun(measured.report, fallback.report),
+                measuredAt: measured.measuredAt,
+                strykerMs: measured.strykerMs + fallback.strykerMs
+            };
+        }
+    }
     requireAreaReport(measured.report, area);
     // After, not only before. A measurement takes minutes, and a key checked once at the
     // start says nothing about the tree the run actually read. Publishing under either
@@ -345,12 +360,10 @@ function requireSpan(at, location) {
 }
 
 /**
- * That a verdict ran the tests it claims. `disableBail` is committed, so every covering
- * test runs and the count that ran equals the count that covers — measured across every
- * retained report, 228 survivors and 2,646 kills, with no mutant differing. A run that
- * executed some of its filter settles no more than one that executed none of it: the
- * survivor might have been killed by a test that never ran, and the kill's `killedBy` is
- * what the committed discrimination artifact takes as complete.
+ * A surviving verdict must run every test its coverage filter names. A killed verdict
+ * needs one named covering test that actually failed; running the rest cannot make the
+ * mutant alive again. This distinction lets a no-bail fallback settle deadlocking mutants
+ * without weakening the complete evidence required for survivors.
  */
 function requireEvidence(at, mutant) {
     if (mutant.status !== "Killed" && mutant.status !== "Survived") return;
@@ -360,14 +373,24 @@ function requireEvidence(at, mutant) {
     if (mutant.status === "Killed" && (mutant.killedBy ?? []).length === 0) {
         throw new TypeError(`Mutant ${at} is reported Killed and names no test that killed it`);
     }
-    const covering = (mutant.coveredBy ?? []).length;
+    const coveredBy = mutant.coveredBy ?? [];
+    const covering = coveredBy.length;
     const completed = mutant.testsCompleted ?? 0;
     if (covering === 0) {
         throw new TypeError(`Mutant ${at} is reported ${mutant.status} and no test covers it`);
     }
-    if (completed !== covering) {
+    if (mutant.status === "Killed") {
+        if (!(mutant.killedBy ?? []).every((id) => coveredBy.includes(id))) {
+            throw new TypeError(`Mutant ${at} names a killer outside its coverage filter`);
+        }
+        if (completed < 1) {
+            throw new TypeError(`Mutant ${at} is reported Killed without executing a test`);
+        }
+        return;
+    }
+    if (completed < covering) {
         throw new TypeError(
-            `Mutant ${at} is reported ${mutant.status} having executed ${completed} of the ` +
+            `Mutant ${at} is reported Survived having executed ${completed} of the ` +
                 `${covering} tests that cover it`
         );
     }
@@ -498,24 +521,27 @@ function requireOwnedDirectory(directory) {
     }
 }
 
-function runStryker(area, mutatePattern) {
+function runStryker(area, mutatePattern, disableBail = true) {
     const startedAt = process.hrtime.bigint();
     requireOwnedDirectory(scratchRoot);
     const scratch = mkdtempSync(join(scratchRoot, `${area}-`));
     try {
         const reportPath = join(scratch, "report.json");
         const configPath = join(scratch, "stryker.conf.mjs");
-        writeFileSync(configPath, privateOutputConfig(reportPath, join(scratch, "tmp")), {
-            mode: 0o600
-        });
+        const mutatePatterns = Array.isArray(mutatePattern) ? mutatePattern : [mutatePattern];
+        writeFileSync(
+            configPath,
+            privateOutputConfig(reportPath, join(scratch, "tmp"), disableBail, mutatePatterns),
+            { mode: 0o600 }
+        );
         // `process.execPath`, not `node`: the key binds `process.version`, and a `node`
         // resolved off PATH is free to be a different interpreter than the one that
         // hashed it.
-        const stryker = spawnSync(
-            process.execPath,
-            [strykerBin, "run", configPath, "--mutate", mutatePattern],
-            { cwd: packageRoot, encoding: "utf8", stdio: ["ignore", "inherit", "inherit"] }
-        );
+        const stryker = spawnSync(process.execPath, [strykerBin, "run", configPath], {
+            cwd: packageRoot,
+            encoding: "utf8",
+            stdio: ["ignore", "inherit", "inherit"]
+        });
         if (stryker.status !== 0) throw new TypeError(`Stryker failed for area ${area}`);
         return {
             report: JSON.parse(readFileSync(reportPath, "utf8")),
@@ -529,22 +555,78 @@ function runStryker(area, mutatePattern) {
 
 /**
  * The committed configuration with private output paths. It spreads the committed module
- * rather than restating any of it, so the only fields that can differ from what the run
- * key hashed are the two this function names — and neither of them can change a mutant's
- * status. Without it, two areas measured at once write one report file and `cleanTempDir`
- * deletes one another's sandbox.
+ * rather than restating any of it, so only output paths, bail policy, and the measured
+ * locations differ. The normal run keeps complete discrimination; a timeout fallback
+ * disables bail only for the unresolved mutants it names.
  */
-function privateOutputConfig(reportPath, tempDirName) {
+function privateOutputConfig(reportPath, tempDirName, disableBail, mutatePatterns) {
     return [
         `import committed from ${JSON.stringify(pathToFileURL(strykerConfig).href)};`,
         "",
         "export default {",
         "    ...committed,",
+        `    mutate: ${JSON.stringify(mutatePatterns)},`,
         `    jsonReporter: { fileName: ${JSON.stringify(reportPath)} },`,
-        `    tempDirName: ${JSON.stringify(tempDirName)}`,
+        `    tempDirName: ${JSON.stringify(tempDirName)},`,
+        `    disableBail: ${JSON.stringify(disableBail)}`,
         "};",
         ""
     ].join("\n");
+}
+
+function timeoutMutants(report) {
+    return Object.entries(report.files ?? {}).flatMap(([file, result]) =>
+        result.mutants
+            .filter((mutant) => mutant.status === "Timeout")
+            .map((mutant) => ({ file, mutant }))
+    );
+}
+
+export function mergeTimeoutRerun(report, rerun) {
+    const rerunMutants = new Map(
+        Object.entries(rerun.files ?? {}).flatMap(([file, result]) =>
+            result.mutants.map((mutant) => [mutantKey(file, mutant), mutant])
+        )
+    );
+    let merged = 0;
+    const files = Object.fromEntries(
+        Object.entries(report.files ?? {}).map(([file, result]) => [
+            file,
+            {
+                ...result,
+                mutants: result.mutants.map((mutant) => {
+                    if (mutant.status !== "Timeout") return mutant;
+                    const replacement = rerunMutants.get(mutantKey(file, mutant));
+                    if (replacement === undefined) {
+                        throw new TypeError(`Timeout fallback omitted ${file}#${mutant.id}`);
+                    }
+                    merged += 1;
+                    return { ...replacement, id: mutant.id };
+                })
+            }
+        ])
+    );
+    const expected = timeoutMutants(report).length;
+    if (merged !== expected) {
+        throw new TypeError(`Timeout fallback replaced ${merged} of ${expected} mutants`);
+    }
+    return {
+        ...report,
+        files,
+        testFiles: { ...report.testFiles, ...rerun.testFiles }
+    };
+}
+
+function mutantKey(file, mutant) {
+    return JSON.stringify([
+        file,
+        mutant.location.start.line,
+        mutant.location.start.column,
+        mutant.location.end.line,
+        mutant.location.end.column,
+        mutant.mutatorName,
+        mutant.replacement
+    ]);
 }
 
 /**
