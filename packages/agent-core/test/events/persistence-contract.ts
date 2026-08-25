@@ -38,6 +38,7 @@ import {
     type EventInit,
     type Subscription
 } from "../../src/workspaces";
+import { SurfaceEpoch } from "../../src/workspaces";
 import { malformed } from "../helpers/malformed";
 import { attribution } from "../w3/slot-store-contract";
 import {
@@ -557,6 +558,10 @@ export function workspacePersistenceContract<Transaction>(
 
                 const view = viewFixture(0, `${name}-cas`);
                 harness.transaction((transaction) => {
+                    harness.persistence.putSurfaceRegistration(
+                        transaction,
+                        surfaceRegistration("workspace:cas", view.surface.value, "1.0.0")
+                    );
                     harness.persistence.saveView(transaction, view, undefined, []);
                 });
                 expect(() =>
@@ -570,6 +575,7 @@ export function workspacePersistenceContract<Transaction>(
                             transaction,
                             new View({
                                 surface: view.surface,
+                                epoch: view.epoch,
                                 revision: new Revision(2),
                                 body: view.body,
                                 actions: view.actions,
@@ -587,8 +593,11 @@ export function workspacePersistenceContract<Transaction>(
                             .value
                     ).toBe(1);
                     expect(
-                        harness.persistence.currentView(transaction, view.surface.value)?.revision
-                            .value
+                        harness.persistence.currentView(
+                            transaction,
+                            view.surface.value,
+                            SurfaceEpoch.first()
+                        )?.revision.value
                     ).toBe(0);
                 });
             } finally {
@@ -1162,6 +1171,7 @@ export function workspacePersistenceContract<Transaction>(
                 const delta = viewDeltaFixture(view);
                 const next = new View({
                     surface: view.surface,
+                    epoch: view.epoch,
                     revision: delta.revision,
                     body: { count: 1, nested: { enabled: true } },
                     actions: view.actions,
@@ -1178,6 +1188,10 @@ export function workspacePersistenceContract<Transaction>(
                         transaction,
                         authenticatedProjectionFixture(reservation),
                         projectionRetention(projection, sourceActor)
+                    );
+                    harness.persistence.putSurfaceRegistration(
+                        transaction,
+                        surfaceRegistration("workspace:restart", view.surface.value, "1.0.0")
                     );
                     harness.persistence.saveView(transaction, view, undefined, []);
                     expect(
@@ -1206,15 +1220,25 @@ export function workspacePersistenceContract<Transaction>(
                         harness.persistence.findView(
                             transaction,
                             view.surface.value,
+                            SurfaceEpoch.first(),
                             Revision.initial()
                         )?.body
                     ).toEqual(view.body);
                     expect(
-                        harness.persistence.currentView(transaction, view.surface.value)?.body
+                        harness.persistence.currentView(
+                            transaction,
+                            view.surface.value,
+                            SurfaceEpoch.first()
+                        )?.body
                     ).toEqual(next.body);
                     expect(
                         harness.persistence
-                            .listViewDeltas(transaction, view.surface.value, Revision.initial())
+                            .listViewDeltas(
+                                transaction,
+                                view.surface.value,
+                                SurfaceEpoch.first(),
+                                Revision.initial()
+                            )
                             .map((item) => item.revision.value)
                     ).toEqual([1]);
                 });
@@ -1222,6 +1246,194 @@ export function workspacePersistenceContract<Transaction>(
                 harness.dispose();
             }
         });
+
+        test(
+            "[C13-VIEW-WITHDRAWAL-TERMINAL] retires a Surface stream and opens the next epoch for a later release",
+            { tags: "p0" },
+            () => {
+                const harness = create();
+                try {
+                    const engine = new DeterministicJsonPatchEngine();
+                    const first = viewFixture(0, `${name}-epoch`);
+                    const surface = first.surface;
+                    let head = first;
+                    harness.transaction((transaction) => {
+                        harness.persistence.putSurfaceRegistration(
+                            transaction,
+                            surfaceRegistration("workspace:epoch-one", surface.value, "1.0.0")
+                        );
+                        harness.persistence.saveView(transaction, first, undefined, []);
+                        head = harness.persistence.appendViewDelta(
+                            transaction,
+                            viewDeltaFixture(first, 1),
+                            engine,
+                            [],
+                            []
+                        );
+                    });
+                    harness.restart();
+                    harness.transaction((transaction) => {
+                        harness.persistence.retireSurfaceRegistration(transaction, surface);
+                    });
+
+                    const terminalBytes = harness.transaction((transaction) => {
+                        const deltas = harness.persistence.listViewDeltas(
+                            transaction,
+                            surface.value,
+                            SurfaceEpoch.first(),
+                            head.revision
+                        );
+                        expect(deltas.map((delta) => delta.patch)).toEqual([
+                            [{ op: "add", path: "/terminal", value: true }]
+                        ]);
+                        expect(deltas[0]?.cursor.value).toBe(head.cursor.value);
+                        const terminal = harness.persistence.currentView(
+                            transaction,
+                            surface.value,
+                            SurfaceEpoch.first()
+                        );
+                        expect(terminal?.terminal).toBe(true);
+                        expect(terminal?.revision.value).toBe(2);
+                        expect(harness.persistence.listSurfaceRegistrations(transaction)).toEqual(
+                            []
+                        );
+                        return View.encode(terminal!);
+                    });
+
+                    harness.transaction((transaction) => {
+                        // Any contributor and any release may take the Surface ID over now.
+                        expect(
+                            harness.persistence.putSurfaceRegistration(
+                                transaction,
+                                surfaceRegistration("workspace:epoch-two", surface.value, "2.0.0")
+                            )
+                        ).toBe(true);
+                        expect(
+                            harness.persistence.currentSurfaceEpoch(transaction, surface.value)
+                                .value
+                        ).toBe(2);
+                        harness.persistence.saveView(
+                            transaction,
+                            new View({
+                                ...first,
+                                epoch: SurfaceEpoch.first().next(),
+                                revision: Revision.initial()
+                            }),
+                            undefined,
+                            []
+                        );
+                    });
+                    harness.restart();
+
+                    harness.transaction((transaction) => {
+                        const live = harness.persistence.currentView(
+                            transaction,
+                            surface.value,
+                            SurfaceEpoch.first().next()
+                        );
+                        expect(live?.revision.value).toBe(0);
+                        expect(live?.terminal).toBeUndefined();
+                        expect(
+                            View.encode(
+                                harness.persistence.currentView(
+                                    transaction,
+                                    surface.value,
+                                    SurfaceEpoch.first()
+                                )!
+                            )
+                        ).toEqual(terminalBytes);
+                    });
+                } finally {
+                    harness.dispose();
+                }
+            }
+        );
+
+        test(
+            "[C13-VIEW-WITHDRAWAL-TERMINAL] refuses a delta built against the pre-terminal head and a snapshot offered after it",
+            { tags: "p0" },
+            () => {
+                const harness = create();
+                try {
+                    const engine = new DeterministicJsonPatchEngine();
+                    const first = viewFixture(0, `${name}-race`);
+                    const surface = first.surface;
+                    let head = first;
+                    harness.transaction((transaction) => {
+                        harness.persistence.putSurfaceRegistration(
+                            transaction,
+                            surfaceRegistration("workspace:race", surface.value, "1.0.0")
+                        );
+                        harness.persistence.saveView(transaction, first, undefined, []);
+                        head = harness.persistence.appendViewDelta(
+                            transaction,
+                            viewDeltaFixture(first, 1),
+                            engine,
+                            [],
+                            []
+                        );
+                    });
+                    // Built while the stream was live, offered after retirement terminated it.
+                    const raced = viewDeltaFixture(head, 2);
+                    harness.transaction((transaction) => {
+                        harness.persistence.retireSurfaceRegistration(transaction, surface);
+                    });
+
+                    const terminal = expect.objectContaining({
+                        code: "protocol.invalid-state",
+                        message: `Surface ${surface.value} epoch 1 is terminal at revision 2`
+                    });
+                    expect(() =>
+                        harness.transaction((transaction) =>
+                            harness.persistence.appendViewDelta(transaction, raced, engine, [], [])
+                        )
+                    ).toThrow(terminal);
+                    expect(() =>
+                        harness.transaction((transaction) =>
+                            harness.persistence.saveView(
+                                transaction,
+                                new View({ ...first, revision: Revision.initial() }),
+                                undefined,
+                                []
+                            )
+                        )
+                    ).toThrow(terminal);
+                    expect(() =>
+                        harness.transaction((transaction) =>
+                            harness.persistence.saveView(
+                                transaction,
+                                new View({ ...head, revision: new Revision(3) }),
+                                new Revision(2),
+                                []
+                            )
+                        )
+                    ).toThrow(terminal);
+
+                    harness.restart();
+                    harness.transaction((transaction) => {
+                        const current = harness.persistence.currentView(
+                            transaction,
+                            surface.value,
+                            SurfaceEpoch.first()
+                        );
+                        expect(current?.revision.value).toBe(2);
+                        expect(current?.terminal).toBe(true);
+                        expect(
+                            harness.persistence
+                                .listViewDeltas(
+                                    transaction,
+                                    surface.value,
+                                    SurfaceEpoch.first(),
+                                    Revision.initial()
+                                )
+                                .map((delta) => delta.revision.value)
+                        ).toEqual([1, 2]);
+                    });
+                } finally {
+                    harness.dispose();
+                }
+            }
+        );
     });
 }
 

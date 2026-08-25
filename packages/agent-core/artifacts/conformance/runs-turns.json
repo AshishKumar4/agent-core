@@ -289,17 +289,31 @@
       "owner": "W5",
       "specAnchor": "C13-RUN-CEILING-COST",
       "specTextSha256": "sha256:a1c213537c952a437e157877a301e7f76a97f0707582de54d81700b63e1839de",
-      "status": "planned",
+      "status": "implemented",
       "prerequisites": [],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
+      "sourceSymbols": [
+        "src/agents/runs/ceiling.ts#RESOURCE_DIMENSIONS",
+        "src/agents/runs/cost.ts#RealizedCost",
+        "src/agents/runs/cost.ts#Currency",
+        "src/agents/runs/run.ts#Run.recordModelUsage",
+        "src/agents/runs/runtime.ts#RunRuntime.recordModelUsageInTransaction",
+        "src/agents/runs/executor.ts#TurnModelUsage"
+      ],
+      "testSelectors": [
+        "test/agents/runs/ceiling.test.ts#Run realized cost [C13-RUN-CEILING-COST] declares costMicros as a ceiling dimension like any other",
+        "test/agents/runs/ceiling.test.ts#Run realized cost [C13-RUN-CEILING-COST] narrows a cost bound from the Run's own realized total",
+        "test/agents/runs/ceiling.test.ts#Run realized cost [C13-RUN-CEILING-COST] accumulates a durable per-Run total and carries it through the codec",
+        "test/agents/runs/ceiling.test.ts#Run realized cost [C13-RUN-CEILING-COST] records one currency per Run lineage and refuses a second",
+        "test/agents/runs/ceiling.test.ts#Run realized cost [C13-RUN-CEILING-COST] has no estimated form and refuses an unusable amount",
+        "test/agents/runs/ceiling.test.ts#Run realized cost [C13-RUN-CEILING-COST] advances the cost total at the same commit point as the token total"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": [
-        "RESOURCE_DIMENSIONS in src/agents/runs/ceiling.ts is frozen at depth, tokens, and wallClockMs, and its comment still asserts the SPEC names exactly three dimensions. Closure requires costMicros in that tuple, in ResourceCeiling.fromData's exact-field set, and in the ceiling codec, with the comment corrected",
-        "A Run keeps no cost total: src/agents/runs/run.ts#Run.recordTokens and Run.tokensConsumed are the only running total, and src/agents/runs/runtime.ts#RunRuntime.recordModelTokensInTransaction is its only commit point. Closure requires a durable realized-cost total advanced in that same transaction and a Run codec major that carries it",
-        "Nothing supplies a realized cost. The §5.6 executor seam reports token usage only, so closure requires the seam to carry a cost the host records verbatim, plus rejection of any path that derives cost from a rate table instead of recording what the call incurred",
-        "The one-currency rule has no enforcement point. Closure requires the recording path to reject a realized cost whose currency differs from the one already recorded for the Run lineage, and an adversarial case proving a mixed-currency lineage cannot narrow a ceiling",
-        "src/agents/runs/ceiling.ts#exhaustedResource must name costMicros only when that dimension has no allowance left, extending the existing C13-RUN-CEILING-EXHAUSTION check rather than adding a second exhaustion path"
+        "Every clause this row named is built and executed. costMicros is in RESOURCE_DIMENSIONS, in ResourceCeiling's exact-field set and codec, and the stale comment claiming exactly three dimensions is corrected. The Run carries costConsumed as a RealizedCost that holds its own currency, so one Run cannot hold two, and the Run codec moved to major 3 to carry it with no reader left behind for the previous major.",
+        "The commit point is one transition, not two: Run.recordModelUsage advances the token total and the realized-cost total together, and RunRuntime.recordModelUsageInTransaction is its only caller inside the transaction the model call commits in. exhaustedResource names costMicros through the existing C13-RUN-CEILING-EXHAUSTION check rather than a second exhaustion path, because it walks RESOURCE_DIMENSIONS.",
+        "The seam carries a cost the host records verbatim: TurnModelUsage gained an optional cost the executor passes through unchanged to the commit point. There is no field an estimate could travel in, and a host with no realized cost passes none, which by C13-RUN-RESOURCE-CEILING bounds nothing. Nothing in this path derives an amount from a rate table.",
+        "The one-currency rule has its enforcement point: the recording path refuses a cost whose currency differs from the one the Run lineage already recorded, with the lineage currency derived by walking the spawn lineage's own Run records rather than stored a second time. The adversarial case proves the refusal leaves both totals unmoved, so a mixed-currency lineage never produces a remainder to narrow a ceiling with.",
+        "What is still owed is recorded discrimination, which is not this row's to write. artifacts/quality/discrimination/ is W0-owned and has no attribution for src/agents/runs/cost.ts or for the new commit-point path, so a verified status would add a DISC-STALE issue. Promotion needs a W0 mutation run that records a symbol-tier kill inside Run.recordModelUsage and RunRuntime.recordModelUsageInTransaction by one of the cited tests."
       ]
     },
     {
@@ -331,7 +345,7 @@
       "sourceSymbols": [
         "src/agents/runs/ceiling.ts#narrowResources",
         "src/agents/runs/runtime.ts#RunRuntime.remainingResourcesInTransaction",
-        "src/agents/runs/run.ts#Run.recordTokens"
+        "src/agents/runs/run.ts#Run.recordModelUsage"
       ],
       "testSelectors": [
         "test/agents/runs/ceiling.test.ts#Run resource ceilings [C13-RUN-CEILING-REMAINDER] derives depth and wall time from lineage while model accounting alone advances durable token totals",
@@ -386,19 +400,27 @@
       "owner": "W5",
       "specAnchor": "C13-RUN-DISTINCTION-REPRESENTABLE",
       "specTextSha256": "sha256:6027bd9e5f21aae4a195b4161b4113ffe8cc2e9516e2aec03f6abbdd22c5b663",
-      "status": "planned",
+      "status": "implemented",
       "prerequisites": [],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
+      "sourceSymbols": [
+        "src/agents/runs/commit.ts#MergeParents",
+        "src/agents/runs/commit.ts#requireMergeParents",
+        "src/agents/runs/executor.ts#TurnCommitOmission",
+        "src/agents/runs/executor.ts#TurnModelInput"
+      ],
+      "testSelectors": [
+        "test/agents/runs/commit-mutation.test.ts#closed commit shape single violations [C13-RUN-DISTINCTION-REPRESENTABLE] a merge joining one lineage to itself is not a value that exists",
+        "test/agents/runs/commit-mutation-codec.test.ts#Run commit decode guards [C13-RUN-DISTINCTION-REPRESENTABLE] refuses a stored merge naming one commit twice",
+        "test/agents/runs/model-input.test.ts#Turn model input [C13-RUN-DISTINCTION-REPRESENTABLE] tells a commit carried in fully abridged form from one carried whole, and leaves a surface that attributes nothing byte-identical",
+        "test/agents/runs/model-input.test.ts#Turn model input [C13-RUN-DISTINCTION-REPRESENTABLE] refuses an attribution outside the coverage, a repeated commit, a commit carried whole, and a total its sections contradict",
+        "test/agents/runs/compaction.test.ts#Compaction as a policy over rewrite [C13-RUN-DISTINCTION-REPRESENTABLE] attributes an abridgement inside a multi-commit section to the commit it withheld, and rebuilds the request without reading it"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": [
-        "The merge half, in its discloser's own words. `RunCommit.parents` is a flat `readonly RunCommitId[]` with arity validated per kind, so `parents.length === 2` answers whether this has two entries while the rule needs whether this joins two distinct lineages. A merge naming ONE commit as both parents is fully constructable, passes the codec, and is refused only later by `RunRuntime.validateMerge` — a unary merge wearing binary shape. That is demonstrated rather than argued: dropping the runtime's distinctness clause survives every record-level check, so the record-level mutant is the one that lives. The absent mechanism is a `MergeParents` value object in src/agents/runs/commit.ts that cannot hold one commit twice, plus the codec path that admits only it",
-        "Stated honestly because the row must not read as a correctness gap: `RunRuntime.validateMerge` refuses the unary-merge case correctly today, and src/agents/runs/commit.ts refuses every arity but two. No wrong merge lands and no wrong answer is returned. This is a representability rule — the illegal value exists and is checked rather than being unconstructable — so the evidence owed is that the value cannot be built, never that a build is rejected",
-        "The omission-attribution half, in its discloser's own words. `TurnModelInput.covers` is per-RECORD, a flat `readonly RunCommitId[]`, while `TurnOmission` is per-SECTION, so the two facts sit at different granularities with no third field joining them. `covers` therefore answers whether a commit was in scope of the assembly while being read as whether the model observed that commit's content, and a host that lists a commit and renders zero bytes of it — fully abridging it inside a multi-commit section — is indistinguishable in the record from one that rendered it whole. The withheld byte count exists but cannot be attributed to a commit. The absent mechanism is a per-commit coverage entry in src/agents/runs/executor.ts",
-        "What the omission half does and does not break, from the same disclosure. Reconstruction stays byte-exact either way because the bytes come from the sections and not from the accounting, so C13-TURN-MODEL-INPUT-RECONSTRUCTABLE is unaffected, and C13-TURN-SURFACE-ACCOUNTED claims coverage equals the transcript and that abridgement states the withheld amount without claiming per-commit attribution, so no landed row overclaims and no test asserts something false. What is unavailable is the audit question of which commit was abridged — exactly the question a reader of the phrase compaction and abridgement compose would assume is answerable. It composes for reconstruction; it does not compose for attribution",
-        "Why it is owed rather than settled, in the discloser's own judgement: per-commit entries carrying carried versus withheld were considered and dropped as duplicative of the section-level omission, and that objection treated two different questions as one fact. Per-commit omission attribution is a fact about the world, so the duplication objection was wrong and the gap is debt rather than a decision",
-        "SHAPE WARNING for whoever discharges the omission half, because the choice is load-bearing and the discloser corrected their own first estimate here. Replacing the field — `covers: readonly TurnCoveredCommit[]` with `{commit, omission}` per entry — changes the canonical value of an existing key, and `TurnModelInput.toData()` reaches `modelInputCommitId` through a content-addressed ref, so that shape forks every `modelInput` RunCommitId exactly as presence-typing `interceptable` forked InvocationIds, and it is a migration rather than a refactor. An ADDITIVE optional field emitted only when non-empty forks nothing: existing records serialise byte-identically and only records that use it differ, with `TurnShownContent.toData()` emitting `inline` XOR `ref` as the in-record precedent. Take the additive form; the residual cost is then §5.6 prose and one digest re-affirmation, not a durable-identity migration",
-        "Both halves are unmeasured against the mutation campaign, so no discrimination attribution exists for either mechanism. Discharging this row means the two value objects, a record-level test that a unary merge cannot be constructed rather than that it is rejected, a test that a fully abridged carried commit is distinguishable from a whole one, and the mutation attribution that shows each new test dies when its own clause is removed"
+        "Both halves are built and executed. The merge half is a MergeParents value object in src/agents/runs/commit.ts that cannot hold one commit twice: construction with two equal ids throws, RunCommit's constructor routes the merge kind's parents through it, and the codec decode path refuses a stored merge naming one commit twice. The record now carries the distinction rather than a shape a checker measures, and the record-level test asserts the value cannot be built rather than that a build is rejected.",
+        "The omission half is an additive optional per-commit attribution on src/agents/runs/executor.ts#TurnModelInput, carried by TurnCommitOmission and stated through TurnModelInputAssembly.withheld. The shape warning this row recorded is honoured: the field is emitted only when non-empty, so a record that does not use it encodes byte-identically and no modelInput RunCommitId forks. covers is unchanged, and TurnModelInputReplay still rebuilds the request from the sections rather than from the accounting, so C13-TURN-MODEL-INPUT-RECONSTRUCTABLE does not regress.",
+        "What is still owed is recorded discrimination, which is not this row's to write. artifacts/quality/discrimination/ is W0-owned and carries no attribution for either new mechanism, so a verified status would add DISC-STALE rather than resolve it. Hand measurement in this worktree found each clause load-bearing: neutering MergeParents' distinctness check reds both new merge-half tests, dropping the covers-membership check in validateCommitOmissions reds the refusal test, and making toData always emit the attribution reds 23 tests including the byte-identity assertion. Promotion needs a W0 run that records those kills.",
+        "RunRuntime.validateMerge keeps its distinctness clause rather than losing it to the record. The p0 case `merge validation > merge parents must be the distinct ordered current heads` forges parents through test/agents/runs/fixture.ts#forgedCommit to reach exactly that clause, so deleting it would delete a tested assertion and a discrimination-keyed title. The record-level mutant now dies independently of it."
       ]
     },
     {
@@ -580,13 +602,15 @@
         "src/agents/runs/commit.ts#RunCommit",
         "src/agents/runs/runtime.ts#RunRuntime"
       ],
-      "testSelectors": [],
-      "checkerInvariants": [],
+      "testSelectors": [
+        "test/agents/runs/runtime-mutation.test.ts#merge validation [C13-RUN-GRAPH-CLOSED] accepts a merge whose source is a distinct branch of the same Run at equal pins",
+        "test/agents/runs/runtime-mutation.test.ts#Run graph closure [C13-RUN-GRAPH-CLOSED] a child Run reaches no commit of its parent, whatever either Run appends"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": [
-        "The closure is enforced today and the enforcement predates the rule, so what is owed is conformance naming rather than behaviour. src/agents/runs/commit.ts declares a `run: RunId` field on RunCommit beside `branch`, and src/agents/runs/runtime.ts#RunRuntime rejects each of the three ways a foreign commit could enter one Run's graph: appendInTransaction rejects a branch whose `run` differs from the loaded Run with `Run commit target is invalid`, rejects a unary or first-merge parent whose `run` differs with `Run commit parent belongs to another Run`, and validateMerge cannot find a second-parent branch that this Run does not own because its source lookup filters on `branch.run.equals(target.run)`, so a foreign source head rejects with `Merge requires equal-pinned current heads from distinct branches`",
-        "Three p0 tests exercise exactly those three paths and none carries this atom's label, so no selector can be claimed until they are tagged. test/agents/runs/runtime-mutation.test.ts `append guards` > `rejects a parent commit that belongs to another Run` inserts a commit under RunId `run-elsewhere` and appends against it; `merge validation` > `merge requires an exact source branch and stored head commits` registers branch `branch-elsewhere` under RunId `run-elsewhere` and merges its head; `runtime lookup errors` > `effective commits reject a branch of another Run` covers the branch side. Moving this row to verified is the tagging plus ACQ-IMPORT and ACQ-TEST, not new behaviour",
-        "A positive assertion is owed alongside the rejections, because a runtime that rejected every merge would satisfy a rejection-only test: a merge whose source is a distinct branch of the same Run at equal pins is accepted, and the resulting graph still holds exactly one zero-parent commit. The second half is the interaction with C13-RUN-GRAPH-ARITY this rule depends on — closure and the single-root rule are one fact read from two directions — and no test asserts the zero-parent count after a merge",
-        "The whole-graph consequence a reader relies on has no check, only the three per-append checks that imply it. src/agents/runs/runtime.ts#RunRuntime spawnRunInTransaction creates the child Run with its own root commit, and nothing asserts that no commit of the parent Run is reachable from any commit of the child, nor that the child's graph holds exactly one zero-parent commit after arbitrary appends, merges, and branch creation. That assertion is what makes the absence of an inheritance watermark testable rather than incidental"
+        "The two clauses this row was owed are now executed evidence rather than argument: a merge whose source is a distinct branch of the same Run at equal pins is accepted and the graph still holds exactly one zero-parent commit, and no commit of a parent Run is reachable from any commit of a child after arbitrary appends, merges, and branch creation on both. Both new tests carry this atom's label and pass.",
+        "What is still owed is recorded discrimination, and it is not this row's to write. artifacts/quality/discrimination/ is W0-owned and holds no attribution for a test authored after the last mutation run, so a verified status would add a DISC-STALE issue rather than turn one green. Promotion needs a W0 mutation run that records a kill inside src/agents/runs/runtime.ts and src/agents/runs/commit.ts by one of the two cited tests.",
+        "The three pre-existing p0 tests that exercise the three per-append closure refusals stay deliberately untagged and uncited: test/agents/runs/runtime-mutation.test.ts `append guards` > `rejects a parent commit that belongs to another Run`, `merge validation` > `merge requires an exact source branch and stored head commits`, and `runtime lookup errors` > `effective commits reject a branch of another Run`. Their exact titles are attribution keys in artifacts/quality/discrimination/{actors,agents,execution-references}.json, so labelling them would either strand those keys or require hand-editing a W0 measurement artifact to follow a title nothing measured. W0 may cite them once it re-measures."
       ]
     },
     {
@@ -797,16 +821,24 @@
         "src/agents/runs/runtime.ts#RunRuntime",
         "src/agents/runs/run.ts#RunBranch",
         "src/agents/runs/commit.ts#validateCommitWriter",
+        "src/agents/runs/commit.ts#requireAbandonedFailureKind",
         "src/agents/runs/evidence.ts#RunEvidencePort"
       ],
       "testSelectors": [
         "test/agents/runs/transcript.test.ts#Run effective transcript, rewrite bracket, and cut balance [C13-RUN-REWRITE-BRACKET] completes exactly the obligation it reserved and excludes a second attempt per branch",
         "test/agents/runs/transcript.test.ts#Run effective transcript, rewrite bracket, and cut balance [C13-RUN-REWRITE-BRACKET] records an abandoned attempt as the reserved commit on its failed Receipt",
-        "test/agents/runs/transcript.test.ts#Run effective transcript, rewrite bracket, and cut balance [C13-WRITER-MATRIX] [C13-RUN-REWRITE-BRACKET] admits a rewrite only on the evidence its form requires"
+        "test/agents/runs/transcript.test.ts#Run effective transcript, rewrite bracket, and cut balance [C13-WRITER-MATRIX] [C13-RUN-REWRITE-BRACKET] admits a rewrite only on the evidence its form requires",
+        "test/agents/runs/transcript.test.ts#Run effective transcript, rewrite bracket, and cut balance [C13-RUN-REWRITE-BRACKET] refuses an abandoned attempt whose Receipt records no failed attempt",
+        "test/agents/runs/transcript.test.ts#Run effective transcript, rewrite bracket, and cut balance [C13-RUN-REWRITE-BRACKET] derives every closed failure kind from the attempt's own Receipt"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": [
-        "One clause of the owed log assertion is not dischargeable in this plane and is the only thing between this row and verified: that the closed failure kind on the abandoned attempt's Receipt says why the attempt ended. The reservation half, the per-branch exclusion, the close-by-exact-identity rule, and the abandoned form are implemented and tested, and the abandoned commit is required to name a Receipt whose recorded outcome is failed through src/agents/runs/evidence.ts#AbandonedRewriteEvidence, whose outcome the type pins, so a host that simply drops the record of the failure is rejected rather than admitted. The failure kind itself is C13-RECEIPT-FAILURE-KIND, W6's in invocations-audit.json and planned, and no failure-kind taxonomy exists in src/invocations/receipt.ts to assert against. The edge is deliberately not added as a prerequisite: §5.2 cites the kind as already saying why rather than making this rule a claim about that taxonomy, so gating this atom permanently on W6 would overstate the dependency. Promote when §7.4's taxonomy lands and one assertion binds the abandoned rewrite's ReceiptId to a Receipt carrying a closed failure kind"
+        "The clause that held this row open is discharged, and by derivation rather than by a restated label. src/agents/runs/commit.ts#validateCommitWriter now loads the exact ReceiptId the abandoned evidence names through src/agents/runs/evidence.ts#RunEvidencePort.storedReceipt and derives the closed failure kind from that durable Receipt. AbandonedRewriteEvidence lost both its `failure` label and its `outcome` field, so a host cannot present a kind the Receipt does not say: the mismatch is unrepresentable rather than rejected. An absent Receipt, one that reached no EffectAttempt, and one whose attempt did not fail are each refused by name.",
+        "What is still owed is recorded discrimination, and it is not this row's to write. Promotion to verified was attempted and measured: with the row verified, scripts/quality/discrimination.mjs reports a DISC-STALE fingerprint absent from artifacts/quality/discrimination-baseline.json, so a verified status adds a gate issue rather than resolving one. artifacts/quality/discrimination/ is W0-owned and holds no attribution for the cited sources from the last mutation run. Promotion needs a W0 run recording a kill inside validateCommitWriter's abandoned branch by one of the cited tests. Measured by hand meanwhile: making that branch unreachable reds exactly one test, `refuses an abandoned attempt whose Receipt records no failed attempt`."
+      ],
+      "bounds": [
+        "This rule does not claim the failure-kind taxonomy or its classification. Both are C13-RECEIPT-FAILURE-KIND's mechanism in src/invocations/receipt.ts; the evidence here reports the kind that Receipt already recorded and makes no determination of its own.",
+        "This rule does not claim when a host should attempt a rewrite, how much to shadow, or how remaining context is measured. SPEC 5.2 leaves all three to host discretion."
       ]
     },
     {
@@ -865,9 +897,10 @@
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "Conflict detection remains unimplemented over the opaque tree checkpoint digest. Closure requires one ContentStore-backed tree codec and diff path whose decoded bytes prove each ContentRef, rather than a test-only snapshot map",
-        "The effective tree policy must be loaded by the exact PolicySet id, revision, and digest in commit.pins.effectivePolicy; an unbound RunMergePort policy projection is not sufficient evidence",
-        "The merge-resolution control evidence must prove that its authenticated caller invoked the administer-impact Operation whose successful Receipt proposal digest binds these exact path choices; generic system-control writer evidence alone is insufficient"
+        "The binding blocker is outside this wave and now has a named owner. SPEC 1843 states that policies.treeMerge is a field of PolicySet (9.2), and src/definition/policy.ts#PolicySet has no such field: its exact key set is approvals, maxDirectRevocationWindowMs, placement and tiers. The effective tree policy this rule requires cannot be loaded by the exact PolicySet id, revision and digest in commit.pins.effectivePolicy until W4 adds it. W4 has confirmed it is adding a TreeMergePolicy value object with ours, theirs and perPath cases and a surfacesConflicts discriminator, cited as src/definition/policy.ts#TreeMergePolicy; it does not exist in this worktree, so nothing here builds or cites against it.",
+        "Conflict detection over the opaque tree checkpoint digest remains unimplemented. Closure requires one ContentStore-backed tree codec and diff path whose decoded bytes prove each ContentRef, rather than a test-only snapshot map. This is W5 work and it is deliberately not started against an absent policy: a detector that surfaces conflicts with no policy to decide them would either guess a side or refuse every merge, and both are the failure this rule exists to prevent.",
+        "An unbound RunMergePort policy projection is not sufficient evidence. src/agents/runs/runtime.ts calls RunMergePort.verifyTree for the perPath case today and takes its boolean, so the decision is host-supplied rather than bound to a loaded PolicySet revision and digest.",
+        "The merge-resolution control evidence must prove that its authenticated caller invoked the administer-impact Operation whose successful Receipt proposal digest binds these exact path choices; generic system-control writer evidence alone is insufficient."
       ]
     },
     {
@@ -1004,16 +1037,20 @@
       "owner": "W5",
       "specAnchor": "C13-TURN-FACET-SET-STABLE",
       "specTextSha256": "sha256:f4fd92563d6daac61c9453dedac7af14f32161d99c51726a6206f2544dfa983f",
-      "status": "planned",
+      "status": "implemented",
       "prerequisites": ["C13-FACET-WITHDRAWAL-EXACT"],
-      "sourceSymbols": [],
+      "sourceSymbols": [
+        "src/agents/runs/placement.ts#TurnPlacementSnapshot",
+        "src/agents/runs/executor.ts#validateOperations"
+      ],
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "FacetSet has no representation in src. §4.1 now defines it as the canonical-ordered, unique FacetRef membership of one composition view, and §5.3 fixes a Turn's FacetSet to the facet refs of its immutable TurnPlacementSnapshot placements. Closure requires that derivation to exist once, over the existing TurnPlacementSnapshot record (src/agents/runs/placement.ts#TurnPlacementSnapshot), rather than as a second membership list a host could populate independently.",
-        "The no-second-composition-view conjunct has no enforcement point. src/agents/runs/executor.ts#validateOperations already rejects a TurnBoundOperation whose facet is absent from the immutable placement snapshot, which is membership stability for bound Operations only; nothing yet answers a general membership question from the captured set, and nothing prevents a host from answering one from the Scope's current install records instead. Closure requires the executor seam to expose the captured set as the Turn's only composition view.",
-        "The typed unavailability a withdrawn captured member yields at its next use has no error class and no reachable path, because withdrawal itself is planned: there is no retired-Binding state for a resolution attempt to observe, and C13-FACET-WITHDRAWAL-EXACT is a prerequisite for that reason.",
-        "The behavior test must prove both halves in one exercise over the public interface and must fail if either is traded for the other: an install and a withdrawal committed mid-Turn leave the Turn's membership identical, while a Grant revoked mid-Turn denies the next use of a member the Turn still composes. A test that asserts only stable membership would pass against a host that had frozen authority with it."
+        "The derivation exists once, over the record 5.3 fixes it to: TurnPlacementSnapshot.facetSet is the canonical-ordered, unique FacetRef membership of the Turn's immutable placements, derived rather than stored, so no host can populate a second membership list beside it. The constructor already canonicalizes and deduplicates the placements, so the set is a reading of the captured record.",
+        "The no-second-composition-view conjunct has its enforcement point: TurnPlacementSnapshot.composes is the one membership predicate, and src/agents/runs/executor.ts#validateOperations asks it rather than re-deriving membership inline, so the executor seam exposes the captured set as the Turn's only composition view.",
+        "The withdrawal base this row waited on has landed, and what remains is narrower than the row previously said. src/composition/facet-withdrawal.ts#FacetWithdrawal retires every Workspace-owned record of one exact contribution in one caller transaction, recomputing the exact FacetRef and PackagePin set inside it, so a Facet can now be withdrawn mid-Turn. C13-FACET-WITHDRAWAL-EXACT stays implemented rather than verified, and the ledger refuses a verified row above an unverified prerequisite, so this row's ceiling is unchanged even though its blocker is smaller.",
+        "The one mechanism this rule's typed-unavailability clause still needs is W2's, not W3's. A withdrawn captured member must yield a typed unavailability at its NEXT use, which requires a retired-Binding state for a resolution attempt to observe; C13-FACET-WITHDRAWAL-EXACT records that authority-owned Bindings and Grants still need their own owning-Actor transaction and Scope epoch advance in src/authority, and no cross-Actor transaction will be added. Until that state exists there is nothing for a resolution attempt to see.",
+        "The behaviour test the rule requires stays unwritten for that reason, and no partial selector is cited in its place. It must prove both halves in one exercise and fail if either is traded for the other: an install and a withdrawal committed mid-Turn leave the Turn's membership identical, while a Grant revoked mid-Turn denies the next use of a member the Turn still composes. A test asserting only stable membership would pass against a host that had frozen authority with it."
       ]
     },
     {
@@ -1021,22 +1058,38 @@
       "owner": "W5",
       "specAnchor": "C13-TURN-HANDLE-DETACHMENT",
       "specTextSha256": "sha256:17c31cb7b5fcae387cbeea77b44ea8fe2f3fb185328e4cadd6773d7a4e728e8e",
-      "status": "planned",
+      "status": "implemented",
       "prerequisites": [
         "C13-TURN-ADMISSION-HANDLE",
         "C13-RUN-SETTLED-DERIVED",
         "C13-RECEIPT-FAILURE-KIND"
       ],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
+      "sourceSymbols": [
+        "src/agents/runs/handle.ts#TurnAdmissionHandle",
+        "src/agents/runs/handle.ts#TurnAdmissionIdentity",
+        "src/agents/runs/handle.ts#TurnAdmissionPublisher",
+        "src/agents/runs/handle.ts#TurnAdmissionVerifier",
+        "src/agents/runs/runtime.ts#RunRuntime.terminalizeRunInTransaction",
+        "src/agents/runs/evidence.ts#RunEvidencePort"
+      ],
+      "testSelectors": [
+        "test/agents/runs/handle-detachment.test.ts#admission as the handle's commit point [C13-TURN-HANDLE-DETACHMENT] issues no handle before admission and freezes the admitted item after it",
+        "test/agents/runs/handle-detachment.test.ts#the issuing Turn's cancellation and a published handle [C13-TURN-HANDLE-DETACHMENT] records no aborted failure on an item the cancelled Turn published",
+        "test/agents/runs/handle-detachment.test.ts#the two owners a published handle detaches to [C13-TURN-HANDLE-DETACHMENT] [C13-RUN-SETTLED-DERIVED] aborts the Run's own outstanding item and leaves a spawned child Run to itself",
+        "test/agents/runs/handle-detachment.test.ts#the two owners a published handle detaches to [C13-TURN-HANDLE-DETACHMENT] [C13-TURN-EXACT-LEASE] refuses the parent Turn's lease as authority over a child Run",
+        "test/agents/runs/handle-detachment.test.ts#the derived ceiling that crosses the boundary [C13-TURN-HANDLE-DETACHMENT] [C13-RUN-CEILING-REMAINDER] [C13-RUN-CEILING-EXHAUSTION] cancels an exhausted child through its own rows and not the ancestor that declared the bound",
+        "test/agents/runs/handle-detachment.test.ts#the cancellation a published item answers to [C13-TURN-HANDLE-DETACHMENT] reports `aborted` for a published item when its Run cancels and nothing when its issuing Turn does",
+        "test/agents/runs/handle-detachment.test.ts#the cancellation a published item answers to [C13-TURN-HANDLE-DETACHMENT] reports nothing for a child RunRef item a parent's cancellation reaches, while that item is still owed",
+        "test/agents/runs/handle-detachment.test.ts#the cancellation a published item answers to [C13-TURN-HANDLE-DETACHMENT] reports nothing for a published item whose Receipt is already terminal",
+        "test/agents/runs/handle-detachment.test.ts#the cancellation a published item answers to [C13-TURN-HANDLE-DETACHMENT] [C13-TURN-EXACT-LEASE] refuses a TurnId presented where the cancelled Run is required",
+        "test/agents/runs/handle-detachment.test.ts#the cancellation a published item answers to [C13-TURN-HANDLE-DETACHMENT] refuses a cancelled Run that names no cancellation, or one nothing aborted",
+        "test/agents/runs/handle-detachment.test.ts#the cancellation a published item answers to [C13-TURN-HANDLE-DETACHMENT] names no failure kind for an item the Turn is still awaiting"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": [
-        "Every clause is downstream of C13-TURN-ADMISSION-HANDLE, which is itself planned: GatewayTurnInvocationPort returns Operation output only, so no handle is ever put in the model's tool position and there is nothing whose ownership could transfer. Until a handle exists the commit point cannot be exercised from either side, which is why this atom names that one as a prerequisite rather than restating it",
-        "The commit point needs both sides proved against the same admission: a Turn expired, cancelled, or lost before admission must yield a `cancelledPreEffect` Receipt with no EffectAttempt and no handle, while a Turn cancelled after admission must leave the item's Receipt to be appended against its frozen intent, placement, and Package pin. A test that only cancels before admission would pass against a host that revoked every handle on Turn cancellation",
-        "The prohibition is the clause a passing test hides. Cancelling the issuing Turn must not abort an item whose admission identity it published, so a mutation propagating the Turn's cancellation to a published handle must break a cited test rather than merely change timing; the discriminating observation is the failure kind, since such a host records `aborted` on an item this rule requires to settle on its own terms",
-        "The two owners must be shown distinct in one exercise, because a host that cascaded would pass every test that spawns and waits: cancelling the Run aborts an outstanding `InvocationId` handle and withholds Settled until that item has a terminal current Receipt, while cancelling a parent Run leaves a spawned child Run running and does not withhold the parent's Settled, the spawn's `delegate` Receipt already being terminal once it carries the child RunRef",
-        "Child-Run isolation needs an adversarial authority case rather than a timing one: a caller holding only the parent Turn's LeaseToken must fail to cancel the child Run under C13-TURN-EXACT-LEASE, and cancellation must succeed only through authority that reaches that child Run",
-        "The derived-ceiling exception needs its own case because it is the one thing that legitimately crosses the boundary: a child must exhaust an inherited `depth` or `wallClockMs` bound computed from the spawn lineage and a root RunCommit timestamp (C13-RUN-CEILING-REMAINDER) and cancel itself through its own §5.3 rows with the exhausted dimension recorded, rather than being cancelled by the ancestor that declared the ceiling"
+        "Every clause this row named has an executed test, and the disjunction §7.4 leaves open is now resolved by a mechanism with a production caller rather than by an unused decision procedure. TurnAdmissionIdentity.owner names the Run for an InvocationId handle and the child Run for a RunRef handle; TurnAdmissionHandle.cancelledBy yields an aborted failure kind only for that owner; and RunRuntime.terminalizeRunInTransaction calls it for every item a cancelled Run still owes a Receipt, returning the failure kind each Receipt must carry. The runs layer appends no Receipt, so it yields the kind and stops, which keeps §7.4's plane with W6.",
+        "The prohibition holds structurally rather than by convention: TextId compares its constructor, so a published item's owner, always a RunId, never equals a cancelled TurnId, and requireActiveRun refuses a TurnId presented where a RunId is required. An item no Turn published is reached by neither scope, which is C13-FACET-CANCELLATION-REACH's rule and not this one's.",
+        "What is still owed is recorded discrimination, which is not this row's to write. artifacts/quality/discrimination/ is W0-owned and the cited test file post-dates the last mutation run, so a verified status would add a DISC-STALE issue. Promotion needs a W0 run recording a kill inside TurnAdmissionIdentity.owner, TurnAdmissionHandle.cancelledBy and RunRuntime's cancelled-item enumeration. Measured by hand meanwhile: resolving the owner from the handle instead of the cancelled Run, and inverting the terminality filter, reds 5 of the cited tests including the child-RunRef and already-terminal cases."
       ]
     },
     {
@@ -1378,80 +1431,72 @@
       "remainingEvidence": []
     },
     {
-        "id": "C13-TURN-PROMPT-ASSEMBLE",
-        "owner": "W5",
-        "specAnchor": "C13-TURN-PROMPT-ASSEMBLE",
-        "specTextSha256": "sha256:e3f268014b712483d277944120ac8f3d320cfdbd87cc9208cee87b4c3b662c4f",
-        "status": "implemented",
-        "prerequisites": [],
-        "sourceSymbols": [
-            "src/agents/runs/executor.ts#decodeSections",
-            "src/agents/runs/executor.ts#admitAssembledSections"
-        ],
-        "testSelectors": [
-            "test/agents/runs/turn-cut-points.test.ts#Turn-bound interceptor cut points [C13-TURN-PROMPT-ASSEMBLE] records and reconstructs the rewritten sections, not the ones the executor assembled",
-            "test/agents/runs/turn-cut-points.test.ts#Turn-bound interceptor cut points [C13-TURN-PROMPT-ASSEMBLE] refuses a rewrite that is not a section list and one that leaves no section at all"
-        ],
-        "checkerInvariants": [
-            "ACQ-IMPORT",
-            "ACQ-TEST"
-        ],
-        "remainingEvidence": [
-            "Recorded discrimination, which is not this row's to write: artifacts/quality/discrimination/*.json is W0-owned and has no attribution for a test file that post-dates the last mutation run, so a verified status would be a DISC-STALE addition rather than a green. Measured by hand in a detached worktree, 15 mutants over the whole Turn-bound cut-point change with a clean-tree control run first: replacing the assembleSections call in ScopedModelHandle.call with assembly.sections kills the reconstruction selector (2 of 7 dead). One mutant SURVIVED and is recorded rather than omitted: making admitAssembledSections a no-op leaves both selectors passing, because decodeSections still runs once on the schedule's final value and refuses a malformed answer there. So this row's cited admitAssembledSections is undiscriminated by these selectors -- its only observable effect needs two rewriters where the first answers malformed and the second ignores its input, which the single-rewriter schedule here never builds. The per-rewriter property itself is evidenced at the runner instead, under C13-INTERCEPTOR-TURN-REWRITE, where deleting the admit call kills its selector.",
-            "The reconstruction selector is a join, not two adjacent facts: the recorded section names are the rewritten ones AND the bytes a records-only replay rebuilds equal the bytes the model port received. Either half alone passes against a host that recorded the rewrite but sent the original, which is exactly the drift SPEC 5.6 forbids.",
-            "One clause of the anchoring paragraph is stated but not evidenced here: a rewrite offered after the model input commit is refused. No such call exists to make -- the cut point is reachable only from inside ScopedModelHandle.call, before the commit -- so the refusal is structural rather than a code path a test can drive, and the row does not claim it as demonstrated."
-        ]
+      "id": "C13-TURN-PROMPT-ASSEMBLE",
+      "owner": "W5",
+      "specAnchor": "C13-TURN-PROMPT-ASSEMBLE",
+      "specTextSha256": "sha256:e3f268014b712483d277944120ac8f3d320cfdbd87cc9208cee87b4c3b662c4f",
+      "status": "implemented",
+      "prerequisites": [],
+      "sourceSymbols": [
+        "src/agents/runs/executor.ts#decodeSections",
+        "src/agents/runs/executor.ts#admitAssembledSections"
+      ],
+      "testSelectors": [
+        "test/agents/runs/turn-cut-points.test.ts#Turn-bound interceptor cut points [C13-TURN-PROMPT-ASSEMBLE] records and reconstructs the rewritten sections, not the ones the executor assembled",
+        "test/agents/runs/turn-cut-points.test.ts#Turn-bound interceptor cut points [C13-TURN-PROMPT-ASSEMBLE] refuses a rewrite that is not a section list and one that leaves no section at all"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": [
+        "Recorded discrimination, which is not this row's to write: artifacts/quality/discrimination/*.json is W0-owned and has no attribution for a test file that post-dates the last mutation run, so a verified status would be a DISC-STALE addition rather than a green. Measured by hand in a detached worktree, 15 mutants over the whole Turn-bound cut-point change with a clean-tree control run first: replacing the assembleSections call in ScopedModelHandle.call with assembly.sections kills the reconstruction selector (2 of 7 dead). One mutant SURVIVED and is recorded rather than omitted: making admitAssembledSections a no-op leaves both selectors passing, because decodeSections still runs once on the schedule's final value and refuses a malformed answer there. So this row's cited admitAssembledSections is undiscriminated by these selectors -- its only observable effect needs two rewriters where the first answers malformed and the second ignores its input, which the single-rewriter schedule here never builds. The per-rewriter property itself is evidenced at the runner instead, under C13-INTERCEPTOR-TURN-REWRITE, where deleting the admit call kills its selector.",
+        "The reconstruction selector is a join, not two adjacent facts: the recorded section names are the rewritten ones AND the bytes a records-only replay rebuilds equal the bytes the model port received. Either half alone passes against a host that recorded the rewrite but sent the original, which is exactly the drift SPEC 5.6 forbids.",
+        "One clause of the anchoring paragraph is stated but not evidenced here: a rewrite offered after the model input commit is refused. No such call exists to make -- the cut point is reachable only from inside ScopedModelHandle.call, before the commit -- so the refusal is structural rather than a code path a test can drive, and the row does not claim it as demonstrated."
+      ]
     },
     {
-        "id": "C13-TURN-INPUT-SUBMITTED",
-        "owner": "W5",
-        "specAnchor": "C13-TURN-INPUT-SUBMITTED",
-        "specTextSha256": "sha256:4da719c9a57051c49aedba0273adcd18cb2bd2067723b7697266bc3fcfec6a2a",
-        "status": "implemented",
-        "prerequisites": [],
-        "sourceSymbols": [
-            "src/agents/runs/runtime.ts#RunRuntime",
-            "src/agents/runs/runtime.ts#admitSubmission"
-        ],
-        "testSelectors": [
-            "test/agents/runs/turn-cut-points.test.ts#Turn-bound interceptor cut points [C13-TURN-INPUT-SUBMITTED] transforms a submission's payload, refuses one outright, and never offers a cancellation",
-            "test/agents/runs/turn-cut-points.test.ts#Turn-bound interceptor cut points [C13-TURN-INPUT-SUBMITTED] refuses a rewrite that changes the delivery identity or names an unresolvable payload"
-        ],
-        "checkerInvariants": [
-            "ACQ-IMPORT",
-            "ACQ-TEST"
-        ],
-        "remainingEvidence": [
-            "Recorded discrimination, which is not this row's to write, for the same W0-owned staleness reason as its sibling rows. Measured by hand in a detached worktree: firing the cut point for turn.cancel as well kills the cancellation half of the first selector from inside RunRuntime, returning the original entry unconditionally instead of rebuilding it on a substituted reference kills the transform half, and deleting admitSubmission's delivery-identity comparison kills the second selector from inside admitSubmission.",
-            "The cancellation clause is evidenced by absence, which needs a positive control to mean anything: the run asserts that no turn.cancel envelope reached the schedule AND that exactly two other submissions did, so a port that was never called at all would fail rather than pass."
-        ]
+      "id": "C13-TURN-INPUT-SUBMITTED",
+      "owner": "W5",
+      "specAnchor": "C13-TURN-INPUT-SUBMITTED",
+      "specTextSha256": "sha256:4da719c9a57051c49aedba0273adcd18cb2bd2067723b7697266bc3fcfec6a2a",
+      "status": "implemented",
+      "prerequisites": [],
+      "sourceSymbols": [
+        "src/agents/runs/runtime.ts#RunRuntime",
+        "src/agents/runs/runtime.ts#admitSubmission"
+      ],
+      "testSelectors": [
+        "test/agents/runs/turn-cut-points.test.ts#Turn-bound interceptor cut points [C13-TURN-INPUT-SUBMITTED] transforms a submission's payload, refuses one outright, and never offers a cancellation",
+        "test/agents/runs/turn-cut-points.test.ts#Turn-bound interceptor cut points [C13-TURN-INPUT-SUBMITTED] refuses a rewrite that changes the delivery identity or names an unresolvable payload"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": [
+        "Recorded discrimination, which is not this row's to write, for the same W0-owned staleness reason as its sibling rows. Measured by hand in a detached worktree: firing the cut point for turn.cancel as well kills the cancellation half of the first selector from inside RunRuntime, returning the original entry unconditionally instead of rebuilding it on a substituted reference kills the transform half, and deleting admitSubmission's delivery-identity comparison kills the second selector from inside admitSubmission.",
+        "The cancellation clause is evidenced by absence, which needs a positive control to mean anything: the run asserts that no turn.cancel envelope reached the schedule AND that exactly two other submissions did, so a port that was never called at all would fail rather than pass."
+      ]
     },
     {
-        "id": "C13-TURN-STEP-STOP",
-        "owner": "W5",
-        "specAnchor": "C13-TURN-STEP-STOP",
-        "specTextSha256": "sha256:650f3c35c3ad9d648c406a35949548f37380287e9c646bbb3d92ee9e89cbac09",
-        "status": "implemented",
-        "prerequisites": [],
-        "sourceSymbols": [
-            "src/agents/runs/executor.ts#TurnStepContext",
-            "src/agents/runs/executor.ts#admitStepRewrite",
-            "src/agents/runs/executor.ts#TurnStepHandle"
-        ],
-        "testSelectors": [
-            "test/agents/runs/turn-cut-points.test.ts#Turn-bound interceptor cut points [C13-TURN-STEP-STOP] annotates a step, then withdraws the Turn's remaining steps and model calls when a gate requests a stop",
-            "test/agents/runs/turn-cut-points.test.ts#Turn-bound interceptor cut points [C13-TURN-STEP-STOP] refuses a step rewrite that restates a host fact, forges another interceptor's annotation, or drops one",
-            "test/agents/runs/turn-cut-points.test.ts#Turn-bound interceptor cut points [C13-TURN-STEP-STOP] scopes a step's annotations and its stop to the Turn that fired the cut point"
-        ],
-        "checkerInvariants": [
-            "ACQ-IMPORT",
-            "ACQ-TEST"
-        ],
-        "remainingEvidence": [
-            "Recorded discrimination, which is not this row's to write, for the same W0-owned staleness reason as its sibling rows. Measured by hand in a detached worktree: making requireNotStopped return unconditionally kills the withdrawal selector, dropping the ordinal comparison from admitStepRewrite kills the restatement selector from inside admitStepRewrite, and dropping its author check kills the forged-annotation case in the same selector.",
-            "The withdrawal claim is asserted as an ordered sequence rather than as a single refusal: two steps proceed with annotations accumulating, the third returns the stop naming its interceptor, the model call made after it is refused by name, and the fourth open is refused rather than answered again. A host that reported the stop and then kept answering passes any one of those assertions and fails the sequence.",
-            "The Turn-scoping clause is evidenced across two Turns rather than argued from where the state is stored, but it is evidenced across two Runs' Turns rather than two Turns of one Run: seeding a second Turn on the same branch is W5 fixture work this row did not take on, so the claim demonstrated is that step state and a stop are scoped to the Turn that fired the cut point, not the narrower fact that a sibling Turn of the same Run is unaffected."
-        ]
+      "id": "C13-TURN-STEP-STOP",
+      "owner": "W5",
+      "specAnchor": "C13-TURN-STEP-STOP",
+      "specTextSha256": "sha256:650f3c35c3ad9d648c406a35949548f37380287e9c646bbb3d92ee9e89cbac09",
+      "status": "implemented",
+      "prerequisites": [],
+      "sourceSymbols": [
+        "src/agents/runs/executor.ts#TurnStepContext",
+        "src/agents/runs/executor.ts#admitStepRewrite",
+        "src/agents/runs/executor.ts#TurnStepHandle"
+      ],
+      "testSelectors": [
+        "test/agents/runs/turn-cut-points.test.ts#Turn-bound interceptor cut points [C13-TURN-STEP-STOP] annotates a step, then withdraws the Turn's remaining steps and model calls when a gate requests a stop",
+        "test/agents/runs/turn-cut-points.test.ts#Turn-bound interceptor cut points [C13-TURN-STEP-STOP] refuses a step rewrite that restates a host fact, forges another interceptor's annotation, or drops one",
+        "test/agents/runs/turn-cut-points.test.ts#Turn-bound interceptor cut points [C13-TURN-STEP-STOP] scopes a step's annotations and its stop to the Turn that fired the cut point",
+        "test/agents/runs/turn-cut-points.test.ts#Turn-bound interceptor cut points [C13-TURN-STEP-STOP] scopes the ordinal, the annotations, and the stop to the Turn that fired the cut point, not to its Run"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": [
+        "Recorded discrimination, which is not this row's to write, for the same W0-owned staleness reason as its sibling rows. artifacts/quality/discrimination/ holds no attribution for a test authored after the last mutation run. Measured by hand meanwhile: making requireNotStopped return unconditionally reds the withdrawal selector, dropping the ordinal comparison from admitStepRewrite reds the restatement selector, dropping its author check reds the forged-annotation case in that same selector, and making LeaseScopedTurn's step ordinal, annotations and stop module-level reds all three scoping selectors.",
+        "The withdrawal claim is asserted as an ordered sequence rather than as a single refusal: two steps proceed with annotations accumulating, the third returns the stop naming its interceptor, the model call made after it is refused by name, and the fourth open is refused rather than answered again. A host that reported the stop and then kept answering passes any one of those assertions and fails the sequence.",
+        "The Turn-scoping clause is now evidenced at both granularities the rule admits, so nothing about it is owed. One selector demonstrates it across two Runs' Turns and a second demonstrates the narrower fact across two Turns of ONE Run on one branch through one schedule: the stopped Turn's sibling opens at its own first step with no annotation and no stop, because a step is an iteration of that Turn's loop."
+      ]
     }
   ]
 }

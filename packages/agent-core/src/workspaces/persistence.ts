@@ -41,7 +41,12 @@ import {
     type ContentRetentionPort
 } from "./retention";
 import { IngressEndpoint, type IngressEndpointMaterializationInit } from "./ingress-endpoint";
-import type { IngressEndpointId } from "./id";
+import {
+    ContentRetentionId,
+    RetainedRecordRef,
+    type EventCursor,
+    type IngressEndpointId
+} from "./id";
 import {
     AuthenticatedRouteProjection,
     RouteDelivery,
@@ -51,7 +56,18 @@ import {
     requireAuthenticatedRouteProjection
 } from "./route";
 import { Subscription, type SubscriptionInit } from "./subscription";
-import { View, ViewDelta, type JsonPatchEngine, viewDocument, viewFromDocument } from "./view";
+import { SurfaceEpoch, surfaceRevisionKey, surfaceStreamKey } from "./surface-epoch";
+import {
+    TERMINAL_VIEW_PATCH,
+    View,
+    ViewDelta,
+    type JsonPatchEngine,
+    terminalViewDocument,
+    viewDeltaRecordKey,
+    viewDocument,
+    viewFromDocument,
+    viewRecordKey
+} from "./view";
 
 export const WORKSPACE_RECORD_KINDS = Object.freeze([
     "catalogEntry",
@@ -414,6 +430,21 @@ export class WorkspacePersistence<Transaction> {
         );
     }
 
+    /**
+     * SPEC §6.3/§4.1: a View stream belongs to one registration generation, so no revision
+     * of it becomes durable without the registration that authorizes it. Retirement
+     * terminates the stream before it drops the pointer, so retirement's own terminal
+     * revision is written while the registration still stands.
+     */
+    private requireSurfaceRegistration(transaction: Transaction, surface: SurfaceId): void {
+        if (this.findSurfaceRegistration(transaction, surface) === undefined) {
+            throw new AgentCoreError(
+                "protocol.invalid-state",
+                `Surface ${surface.value} has no current registration`
+            );
+        }
+    }
+
     public listSurfaceRegistrations(transaction: Transaction): readonly SurfaceRegistration[] {
         return this.listCurrentRecords(
             transaction,
@@ -480,6 +511,15 @@ export class WorkspacePersistence<Transaction> {
         return true;
     }
 
+    /**
+     * SPEC §6.3/§4.1: the one place a Surface is retired. It terminates the Surface's View
+     * stream and then drops the registration pointer. That order is load-bearing: every
+     * durable View write requires a current registration, so terminating first is what
+     * admits retirement's own terminal revision and refuses every ordinary write after it.
+     * The registration record and the terminal View both survive, so the retired generation
+     * stays readable forever, and the next registration of the same Surface ID opens a
+     * stream at the next epoch.
+     */
     public retireSurfaceRegistration(transaction: Transaction, surface: SurfaceId): void {
         const current = this.findSurfaceRegistration(transaction, surface);
         if (current === undefined) {
@@ -488,10 +528,71 @@ export class WorkspacePersistence<Transaction> {
                 "Surface withdrawal requires a current registration"
             );
         }
+        this.terminateViewStream(transaction, surface.value);
         this.storage(transaction).deletePointer(
             "surface.registration",
             surface.value,
             Digest.sha256(SurfaceRegistration.encode(current)).value
+        );
+    }
+
+    /**
+     * The final ViewDelta of a Surface's current epoch: the patch that adds `terminal`. Its
+     * cursor is the base View's own cursor, because this patch consumes no Event and a new
+     * position would be a false statement. A Surface that was registered but never rendered
+     * has no stream, no base revision, and no cursor, so retirement leaves no View behind.
+     */
+    private terminateViewStream(transaction: Transaction, surface: string): void {
+        const epoch = this.currentSurfaceEpoch(transaction, surface);
+        const base = this.currentView(transaction, surface, epoch);
+        if (base === undefined) return;
+        const delta = new ViewDelta({
+            surface: base.surface,
+            epoch: base.epoch,
+            baseRevision: base.revision,
+            revision: base.revision.next(),
+            patch: TERMINAL_VIEW_PATCH,
+            cursor: base.cursor
+        });
+        const terminal = viewFromDocument(base, delta, terminalViewDocument(base));
+        this.advanceView(
+            transaction,
+            base,
+            delta,
+            terminal,
+            this.carriedRetentions(transaction, base, terminal),
+            []
+        );
+    }
+
+    /**
+     * The terminal View names exactly the content its base named, so its retention evidence
+     * is the base's evidence re-issued against the new revision key. Without it, compacting
+     * the base revision would release content the terminal View still refers to.
+     */
+    private carriedRetentions(
+        transaction: Transaction,
+        base: View,
+        terminal: View
+    ): readonly ContentRetentionReference[] {
+        const record = new RetainedRecordRef(viewRecordKey(terminal));
+        return this.listRetentionsFor(
+            transaction,
+            RetainedRecordKind.view(),
+            viewRecordKey(base)
+        ).map(
+            (reference) =>
+                new ContentRetentionReference({
+                    ...reference.init,
+                    id: new ContentRetentionId(
+                        canonicalTupleKey("workspace.content-retention", [
+                            RetainedRecordKind.view().kind,
+                            record.value,
+                            reference.content.value
+                        ])
+                    ),
+                    record
+                })
         );
     }
 
@@ -1216,12 +1317,41 @@ export class WorkspacePersistence<Transaction> {
         });
     }
 
-    public currentView(transaction: Transaction, surface: string): View | undefined {
-        const pointer = this.storage(transaction).findPointer("view.current", surface);
+    /**
+     * The epoch a View written now belongs to. It is derived from the durable View records
+     * rather than from a counter: an epoch that ever opened a stream keeps at least its
+     * current View, because compaction is scoped to one stream, never deletes above its
+     * floor, and refuses to delete a terminal View. So the highest stored epoch is the last
+     * stream this Surface had, and the next stream opens after that one terminates.
+     */
+    public currentSurfaceEpoch(transaction: Transaction, surface: string): SurfaceEpoch {
+        let latest: SurfaceEpoch | undefined;
+        for (const record of this.storage(transaction).listRecords("view")) {
+            const view = this.decodeStored(record, "view", record.id, View.codec);
+            if (view.surface.value !== surface) continue;
+            if (latest === undefined || view.epoch.value > latest.value) latest = view.epoch;
+        }
+        if (latest === undefined) return SurfaceEpoch.first();
+        const current = this.currentView(transaction, surface, latest);
+        if (current === undefined) {
+            throw corrupt("Surface stream has no current View for its highest stored epoch");
+        }
+        return current.terminal === undefined ? latest : latest.next();
+    }
+
+    public currentView(
+        transaction: Transaction,
+        surface: string,
+        epoch: SurfaceEpoch
+    ): View | undefined {
+        const pointer = this.storage(transaction).findPointer(
+            "view.current",
+            surfaceStreamKey(surface, epoch)
+        );
         if (pointer === undefined) return undefined;
         const view = this.requireLoad(transaction, "view", pointer.recordKey, View.codec);
-        if (view.surface.value !== surface) {
-            throw corrupt("View pointer does not match its Surface");
+        if (view.surface.value !== surface || !view.epoch.equals(epoch)) {
+            throw corrupt("View pointer does not match its Surface stream");
         }
         return view;
     }
@@ -1229,9 +1359,49 @@ export class WorkspacePersistence<Transaction> {
     public findView(
         transaction: Transaction,
         surface: string,
+        epoch: SurfaceEpoch,
         revision: Revision
     ): View | undefined {
-        return this.load(transaction, "view", `${surface}@${revision.value}`, View.codec);
+        return this.load(
+            transaction,
+            "view",
+            surfaceRevisionKey(surface, epoch, revision),
+            View.codec
+        );
+    }
+
+    /**
+     * SPEC §6.3: the revision one opaque EventCursor names in one View stream. The cursor is
+     * never parsed. Its position is the stored record that carries it, so a View and the
+     * ViewDelta that produced it place the same cursor and the position survives while
+     * either record does. Retirement's own delta repeats its base cursor, because that patch
+     * consumes no Event, so one cursor can name two revisions of one stream. The lower one
+     * is the answer, because replay from it skips no revision a client can still be missing.
+     * A cursor no record of this stream carries has no position here, and a cursor issued by
+     * another stream is the same fact for this reader.
+     */
+    public findCursorRevision(
+        transaction: Transaction,
+        surface: string,
+        epoch: SurfaceEpoch,
+        cursor: EventCursor
+    ): Revision | undefined {
+        const storage = this.storage(transaction);
+        let lowest: Revision | undefined;
+        const consider = (position: View | ViewDelta): void => {
+            if (position.surface.value !== surface || !position.epoch.equals(epoch)) return;
+            if (!position.cursor.equals(cursor)) return;
+            if (lowest === undefined || position.revision.value < lowest.value) {
+                lowest = position.revision;
+            }
+        };
+        for (const record of storage.listRecords("view")) {
+            consider(this.decodeStored(record, "view", record.id, View.codec));
+        }
+        for (const record of storage.listRecords("viewDelta")) {
+            consider(this.decodeStored(record, "viewDelta", record.id, ViewDelta.codec));
+        }
+        return lowest;
     }
 
     public saveView(
@@ -1241,10 +1411,18 @@ export class WorkspacePersistence<Transaction> {
         retentions: readonly ContentRetentionReference[]
     ): void {
         const storage = this.storage(transaction);
-        const current = this.currentView(transaction, view.surface.value);
+        const current = this.currentView(transaction, view.surface.value, view.epoch);
+        requireLiveStream(current);
+        this.requireSurfaceRegistration(transaction, view.surface);
         if (expectedRevision === undefined) {
             if (current !== undefined || view.revision.value !== 0) {
                 throw revisionConflict("Initial View requires revision zero and no current View");
+            }
+            const opening = this.currentSurfaceEpoch(transaction, view.surface.value);
+            if (!opening.equals(view.epoch)) {
+                throw revisionConflict(
+                    `Initial View must open Surface epoch ${opening.text}, not ${view.epoch.text}`
+                );
             }
         } else if (
             current === undefined ||
@@ -1253,28 +1431,17 @@ export class WorkspacePersistence<Transaction> {
         ) {
             throw revisionConflict("View revision compare-and-set failed");
         }
-        for (const retention of retentions) {
-            requireRetention(
-                retention,
-                RetainedRecordKind.view(),
-                viewRecordId(view),
-                retention.content.value
-            );
-            this.requireDurableRetention(transaction, retention);
-            this.append(
-                storage,
-                "contentRetention",
-                retention.id.value,
-                retention,
-                ContentRetentionReference.codec
-            );
-        }
+        this.retainFor(transaction, RetainedRecordKind.view(), viewRecordKey(view), retentions);
         requireCompleteRetention(viewDocument(view), retentions, "View");
-        const recordKey = viewRecordId(view);
+        const recordKey = viewRecordKey(view);
         this.append(storage, "view", recordKey, view, View.codec);
         storage.compareAndSetPointer(
-            { namespace: "view.current", key: view.surface.value, recordKey },
-            current === undefined ? undefined : viewRecordId(current)
+            {
+                namespace: "view.current",
+                key: surfaceStreamKey(view.surface.value, view.epoch),
+                recordKey
+            },
+            current === undefined ? undefined : viewRecordKey(current)
         );
     }
 
@@ -1285,66 +1452,84 @@ export class WorkspacePersistence<Transaction> {
         viewRetentions: readonly ContentRetentionReference[],
         deltaRetentions: readonly ContentRetentionReference[]
     ): View {
-        const current = this.currentView(transaction, delta.surface.value);
+        const current = this.currentView(transaction, delta.surface.value, delta.epoch);
+        requireLiveStream(current);
         if (current === undefined || !current.revision.equals(delta.baseRevision)) {
             throw revisionConflict("View delta base revision is stale");
         }
-        const next = viewFromDocument(
+        return this.advanceView(
+            transaction,
             current,
             delta,
-            patches.apply(viewDocument(current), delta.patch)
+            viewFromDocument(current, delta, patches.apply(viewDocument(current), delta.patch)),
+            viewRetentions,
+            deltaRetentions
         );
+    }
+
+    /**
+     * The one write path every revision after the initial View takes, whether a Facet
+     * published the patch or retirement authored it. Every one of them requires the
+     * registration that authorizes the stream, which retirement still holds while it
+     * terminates. Both the delta and the View it produces become durable together, and the
+     * stream pointer advances to the new revision under compare-and-set.
+     */
+    private advanceView(
+        transaction: Transaction,
+        current: View,
+        delta: ViewDelta,
+        next: View,
+        viewRetentions: readonly ContentRetentionReference[],
+        deltaRetentions: readonly ContentRetentionReference[]
+    ): View {
         const storage = this.storage(transaction);
-        for (const retention of viewRetentions) {
-            requireRetention(
-                retention,
-                RetainedRecordKind.view(),
-                viewRecordId(next),
-                retention.content.value
-            );
-            this.requireDurableRetention(transaction, retention);
-            this.append(
-                storage,
-                "contentRetention",
-                retention.id.value,
-                retention,
-                ContentRetentionReference.codec
-            );
-        }
-        for (const retention of deltaRetentions) {
-            requireRetention(
-                retention,
-                RetainedRecordKind.viewDelta(),
-                deltaRecordId(delta),
-                retention.content.value
-            );
-            this.requireDurableRetention(transaction, retention);
-            this.append(
-                storage,
-                "contentRetention",
-                retention.id.value,
-                retention,
-                ContentRetentionReference.codec
-            );
-        }
+        this.requireSurfaceRegistration(transaction, delta.surface);
+        this.retainFor(transaction, RetainedRecordKind.view(), viewRecordKey(next), viewRetentions);
+        this.retainFor(
+            transaction,
+            RetainedRecordKind.viewDelta(),
+            viewDeltaRecordKey(delta),
+            deltaRetentions
+        );
         requireCompleteRetention(viewDocument(next), viewRetentions, "View");
         requireCompleteRetention(delta.patch, deltaRetentions, "ViewDelta");
-        this.append(storage, "viewDelta", deltaRecordId(delta), delta, ViewDelta.codec);
-        this.append(storage, "view", viewRecordId(next), next, View.codec);
+        this.append(storage, "viewDelta", viewDeltaRecordKey(delta), delta, ViewDelta.codec);
+        this.append(storage, "view", viewRecordKey(next), next, View.codec);
         storage.compareAndSetPointer(
             {
                 namespace: "view.current",
-                key: delta.surface.value,
-                recordKey: viewRecordId(next)
+                key: surfaceStreamKey(delta.surface.value, delta.epoch),
+                recordKey: viewRecordKey(next)
             },
-            viewRecordId(current)
+            viewRecordKey(current)
         );
         return next;
+    }
+
+    private retainFor(
+        transaction: Transaction,
+        recordKind: RetainedRecordKind,
+        recordKey: string,
+        retentions: readonly ContentRetentionReference[]
+    ): void {
+        const storage = this.storage(transaction);
+        for (const retention of retentions) {
+            requireRetention(retention, recordKind, recordKey, retention.content.value);
+            this.requireDurableRetention(transaction, retention);
+            this.append(
+                storage,
+                "contentRetention",
+                retention.id.value,
+                retention,
+                ContentRetentionReference.codec
+            );
+        }
     }
 
     public listViewDeltas(
         transaction: Transaction,
         surface: string,
+        epoch: SurfaceEpoch,
         after: Revision
     ): readonly ViewDelta[] {
         return Object.freeze(
@@ -1352,15 +1537,23 @@ export class WorkspacePersistence<Transaction> {
                 .listRecords("viewDelta")
                 .map((record) => this.decodeStored(record, "viewDelta", record.id, ViewDelta.codec))
                 .filter(
-                    (delta) => delta.surface.value === surface && delta.revision.value > after.value
+                    (delta) =>
+                        delta.surface.value === surface &&
+                        delta.epoch.equals(epoch) &&
+                        delta.revision.value > after.value
                 )
                 .sort((left, right) => left.revision.value - right.revision.value)
         );
     }
 
-    public compactView(transaction: Transaction, surface: string, retainFrom: Revision): void {
-        const floor = this.findView(transaction, surface, retainFrom);
-        const current = this.currentView(transaction, surface);
+    public compactView(
+        transaction: Transaction,
+        surface: string,
+        epoch: SurfaceEpoch,
+        retainFrom: Revision
+    ): void {
+        const floor = this.findView(transaction, surface, epoch, retainFrom);
+        const current = this.currentView(transaction, surface, epoch);
         if (
             floor === undefined ||
             current === undefined ||
@@ -1369,7 +1562,7 @@ export class WorkspacePersistence<Transaction> {
             throw revisionConflict("View compaction floor is unavailable");
         }
         const storage = this.storage(transaction);
-        const oldViews = storage
+        const staleViews = storage
             .listRecords("view")
             .map((record) => ({
                 record,
@@ -1377,9 +1570,18 @@ export class WorkspacePersistence<Transaction> {
             }))
             .filter(
                 ({ value }) =>
-                    value.surface.value === surface && value.revision.value < retainFrom.value
-            )
-            .map(({ record }) => record.id);
+                    value.surface.value === surface &&
+                    value.epoch.equals(epoch) &&
+                    value.revision.value < retainFrom.value
+            );
+        const terminal = staleViews.find(({ value }) => value.terminal !== undefined);
+        if (terminal !== undefined) {
+            throw new AgentCoreError(
+                "protocol.invalid-state",
+                `Surface ${surface} epoch ${epoch.text} keeps its terminal View at revision ${terminal.value.revision.value}`
+            );
+        }
+        const oldViews = staleViews.map(({ record }) => record.id);
         const oldDeltas = storage
             .listRecords("viewDelta")
             .map((record) => ({
@@ -1388,7 +1590,9 @@ export class WorkspacePersistence<Transaction> {
             }))
             .filter(
                 ({ value }) =>
-                    value.surface.value === surface && value.revision.value <= retainFrom.value
+                    value.surface.value === surface &&
+                    value.epoch.equals(epoch) &&
+                    value.revision.value <= retainFrom.value
             )
             .map(({ record }) => record.id);
         this.releaseRetentions(transaction, RetainedRecordKind.view(), oldViews);
@@ -1677,12 +1881,43 @@ function pointerRevision(recordKey: string, namespace: string): number {
         parser.nonemptyString(tuple[1], "Ingress endpoint ID");
         return parser.safeInteger(tuple[2], "Ingress endpoint revision");
     }
+    if (namespace === "view.current") {
+        // The View revision key is a canonical tuple of Surface, epoch and revision, so the
+        // revision is read back by decoding that tuple. Recovering it by scanning for a
+        // separator would reintroduce the non-injective read the key shape exists to prevent.
+        const tuple = decodeViewPointerTuple(recordKey);
+        if (tuple.length !== 4 || tuple[0] !== "view.revision") {
+            throw new AgentCoreError("codec.invalid", "View pointer record key is malformed");
+        }
+        const parser = jsonDataParser((message) => new AgentCoreError("codec.invalid", message));
+        parser.nonemptyString(tuple[1], "View Surface ID");
+        parser.safeInteger(tuple[2], "View Surface epoch");
+        return parser.safeInteger(tuple[3], "View revision");
+    }
     const separator = recordKey.lastIndexOf("@");
     const revision = separator < 0 ? Number.NaN : Number(recordKey.slice(separator + 1));
     if (!Number.isSafeInteger(revision) || revision < 0) {
         throw new AgentCoreError("codec.invalid", "Workspace pointer record key is malformed");
     }
     return revision;
+}
+
+/**
+ * A View pointer's record key, decoded as the canonical tuple it is. A key that is not
+ * canonical JSON and a key that is canonical JSON of the wrong shape are the same fact for a
+ * reader, so both report the one malformed-key message instead of leaking a parse error.
+ */
+function decodeViewPointerTuple(recordKey: string): readonly JsonValue[] {
+    let decoded: JsonValue;
+    try {
+        decoded = decodeCanonicalJson(new TextEncoder().encode(recordKey));
+    } catch {
+        throw new AgentCoreError("codec.invalid", "View pointer record key is malformed");
+    }
+    if (!Array.isArray(decoded)) {
+        throw new AgentCoreError("codec.invalid", "View pointer record key is malformed");
+    }
+    return decoded;
 }
 
 function requireCompleteRetention(
@@ -1750,10 +1985,10 @@ function durableRecordId(kind: WorkspaceRecordKind, record: WorkspaceDurableReco
             if (record instanceof RouteDelivery) return record.reservation.value;
             break;
         case "view":
-            if (record instanceof View) return viewRecordId(record);
+            if (record instanceof View) return viewRecordKey(record);
             break;
         case "viewDelta":
-            if (record instanceof ViewDelta) return deltaRecordId(record);
+            if (record instanceof ViewDelta) return viewDeltaRecordKey(record);
             break;
         case "contentRetention":
             if (record instanceof ContentRetentionReference) return record.id.value;
@@ -1785,14 +2020,6 @@ function ingressEndpointRecordId(endpoint: IngressEndpoint): string {
         endpoint.id.value,
         endpoint.revision.value
     ]);
-}
-
-function viewRecordId(view: View): string {
-    return `${view.surface.value}@${view.revision.value}`;
-}
-
-function deltaRecordId(delta: ViewDelta): string {
-    return `${delta.surface.value}@${delta.revision.value}`;
 }
 
 function sameContribution(
@@ -1873,6 +2100,19 @@ function requireRetention(
             "Content retention reference does not bind the durable record"
         );
     }
+}
+
+/**
+ * SPEC §6.3: a host MUST NOT emit a revision after a View's terminal one. The refusal reads
+ * the terminal View itself, so there is no second liveness flag to keep in step, and it
+ * names the revision the stream stopped at.
+ */
+function requireLiveStream(current: View | undefined): void {
+    if (current?.terminal === undefined) return;
+    throw new AgentCoreError(
+        "protocol.invalid-state",
+        `Surface ${current.surface.value} epoch ${current.epoch.text} is terminal at revision ${current.revision.value}`
+    );
 }
 
 function revisionConflict(message: string): AgentCoreError {

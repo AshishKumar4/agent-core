@@ -33,6 +33,13 @@ import {
     type WorkspaceRecordKind,
     type WorkspaceRecordStorage
 } from "../../../src/workspaces";
+import {
+    SurfaceEpoch,
+    surfaceRevisionKey,
+    surfaceStreamKey,
+    viewDeltaRecordKey,
+    viewRecordKey
+} from "../../../src/workspaces";
 import { violating } from "../../helpers/malformed";
 import { FileSqlite, TestSqlite } from "../../helpers/sqlite";
 import {
@@ -44,6 +51,7 @@ import {
     eventRetention,
     projectionFixture,
     projectionRetention,
+    registerSurface,
     reservationFixture,
     reservationRetention,
     retentionFixture,
@@ -147,9 +155,10 @@ describe("workspace storage parity", () => {
                 const harness = create();
                 const initial = viewFixture(0, `delta-boundary-${boundary}`);
                 const delta = viewDeltaFixture(initial);
-                harness.transaction((storage) =>
-                    harness.persistence.saveView(storage, initial, undefined, [])
-                );
+                harness.transaction((storage) => {
+                    registerSurface(harness.persistence, storage, initial.surface);
+                    harness.persistence.saveView(storage, initial, undefined, []);
+                });
                 expect(() =>
                     harness.transaction((storage) => {
                         const faulting = new FaultingStorage(storage, boundary);
@@ -163,11 +172,22 @@ describe("workspace storage parity", () => {
                     })
                 ).toThrow(`storage fault ${boundary}`);
                 harness.transaction((storage) => {
-                    expect(harness.persistence.currentView(storage, initial.surface.value)).toEqual(
-                        initial
-                    );
                     expect(
-                        storage.findRecord("view", `${initial.surface.value}@1`)
+                        harness.persistence.currentView(
+                            storage,
+                            initial.surface.value,
+                            SurfaceEpoch.first()
+                        )
+                    ).toEqual(initial);
+                    expect(
+                        storage.findRecord(
+                            "view",
+                            surfaceRevisionKey(
+                                initial.surface.value,
+                                initial.epoch,
+                                new Revision(1)
+                            )
+                        )
                     ).toBeUndefined();
                     expect(storage.listRecords("viewDelta")).toEqual([]);
                 });
@@ -246,16 +266,19 @@ describe.each(factories)("%s persistence corruption coverage", (_name, create) =
                 ).toThrow(expect.objectContaining({ code: "protocol.revision-conflict" }));
 
                 const missingView = viewFixture(1, `missing-update-${_name}`);
+                registerSurface(harness.persistence, storage, missingView.surface);
                 expect(() =>
                     harness.persistence.saveView(storage, missingView, Revision.initial(), [])
                 ).toThrow(expect.objectContaining({ code: "protocol.revision-conflict" }));
                 const nonzeroView = viewFixture(1, `nonzero-${_name}`);
+                registerSurface(harness.persistence, storage, nonzeroView.surface, "workspace:b");
                 expect(() =>
                     harness.persistence.saveView(storage, nonzeroView, undefined, [])
                 ).toThrow(expect.objectContaining({ code: "protocol.revision-conflict" }));
 
                 const initial = viewFixture(0, `ordered-deltas-${_name}`);
                 const revisionOne = new View({ ...initial, revision: new Revision(1) });
+                registerSurface(harness.persistence, storage, initial.surface, "workspace:c");
                 harness.persistence.saveView(storage, initial, undefined, []);
                 harness.persistence.saveView(storage, revisionOne, initial.revision, []);
                 const deltaTwo = viewDeltaFixture(revisionOne, 2);
@@ -276,7 +299,12 @@ describe.each(factories)("%s persistence corruption coverage", (_name, create) =
                 );
                 expect(
                     harness.persistence
-                        .listViewDeltas(storage, initial.surface.value, Revision.initial())
+                        .listViewDeltas(
+                            storage,
+                            initial.surface.value,
+                            SurfaceEpoch.first(),
+                            Revision.initial()
+                        )
                         .map((delta) => delta.revision.value)
                 ).toEqual([2, 3]);
             });
@@ -318,8 +346,8 @@ describe.each(factories)("%s persistence corruption coverage", (_name, create) =
             storage.compareAndSetPointer(
                 {
                     namespace: "view.current",
-                    key: "missing-surface",
-                    recordKey: "missing-surface@0"
+                    key: surfaceStreamKey("missing-surface", SurfaceEpoch.first()),
+                    recordKey: viewKey("missing-surface", 0)
                 },
                 undefined
             );
@@ -352,7 +380,9 @@ describe.each(factories)("%s persistence corruption coverage", (_name, create) =
                     new SubscriptionId("missing-subscription")
                 )
             );
-            expectCodecInvalid(() => harness.persistence.currentView(storage, "missing-surface"));
+            expectCodecInvalid(() =>
+                harness.persistence.currentView(storage, "missing-surface", SurfaceEpoch.first())
+            );
         });
         harness.dispose();
     });
@@ -398,9 +428,7 @@ describe.each(factories)("%s persistence corruption coverage", (_name, create) =
                         RouteDelivery.codec.encode(delivery)
                     )
                 );
-                storage.insertRecord(
-                    stored("view", `${view.surface.value}@0`, View.codec.encode(view))
-                );
+                storage.insertRecord(stored("view", viewRecordKey(view), View.codec.encode(view)));
 
                 storage.insertUnique({
                     namespace: "event.idempotency",
@@ -433,8 +461,8 @@ describe.each(factories)("%s persistence corruption coverage", (_name, create) =
                 storage.compareAndSetPointer(
                     {
                         namespace: "view.current",
-                        key: "queried-surface",
-                        recordKey: `${view.surface.value}@0`
+                        key: surfaceStreamKey("queried-surface", SurfaceEpoch.first()),
+                        recordKey: viewRecordKey(view)
                     },
                     undefined
                 );
@@ -468,7 +496,11 @@ describe.each(factories)("%s persistence corruption coverage", (_name, create) =
                     )
                 );
                 expectCodecInvalid(() =>
-                    harness.persistence.currentView(storage, "queried-surface")
+                    harness.persistence.currentView(
+                        storage,
+                        "queried-surface",
+                        SurfaceEpoch.first()
+                    )
                 );
             });
             harness.dispose();
@@ -517,7 +549,9 @@ describe.each(factories)("%s persistence corruption coverage", (_name, create) =
                         RouteDelivery.codec.encode(delivery)
                     )
                 );
-                storage.insertRecord(stored("view", "wrong-view-id@0", View.codec.encode(view)));
+                storage.insertRecord(
+                    stored("view", viewKey("wrong-view-id", 0), View.codec.encode(view))
+                );
                 storage.insertRecord(
                     stored("viewDelta", "wrong-delta-id", ViewDelta.codec.encode(delta))
                 );
@@ -537,8 +571,8 @@ describe.each(factories)("%s persistence corruption coverage", (_name, create) =
                 storage.compareAndSetPointer(
                     {
                         namespace: "view.current",
-                        key: view.surface.value,
-                        recordKey: "wrong-view-id@0"
+                        key: surfaceStreamKey(view.surface.value, view.epoch),
+                        recordKey: viewKey("wrong-view-id", 0)
                     },
                     undefined
                 );
@@ -565,12 +599,17 @@ describe.each(factories)("%s persistence corruption coverage", (_name, create) =
                     harness.persistence.findDelivery(storage, delivery.reservation)
                 );
                 expectCodecInvalid(() =>
-                    harness.persistence.currentView(storage, view.surface.value)
+                    harness.persistence.currentView(
+                        storage,
+                        view.surface.value,
+                        SurfaceEpoch.first()
+                    )
                 );
                 expectCodecInvalid(() =>
                     harness.persistence.listViewDeltas(
                         storage,
                         view.surface.value,
+                        SurfaceEpoch.first(),
                         Revision.initial()
                     )
                 );
@@ -586,6 +625,7 @@ describe.each(factories)("%s persistence corruption coverage", (_name, create) =
             const harness = create();
             harness.transaction((storage) => {
                 const initial = viewFixture(0, "retention-codec-identity");
+                registerSurface(harness.persistence, storage, initial.surface);
                 harness.persistence.saveView(storage, initial, undefined, []);
                 harness.persistence.appendViewDelta(
                     storage,
@@ -598,7 +638,7 @@ describe.each(factories)("%s persistence corruption coverage", (_name, create) =
                 const reference = retentionFixture({
                     id: "actual-retention-id",
                     recordKind: "view",
-                    recordId: `${initial.surface.value}@0`,
+                    recordId: viewRecordKey(initial),
                     content: retained
                 });
                 storage.insertRecord(
@@ -609,7 +649,12 @@ describe.each(factories)("%s persistence corruption coverage", (_name, create) =
                     )
                 );
                 expectCodecInvalid(() =>
-                    harness.persistence.compactView(storage, initial.surface.value, new Revision(1))
+                    harness.persistence.compactView(
+                        storage,
+                        initial.surface.value,
+                        SurfaceEpoch.first(),
+                        new Revision(1)
+                    )
                 );
             });
             harness.dispose();
@@ -628,7 +673,7 @@ describe("memory workspace record coverage", () => {
             {
                 namespace: "view.current",
                 key: "surface",
-                recordKey: "surface@0"
+                recordKey: viewKey("surface", 0)
             },
             undefined
         );
@@ -651,7 +696,9 @@ describe("memory workspace record coverage", () => {
         expect(records.findRecord("event", "b")?.bytes).toEqual(Uint8Array.of(1, 2, 3));
         expect(records.listRecords("event").map((record) => record.id)).toEqual(["a", "b"]);
         expect(records.findUnique("unique", "key")?.recordKey).toBe("a");
-        expect(records.findPointer("view.current", "surface")?.recordKey).toBe("surface@0");
+        expect(records.findPointer("view.current", "surface")?.recordKey).toBe(
+            viewKey("surface", 0)
+        );
         expect(records.clone().snapshot()).toEqual(records.snapshot());
         expect(
             () => new MemoryWorkspaceRecords(violating(records.snapshot(), { version: 2 }))
@@ -687,16 +734,16 @@ describe("memory workspace record coverage", () => {
                     {
                         namespace: "view.current",
                         key: "missing",
-                        recordKey: "missing@1"
+                        recordKey: viewKey("missing", 1)
                     },
-                    "missing@0"
+                    viewKey("missing", 0)
                 )
             ).toThrow(expect.objectContaining({ code: "protocol.revision-conflict" }));
             records.compareAndSetPointer(
                 {
                     namespace: "view.current",
                     key: "surface",
-                    recordKey: "surface@0"
+                    recordKey: viewKey("surface", 0)
                 },
                 undefined
             );
@@ -705,20 +752,22 @@ describe("memory workspace record coverage", () => {
                     {
                         namespace: "view.current",
                         key: "surface",
-                        recordKey: "surface@1"
+                        recordKey: viewKey("surface", 1)
                     },
-                    "wrong@0"
+                    viewKey("wrong", 0)
                 )
             ).toThrow(expect.objectContaining({ code: "protocol.revision-conflict" }));
             records.compareAndSetPointer(
                 {
                     namespace: "view.current",
                     key: "surface",
-                    recordKey: "surface@1"
+                    recordKey: viewKey("surface", 1)
                 },
-                "surface@0"
+                viewKey("surface", 0)
             );
-            expect(records.findPointer("view.current", "surface")?.recordKey).toBe("surface@1");
+            expect(records.findPointer("view.current", "surface")?.recordKey).toBe(
+                viewKey("surface", 1)
+            );
         }
     );
 });
@@ -782,16 +831,16 @@ describe("SQLite workspace record coverage", () => {
                     {
                         namespace: "view.current",
                         key: "missing",
-                        recordKey: "missing@1"
+                        recordKey: viewKey("missing", 1)
                     },
-                    "missing@0"
+                    viewKey("missing", 0)
                 )
             ).toThrow(expect.objectContaining({ code: "protocol.revision-conflict" }));
             records.compareAndSetPointer(
                 {
                     namespace: "view.current",
                     key: "key",
-                    recordKey: "key@0"
+                    recordKey: viewKey("key", 0)
                 },
                 undefined
             );
@@ -800,20 +849,20 @@ describe("SQLite workspace record coverage", () => {
                     {
                         namespace: "view.current",
                         key: "key",
-                        recordKey: "key@1"
+                        recordKey: viewKey("key", 1)
                     },
-                    "wrong@0"
+                    viewKey("wrong", 0)
                 )
             ).toThrow(expect.objectContaining({ code: "protocol.revision-conflict" }));
             records.compareAndSetPointer(
                 {
                     namespace: "view.current",
                     key: "key",
-                    recordKey: "key@1"
+                    recordKey: viewKey("key", 1)
                 },
-                "key@0"
+                viewKey("key", 0)
             );
-            expect(records.findPointer("view.current", "key")?.recordKey).toBe("key@1");
+            expect(records.findPointer("view.current", "key")?.recordKey).toBe(viewKey("key", 1));
 
             database.run(
                 `CREATE TRIGGER ignore_pointer_insert BEFORE INSERT ON workspace_pointers
@@ -825,7 +874,7 @@ describe("SQLite workspace record coverage", () => {
                     {
                         namespace: "view.current",
                         key: "ignored-insert",
-                        recordKey: "ignored-insert@0"
+                        recordKey: viewKey("ignored-insert", 0)
                     },
                     undefined
                 )
@@ -840,15 +889,15 @@ describe("SQLite workspace record coverage", () => {
                     {
                         namespace: "view.current",
                         key: "key",
-                        recordKey: "key@2"
+                        recordKey: viewKey("key", 2)
                     },
-                    "key@1"
+                    viewKey("key", 1)
                 )
             ).toThrow(expect.objectContaining({ code: "protocol.revision-conflict" }));
-            expect(() => records.deletePointer("view.current", "key", "wrong@1")).toThrow(
+            expect(() => records.deletePointer("view.current", "key", viewKey("wrong", 1))).toThrow(
                 expect.objectContaining({ code: "protocol.revision-conflict" })
             );
-            records.deletePointer("view.current", "key", "key@1");
+            records.deletePointer("view.current", "key", viewKey("key", 1));
             expect(records.findPointer("view.current", "key")).toBeUndefined();
         }
     );
@@ -930,7 +979,7 @@ describe("SQLite workspace record coverage", () => {
             {
                 namespace: "view.current",
                 key: "surface",
-                recordKey: "surface@0"
+                recordKey: viewKey("surface", 0)
             },
             undefined
         );
@@ -971,7 +1020,7 @@ describe("SQLite workspace record coverage", () => {
                     {
                         namespace: "view.current",
                         key: "surface",
-                        recordKey: "surface@0"
+                        recordKey: viewKey("surface", 0)
                     },
                     undefined
                 );
@@ -983,7 +1032,9 @@ describe("SQLite workspace record coverage", () => {
             records = new SqliteWorkspaceRecords(database);
             expect(records.findRecord("event", "persisted")?.bytes).toEqual(Uint8Array.of(1, 2, 3));
             expect(records.findUnique("unique", "key")?.recordKey).toBe("persisted");
-            expect(records.findPointer("view.current", "surface")?.recordKey).toBe("surface@0");
+            expect(records.findPointer("view.current", "surface")?.recordKey).toBe(
+                viewKey("surface", 0)
+            );
         } finally {
             database?.close();
             rmSync(directory, { recursive: true, force: true });
@@ -1007,28 +1058,36 @@ describe.each(factories)("%s View replay and retention coverage", (_name, create
             const initial = viewFixture(0, "replay-all");
             expect(() =>
                 harness.transaction((storage) =>
-                    protocol.replay(storage, initial.surface, Revision.initial())
+                    protocol.replay(storage, initial.surface, SurfaceEpoch.first(), initial.cursor)
                 )
             ).toThrow(/no durable View/);
-            harness.transaction((storage) => protocol.publishSnapshot(storage, initial, []));
+            harness.transaction((storage) => {
+                registerSurface(harness.persistence, storage, initial.surface);
+                protocol.publishSnapshot(storage, initial, []);
+            });
             const delta = viewDeltaFixture(initial, 1);
             harness.transaction((storage) => protocol.publish(storage, delta, [], []));
             harness.restart();
 
             const replayed = harness.transaction((storage) =>
-                protocol.replay(storage, initial.surface, Revision.initial())
+                protocol.replay(storage, initial.surface, SurfaceEpoch.first(), initial.cursor)
             );
             expect(replayed.kind).toBe("deltas");
             if (replayed.kind === "deltas") expect(replayed.deltas).toEqual([delta]);
             const current = harness.transaction((storage) =>
-                protocol.replay(storage, initial.surface, delta.revision)
+                protocol.replay(storage, initial.surface, SurfaceEpoch.first(), delta.cursor)
             );
             expect(current).toMatchObject({ kind: "deltas", deltas: [] });
             expect(() =>
                 harness.transaction((storage) =>
-                    protocol.replay(storage, initial.surface, new Revision(2))
+                    protocol.replay(
+                        storage,
+                        initial.surface,
+                        SurfaceEpoch.first(),
+                        new EventCursor("cursor-never-issued")
+                    )
                 )
-            ).toThrow(/ahead/);
+            ).toThrow(/is not a position in Surface/);
             expect(() =>
                 harness.transaction((storage) => protocol.publish(storage, delta, [], []))
             ).toThrow(/base revision is stale/);
@@ -1056,13 +1115,16 @@ describe.each(factories)("%s View replay and retention coverage", (_name, create
                     tenant
                 );
                 const initial = viewFixture(0, `fallback-${scenario}`);
-                harness.transaction((storage) => protocol.publishSnapshot(storage, initial, []));
-                harness.transaction((storage) =>
+                harness.transaction((storage) => {
+                    registerSurface(harness.persistence, storage, initial.surface);
+                    protocol.publishSnapshot(storage, initial, []);
+                });
+                const resume = harness.transaction((storage) =>
                     configureReplayFallback(scenario, storage, harness.persistence, initial)
                 );
                 expect(
                     harness.transaction((storage) =>
-                        protocol.replay(storage, initial.surface, Revision.initial())
+                        protocol.replay(storage, initial.surface, SurfaceEpoch.first(), resume)
                     ).kind
                 ).toBe("snapshot");
                 harness.dispose();
@@ -1085,7 +1147,7 @@ describe.each(factories)("%s View replay and retention coverage", (_name, create
             const surface = new SurfaceId(`surface-compaction-${_name.toLowerCase()}`);
             expect(() =>
                 harness.transaction((storage) =>
-                    protocol.compact(storage, surface, Revision.initial())
+                    protocol.compact(storage, surface, SurfaceEpoch.first(), Revision.initial())
                 )
             ).toThrow(/floor is unavailable/);
 
@@ -1100,23 +1162,29 @@ describe.each(factories)("%s View replay and retention coverage", (_name, create
             const retention0 = retentionFixture({
                 id: `retention-view-0-${_name}`,
                 recordKind: "view",
-                recordId: `${surface.value}@0`,
+                recordId: surfaceRevisionKey(
+                    surface.value,
+                    SurfaceEpoch.first(),
+                    Revision.initial()
+                ),
                 content: oldContent
             });
-            harness.transaction((storage) =>
-                protocol.publishSnapshot(storage, initial, [retention0])
-            );
+            harness.transaction((storage) => {
+                registerSurface(harness.persistence, storage, surface);
+                protocol.publishSnapshot(storage, initial, [retention0]);
+            });
             expect(() =>
                 harness.transaction((storage) =>
-                    protocol.compact(storage, surface, new Revision(1))
+                    protocol.compact(storage, surface, SurfaceEpoch.first(), new Revision(1))
                 )
             ).toThrow(/floor is unavailable/);
             harness.transaction((storage) =>
-                protocol.compact(storage, surface, Revision.initial())
+                protocol.compact(storage, surface, SurfaceEpoch.first(), Revision.initial())
             );
 
             const delta = new ViewDelta({
                 surface,
+                epoch: SurfaceEpoch.first(),
                 baseRevision: Revision.initial(),
                 revision: new Revision(1),
                 patch: [{ op: "replace", path: "/body/attachment", value: nextContent.ref.value }],
@@ -1125,19 +1193,21 @@ describe.each(factories)("%s View replay and retention coverage", (_name, create
             const retention1 = retentionFixture({
                 id: `retention-view-1-${_name}`,
                 recordKind: "view",
-                recordId: `${surface.value}@1`,
+                recordId: viewDeltaRecordKey(delta),
                 content: nextContent
             });
             const deltaRetention = retentionFixture({
                 id: `retention-delta-1-${_name}`,
                 recordKind: "viewDelta",
-                recordId: `${surface.value}@1`,
+                recordId: viewDeltaRecordKey(delta),
                 content: nextContent
             });
             harness.transaction((storage) =>
                 protocol.publish(storage, delta, [retention1], [deltaRetention])
             );
-            harness.transaction((storage) => protocol.compact(storage, surface, new Revision(1)));
+            harness.transaction((storage) =>
+                protocol.compact(storage, surface, SurfaceEpoch.first(), new Revision(1))
+            );
             expect(released.map((reference) => reference.id.value).sort()).toEqual(
                 [retention0.id.value, deltaRetention.id.value].sort()
             );
@@ -1145,17 +1215,24 @@ describe.each(factories)("%s View replay and retention coverage", (_name, create
                 expect(storage.listRecords("contentRetention").map((record) => record.id)).toEqual([
                     retention1.id.value
                 ]);
-                expect(protocol.replay(storage, surface, Revision.initial()).kind).toBe("snapshot");
+                // Compaction released the opening position, so resuming from it is refused
+                // while the surviving revision still answers.
+                expect(() =>
+                    protocol.replay(storage, surface, SurfaceEpoch.first(), initial.cursor)
+                ).toThrow(/is not a position in Surface/);
+                expect(
+                    protocol.replay(storage, surface, SurfaceEpoch.first(), delta.cursor)
+                ).toMatchObject({ kind: "deltas", deltas: [] });
             });
 
             harness.transaction((storage) => {
                 const ahead = new View({ ...initial, revision: new Revision(3) });
                 storage.insertRecord(
-                    stored("view", `${surface.value}@3`, View.codec.encode(ahead))
+                    stored("view", viewRecordKey(ahead), View.codec.encode(ahead))
                 );
-                expect(() => protocol.compact(storage, surface, new Revision(3))).toThrow(
-                    /floor is unavailable/
-                );
+                expect(() =>
+                    protocol.compact(storage, surface, SurfaceEpoch.first(), new Revision(3))
+                ).toThrow(/floor is unavailable/);
             });
             harness.dispose();
         }
@@ -1230,14 +1307,18 @@ describe.each(factories)("%s View replay and retention coverage", (_name, create
                 sourceActor,
                 tenant
             );
+            const extraView = viewFixture(0, `extra-view-${_name}`);
+            missing.transaction((storage) => {
+                registerSurface(missing.persistence, storage, view.surface);
+                registerSurface(missing.persistence, storage, extraView.surface, "workspace:b");
+            });
             expect(() =>
                 missing.transaction((storage) => protocol.publishSnapshot(storage, view, []))
             ).toThrow(/does not cover every ContentRef exactly/);
-            const extraView = viewFixture(0, `extra-view-${_name}`);
             const extra = retentionFixture({
                 id: `extra-retention-${_name}`,
                 recordKind: "view",
-                recordId: `${extraView.surface.value}@0`,
+                recordId: viewRecordKey(extraView),
                 content: retained
             });
             expect(() =>
@@ -1267,7 +1348,7 @@ describe.each(factories)("%s View replay and retention coverage", (_name, create
                 let reference = retentionFixture({
                     id: `owner-${violation}-${_name}`,
                     recordKind: "view",
-                    recordId: `${view.surface.value}@0`,
+                    recordId: viewRecordKey(view),
                     content: retained
                 });
                 if (violation === "actor") {
@@ -1284,14 +1365,18 @@ describe.each(factories)("%s View replay and retention coverage", (_name, create
                     reference = retentionFixture({
                         id: `owner-kind-${_name}`,
                         recordKind: "viewDelta",
-                        recordId: `${view.surface.value}@0`,
+                        recordId: viewRecordKey(view),
                         content: retained
                     });
                 } else {
                     reference = retentionFixture({
                         id: `owner-record-${_name}`,
                         recordKind: "view",
-                        recordId: `${view.surface.value}@9`,
+                        recordId: surfaceRevisionKey(
+                            view.surface.value,
+                            view.epoch,
+                            new Revision(9)
+                        ),
                         content: retained
                     });
                 }
@@ -1311,10 +1396,14 @@ describe.each(factories)("%s View replay and retention coverage", (_name, create
                 tenant
             );
             const initial = viewFixture(0, `delta-exact-${_name}`);
+            harness.transaction((storage) =>
+                registerSurface(harness.persistence, storage, initial.surface)
+            );
             harness.transaction((storage) => protocol.publishSnapshot(storage, initial, []));
             const deltaContent = content(`delta-exact-content-${_name}`);
             const delta = new ViewDelta({
                 surface: initial.surface,
+                epoch: initial.epoch,
                 baseRevision: initial.revision,
                 revision: initial.revision.next(),
                 patch: [{ op: "replace", path: "/body/count", value: deltaContent.ref.value }],
@@ -1323,13 +1412,13 @@ describe.each(factories)("%s View replay and retention coverage", (_name, create
             const viewRetention = retentionFixture({
                 id: `delta-exact-view-${_name}`,
                 recordKind: "view",
-                recordId: `${initial.surface.value}@1`,
+                recordId: viewDeltaRecordKey(delta),
                 content: deltaContent
             });
             const deltaRetention = retentionFixture({
                 id: `delta-exact-delta-${_name}`,
                 recordKind: "viewDelta",
-                recordId: `${initial.surface.value}@1`,
+                recordId: viewDeltaRecordKey(delta),
                 content: deltaContent
             });
             expect(() =>
@@ -1419,24 +1508,30 @@ describe("stored codec corruption coverage", () => {
             key: delivery.reservation.value,
             recordKey: delivery.reservation.value
         });
-        records.insertRecord(stored("view", `${view.surface.value}@0`, wrongKindBytes));
+        records.insertRecord(stored("view", viewRecordKey(view), wrongKindBytes));
         records.compareAndSetPointer(
             {
                 namespace: "view.current",
-                key: view.surface.value,
-                recordKey: `${view.surface.value}@0`
+                key: surfaceStreamKey(view.surface.value, view.epoch),
+                recordKey: viewRecordKey(view)
             },
             undefined
         );
-        records.insertRecord(stored("viewDelta", `${delta.surface.value}@1`, wrongKindBytes));
+        records.insertRecord(stored("viewDelta", viewDeltaRecordKey(delta), wrongKindBytes));
 
         const operations: readonly (() => void)[] = [
             () => persistence.currentSubscription(records, subscription.id),
             () => persistence.findReservation(records, reservation.id),
             () => persistence.findProjection(records, projection.id),
             () => persistence.findDelivery(records, delivery.reservation),
-            () => persistence.currentView(records, view.surface.value),
-            () => persistence.listViewDeltas(records, view.surface.value, Revision.initial())
+            () => persistence.currentView(records, view.surface.value, SurfaceEpoch.first()),
+            () =>
+                persistence.listViewDeltas(
+                    records,
+                    view.surface.value,
+                    SurfaceEpoch.first(),
+                    Revision.initial()
+                )
         ];
         for (const operation of operations) expectCodecInvalid(operation);
 
@@ -1444,22 +1539,27 @@ describe("stored codec corruption coverage", () => {
         const reference = retentionFixture({
             id: "wrong-kind-retention",
             recordKind: "view",
-            recordId: `${view.surface.value}@0`,
+            recordId: viewRecordKey(view),
             content: retained
         });
         records.insertRecord(stored("contentRetention", reference.id.value, wrongKindBytes));
         const next = new View({ ...view, revision: new Revision(1) });
-        records.insertRecord(stored("view", `${view.surface.value}@1`, View.codec.encode(next)));
+        records.insertRecord(stored("view", viewRecordKey(next), View.codec.encode(next)));
         records.compareAndSetPointer(
             {
                 namespace: "view.current",
-                key: view.surface.value,
-                recordKey: `${view.surface.value}@1`
+                key: surfaceStreamKey(view.surface.value, view.epoch),
+                recordKey: viewRecordKey(next)
             },
-            `${view.surface.value}@0`
+            viewRecordKey(view)
         );
         expectCodecInvalid(() =>
-            persistence.compactView(records, view.surface.value, new Revision(1))
+            persistence.compactView(
+                records,
+                view.surface.value,
+                SurfaceEpoch.first(),
+                new Revision(1)
+            )
         );
     });
 });
@@ -1486,21 +1586,14 @@ function createMemoryHarness(options: HarnessOptions = {}): StorageHarness {
     };
 }
 
+/**
+ * A restart clone of the memory store. The snapshot already holds every pointer at the
+ * revision it stands at, so it is restored verbatim. Rebuilding the ladder by splitting a
+ * record key would be the non-injective read the canonical revision key exists to prevent,
+ * and it would silently drop any pointer whose key is not suffix-shaped.
+ */
 function cloneMemoryRecords(records: MemoryWorkspaceRecords): MemoryWorkspaceRecords {
-    const snapshot = records.snapshot();
-    const clone = new MemoryWorkspaceRecords({ ...snapshot, pointers: [] });
-    for (const pointer of snapshot.pointers) {
-        const separator = pointer.recordKey.lastIndexOf("@");
-        const prefix = pointer.recordKey.slice(0, separator);
-        const revision = Number(pointer.recordKey.slice(separator + 1));
-        let expected: string | undefined;
-        for (let value = 0; value <= revision; value += 1) {
-            const recordKey = `${prefix}@${value}`;
-            clone.compareAndSetPointer({ ...pointer, recordKey }, expected);
-            expected = recordKey;
-        }
-    }
-    return clone;
+    return new MemoryWorkspaceRecords(records.snapshot());
 }
 
 function createSqliteHarness(options: HarnessOptions = {}): StorageHarness {
@@ -1571,7 +1664,7 @@ function runStorageTrace(harness: StorageHarness) {
             {
                 namespace: "view.current",
                 key: "trace",
-                recordKey: "trace@0"
+                recordKey: viewKey("trace", 0)
             },
             undefined
         );
@@ -1639,7 +1732,7 @@ function runStorageTrace(harness: StorageHarness) {
                     {
                         namespace: "",
                         key: "surface",
-                        recordKey: "surface@0"
+                        recordKey: viewKey("surface", 0)
                     },
                     undefined
                 )
@@ -1650,7 +1743,7 @@ function runStorageTrace(harness: StorageHarness) {
                     {
                         namespace: "x".repeat(513),
                         key: "surface",
-                        recordKey: "surface@0"
+                        recordKey: viewKey("surface", 0)
                     },
                     undefined
                 )
@@ -1661,7 +1754,7 @@ function runStorageTrace(harness: StorageHarness) {
                     {
                         namespace: "view.current",
                         key: "",
-                        recordKey: "surface@0"
+                        recordKey: viewKey("surface", 0)
                     },
                     undefined
                 )
@@ -1672,7 +1765,7 @@ function runStorageTrace(harness: StorageHarness) {
                     {
                         namespace: "view.current",
                         key: "x".repeat(2049),
-                        recordKey: "surface@0"
+                        recordKey: viewKey("surface", 0)
                     },
                     undefined
                 )
@@ -1727,9 +1820,9 @@ function runStorageTrace(harness: StorageHarness) {
                     {
                         namespace: "view.current",
                         key: "trace",
-                        recordKey: "trace@1"
+                        recordKey: viewKey("trace", 1)
                     },
-                    "wrong@0"
+                    viewKey("wrong", 0)
                 );
             })
         ),
@@ -1739,7 +1832,7 @@ function runStorageTrace(harness: StorageHarness) {
                     {
                         namespace: "invalid.current",
                         key: "surface",
-                        recordKey: "surface@0"
+                        recordKey: viewKey("surface", 0)
                     },
                     undefined
                 );
@@ -1763,7 +1856,7 @@ function runStorageTrace(harness: StorageHarness) {
                     {
                         namespace: "view.current",
                         key: "initial-revision",
-                        recordKey: "initial-revision@1"
+                        recordKey: viewKey("initial-revision", 1)
                     },
                     undefined
                 );
@@ -1775,9 +1868,9 @@ function runStorageTrace(harness: StorageHarness) {
                     {
                         namespace: "view.current",
                         key: "trace",
-                        recordKey: "trace@2"
+                        recordKey: viewKey("trace", 2)
                     },
-                    "trace@0"
+                    viewKey("trace", 0)
                 );
             })
         )
@@ -1829,7 +1922,7 @@ function runPersistenceTrace(harness: StorageHarness, suffix: string) {
         projection: harness.persistence.findProjection(storage, projection.id),
         projectionIndex: harness.persistence.findProjectionByReservation(storage, reservation.id),
         delivery: harness.persistence.findDelivery(storage, reservation.id),
-        view: harness.persistence.currentView(storage, initial.surface.value)
+        view: harness.persistence.currentView(storage, initial.surface.value, SurfaceEpoch.first())
     }));
     harness.transaction((storage) => {
         harness.persistence.appendEvent(storage, event, eventRetention(event));
@@ -1851,6 +1944,7 @@ function runPersistenceTrace(harness: StorageHarness, suffix: string) {
             projectionRetention(projection, sourceActor)
         );
         harness.persistence.appendDelivery(storage, delivery);
+        registerSurface(harness.persistence, storage, initial.surface);
         harness.persistence.saveView(storage, initial, undefined, []);
         harness.persistence.appendViewDelta(
             storage,
@@ -1882,108 +1976,103 @@ function runPersistenceTrace(harness: StorageHarness, suffix: string) {
         projectionIndex: harness.persistence.findProjectionByReservation(storage, reservation.id)
             ?.id.value,
         delivery: harness.persistence.findDelivery(storage, reservation.id)?.state.kind,
-        view: harness.persistence.findView(storage, initial.surface.value, Revision.initial())
-            ?.revision.value,
-        current: harness.persistence.currentView(storage, initial.surface.value)?.revision.value,
+        view: harness.persistence.findView(
+            storage,
+            initial.surface.value,
+            SurfaceEpoch.first(),
+            Revision.initial()
+        )?.revision.value,
+        current: harness.persistence.currentView(
+            storage,
+            initial.surface.value,
+            SurfaceEpoch.first()
+        )?.revision.value,
         deltas: harness.persistence
-            .listViewDeltas(storage, initial.surface.value, Revision.initial())
+            .listViewDeltas(
+                storage,
+                initial.surface.value,
+                SurfaceEpoch.first(),
+                Revision.initial()
+            )
             .map((value) => value.revision.value)
     }));
 }
 
+/**
+ * Arranges one durable store that replay cannot rebuild from deltas, and returns the cursor
+ * a client presents to reach it.
+ */
 function configureReplayFallback(
     scenario: string,
     storage: WorkspaceRecordStorage,
     persistence: WorkspacePersistence<WorkspaceRecordStorage>,
     initial: View
-): void {
+): EventCursor {
+    const stream = surfaceStreamKey(initial.surface.value, initial.epoch);
+    const at = (revision: number): string =>
+        surfaceRevisionKey(initial.surface.value, initial.epoch, new Revision(revision));
     if (scenario === "missing-base") {
-        persistence.appendViewDelta(
+        const engine = new DeterministicJsonPatchEngine();
+        const middle = persistence.appendViewDelta(
             storage,
             viewDeltaFixture(initial),
-            new DeterministicJsonPatchEngine(),
+            engine,
             [],
             []
         );
-        storage.deleteRecords("view", [`${initial.surface.value}@0`]);
-        return;
+        persistence.appendViewDelta(storage, viewDeltaFixture(middle), engine, [], []);
+        // The ViewDelta keeps the position resolvable while its own snapshot is gone.
+        storage.deleteRecords("view", [at(1)]);
+        return middle.cursor;
     }
     if (scenario === "delta-gap") {
         const current = new View({ ...initial, revision: new Revision(2) });
         const gap = new ViewDelta({
             surface: initial.surface,
+            epoch: initial.epoch,
             baseRevision: new Revision(1),
             revision: new Revision(2),
             patch: [{ op: "replace", path: "/body/count", value: 2 }],
             cursor: new EventCursor("cursor-gap")
         });
-        storage.insertRecord(
-            stored("view", `${initial.surface.value}@2`, View.codec.encode(current))
-        );
-        storage.insertRecord(
-            stored("viewDelta", `${initial.surface.value}@2`, ViewDelta.codec.encode(gap))
+        storage.insertRecord(stored("view", at(2), View.codec.encode(current)));
+        storage.insertRecord(stored("viewDelta", at(2), ViewDelta.codec.encode(gap)));
+        storage.compareAndSetPointer(
+            { namespace: "view.current", key: stream, recordKey: at(1) },
+            at(0)
         );
         storage.compareAndSetPointer(
-            {
-                namespace: "view.current",
-                key: initial.surface.value,
-                recordKey: `${initial.surface.value}@1`
-            },
-            `${initial.surface.value}@0`
+            { namespace: "view.current", key: stream, recordKey: at(2) },
+            at(1)
         );
-        storage.compareAndSetPointer(
-            {
-                namespace: "view.current",
-                key: initial.surface.value,
-                recordKey: `${initial.surface.value}@2`
-            },
-            `${initial.surface.value}@1`
-        );
-        return;
+        return initial.cursor;
     }
     const first = viewDeltaFixture(initial, 1);
-    storage.insertRecord(
-        stored("viewDelta", `${initial.surface.value}@1`, ViewDelta.codec.encode(first))
-    );
+    storage.insertRecord(stored("viewDelta", at(1), ViewDelta.codec.encode(first)));
     if (scenario === "revision-gap") {
         const current = new View({ ...initial, revision: new Revision(2), body: { count: 2 } });
-        storage.insertRecord(
-            stored("view", `${initial.surface.value}@2`, View.codec.encode(current))
+        storage.insertRecord(stored("view", at(2), View.codec.encode(current)));
+        storage.compareAndSetPointer(
+            { namespace: "view.current", key: stream, recordKey: at(1) },
+            at(0)
         );
         storage.compareAndSetPointer(
-            {
-                namespace: "view.current",
-                key: initial.surface.value,
-                recordKey: `${initial.surface.value}@1`
-            },
-            `${initial.surface.value}@0`
+            { namespace: "view.current", key: stream, recordKey: at(2) },
+            at(1)
         );
-        storage.compareAndSetPointer(
-            {
-                namespace: "view.current",
-                key: initial.surface.value,
-                recordKey: `${initial.surface.value}@2`
-            },
-            `${initial.surface.value}@1`
-        );
-        return;
+        return initial.cursor;
     }
-    storage.deleteRecords("viewDelta", [`${initial.surface.value}@1`]);
+    storage.deleteRecords("viewDelta", [at(1)]);
     const count = scenario === "length-mismatch" ? 100 : 9;
     const mismatched = viewDeltaFixture(initial, count);
-    storage.insertRecord(
-        stored("viewDelta", `${initial.surface.value}@1`, ViewDelta.codec.encode(mismatched))
-    );
+    storage.insertRecord(stored("viewDelta", at(1), ViewDelta.codec.encode(mismatched)));
     const current = new View({ ...initial, revision: new Revision(1), body: { count: 1 } });
-    storage.insertRecord(stored("view", `${initial.surface.value}@1`, View.codec.encode(current)));
+    storage.insertRecord(stored("view", at(1), View.codec.encode(current)));
     storage.compareAndSetPointer(
-        {
-            namespace: "view.current",
-            key: initial.surface.value,
-            recordKey: `${initial.surface.value}@1`
-        },
-        `${initial.surface.value}@0`
+        { namespace: "view.current", key: stream, recordKey: at(1) },
+        at(0)
     );
+    return initial.cursor;
 }
 
 function stored(kind: WorkspaceRecordKind, id: string, bytes: Uint8Array): StoredWorkspaceRecord {
@@ -2141,4 +2230,9 @@ class SuppressingWorkspaceSqlite extends TestSqlite {
         }
         super.execute(statement, bindings);
     }
+}
+
+/** A View pointer's record key, built the one way production builds it. */
+function viewKey(surface: string, revision: number): string {
+    return surfaceRevisionKey(surface, SurfaceEpoch.first(), new Revision(revision));
 }

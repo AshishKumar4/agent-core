@@ -1,7 +1,7 @@
 import { ContentRef } from "../../core";
 import type { OperationRef } from "../../facets";
 import type { ReceiptId } from "../../invocation-references";
-import type { AttemptReceiptOutcome } from "../../invocations";
+import type { AttemptReceiptOutcome, Receipt } from "../../invocations";
 import type {
     AuditRecordId,
     EventId,
@@ -9,6 +9,7 @@ import type {
     RouteReservationId
 } from "../../interaction-references";
 import type { LeaseToken } from "./lease";
+import type { TurnAdmissionHandle } from "./handle";
 import type { RunBranchId, RunId } from "./id";
 import type { RunCommit } from "./commit";
 import type { TurnId } from "../../execution-references";
@@ -58,8 +59,13 @@ export interface ControlCommitEvidence {
 
 /**
  * The one commit this platform admits on failed control evidence: a rewrite whose attempt
- * ended without installing anything. The outcome is pinned by the type so a host cannot
- * satisfy the abandoned form by simply losing the record of the failure.
+ * ended without installing anything. It binds the Run, the proposal and the audit record to
+ * one Receipt and stops there: §7.4's closed failure kind on that Receipt is what says why the
+ * attempt ended, so this evidence names the Receipt and never restates its determination. A
+ * `failed` outcome and a failure label beside the Receipt were both that restatement, and a
+ * host could name a kind the Receipt contradicted; `validateCommitWriter` now loads the
+ * Receipt and reads the kind off it, so an abandoned attempt that says nothing about why it
+ * ended is refused on the Receipt's own record rather than on a label.
  */
 export interface AbandonedRewriteEvidence {
     readonly kind: "abandonedRewrite";
@@ -67,7 +73,6 @@ export interface AbandonedRewriteEvidence {
     readonly receipt: ReceiptId;
     readonly audit: AuditRecordId;
     readonly proposalDigest: string;
-    readonly outcome: "failed";
 }
 
 export interface SynthesisCommitEvidence {
@@ -135,6 +140,33 @@ export abstract class RunEvidencePort<Transaction> {
         receipt: ReceiptId,
         audit: AuditRecordId
     ): AbandonedRewriteEvidence | undefined;
+
+    /**
+     * The §7.4 Receipt this id names, exactly as §7.4 recorded it. Deliberately narrow: it
+     * retrieves the record and decides nothing, so a commit that stands on a failed attempt
+     * reads why that attempt ended off the Receipt rather than off a label beside it, and
+     * every rule about what a commit may stand on stays in `validateCommitWriter`.
+     */
+    public abstract storedReceipt(
+        transaction: Transaction,
+        receipt: ReceiptId
+    ): Receipt | undefined;
+
+    /**
+     * The handle a Turn published for one admitted item (SPEC §5.6), or none where no Turn
+     * published it. Publication is what detaches an item from its Turn to a Run, and which
+     * Run that is lives in the handle's admission identity, so a Run's cancellation has to
+     * read the handle back rather than infer an owner from the obligation. Nothing here is a
+     * second copy of state: every field of a handle is already owned durably by the §7.4
+     * records it names, which is why a table of handles is exactly what this platform does
+     * not keep, and this seam derives the value from those records instead.
+     */
+    public abstract publishedHandle(
+        transaction: Transaction,
+        invocation: InvocationId,
+        itemIndex: number,
+        itemKey: string
+    ): TurnAdmissionHandle | undefined;
 
     public abstract synthesis(
         transaction: Transaction,

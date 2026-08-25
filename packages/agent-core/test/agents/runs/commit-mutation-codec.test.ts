@@ -3,11 +3,7 @@ import { SemVer, type JsonValue } from "../../../src/core";
 import { requireArray } from "../../../src/agents/record-data";
 import { RunCommitId } from "../../../src/execution-references";
 import { ReceiptId } from "../../../src/invocations";
-import {
-    RunCommit,
-    type CommitWriter,
-    type RunCommitInit
-} from "../../../src/agents/runs/commit";
+import { RunCommit, type CommitWriter, type RunCommitInit } from "../../../src/agents/runs/commit";
 import { BlueprintPin, RunPins } from "../../../src/agents/runs/pins";
 import {
     content,
@@ -498,7 +494,9 @@ describe("Run commit decode guards", () => {
         expect(decodedMessage.migration).toBeUndefined();
         expect(decodedMessage.parents.map((parent) => parent.value)).toEqual(["commit-root"]);
 
-        const decodedMigration = RunCommit.fromData(migrationCommit("migration-round-trip").toData());
+        const decodedMigration = RunCommit.fromData(
+            migrationCommit("migration-round-trip").toData()
+        );
         expect(decodedMigration.kind).toBe("migration");
         expect(decodedMigration.writer.kind).toBe("system");
         expect(
@@ -541,6 +539,33 @@ describe("Run commit decode guards", () => {
             ["/moved", "merge-source"]
         ]);
     });
+
+    test(
+        "[C13-RUN-DISTINCTION-REPRESENTABLE] refuses a stored merge naming one commit twice",
+        { tags: "p0" },
+        () => {
+            expectTypeError(
+                "one lineage twice",
+                decodeMutated(merge("merge-decode-one-lineage", {}), (data) => {
+                    data["parents"] = [ids.root.value, ids.root.value];
+                }),
+                "Merge parents must name two distinct commits"
+            );
+            expectTypeError(
+                "three parents",
+                decodeMutated(merge("merge-decode-three", {}), (data) => {
+                    data["parents"] = [ids.root.value, source.value, "commit-third"];
+                }),
+                "Merge commit fields are invalid"
+            );
+
+            // The accepted binary form decodes to the pair the ordered parent list names.
+            const decoded = RunCommit.fromData(merge("merge-decode-distinct", {}).toData());
+            expect(decoded.mergeParents?.target.value).toBe(ids.root.value);
+            expect(decoded.mergeParents?.source.value).toBe(source.value);
+            expect(decoded.parents).toBe(decoded.mergeParents?.ordered);
+        }
+    );
 });
 
 describe("commit kind decode guard", () => {

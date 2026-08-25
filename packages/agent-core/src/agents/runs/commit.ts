@@ -17,6 +17,7 @@ import { AgentCoreError } from "../../errors";
 import { PrincipalId, PrincipalRef, TenantId } from "../../identity";
 import { RunCommitId, TurnId } from "../../execution-references";
 import { ReceiptId } from "../../invocation-references";
+import { AttemptReceipt, type AttemptFailureKind, type Receipt } from "../../invocations";
 import { AuditRecordId, InvocationId, RouteReservationId } from "../../interaction-references";
 import {
     CodecRecord,
@@ -76,12 +77,7 @@ const TURN_AUTHORED_KINDS: readonly RunCommitKind[] = [
 ];
 
 /** The kinds a system writer may append on control evidence. */
-const CONTROL_AUTHORED_KINDS: readonly RunCommitKind[] = [
-    "merge",
-    "undo",
-    "migration",
-    "rewrite"
-];
+const CONTROL_AUTHORED_KINDS: readonly RunCommitKind[] = ["merge", "undo", "migration", "rewrite"];
 
 export type CommitWriter =
     | { readonly kind: "root" }
@@ -110,6 +106,31 @@ export type TreeMergeResolution =
 export interface PathResolution {
     readonly path: string;
     readonly side: RunCommitId;
+}
+
+/**
+ * The two ordered parents of a merge commit (§5.2): the head the merge lands on, and the head
+ * of the distinct lineage it joins in. Distinctness is a property of this value rather than a
+ * length a later reader measures, so a merge that joins one lineage to itself is not a record
+ * a caller can build or a decoder can restore.
+ */
+export class MergeParents {
+    /** The pair in the order the merge declared, which is the commit's own parent list. */
+    public readonly ordered: readonly RunCommitId[];
+
+    public constructor(
+        public readonly target: RunCommitId,
+        public readonly source: RunCommitId
+    ) {
+        if (target.constructor !== RunCommitId || source.constructor !== RunCommitId) {
+            throw new TypeError("Merge parents must use exact context classes");
+        }
+        if (target.equals(source)) {
+            throw new TypeError("Merge parents must name two distinct commits");
+        }
+        this.ordered = Object.freeze([target, source]);
+        Object.freeze(this);
+    }
 }
 
 export interface RunCommitInit {
@@ -149,6 +170,8 @@ export class RunCommit extends CodecRecord {
     public readonly branch: RunBranchId;
     public readonly kind: RunCommitKind;
     public readonly parents: readonly RunCommitId[];
+    /** Present on exactly a merge commit, where it is the record's own parent order. */
+    public readonly mergeParents: MergeParents | undefined;
     public readonly pins: RunPins;
     public readonly writer: CommitWriter;
     public readonly subjectTurn: TurnId | undefined;
@@ -171,7 +194,8 @@ export class RunCommit extends CodecRecord {
         this.run = init.run;
         this.branch = init.branch;
         this.kind = init.kind;
-        this.parents = Object.freeze([...init.parents]);
+        this.mergeParents = requireMergeParents(init);
+        this.parents = this.mergeParents?.ordered ?? Object.freeze([...init.parents]);
         this.pins = RunPins.fromData(init.pins.toData());
         this.writer = copyWriter(init.writer);
         this.subjectTurn = init.subjectTurn;
@@ -341,6 +365,7 @@ class CommitCodec extends RecordCodec<RunCommit> {
         super(
             [
                 RunCommit,
+                MergeParents,
                 Revision,
                 TextId,
                 SemVer,
@@ -381,6 +406,32 @@ class CommitCodec extends RecordCodec<RunCommit> {
 }
 
 export const RunCommitCodec: RecordCodec<RunCommit> = new CommitCodec();
+
+/**
+ * §5.2's abandoned rewrite stands on an attempt that ended without installing anything, and
+ * §7.4's closed failure kind on that attempt's Receipt is what says why it ended. The kind is
+ * read off the durable Receipt rather than restated beside the evidence, so a host cannot
+ * name a kind the Receipt contradicts and no member of the taxonomy needs listing here. A
+ * Receipt that is absent, that reached no EffectAttempt, or whose attempt records no failure
+ * says nothing an abandoned rewrite may stand on, and each is refused on its own terms.
+ */
+function requireAbandonedFailureKind(stored: Receipt | undefined): AttemptFailureKind {
+    if (stored === undefined) {
+        throw deniedEvidence("Abandoned rewrite evidence names no stored Receipt");
+    }
+    if (!(stored instanceof AttemptReceipt)) {
+        throw deniedEvidence(
+            "Abandoned rewrite evidence names a Receipt that reached no EffectAttempt"
+        );
+    }
+    const failure = stored.failure;
+    if (failure === undefined) {
+        throw deniedEvidence(
+            "Abandoned rewrite evidence names a Receipt that records no failed attempt"
+        );
+    }
+    return failure;
+}
 
 export function validateCommitWriter<Transaction>(
     transaction: Transaction,
@@ -459,6 +510,14 @@ export function validateCommitWriter<Transaction>(
             "Control writer evidence does not bind the complete Run commit proposal"
         );
     }
+    // The abandoned form stands on a failed attempt, and §5.2 reads why that attempt ended off
+    // the closed failure kind on its Receipt (§7.4). Reading the kind off that Receipt is the
+    // whole check, so nothing downstream carries a determination this layer did not derive.
+    if (found.kind === "abandonedRewrite") {
+        requireAbandonedFailureKind(
+            requireSynchronousResult(evidence.storedReceipt(transaction, found.receipt))
+        );
+    }
     if (commit.resolution?.kind === "synthesize") {
         const synthesis = requireSynchronousResult(
             evidence.synthesis(transaction, commit.resolution.receipt)
@@ -473,6 +532,20 @@ export function validateCommitWriter<Transaction>(
             throw deniedEvidence("Synthesis evidence does not match the exact token and content");
         }
     }
+}
+
+/**
+ * A merge's parents are the one parent list this record proves rather than sizes: exactly two
+ * commits, in the order the merge declared, naming two lineages. Every other kind keeps the
+ * plain list whose arity its own closed shape reads.
+ */
+function requireMergeParents(init: RunCommitInit): MergeParents | undefined {
+    if (init.kind !== "merge") return undefined;
+    const [target, source, ...beyond] = init.parents;
+    if (target === undefined || source === undefined || beyond.length > 0) {
+        throw new TypeError("Merge commit fields are invalid");
+    }
+    return new MergeParents(target, source);
 }
 
 // Each commit kind admits an exact set of fields; every other field must be absent.
@@ -512,7 +585,6 @@ function validateClosedKind(commit: RunCommit): void {
     }
     if (commit.kind === "merge") {
         if (
-            commit.parents.length !== 2 ||
             commit.writer.kind !== "system" ||
             commit.writer.cause.kind !== "control" ||
             commit.resolution === undefined ||

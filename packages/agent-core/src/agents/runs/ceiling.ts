@@ -1,9 +1,16 @@
 import { RecordCodec, isMember, type JsonValue } from "../../core";
 import { CodecRecord, requireExactFields, requireInteger, requireObject } from "../record-data";
 
-// SPEC §5.2 names exactly three ceiling dimensions. `depth` and `wallClockMs` are
-// derived from existing structure; only `tokens` needs a running total.
-export const RESOURCE_DIMENSIONS = Object.freeze(["depth", "tokens", "wallClockMs"] as const);
+// SPEC §5.2 names four ceiling dimensions. `depth` and `wallClockMs` are derived from
+// existing structure. `tokens` and `costMicros` each need a durable running total, because
+// neither has anything to derive it from. The order is canonical, so `exhaustedResource`
+// names the same dimension for the same remainder on every host.
+export const RESOURCE_DIMENSIONS = Object.freeze([
+    "costMicros",
+    "depth",
+    "tokens",
+    "wallClockMs"
+] as const);
 
 export type ResourceDimension = (typeof RESOURCE_DIMENSIONS)[number];
 
@@ -83,9 +90,11 @@ export class ResourceCeiling {
     }
 }
 
-// A Run's own consumption. SPEC §5.2 measures both of these against the Run itself: its
-// durable token total, and the wall clock since the Run started.
+// A Run's own consumption. SPEC §5.2 measures each of these against the Run itself: its
+// durable token total, its durable realized-cost total, and the wall clock since the Run
+// started.
 export interface ResourceUsage {
+    readonly costMicros: number;
     readonly tokens: number;
     readonly wallClockMs: number;
 }

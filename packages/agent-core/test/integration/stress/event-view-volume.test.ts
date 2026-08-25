@@ -15,6 +15,7 @@ import {
     WorkspacePersistence
 } from "../../../src/workspaces";
 import { EventCursor } from "../../../src/workspaces";
+import { SurfaceEpoch } from "../../../src/workspaces";
 import { expectAgentCoreError } from "../../protocol/error-assertion";
 import { StressRandom } from "./stress-support";
 import {
@@ -25,6 +26,7 @@ import {
     eventRetention,
     principal,
     projectionRetention,
+    registerSurface,
     reservationFixture,
     reservationRetention,
     sourceActor,
@@ -66,11 +68,17 @@ function targetPersistence(): WorkspacePersistence<MemoryWorkspaceRecords> {
 function deltaFor(view: View, count: number): ViewDelta {
     return new ViewDelta({
         surface: view.surface,
+        epoch: view.epoch,
         baseRevision: view.revision,
         revision: view.revision.next(),
         patch: [{ op: "replace", path: "/body/count", value: count }],
         cursor: new EventCursor(`cursor-${view.revision.value + 1}`)
     });
+}
+
+/** The cursor `viewFixture` and `deltaFor` give the View at one revision of this stream. */
+function cursorAt(revision: Revision): EventCursor {
+    return new EventCursor(`cursor-${revision.value}`);
 }
 
 function isJsonObject(value: JsonValue): value is { readonly [key: string]: JsonValue } {
@@ -184,6 +192,7 @@ describe("event routing and view replay at volume", () => {
             );
             const random = new StressRandom("view-replay-volume");
             const initial = viewFixture(0, "volume");
+            registerSurface(persistence, records, initial.surface);
             protocol.publishSnapshot(records, initial, []);
             let view = initial;
             let floor = Revision.initial();
@@ -195,7 +204,11 @@ describe("event routing and view replay at volume", () => {
                 expect(bodyCount(published)).toBe(count);
                 view = published;
 
-                const current = persistence.currentView(records, view.surface.value);
+                const current = persistence.currentView(
+                    records,
+                    view.surface.value,
+                    SurfaceEpoch.first()
+                );
                 expect(current?.revision.value).toBe(view.revision.value);
 
                 if (count % REPLAY_INTERVAL === 0) {
@@ -203,7 +216,12 @@ describe("event routing and view replay at volume", () => {
                     const base = new Revision(
                         floor.value + random.integer(view.revision.value - floor.value)
                     );
-                    const replayed = protocol.replay(records, view.surface, base);
+                    const replayed = protocol.replay(
+                        records,
+                        view.surface,
+                        SurfaceEpoch.first(),
+                        cursorAt(base)
+                    );
                     expect(replayed.kind).toBe("deltas");
                     if (replayed.kind !== "deltas") throw new TypeError("Expected durable deltas");
                     expect(replayed.deltas.map((delta) => delta.revision.value)).toEqual(
@@ -218,21 +236,40 @@ describe("event routing and view replay at volume", () => {
                 if (count % COMPACTION_INTERVAL !== 0) continue;
                 const compactedAway = floor;
                 floor = new Revision(view.revision.value - 1);
-                protocol.compact(records, view.surface, floor);
+                protocol.compact(records, view.surface, SurfaceEpoch.first(), floor);
                 floors.push(floor.value);
 
                 expect(
-                    persistence.findView(records, view.surface.value, compactedAway)
+                    persistence.findView(
+                        records,
+                        view.surface.value,
+                        SurfaceEpoch.first(),
+                        compactedAway
+                    )
                 ).toBeUndefined();
                 expect(
-                    persistence.findView(records, view.surface.value, floor)?.revision.value
+                    persistence.findView(records, view.surface.value, SurfaceEpoch.first(), floor)
+                        ?.revision.value
                 ).toBe(floor.value);
-                const afterCompaction = protocol.replay(records, view.surface, compactedAway);
-                expect(afterCompaction.kind).toBe("snapshot");
-                expect(View.codec.encode(afterCompaction.view)).toEqual(View.codec.encode(view));
+                // Compaction released the position, so resuming from it is refused.
+                expectAgentCoreError(
+                    () =>
+                        protocol.replay(
+                            records,
+                            view.surface,
+                            SurfaceEpoch.first(),
+                            cursorAt(compactedAway)
+                        ),
+                    "protocol.invalid-state"
+                );
                 expect(
                     persistence
-                        .listViewDeltas(records, view.surface.value, Revision.initial())
+                        .listViewDeltas(
+                            records,
+                            view.surface.value,
+                            SurfaceEpoch.first(),
+                            Revision.initial()
+                        )
                         .map((delta) => delta.revision.value)
                 ).toEqual([view.revision.value]);
             }
@@ -242,8 +279,14 @@ describe("event routing and view replay at volume", () => {
             expect(floors).toEqual([...floors].sort((left, right) => left - right));
             expect(new Set(floors).size).toBe(floors.length);
             expectAgentCoreError(
-                () => protocol.replay(records, view.surface, new Revision(view.revision.value + 1)),
-                "protocol.revision-conflict"
+                () =>
+                    protocol.replay(
+                        records,
+                        view.surface,
+                        SurfaceEpoch.first(),
+                        cursorAt(new Revision(view.revision.value + 1))
+                    ),
+                "protocol.invalid-state"
             );
         }
     );

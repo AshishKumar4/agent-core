@@ -761,7 +761,9 @@ describe("handle lifetime and Run terminalization", () => {
             // is the ordinary case the shape exists for. A live handle is therefore a hold on
             // the Run's admission frontier, never on a Turn — terminalization succeeds and
             // captures the item, and Settled is what waits.
-            const snapshot = seeded.runtime.terminalizeRun(terminalRequest(seeded, "handle-live"));
+            const { snapshot } = seeded.runtime.terminalizeRun(
+                terminalRequest(seeded, "handle-live")
+            );
             expect(snapshot.obligation.obligations).toEqual([handle.obligation()]);
             expect(seeded.runtime.settled(ids.run)).toBe(false);
 
@@ -793,7 +795,7 @@ describe("handle lifetime and Run terminalization", () => {
 
             publish.settle(reservation);
 
-            const snapshot = seeded.runtime.terminalizeRun(
+            const { snapshot } = seeded.runtime.terminalizeRun(
                 terminalRequest(seeded, "handle-released")
             );
             expect(snapshot.obligation.obligations).toEqual([]);
@@ -811,7 +813,7 @@ describe("child admission and the parent ceiling", () => {
             const parent = spawnChild(root, "handle-parent", ids.run, root.token, {
                 tokens: 100
             });
-            root.runtime.recordModelTokens(parent.run, 40);
+            root.runtime.recordModelUsage(parent.run, 40);
             const remaining = root.runtime.remainingResources(parent.run, new Date(1_600));
             expect(remaining?.limit("tokens")).toBe(60);
 

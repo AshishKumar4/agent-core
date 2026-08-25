@@ -3,9 +3,19 @@ import type { ActorRef } from "../actors";
 import { AgentCoreError } from "../errors";
 import type { SurfaceId } from "../facets";
 import type { TenantId } from "../identity";
+import type { EventCursor } from "./id";
 import { WorkspacePersistence } from "./persistence";
 import { RetainedRecordKind, type ContentRetentionReference } from "./retention";
-import { type JsonPatchEngine, View, ViewDelta, viewDocument, viewFromDocument } from "./view";
+import type { SurfaceEpoch } from "./surface-epoch";
+import {
+    type JsonPatchEngine,
+    View,
+    ViewDelta,
+    viewDeltaRecordKey,
+    viewDocument,
+    viewFromDocument,
+    viewRecordKey
+} from "./view";
 
 export type ViewReplayResult =
     | { readonly kind: "snapshot"; readonly view: View }
@@ -29,7 +39,7 @@ export class ViewReplayProtocol<Transaction> {
         view: View,
         retentions: readonly ContentRetentionReference[]
     ): void {
-        requireRetentionOwner(retentions, this.actor, this.tenant, viewId(view));
+        requireRetentionOwner(retentions, this.actor, this.tenant, viewRecordKey(view));
         this.persistence.saveView(transaction, view, undefined, retentions);
     }
 
@@ -39,18 +49,14 @@ export class ViewReplayProtocol<Transaction> {
         viewRetentions: readonly ContentRetentionReference[],
         deltaRetentions: readonly ContentRetentionReference[]
     ): View {
-        requireRetentionOwner(
-            viewRetentions,
-            this.actor,
-            this.tenant,
-            `${delta.surface.value}@${delta.revision.value}`,
-            RetainedRecordKind.view()
-        );
+        // A delta and the View it produces are one revision of one stream, so they share a key.
+        const recordKey = viewDeltaRecordKey(delta);
+        requireRetentionOwner(viewRetentions, this.actor, this.tenant, recordKey);
         requireRetentionOwner(
             deltaRetentions,
             this.actor,
             this.tenant,
-            `${delta.surface.value}@${delta.revision.value}`,
+            recordKey,
             RetainedRecordKind.viewDelta()
         );
         return this.persistence.appendViewDelta(
@@ -62,29 +68,52 @@ export class ViewReplayProtocol<Transaction> {
         );
     }
 
-    public replay(transaction: Transaction, surface: SurfaceId, after: Revision): ViewReplayResult {
-        const current = this.persistence.currentView(transaction, surface.value);
+    /**
+     * SPEC §6.3: resume from a client's cursor. The client presents the `cursor` of the last
+     * View it holds, and this reader resolves that opaque position against the durable
+     * records of the `(surface, epoch)` stream. A cursor this stream never carried is
+     * refused, so a stale position and a foreign one are told rather than answered from the
+     * beginning. A cursor presented for a retired epoch resolves against that epoch's own
+     * records and returns its terminal revision through this one reader rather than an error
+     * or another epoch's live View. The returned View carries `terminal`, so a client holding
+     * no live handle can tell a stream that ended from one it may keep following.
+     */
+    public replay(
+        transaction: Transaction,
+        surface: SurfaceId,
+        epoch: SurfaceEpoch,
+        after: EventCursor
+    ): ViewReplayResult {
+        const current = this.persistence.currentView(transaction, surface.value, epoch);
         if (current === undefined) {
             throw new AgentCoreError("protocol.invalid-state", "Surface has no durable View");
         }
-        if (after.value > current.revision.value) {
+        const base = this.persistence.findCursorRevision(transaction, surface.value, epoch, after);
+        if (base === undefined) {
             throw new AgentCoreError(
-                "protocol.revision-conflict",
-                "Replay revision is ahead of the current View"
+                "protocol.invalid-state",
+                `Event cursor ${after.value} is not a position in Surface ${surface.value} epoch ${epoch.text}`
             );
         }
-        if (after.equals(current.revision)) {
+        if (base.value > current.revision.value) {
+            throw new AgentCoreError(
+                "protocol.revision-conflict",
+                "Resumed position is ahead of the current View"
+            );
+        }
+        if (base.equals(current.revision)) {
             return Object.freeze({
                 kind: "deltas" as const,
-                base: after,
+                base,
                 deltas: Object.freeze([]),
                 view: current
             });
         }
-        const base = this.persistence.findView(transaction, surface.value, after);
-        if (base === undefined) return Object.freeze({ kind: "snapshot" as const, view: current });
-        const deltas = this.persistence.listViewDeltas(transaction, surface.value, after);
-        let replayed = base;
+        const stored = this.persistence.findView(transaction, surface.value, epoch, base);
+        if (stored === undefined)
+            return Object.freeze({ kind: "snapshot" as const, view: current });
+        const deltas = this.persistence.listViewDeltas(transaction, surface.value, epoch, base);
+        let replayed = stored;
         for (const delta of deltas) {
             if (!replayed.revision.equals(delta.baseRevision)) {
                 return Object.freeze({ kind: "snapshot" as const, view: current });
@@ -103,14 +132,23 @@ export class ViewReplayProtocol<Transaction> {
         }
         return Object.freeze({
             kind: "deltas" as const,
-            base: after,
+            base,
             deltas,
             view: replayed
         });
     }
 
-    public compact(transaction: Transaction, surface: SurfaceId, retainFrom: Revision): void {
-        this.persistence.compactView(transaction, surface.value, retainFrom);
+    /**
+     * A compaction floor is the host's own administrative choice over its own storage, not a
+     * client resume position, so it stays a `Revision` rather than an opaque cursor.
+     */
+    public compact(
+        transaction: Transaction,
+        surface: SurfaceId,
+        epoch: SurfaceEpoch,
+        retainFrom: Revision
+    ): void {
+        this.persistence.compactView(transaction, surface.value, epoch, retainFrom);
     }
 }
 
@@ -141,8 +179,4 @@ function requireRetentionOwner(
             "View retention belongs to another Actor, tenant, or View revision"
         );
     }
-}
-
-function viewId(view: View): string {
-    return `${view.surface.value}@${view.revision.value}`;
 }

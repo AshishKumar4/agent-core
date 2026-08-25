@@ -32,6 +32,7 @@ import {
     requireAuthenticatedRouteProjection
 } from "../../src/workspaces";
 import type { EventIntentInput } from "../../src/workspaces";
+import { SurfaceEpoch } from "../../src/workspaces";
 import {
     content,
     eventFixture,
@@ -106,9 +107,7 @@ test("caller tier is absent from authenticated origin data", { tags: "p0" }, () 
 test("[C13-ADV-OMITTED-TRUST-SET] accepted trust set cannot be empty", { tags: "p0" }, () => {
     // SAFETY: the accepted-trust list is typed as a non-empty tuple, so an empty set
     // cannot be written down. EventPattern rechecks it, which is the atom under test.
-    expect(() => new EventPattern("task.*", [] as never)).toThrow(
-        /must not be empty|known values/
-    );
+    expect(() => new EventPattern("task.*", [] as never)).toThrow(/must not be empty|known values/);
 });
 
 test("[C13-ADV-SUBSTITUTED-INITIATOR] routed initiator remains exact", { tags: "p0" }, () => {
@@ -124,15 +123,19 @@ test("[C13-ADV-SUBSTITUTED-INITIATOR] routed initiator remains exact", { tags: "
     ).toThrow(/source Tenant/);
 });
 
-test("[C13-ADV-UNAUTHENTICATED-PROJECTION] structural projection cannot bridge", { tags: "p0" }, () => {
-    const reservation = reservationFixture("unverified-projection");
-    const projection = projectionFixture(reservation);
-    expect(() =>
-        requireAuthenticatedRouteProjection(
-            violating<AuthenticatedRouteProjection>({ envelope: { reservation, projection } })
-        )
-    ).toThrow(expect.objectContaining({ code: "authority.denied" }));
-});
+test(
+    "[C13-ADV-UNAUTHENTICATED-PROJECTION] structural projection cannot bridge",
+    { tags: "p0" },
+    () => {
+        const reservation = reservationFixture("unverified-projection");
+        const projection = projectionFixture(reservation);
+        expect(() =>
+            requireAuthenticatedRouteProjection(
+                violating<AuthenticatedRouteProjection>({ envelope: { reservation, projection } })
+            )
+        ).toThrow(expect.objectContaining({ code: "authority.denied" }));
+    }
+);
 
 test("[C13-ROUTE-PROJECTION-DIGEST] projection binds exact content digest", { tags: "p0" }, () => {
     const reservation = reservationFixture("projection-digest");
@@ -156,12 +159,18 @@ test("[C13-ROUTE-SOURCE-OWNED] reservation preserves source ownership", { tags: 
     expect(reservationFixture("source-owned").sourceActor.equals(sourceActor)).toBe(true);
 });
 
-test("[C13-ROUTE-STABLE-INVOCATION] reservation codec preserves InvocationId", { tags: "p1" }, () => {
-    const route = reservationFixture("stable-invocation");
-    expect(
-        RouteReservation.decode(RouteReservation.encode(route)).invocation.equals(route.invocation)
-    ).toBe(true);
-});
+test(
+    "[C13-ROUTE-STABLE-INVOCATION] reservation codec preserves InvocationId",
+    { tags: "p1" },
+    () => {
+        const route = reservationFixture("stable-invocation");
+        expect(
+            RouteReservation.decode(RouteReservation.encode(route)).invocation.equals(
+                route.invocation
+            )
+        ).toBe(true);
+    }
+);
 
 test("[C13-ROUTE-TENANT-RELATION] reservation preserves tenant relation", { tags: "p0" }, () => {
     const route = reservationFixture("tenant-relation");
@@ -186,54 +195,64 @@ test("[C13-TRUST-ASSERTION-REJECTION] trust derives from host facts only", { tag
     ).toBe("authenticated");
 });
 
-test("[C13-TRUST-HOST-DERIVED] exact lease-backed host emission derives self", { tags: "p0" }, () => {
-    expect(
-        deriveEventTrust({
-            authenticatedPrincipal: principal,
-            principalOwnsScope: false,
-            validTurnLease: true,
-            hostEmission: true
-        }).tier
-    ).toBe("self");
-});
+test(
+    "[C13-TRUST-HOST-DERIVED] exact lease-backed host emission derives self",
+    { tags: "p0" },
+    () => {
+        expect(
+            deriveEventTrust({
+                authenticatedPrincipal: principal,
+                principalOwnsScope: false,
+                validTurnLease: true,
+                hostEmission: true
+            }).tier
+        ).toBe("self");
+    }
+);
 
-test("[C13-TRUST-VERIFIED-INGRESS] verified evidence binds the complete Event intent", { tags: "p0" }, () => {
-    const intent = eventIntentFixture("verified-ingress");
-    const authenticator = new ConformanceIntentAuthenticator();
-    const evidence = authenticator.evidence(intent);
-    expect(authenticator.authenticate(intent, evidence)).toBeInstanceOf(AuthenticatedEventIntent);
-    expect(() => authenticator.authenticate(intent, Uint8Array.of(0))).toThrow(
-        expect.objectContaining({ code: "authority.denied" })
-    );
+test(
+    "[C13-TRUST-VERIFIED-INGRESS] verified evidence binds the complete Event intent",
+    { tags: "p0" },
+    () => {
+        const intent = eventIntentFixture("verified-ingress");
+        const authenticator = new ConformanceIntentAuthenticator();
+        const evidence = authenticator.evidence(intent);
+        expect(authenticator.authenticate(intent, evidence)).toBeInstanceOf(
+            AuthenticatedEventIntent
+        );
+        expect(() => authenticator.authenticate(intent, Uint8Array.of(0))).toThrow(
+            expect.objectContaining({ code: "authority.denied" })
+        );
 
-    expect(() =>
-        authenticator.authenticate(
-            {
-                ...intent,
-                source: { kind: "actor", actor: targetActor }
-            },
-            evidence
-        )
-    ).toThrow(expect.objectContaining({ code: "authority.denied" }));
+        expect(() =>
+            authenticator.authenticate(
+                {
+                    ...intent,
+                    source: { kind: "actor", actor: targetActor }
+                },
+                evidence
+            )
+        ).toThrow(expect.objectContaining({ code: "authority.denied" }));
 
-    const substitutedPayload = content("substituted-ingress-payload");
-    expect(() =>
-        authenticator.authenticate(
-            {
-                ...intent,
-                payload: substitutedPayload.ref,
-                payloadDigest: substitutedPayload.digest,
-                payloadRetention: retentionFixture({
-                    id: "retention-substituted-ingress-payload",
-                    recordKind: "event",
-                    recordId: intent.id.value,
-                    content: substitutedPayload
-                })
-            },
-            evidence
-        )
-    ).toThrow(expect.objectContaining({ code: "authority.denied" }));
-});
+        const substitutedPayload = content("substituted-ingress-payload");
+        expect(() =>
+            authenticator.authenticate(
+                {
+                    ...intent,
+                    payload: substitutedPayload.ref,
+                    payloadDigest: substitutedPayload.digest,
+                    payloadRetention: retentionFixture({
+                        id: "retention-substituted-ingress-payload",
+                        recordKind: "event",
+                        recordId: intent.id.value,
+                        content: substitutedPayload
+                    })
+                },
+                evidence
+            )
+        ).toThrow(expect.objectContaining({ code: "authority.denied" }));
+    }
+);
 
 test("ViewDelta revision continues its base", { tags: "p1" }, () => {
     const view = viewFixture(0, "conformance-replay");
@@ -245,6 +264,7 @@ test("[C13-VIEW-NO-LIVE-STATE] View rejects live non-JSON state", { tags: "p1" }
         () =>
             new View({
                 surface: new SurfaceId("live-state"),
+                epoch: SurfaceEpoch.first(),
                 revision: Revision.initial(),
                 body: { live: callableRecord<string>(() => undefined) },
                 actions: [],
@@ -286,6 +306,7 @@ test("conformance fixtures retain canonical route identity types", { tags: "p2" 
     expect(
         new ViewDelta({
             surface: new SurfaceId("identity-surface"),
+            epoch: SurfaceEpoch.first(),
             baseRevision: Revision.initial(),
             revision: new Revision(1),
             patch: [],
@@ -310,7 +331,5 @@ function eventIntentFixture(suffix: string): EventIntentInput {
         provenance: event.provenance,
         visibility: event.visibility
     };
-    return event.causation === undefined
-        ? intent
-        : { ...intent, causation: event.causation };
+    return event.causation === undefined ? intent : { ...intent, causation: event.causation };
 }

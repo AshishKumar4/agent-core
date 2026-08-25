@@ -41,6 +41,7 @@ export type {
     ResourceUsage,
     SpawnAttenuationInit
 } from "./ceiling";
+export { Currency, RealizedCost } from "./cost";
 export { TurnLease } from "./lease";
 export type { LeaseToken, TurnLeaseVerifier } from "./lease";
 export { MemoryTurnLeaseVerifier, RepositoryTurnLeaseVerifier } from "./lease-verifier";
@@ -86,7 +87,9 @@ export type { ForcedTurnCancellationInit } from "./forced-cancellation";
 export { RunRuntime } from "./runtime";
 export type {
     ForcedCancellationControl,
+    RunCancelledItem,
     RunGenesis,
+    RunTerminalization,
     SiblingCancellationEvidence,
     TerminalizeRunRequest,
     TurnGenesis
@@ -122,6 +125,7 @@ export {
     TurnBoundOperation,
     TurnCheckpointHandle,
     TurnCommitHandle,
+    TurnCommitOmission,
     TurnContentHandle,
     TurnExecutor,
     TurnExecutorHost,

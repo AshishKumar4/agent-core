@@ -117,6 +117,27 @@ export class TurnPlacementSnapshot extends CodecRecord {
         Object.freeze(this);
     }
 
+    /**
+     * The Turn's FacetSet (SPEC §4.1, §5.3): the canonical-ordered, unique FacetRef
+     * membership of the Turn's one composition view. The constructor already canonicalizes
+     * and deduplicates `placements`, so this reads the captured record rather than holding a
+     * second membership list beside it. A second list is what would make the Turn compose
+     * two views, and §5.3 fixes it to one, which is why this is a derivation and never a
+     * stored field.
+     */
+    public get facetSet(): readonly FacetRef[] {
+        return Object.freeze(this.placements.map((placement) => placement.facet));
+    }
+
+    /**
+     * Whether the Turn composes this Facet, answered from the captured set. Every membership
+     * question goes through here, so no caller can answer one from the Scope's current
+     * install records and get a different answer for the same Turn.
+     */
+    public composes(facet: FacetRef): boolean {
+        return this.placements.some((placement) => placement.facet.equals(facet));
+    }
+
     public toData(): JsonValue {
         return {
             pins: this.pins.toData(),

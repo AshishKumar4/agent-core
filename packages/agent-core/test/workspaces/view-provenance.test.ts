@@ -32,7 +32,7 @@ function viewPayload(view: View): JsonObject {
     return envelope["payload"];
 }
 
-function viewBytes(payload: JsonValue, major = 2): Uint8Array {
+function viewBytes(payload: JsonValue, major = 3): Uint8Array {
     return encodeCanonicalJson({
         kind: View.codec.kind,
         payload,
@@ -100,6 +100,7 @@ describe("View approval provenance", () => {
 
             const delta = new ViewDelta({
                 surface: ordinary.surface,
+                epoch: ordinary.epoch,
                 baseRevision: ordinary.revision,
                 revision: ordinary.revision.next(),
                 patch: [],
@@ -122,6 +123,7 @@ describe("View approval provenance", () => {
                     // @ts-expect-error Decision provenance is incomplete without marks.
                     new View({
                         surface: ordinary.surface,
+                        epoch: ordinary.epoch,
                         revision: ordinary.revision,
                         body: ordinary.body,
                         actions: ordinary.actions,
@@ -134,6 +136,7 @@ describe("View approval provenance", () => {
                     // @ts-expect-error Ordinary Views must omit both provenance fields.
                     new View({
                         surface: ordinary.surface,
+                        epoch: ordinary.epoch,
                         revision: ordinary.revision,
                         body: ordinary.body,
                         actions: ordinary.actions,
@@ -146,7 +149,7 @@ describe("View approval provenance", () => {
     );
 
     test(
-        "round-trips the exact intent and canonical body marks in codec major two",
+        "round-trips the exact intent and canonical body marks in codec major three",
         { tags: "p0" },
         () => {
             const view = decisionView();
@@ -164,13 +167,13 @@ describe("View approval provenance", () => {
                 throw new TypeError("View envelope fixture changed shape");
             }
             const payload = viewPayload(view);
-            expect(envelope["version"]).toEqual({ major: 2, minor: 0 });
+            expect(envelope["version"]).toEqual({ major: 3, minor: 0 });
             expect(Object.hasOwn(view, "intentDigest")).toBe(true);
             expect(Object.hasOwn(view, "marks")).toBe(true);
             expect(Object.hasOwn(payload, "intentDigest")).toBe(true);
             expect(Object.hasOwn(payload, "marks")).toBe(true);
             expect(View.encode(View.decode(encoded))).toEqual(encoded);
-            expect(() => View.decode(viewBytes(payload, 1))).toThrow(
+            expect(() => View.decode(viewBytes(payload, 2))).toThrow(
                 expect.objectContaining({ code: "codec.unknown-major" })
             );
             const intentDigest = view.intentDigest;
@@ -189,6 +192,7 @@ describe("View approval provenance", () => {
             if (!isJsonObject(document)) throw new TypeError("View document fixture changed shape");
             const delta = new ViewDelta({
                 surface: view.surface,
+                epoch: view.epoch,
                 baseRevision: view.revision,
                 revision: view.revision.next(),
                 patch: [],
@@ -331,6 +335,7 @@ describe("View approval provenance", () => {
                 // @ts-expect-error Decision provenance is incomplete without an intent digest.
                 new View({
                     surface: base.surface,
+                    epoch: base.epoch,
                     revision: base.revision,
                     body: base.body,
                     actions: base.actions,
@@ -348,6 +353,7 @@ describe("View approval provenance", () => {
             const nextIntent = digest("next-decision-intent");
             const delta = new ViewDelta({
                 surface: previous.surface,
+                epoch: previous.epoch,
                 baseRevision: previous.revision,
                 revision: previous.revision.next(),
                 patch: [

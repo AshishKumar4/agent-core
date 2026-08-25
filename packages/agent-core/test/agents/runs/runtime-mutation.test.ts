@@ -43,11 +43,7 @@ import {
     type Assembled
 } from "./fixture";
 
-function expectCode(
-    operation: () => void,
-    code: AgentCoreError["code"],
-    message?: string
-): void {
+function expectCode(operation: () => void, code: AgentCoreError["code"], message?: string): void {
     const failure = thrownBy(AgentCoreError, operation);
     expect(failure.code).toBe(code);
     if (message !== undefined) expect(failure.message).toBe(message);
@@ -779,10 +775,9 @@ describe("captured evidence guards", () => {
     test("rejects forged writer and commit kinds for captured obligations", { tags: "p0" }, () => {
         const forgedWriter = terminalized(["captured-commit"]);
         withReceipt(forgedWriter.value);
-        const turnWritten = forgedCommit(
-            invocationCommit("captured-commit", forgedWriter.head),
-            { writer: { kind: "turn", token: forgedWriter.value.token } }
-        );
+        const turnWritten = forgedCommit(invocationCommit("captured-commit", forgedWriter.head), {
+            writer: { kind: "turn", token: forgedWriter.value.token }
+        });
         expectCode(
             () =>
                 forgedWriter.value.runtime.appendCapturedEvidence(
@@ -1090,164 +1085,178 @@ describe("suspension guards", () => {
         );
     });
 
-    test("[C13-RUN-CHECKPOINT-KINDS] rejects each checkpoint and commit mismatch individually", { tags: "p0" }, () => {
-        const cases: readonly ((fixture: ReturnType<typeof suspendFixture>) => Partial<{
-            commit: RunCommit;
-            checkpoint: RunCheckpoint;
-        }>)[] = [
-            (fixture) => ({
-                checkpoint: new RunCheckpoint(
-                    new RunCheckpointId("suspend-checkpoint"),
-                    new TurnId("turn-elsewhere"),
-                    fixture.commit.id,
-                    content("d"),
-                    0,
-                    undefined
-                )
-            }),
-            () => ({
-                checkpoint: new RunCheckpoint(
-                    new RunCheckpointId("suspend-checkpoint"),
-                    ids.turn,
-                    new RunCommitId("commit-elsewhere"),
-                    content("d"),
-                    0,
-                    undefined
-                )
-            }),
-            () => {
-                const commit = messageCommit("suspend-not-checkpoint", { content: content("d") });
-                return {
-                    commit,
+    test(
+        "[C13-RUN-CHECKPOINT-KINDS] rejects each checkpoint and commit mismatch individually",
+        { tags: "p0" },
+        () => {
+            const cases: readonly ((fixture: ReturnType<typeof suspendFixture>) => Partial<{
+                commit: RunCommit;
+                checkpoint: RunCheckpoint;
+            }>)[] = [
+                (fixture) => ({
                     checkpoint: new RunCheckpoint(
                         new RunCheckpointId("suspend-checkpoint"),
-                        ids.turn,
-                        commit.id,
+                        new TurnId("turn-elsewhere"),
+                        fixture.commit.id,
                         content("d"),
                         0,
                         undefined
                     )
-                };
-            },
-            (fixture) => ({
-                commit: forgedCommit(fixture.commit, { subjectTurn: undefined })
-            }),
-            (fixture) => ({
-                commit: forgedCommit(fixture.commit, {
-                    subjectTurn: new TurnId("turn-elsewhere")
+                }),
+                () => ({
+                    checkpoint: new RunCheckpoint(
+                        new RunCheckpointId("suspend-checkpoint"),
+                        ids.turn,
+                        new RunCommitId("commit-elsewhere"),
+                        content("d"),
+                        0,
+                        undefined
+                    )
+                }),
+                () => {
+                    const commit = messageCommit("suspend-not-checkpoint", {
+                        content: content("d")
+                    });
+                    return {
+                        commit,
+                        checkpoint: new RunCheckpoint(
+                            new RunCheckpointId("suspend-checkpoint"),
+                            ids.turn,
+                            commit.id,
+                            content("d"),
+                            0,
+                            undefined
+                        )
+                    };
+                },
+                (fixture) => ({
+                    commit: forgedCommit(fixture.commit, { subjectTurn: undefined })
+                }),
+                (fixture) => ({
+                    commit: forgedCommit(fixture.commit, {
+                        subjectTurn: new TurnId("turn-elsewhere")
+                    })
+                }),
+                (fixture) => ({
+                    commit: forgedCommit(fixture.commit, { writer: { kind: "root" } })
+                }),
+                (fixture) => ({
+                    commit: forgedCommit(fixture.commit, {
+                        writer: {
+                            kind: "turn",
+                            token: leaseToken({ turn: new TurnId("turn-elsewhere") })
+                        }
+                    })
+                }),
+                (fixture) => ({
+                    commit: forgedCommit(fixture.commit, {
+                        writer: {
+                            kind: "turn",
+                            token: leaseToken({
+                                holder: new PrincipalRef(
+                                    ids.holder.tenantId,
+                                    new PrincipalId("principal-elsewhere")
+                                )
+                            })
+                        }
+                    })
+                }),
+                (fixture) => ({
+                    commit: forgedCommit(fixture.commit, {
+                        writer: { kind: "turn", token: leaseToken({ epoch: 2 }) }
+                    })
+                }),
+                (fixture) => ({
+                    commit: forgedCommit(fixture.commit, { content: undefined })
+                }),
+                (fixture) => ({
+                    commit: forgedCommit(fixture.commit, { content: content("9") })
+                }),
+                (fixture) => ({
+                    commit: forgedCommit(fixture.commit, { treeCheckpoint: content("7") })
+                }),
+                (fixture) => ({
+                    checkpoint: new RunCheckpoint(
+                        new RunCheckpointId("suspend-checkpoint"),
+                        ids.turn,
+                        fixture.commit.id,
+                        content("d"),
+                        0,
+                        content("7")
+                    )
+                }),
+                (fixture) => ({
+                    checkpoint: new RunCheckpoint(
+                        new RunCheckpointId("suspend-checkpoint"),
+                        ids.turn,
+                        fixture.commit.id,
+                        content("d"),
+                        1,
+                        undefined
+                    )
                 })
-            }),
-            (fixture) => ({
-                commit: forgedCommit(fixture.commit, { writer: { kind: "root" } })
-            }),
-            (fixture) => ({
-                commit: forgedCommit(fixture.commit, {
-                    writer: {
-                        kind: "turn",
-                        token: leaseToken({ turn: new TurnId("turn-elsewhere") })
-                    }
-                })
-            }),
-            (fixture) => ({
-                commit: forgedCommit(fixture.commit, {
-                    writer: {
-                        kind: "turn",
-                        token: leaseToken({
-                            holder: new PrincipalRef(
-                                ids.holder.tenantId,
-                                new PrincipalId("principal-elsewhere")
-                            )
-                        })
-                    }
-                })
-            }),
-            (fixture) => ({
-                commit: forgedCommit(fixture.commit, {
-                    writer: { kind: "turn", token: leaseToken({ epoch: 2 }) }
-                })
-            }),
-            (fixture) => ({
-                commit: forgedCommit(fixture.commit, { content: undefined })
-            }),
-            (fixture) => ({
-                commit: forgedCommit(fixture.commit, { content: content("9") })
-            }),
-            (fixture) => ({
-                commit: forgedCommit(fixture.commit, { treeCheckpoint: content("7") })
-            }),
-            (fixture) => ({
-                checkpoint: new RunCheckpoint(
-                    new RunCheckpointId("suspend-checkpoint"),
-                    ids.turn,
-                    fixture.commit.id,
-                    content("d"),
-                    0,
-                    content("7")
-                )
-            }),
-            (fixture) => ({
-                checkpoint: new RunCheckpoint(
-                    new RunCheckpointId("suspend-checkpoint"),
-                    ids.turn,
-                    fixture.commit.id,
-                    content("d"),
-                    1,
-                    undefined
-                )
-            })
-        ];
-        for (const build of cases) {
-            const fixture = suspendFixture();
+            ];
+            for (const build of cases) {
+                const fixture = suspendFixture();
+                expectCode(
+                    () => suspend(fixture, build(fixture)),
+                    "turn.invalid-state",
+                    "Suspend checkpoint and commit do not match the Turn"
+                );
+            }
+
+            const mismatched = suspendFixture(content("7"));
             expectCode(
-                () => suspend(fixture, build(fixture)),
+                () =>
+                    suspend(mismatched, {
+                        checkpoint: new RunCheckpoint(
+                            new RunCheckpointId("suspend-checkpoint"),
+                            ids.turn,
+                            mismatched.commit.id,
+                            content("d"),
+                            0,
+                            content("8")
+                        )
+                    }),
                 "turn.invalid-state",
                 "Suspend checkpoint and commit do not match the Turn"
             );
         }
+    );
 
-        const mismatched = suspendFixture(content("7"));
-        expectCode(
-            () =>
-                suspend(mismatched, {
-                    checkpoint: new RunCheckpoint(
-                        new RunCheckpointId("suspend-checkpoint"),
-                        ids.turn,
-                        mismatched.commit.id,
-                        content("d"),
-                        0,
-                        content("8")
-                    )
-                }),
-            "turn.invalid-state",
-            "Suspend checkpoint and commit do not match the Turn"
-        );
-    });
+    test(
+        "[C13-RUN-CHECKPOINT-KINDS] suspends with matching absent tree checkpoints",
+        { tags: "p0" },
+        () => {
+            const fixture = suspendFixture();
+            suspend(fixture);
+            const suspended = fixture.value.repository.transaction((tx) =>
+                must(fixture.value.repository.loadTurn(tx, ids.turn))
+            );
+            expect(suspended.status.kind).toBe("suspended");
+            expect(suspended.lease.holder).toBeUndefined();
+            expect(suspended.lease.epoch).toBe(2);
+            expect(
+                fixture.value.repository.transaction((tx) =>
+                    fixture.value.repository.loadCheckpoint(tx, fixture.checkpoint.id)
+                )
+            ).toBeDefined();
+        }
+    );
 
-    test("[C13-RUN-CHECKPOINT-KINDS] suspends with matching absent tree checkpoints", { tags: "p0" }, () => {
-        const fixture = suspendFixture();
-        suspend(fixture);
-        const suspended = fixture.value.repository.transaction((tx) =>
-            must(fixture.value.repository.loadTurn(tx, ids.turn))
-        );
-        expect(suspended.status.kind).toBe("suspended");
-        expect(suspended.lease.holder).toBeUndefined();
-        expect(suspended.lease.epoch).toBe(2);
-        expect(
-            fixture.value.repository.transaction((tx) =>
-                fixture.value.repository.loadCheckpoint(tx, fixture.checkpoint.id)
-            )
-        ).toBeDefined();
-    });
-
-    test("[C13-RUN-CHECKPOINT-KINDS] suspends with matching present tree checkpoints", { tags: "p0" }, () => {
-        const fixture = suspendFixture(content("7"));
-        suspend(fixture);
-        const suspended = fixture.value.repository.transaction((tx) =>
-            must(fixture.value.repository.loadTurn(tx, ids.turn))
-        );
-        expect(suspended.status.kind).toBe("suspended");
-        expect(must(suspended.checkpoint).equals(fixture.checkpoint.id)).toBe(true);
-    });
+    test(
+        "[C13-RUN-CHECKPOINT-KINDS] suspends with matching present tree checkpoints",
+        { tags: "p0" },
+        () => {
+            const fixture = suspendFixture(content("7"));
+            suspend(fixture);
+            const suspended = fixture.value.repository.transaction((tx) =>
+                must(fixture.value.repository.loadTurn(tx, ids.turn))
+            );
+            expect(suspended.status.kind).toBe("suspended");
+            expect(must(suspended.checkpoint).equals(fixture.checkpoint.id)).toBe(true);
+        }
+    );
 });
 
 describe("completion guards", () => {
@@ -1383,7 +1392,11 @@ describe("append guards", () => {
 
     test("rejects stale and absent parents with a revision conflict", { tags: "p0" }, () => {
         const value = seedRunningTurn();
-        value.runtime.appendTurnCommit(messageCommit("append-head"), new Revision(0), new Date(1500));
+        value.runtime.appendTurnCommit(
+            messageCommit("append-head"),
+            new Revision(0),
+            new Date(1500)
+        );
         expectCode(
             () =>
                 value.runtime.appendTurnCommit(
@@ -1449,19 +1462,23 @@ describe("append guards", () => {
         );
     });
 
-    test("[C13-RUN-MIGRATED-TURN-REJECTION] non-migration commits must inherit the parent pins", { tags: "p0" }, () => {
-        const value = seedRunningTurn();
-        expectCode(
-            () =>
-                value.runtime.appendTurnCommit(
-                    messageCommit("append-repinned", { pins: differentPins() }),
-                    new Revision(0),
-                    new Date(1500)
-                ),
-            "run.invalid-state",
-            "Non-migration Run commit must inherit parent pins"
-        );
-    });
+    test(
+        "[C13-RUN-MIGRATED-TURN-REJECTION] non-migration commits must inherit the parent pins",
+        { tags: "p0" },
+        () => {
+            const value = seedRunningTurn();
+            expectCode(
+                () =>
+                    value.runtime.appendTurnCommit(
+                        messageCommit("append-repinned", { pins: differentPins() }),
+                        new Revision(0),
+                        new Date(1500)
+                    ),
+                "run.invalid-state",
+                "Non-migration Run commit must inherit parent pins"
+            );
+        }
+    );
 
     test("rejects Turn writers outside the commit lineage", { tags: "p0" }, () => {
         const foreign = harness();
@@ -2084,8 +2101,7 @@ describe("merge validation", () => {
         });
         withControl(theirs.value, theirsMismatch);
         expectCode(
-            () =>
-                theirs.value.runtime.mergeRun(theirsMismatch, new Revision(0), new Date(1000)),
+            () => theirs.value.runtime.mergeRun(theirsMismatch, new Revision(0), new Date(1000)),
             "run.invalid-state",
             "Tree side resolution must copy the selected parent tree"
         );
@@ -2182,6 +2198,30 @@ describe("merge validation", () => {
             perPath.value.runtime.effectiveCommit(ids.run, ids.branch).equals(perPathMerge.id)
         ).toBe(true);
     });
+
+    test(
+        "[C13-RUN-GRAPH-CLOSED] accepts a merge whose source is a distinct branch of the same Run at equal pins",
+        { tags: "p0" },
+        () => {
+            const { value, sourceHead } = mergeFixture();
+            const joined = mergeCommit("merge-same-run-distinct-branch", sourceHead.id);
+            withControl(value, joined);
+            value.runtime.mergeRun(joined, new Revision(0), new Date(1000));
+
+            expect(value.runtime.effectiveCommit(ids.run, ids.branch).equals(joined.id)).toBe(true);
+            expect(joined.mergeParents?.target.equals(ids.root)).toBe(true);
+            expect(joined.mergeParents?.source.equals(sourceHead.id)).toBe(true);
+
+            // The join added no second origin, so the Run still measures from one root.
+            const stored = value.repository.transaction((tx) => value.repository.listCommits(tx));
+            expect(stored.every((commit) => commit.run.equals(ids.run))).toBe(true);
+            expect(
+                stored
+                    .filter((commit) => commit.parents.length === 0)
+                    .map((commit) => commit.id.value)
+            ).toEqual([ids.root.value]);
+        }
+    );
 });
 
 describe("runtime lookup errors", () => {
@@ -2216,4 +2256,195 @@ describe("runtime lookup errors", () => {
             "Turn does not exist"
         );
     });
+});
+
+describe("Run graph closure", () => {
+    const childId = new RunId("run-child");
+    const childBranchId = new RunBranchId("branch-child");
+    const childRootId = new RunCommitId("commit-child-root");
+    const parentSideBranch = new RunBranchId("branch-parent-side");
+
+    function childGenesis() {
+        const snapshot = configuration();
+        return {
+            run: new Run({
+                id: childId,
+                agent: ids.agent,
+                configuration: snapshot.id,
+                root: childRootId,
+                initialBranch: childBranchId,
+                parent: ids.run,
+                revision: new Revision(0)
+            }),
+            configuration: snapshot,
+            branch: new RunBranch(childBranchId, childId, "main", childRootId, new Revision(0)),
+            root: new RunCommit({
+                id: childRootId,
+                run: childId,
+                branch: childBranchId,
+                kind: "root",
+                parents: [],
+                pins: snapshot.pins,
+                writer: { kind: "root" },
+                content: content("5")
+            })
+        };
+    }
+
+    function spawnReservation(): SpawnReservation {
+        return new SpawnReservation(
+            new SpawnReservationId("spawn-closure"),
+            ids.run,
+            ids.turn,
+            childId,
+            leaseToken(),
+            configuration().id,
+            content("5"),
+            refs.invocation,
+            refs.receipt,
+            attenuationDigest(new SpawnAttenuation()),
+            new Date(1500)
+        );
+    }
+
+    test(
+        "[C13-RUN-GRAPH-CLOSED] a child Run reaches no commit of its parent, whatever either Run appends",
+        { tags: "p0" },
+        () => {
+            const value = seedRunningTurn();
+            const branchRevision = (branch: RunBranchId): Revision =>
+                must(value.repository.transaction((tx) => value.repository.loadBranch(tx, branch)))
+                    .revision;
+            const runRevision = (run: RunId): Revision =>
+                must(value.repository.transaction((tx) => value.repository.loadRun(tx, run)))
+                    .revision;
+
+            // The parent Run grows: a Turn-authored message, a second branch, a system commit
+            // on it, and a merge joining the two lineages.
+            const message = messageCommit("closure-parent-message");
+            value.runtime.appendTurnCommit(message, new Revision(0), new Date(1000));
+            value.runtime.createBranch(
+                ids.run,
+                new RunBranch(parentSideBranch, ids.run, "side", ids.root, new Revision(0)),
+                runRevision(ids.run)
+            );
+            withReceipt(value);
+            const sideHead = invocationCommit("closure-parent-side", ids.root, {
+                branch: parentSideBranch
+            });
+            value.runtime.appendSystemEvidenceCommit(sideHead, new Revision(0), new Date(1100));
+            const joined = new RunCommit({
+                id: new RunCommitId("closure-parent-merge"),
+                run: ids.run,
+                branch: ids.branch,
+                kind: "merge",
+                parents: [message.id, sideHead.id],
+                pins: pins(),
+                writer: {
+                    kind: "system",
+                    cause: { kind: "control", audit: refs.audit, receipt: refs.receipt }
+                },
+                content: content("4"),
+                resolution: { kind: "concat" },
+                receipt: refs.receipt
+            });
+            withControl(value, joined);
+            value.runtime.mergeRun(joined, branchRevision(ids.branch), new Date(1200));
+
+            // The child arrives with its own zero-parent root and grows on its own evidence.
+            value.runtime.spawnRun(spawnReservation(), childGenesis(), new Date(1500));
+            value.evidence.deliveries.set(`${refs.route.value}:${refs.audit.value}`, {
+                kind: "delivery",
+                run: childId,
+                reservation: refs.route,
+                audit: refs.audit
+            });
+            const delivered = new RunCommit({
+                id: new RunCommitId("closure-child-delivery"),
+                run: childId,
+                branch: childBranchId,
+                kind: "eventDelivery",
+                parents: [childRootId],
+                pins: pins(),
+                writer: {
+                    kind: "system",
+                    cause: { kind: "delivery", audit: refs.audit, reservation: refs.route }
+                },
+                reservation: refs.route
+            });
+            value.runtime.appendSystemEvidenceCommit(delivered, new Revision(0), new Date(1600));
+            value.runtime.createBranch(
+                childId,
+                new RunBranch(
+                    new RunBranchId("branch-child-side"),
+                    childId,
+                    "side",
+                    childRootId,
+                    new Revision(0)
+                ),
+                runRevision(childId)
+            );
+
+            // A child branch cannot be opened at a commit of the parent Run at all.
+            expectCode(
+                () =>
+                    value.runtime.createBranch(
+                        childId,
+                        new RunBranch(
+                            new RunBranchId("branch-child-poached"),
+                            childId,
+                            "poached",
+                            joined.id,
+                            new Revision(0)
+                        ),
+                        runRevision(childId)
+                    ),
+                "run.invalid-state",
+                "Run branch creation is invalid"
+            );
+
+            const stored = value.repository.transaction((tx) => value.repository.listCommits(tx));
+            const parentCommits = stored.filter((commit) => commit.run.equals(ids.run));
+            const childCommits = stored.filter((commit) => commit.run.equals(childId));
+            expect(parentCommits.map((commit) => commit.id.value).sort()).toEqual([
+                "closure-parent-merge",
+                "closure-parent-message",
+                "closure-parent-side",
+                ids.root.value
+            ]);
+            expect(childCommits.map((commit) => commit.id.value).sort()).toEqual([
+                "closure-child-delivery",
+                childRootId.value
+            ]);
+
+            for (const child of childCommits) {
+                for (const ancestor of parentCommits) {
+                    expect(
+                        value.repository.transaction((tx) =>
+                            value.repository.isAncestor(tx, ancestor.id, child.id)
+                        ),
+                        `${ancestor.id.value} reaches ${child.id.value}`
+                    ).toBe(false);
+                }
+                expect(
+                    child.parents.every((parent) =>
+                        childCommits.some((candidate) => candidate.id.equals(parent))
+                    ),
+                    `${child.id.value} parents`
+                ).toBe(true);
+            }
+
+            // Each Run measures its wall clock from exactly one origin.
+            expect(
+                childCommits
+                    .filter((commit) => commit.parents.length === 0)
+                    .map((commit) => commit.id.value)
+            ).toEqual([childRootId.value]);
+            expect(
+                parentCommits
+                    .filter((commit) => commit.parents.length === 0)
+                    .map((commit) => commit.id.value)
+            ).toEqual([ids.root.value]);
+        }
+    );
 });

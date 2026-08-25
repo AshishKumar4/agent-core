@@ -4430,7 +4430,7 @@
       "id": "C13-VIEW-WITHDRAWAL-TERMINAL",
       "owner": "W7",
       "specAnchor": "C13-VIEW-WITHDRAWAL-TERMINAL",
-      "specTextSha256": "sha256:4893ec1b20d3e1685b0af8ae207494d89958362b992770bf2472c68f96c74d48",
+      "specTextSha256": "sha256:b9a3de80fcd943bda01e67edb6d2d5ce4e0b8a18a4bf76740a81d15c545232d9",
       "status": "planned",
       "prerequisites": [],
       "sourceSymbols": [],

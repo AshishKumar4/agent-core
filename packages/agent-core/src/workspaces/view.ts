@@ -19,9 +19,11 @@ import {
     requireArray,
     requireFields,
     requireObject,
+    requireOptionalFields,
     requireString
 } from "./codec";
 import { ActionId, EventCursor } from "./id";
+import { SurfaceEpoch, decodeSurfaceEpoch, surfaceRevisionKey } from "./surface-epoch";
 import { canonicalJson } from "./value";
 
 export interface ActionDescriptorInit {
@@ -87,10 +89,17 @@ const actionDescriptorCodecInstance = new ActionDescriptorCodecV1();
 
 interface ViewBaseInit {
     readonly surface: SurfaceId;
+    readonly epoch: SurfaceEpoch;
     readonly revision: Revision;
     readonly body: JsonValue;
     readonly actions: readonly ActionDescriptor[];
     readonly cursor: EventCursor;
+    /**
+     * SPEC §6.3: present exactly on the last View of a retired Surface, absent everywhere
+     * else. Presence is the discriminator, exactly as `intentDigest` discriminates a
+     * decision View, and a decision View may also be terminal.
+     */
+    readonly terminal?: true;
 }
 
 interface OrdinaryViewInit {
@@ -144,12 +153,13 @@ export class ViewMark {
 
 const viewMarkCodecInstance = new ViewMarkCodecV1();
 
-class ViewCodecV2 extends RecordCodec<View> {
+class ViewCodecV3 extends RecordCodec<View> {
     public constructor() {
         super(
             [
                 View,
                 Revision,
+                SurfaceEpoch,
                 TextId,
                 ViewMark,
                 JsonPointer,
@@ -162,38 +172,43 @@ class ViewCodecV2 extends RecordCodec<View> {
                 EventKind
             ],
             "workspace.view",
-            { major: 2, minor: 0 }
+            { major: 3, minor: 0 }
         );
     }
 
     protected encodePayload(view: View): JsonValue {
         return {
             surface: view.surface.value,
+            epoch: view.epoch.value,
             revision: encodeRevision(view.revision),
             body: view.body,
             actions: view.actions.map(encodeAction),
             cursor: view.cursor.value,
-            ...encodeViewProvenance(view)
+            ...encodeViewProvenance(view),
+            ...encodeViewTermination(view)
         };
     }
 
     protected decodePayload(payload: JsonValue, _version: RecordVersion): View {
         const object = requireObject(payload, "View payload");
         const provenance = decodeViewProvenance(object, "View payload");
+        const termination = requireViewTermination(object, "View payload");
         requireViewFields(
             object,
             provenance,
-            ["actions", "body", "cursor", "revision", "surface"],
+            ["actions", "body", "cursor", "epoch", "revision", "surface"],
             "View payload"
         );
         const init = {
             surface: new SurfaceId(requireString(object["surface"], "View Surface ID")),
+            epoch: decodeSurfaceEpoch(object["epoch"], "View Surface epoch"),
             revision: decodeRevision(object["revision"], "View revision"),
             body: canonicalJson(object["body"]),
             actions: requireArray(object["actions"], "View actions").map(decodeAction),
             cursor: new EventCursor(requireString(object["cursor"], "View cursor"))
         };
-        return provenance === undefined ? new View(init) : new View({ ...init, ...provenance });
+        const decided = provenance === undefined ? init : { ...init, ...provenance };
+        return new View(termination === undefined ? decided : { ...decided, terminal: true });
     }
 }
 
@@ -211,14 +226,19 @@ export class View {
     }
 
     public readonly surface: SurfaceId;
+    public readonly epoch: SurfaceEpoch;
     public readonly revision: Revision;
     public readonly body: JsonValue;
     public readonly actions: readonly ActionDescriptor[];
     public readonly cursor: EventCursor;
     declare public readonly intentDigest?: Digest;
     declare public readonly marks?: readonly ViewMark[];
+    declare public readonly terminal?: true;
 
     public constructor(init: ViewInit) {
+        if (!SurfaceEpoch.isExact(init.epoch)) {
+            throw new TypeError("View epoch must be a SurfaceEpoch");
+        }
         const actionIds = new Set<string>();
         const actions = init.actions.map(copyAction);
         for (const action of actions) {
@@ -229,6 +249,7 @@ export class View {
         }
         const body = canonicalJson(init.body);
         const provenance = requireViewProvenance(init);
+        const termination = requireViewTermination(init, "View");
         const marks = provenance?.marks.map((mark) => new ViewMark(mark.path, mark.tier)) ?? [];
         marks.sort(compareViewMarks);
         for (const [index, mark] of marks.entries()) {
@@ -238,6 +259,7 @@ export class View {
             requireMarkedValue(body, mark.path);
         }
         this.surface = init.surface;
+        this.epoch = init.epoch;
         this.revision = init.revision;
         this.body = body;
         this.actions = Object.freeze(actions);
@@ -246,31 +268,35 @@ export class View {
             this.intentDigest = new Digest(provenance.intentDigest.value);
             this.marks = Object.freeze(marks);
         }
+        if (termination !== undefined) this.terminal = true;
         Object.freeze(this);
     }
 }
 
-const viewCodecInstance = new ViewCodecV2();
+const viewCodecInstance = new ViewCodecV3();
 
 export interface ViewDeltaInit {
     readonly surface: SurfaceId;
+    readonly epoch: SurfaceEpoch;
     readonly baseRevision: Revision;
     readonly revision: Revision;
     readonly patch: readonly JsonValue[];
     readonly cursor: EventCursor;
 }
 
-class ViewDeltaCodecV1 extends RecordCodec<ViewDelta> {
+class ViewDeltaCodecV2 extends RecordCodec<ViewDelta> {
     public constructor() {
-        super([ViewDelta, Revision, TextId, SurfaceId, EventCursor], "workspace.view-delta", {
-            major: 1,
-            minor: 0
-        });
+        super(
+            [ViewDelta, Revision, SurfaceEpoch, TextId, SurfaceId, EventCursor],
+            "workspace.view-delta",
+            { major: 2, minor: 0 }
+        );
     }
 
     protected encodePayload(delta: ViewDelta): JsonValue {
         return {
             surface: delta.surface.value,
+            epoch: delta.epoch.value,
             baseRevision: encodeRevision(delta.baseRevision),
             revision: encodeRevision(delta.revision),
             patch: delta.patch,
@@ -282,11 +308,12 @@ class ViewDeltaCodecV1 extends RecordCodec<ViewDelta> {
         const object = requireObject(payload, "View delta payload");
         requireFields(
             object,
-            ["baseRevision", "cursor", "patch", "revision", "surface"],
+            ["baseRevision", "cursor", "epoch", "patch", "revision", "surface"],
             "View delta payload"
         );
         return new ViewDelta({
             surface: new SurfaceId(requireString(object["surface"], "Delta Surface ID")),
+            epoch: decodeSurfaceEpoch(object["epoch"], "Delta Surface epoch"),
             baseRevision: decodeRevision(object["baseRevision"], "Delta base revision"),
             revision: decodeRevision(object["revision"], "Delta revision"),
             patch: requireArray(object["patch"], "View patch").map(canonicalJson),
@@ -309,16 +336,21 @@ export class ViewDelta {
     }
 
     public readonly surface: SurfaceId;
+    public readonly epoch: SurfaceEpoch;
     public readonly baseRevision: Revision;
     public readonly revision: Revision;
     public readonly patch: readonly JsonValue[];
     public readonly cursor: EventCursor;
 
     public constructor(init: ViewDeltaInit) {
+        if (!SurfaceEpoch.isExact(init.epoch)) {
+            throw new TypeError("View delta epoch must be a SurfaceEpoch");
+        }
         if (!init.baseRevision.next().equals(init.revision)) {
             throw new TypeError("View delta revision must immediately follow its base revision");
         }
         this.surface = init.surface;
+        this.epoch = init.epoch;
         this.baseRevision = init.baseRevision;
         this.revision = init.revision;
         this.patch = Object.freeze(init.patch.map(canonicalJson));
@@ -327,25 +359,59 @@ export class ViewDelta {
     }
 }
 
-const viewDeltaCodecInstance = new ViewDeltaCodecV1();
+const viewDeltaCodecInstance = new ViewDeltaCodecV2();
 
 export interface JsonPatchEngine {
     apply(document: JsonValue, patch: readonly JsonValue[]): JsonValue;
 }
 
+/**
+ * The RFC 6902 target of a ViewDelta: the parts of a View a patch may change. `surface`,
+ * `epoch`, `revision`, and `cursor` are stream identity and position rather than body, so
+ * they are absent here and no patch can reach them.
+ */
 export function viewDocument(view: View): JsonValue {
     return canonicalJson({
         body: view.body,
         actions: view.actions.map(encodeAction),
-        ...encodeViewProvenance(view)
+        ...encodeViewProvenance(view),
+        ...encodeViewTermination(view)
     });
+}
+
+/**
+ * SPEC §6.3: a retired Surface emits one final ViewDelta, the patch that adds `terminal`.
+ * This is that patch, and `terminalViewDocument` is the document it produces, so the
+ * durable delta states exactly the change the durable View records.
+ */
+export const TERMINAL_VIEW_PATCH: readonly JsonValue[] = Object.freeze([
+    Object.freeze({ op: "add", path: "/terminal", value: true })
+]);
+
+export function terminalViewDocument(view: View): JsonValue {
+    const document = requireObject(viewDocument(view), "View document");
+    return canonicalJson({ ...document, terminal: true });
+}
+
+/** The durable key of one View revision, and of the ViewDelta that produced it. */
+export function viewRecordKey(view: View): string {
+    return surfaceRevisionKey(view.surface.value, view.epoch, view.revision);
+}
+
+export function viewDeltaRecordKey(delta: ViewDelta): string {
+    return surfaceRevisionKey(delta.surface.value, delta.epoch, delta.revision);
 }
 
 export function viewFromDocument(previous: View, delta: ViewDelta, document: JsonValue): View {
     const object = requireObject(document, "Patched View document");
     const provenance = decodeViewProvenance(object, "Patched View document");
+    const termination = requireViewTermination(object, "Patched View document");
     requireViewFields(object, provenance, ["actions", "body"], "Patched View document");
-    if (!previous.surface.equals(delta.surface) || !previous.revision.equals(delta.baseRevision)) {
+    if (
+        !previous.surface.equals(delta.surface) ||
+        !previous.epoch.equals(delta.epoch) ||
+        !previous.revision.equals(delta.baseRevision)
+    ) {
         throw new AgentCoreError(
             "protocol.revision-conflict",
             "View delta does not continue the supplied View"
@@ -353,12 +419,14 @@ export function viewFromDocument(previous: View, delta: ViewDelta, document: Jso
     }
     const init = {
         surface: previous.surface,
+        epoch: previous.epoch,
         revision: delta.revision,
         body: canonicalJson(object["body"]),
         actions: requireArray(object["actions"], "Patched View actions").map(decodeAction),
         cursor: delta.cursor
     };
-    return provenance === undefined ? new View(init) : new View({ ...init, ...provenance });
+    const decided = provenance === undefined ? init : { ...init, ...provenance };
+    return new View(termination === undefined ? decided : { ...decided, terminal: true });
 }
 
 function encodeViewMark(mark: ViewMark): JsonValue {
@@ -392,6 +460,26 @@ function encodeViewProvenance(view: View): JsonObject {
           };
 }
 
+/**
+ * SPEC §6.3: `terminal` marks the last View of a retired Surface by its presence, exactly
+ * as `intentDigest` marks a decision View. A present value that is not `true` is refused,
+ * so no path can spell "not terminal" as a value a later edit could flip.
+ */
+function requireViewTermination(
+    source: { readonly terminal?: JsonValue },
+    subject: string
+): true | undefined {
+    if (!Object.hasOwn(source, "terminal")) return undefined;
+    if (source.terminal !== true) {
+        throw new TypeError(`${subject} marks termination by presence, never by a value`);
+    }
+    return true;
+}
+
+function encodeViewTermination(view: View): JsonObject {
+    return requireViewTermination(view, "View") === undefined ? {} : { terminal: true };
+}
+
 function decodeViewMark(value: JsonValue): ViewMark {
     const object = requireObject(value, "View mark");
     requireFields(object, ["path", "tier"], "View mark");
@@ -418,9 +506,10 @@ function requireViewFields<Field extends string>(
     fields: readonly Field[],
     subject: string
 ): asserts object is JsonFields<Field> {
-    requireFields(
+    requireOptionalFields(
         object,
         provenance === undefined ? fields : [...fields, "intentDigest", "marks"],
+        ["terminal"],
         subject
     );
 }

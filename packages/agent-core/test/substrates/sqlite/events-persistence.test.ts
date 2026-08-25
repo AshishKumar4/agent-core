@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { expect, test } from "vitest";
 import type { SynchronousResultGuard } from "../../../src/actors";
 import { Digest, Revision } from "../../../src/core";
+import { SurfaceDescriptor, SurfaceId, SurfaceRegistration } from "../../../src/facets";
 import { sqliteText } from "../../../src/substrates/sqlite/content";
 import { SqliteWorkspaceRecords } from "../../../src/substrates/sqlite/workspace-records";
 import {
@@ -20,6 +21,7 @@ import {
     WorkspacePersistence,
     type DeletableWorkspaceRecordKind
 } from "../../../src/workspaces";
+import { SurfaceEpoch, surfaceRevisionKey } from "../../../src/workspaces";
 import { malformed } from "../../helpers/malformed";
 import { FileSqlite, TestSqlite } from "../../helpers/sqlite";
 import {
@@ -28,12 +30,14 @@ import {
     eventRetention,
     sourceActor,
     tenant,
+    viewDeltaFixture,
     viewFixture
 } from "../../workspaces/fixtures";
 import {
     workspacePersistenceContract,
     type WorkspacePersistenceHarness
 } from "../../events/persistence-contract";
+import { attribution } from "../../w3/slot-store-contract";
 
 workspacePersistenceContract("SQLite", createSqliteHarness);
 
@@ -89,6 +93,7 @@ test(
         });
         const delta = new ViewDelta({
             surface: initial.surface,
+            epoch: initial.epoch,
             baseRevision: initial.revision,
             revision: initial.revision.next(),
             patch: [
@@ -120,6 +125,10 @@ test(
                 tenant
             );
             opened.transaction(() => {
+                persistence.putSurfaceRegistration(
+                    opened,
+                    surfaceRegistration("workspace:provenance", initial.surface)
+                );
                 protocol.publishSnapshot(opened, initial, []);
                 protocol.publish(opened, delta, [], []);
             });
@@ -142,13 +151,79 @@ test(
                 tenant
             );
             const replay = reopened.transaction(() =>
-                protocol.replay(reopened, initial.surface, Revision.initial())
+                protocol.replay(reopened, initial.surface, SurfaceEpoch.first(), initial.cursor)
             );
 
             expect(replay.kind).toBe("deltas");
             expect(replay.view.intentDigest?.equals(nextIntent)).toBe(true);
             expect(replay.view.marks).toEqual([new ViewMark("/count", "authenticated")]);
             expect(replay.view.body).toEqual({ count: 1, nested: { enabled: true } });
+        } finally {
+            database?.close();
+            rmSync(directory, { recursive: true, force: true });
+        }
+    }
+);
+
+test(
+    "[C13-VIEW-WITHDRAWAL-TERMINAL] file-backed SQLite answers the current epoch and the retired terminal revision after reopen",
+    { tags: "p0" },
+    () => {
+        const directory = mkdtempSync(join(tmpdir(), "agent-core-surface-epoch-"));
+        const path = join(directory, "events.sqlite");
+        const first = viewFixture(0, "sqlite-epoch-restart");
+        const surface = first.surface;
+        const second = new SurfaceEpoch(2);
+        let database: FileSqlite | undefined;
+        try {
+            const opened = new FileSqlite(path);
+            database = opened;
+            const before = openWorkspace(opened);
+            opened.transaction(() => {
+                before.persistence.putSurfaceRegistration(
+                    opened,
+                    surfaceRegistration("workspace:epoch-before", surface)
+                );
+                before.protocol.publishSnapshot(opened, first, []);
+                before.protocol.publish(opened, viewDeltaFixture(first, 1), [], []);
+                before.persistence.retireSurfaceRegistration(opened, surface);
+                before.persistence.putSurfaceRegistration(
+                    opened,
+                    surfaceRegistration("workspace:epoch-after", surface)
+                );
+                before.protocol.publishSnapshot(
+                    opened,
+                    new View({ ...first, epoch: second, revision: Revision.initial() }),
+                    []
+                );
+            });
+            opened.close();
+            database = undefined;
+
+            const reopened = new FileSqlite(path);
+            database = reopened;
+            const after = openWorkspace(reopened);
+            reopened.transaction(() => {
+                expect(after.persistence.currentSurfaceEpoch(reopened, surface.value).value).toBe(
+                    2
+                );
+                const retired = after.protocol.replay(
+                    reopened,
+                    surface,
+                    SurfaceEpoch.first(),
+                    first.cursor
+                );
+                expect(retired.view.revision.value).toBe(2);
+                expect(retired.view.terminal).toBe(true);
+                const live = after.protocol.replay(reopened, surface, second, first.cursor);
+                expect(live.view.revision.value).toBe(0);
+                expect(live.view.terminal).toBeUndefined();
+                expect(
+                    after.persistence
+                        .listSurfaceRegistrations(reopened)
+                        .map((record) => record.attribution.contributor.value)
+                ).toEqual(["workspace:epoch-after"]);
+            });
         } finally {
             database?.close();
             rmSync(directory, { recursive: true, force: true });
@@ -178,7 +253,7 @@ test("verifies initial pointer compare-and-set postconditions", { tags: "p0" }, 
             {
                 namespace: "view.current",
                 key: "surface",
-                recordKey: "surface@0"
+                recordKey: viewKey("surface", 0)
             },
             undefined
         )
@@ -289,14 +364,14 @@ test(
 test("pointer compare-and-set reports a stale expectation exactly", { tags: "p0" }, () => {
     const records = new SqliteWorkspaceRecords(new TestSqlite());
     records.compareAndSetPointer(
-        { namespace: "view.current", key: "surface", recordKey: "surface@0" },
+        { namespace: "view.current", key: "surface", recordKey: viewKey("surface", 0) },
         undefined
     );
 
     expect(() =>
         records.compareAndSetPointer(
-            { namespace: "view.current", key: "surface", recordKey: "surface@2" },
-            "surface@1"
+            { namespace: "view.current", key: "surface", recordKey: viewKey("surface", 2) },
+            viewKey("surface", 1)
         )
     ).toThrow(
         expect.objectContaining({
@@ -304,7 +379,7 @@ test("pointer compare-and-set reports a stale expectation exactly", { tags: "p0"
             message: "Workspace pointer compare-and-set failed"
         })
     );
-    expect(records.findPointer("view.current", "surface")?.recordKey).toBe("surface@0");
+    expect(records.findPointer("view.current", "surface")?.recordKey).toBe(viewKey("surface", 0));
 });
 
 test("schema comparison tolerates whitespace layout but not content drift", { tags: "p1" }, () => {
@@ -419,4 +494,40 @@ function createSqliteHarness(): WorkspacePersistenceHarness<TransactionalSqlite>
         },
         dispose(): void {}
     };
+}
+
+interface OpenedWorkspace {
+    readonly persistence: WorkspacePersistence<TransactionalSqlite>;
+    readonly protocol: ViewReplayProtocol<TransactionalSqlite>;
+}
+
+function openWorkspace(database: FileSqlite): OpenedWorkspace {
+    const records = new SqliteWorkspaceRecords(database);
+    const persistence = new WorkspacePersistence<TransactionalSqlite>(
+        () => records,
+        { verify: () => true, release: () => {}, discard: () => {} },
+        sourceActor,
+        tenant
+    );
+    return {
+        persistence,
+        protocol: new ViewReplayProtocol(
+            persistence,
+            new DeterministicJsonPatchEngine(),
+            sourceActor,
+            tenant
+        )
+    };
+}
+
+function surfaceRegistration(contributor: string, surface: SurfaceId): SurfaceRegistration {
+    return new SurfaceRegistration(
+        new SurfaceDescriptor(surface, `${surface.value} board`),
+        attribution(contributor)
+    );
+}
+
+/** A View pointer's record key, built the one way production builds it. */
+function viewKey(surface: string, revision: number): string {
+    return surfaceRevisionKey(surface, SurfaceEpoch.first(), new Revision(revision));
 }

@@ -1,4 +1,4 @@
-import { RecordCodec, Revision, type JsonValue, TextId } from "../../core";
+import { RecordCodec, Revision, compareCanonicalText, type JsonValue, TextId } from "../../core";
 import { RunCommitId, TurnId } from "../../execution-references";
 import { AgentCoreError } from "../../errors";
 import { AgentId } from "../id";
@@ -19,6 +19,7 @@ import {
 import { AcceptanceId, RunBranchId, RunId } from "./id";
 import { SettlementObligation, TerminalSnapshot } from "./settlement";
 import type { ResourceDimension } from "./ceiling";
+import { Currency, RealizedCost } from "./cost";
 import { Digest } from "../../core";
 
 export abstract class RunLifecycle {
@@ -57,6 +58,7 @@ export interface RunInit {
     readonly parent?: RunId | undefined;
     readonly terminal?: TerminalSnapshot | undefined;
     readonly tokensConsumed?: number;
+    readonly costConsumed?: RealizedCost | undefined;
     readonly revision: Revision;
 }
 
@@ -73,9 +75,11 @@ export class Run extends CodecRecord {
     public readonly parent: RunId | undefined;
     public readonly lifecycle: RunLifecycle;
     public readonly terminal: TerminalSnapshot | undefined;
-    // SPEC §5.2: tokens are the one ceiling dimension with no derivation, so the Run
-    // carries their running total. depth and wallClockMs stay derived.
+    // SPEC §5.2: `tokens` and `costMicros` are the two ceiling dimensions with no
+    // derivation, so the Run carries a running total for each. `depth` and `wallClockMs`
+    // stay derived. The cost total holds its currency, so one Run cannot hold two.
     public readonly tokensConsumed: number;
+    public readonly costConsumed: RealizedCost | undefined;
     public readonly revision: Revision;
 
     public constructor(init: RunInit) {
@@ -103,6 +107,10 @@ export class Run extends CodecRecord {
             throw new TypeError("Run token total must be a non-negative safe integer");
         }
         this.tokensConsumed = tokensConsumed;
+        if (init.costConsumed !== undefined && init.costConsumed.constructor !== RealizedCost) {
+            throw new TypeError("Run cost total must use the exact context class");
+        }
+        this.costConsumed = init.costConsumed;
         // A Run is terminal exactly when it holds its terminal snapshot. Storing the
         // state beside the evidence would only create two ways to answer one question.
         this.lifecycle =
@@ -149,18 +157,62 @@ export class Run extends CodecRecord {
         return this.transition(this.terminal);
     }
 
-    // Accumulated where a model call commits (SPEC §5.1, §5.2).
-    public recordTokens(tokens: number): Run {
+    /**
+     * One model call's consumption, accumulated where that call commits (SPEC §5.1, §5.2).
+     * `tokens` and `costMicros` are the two ceiling dimensions with no derivation, and both
+     * advance in this one transition, so a reader never sees a Run whose token total says a
+     * call happened while its cost total says it did not.
+     *
+     * A host with no realized cost passes none, which leaves `costMicros` unbounded rather
+     * than recording a zero that reads as a measured total. When a cost is present, the
+     * caller supplies every currency the Run's lineage already records cost in, and this path
+     * refuses to disagree with any of them: a comparison between amounts in two currencies is
+     * not a comparison, and a ceiling is nothing but that comparison. The rule is about the
+     * lineage and not about the order its Runs recorded in — a currency an ancestor or a
+     * descendant already holds binds this cost the same way, whichever recorded first — and a
+     * refusal moves neither total. A lineage that holds no currency adopts this cost's, and
+     * every later cost in it answers to that.
+     */
+    public recordModelUsage(
+        tokens: number,
+        cost: RealizedCost | undefined,
+        lineageCurrencies: readonly Currency[]
+    ): Run {
         if (this.lifecycle.kind !== "active") {
             throw new AgentCoreError(
                 "run.invalid-state",
-                "Terminal Runs consume no further tokens"
+                "Terminal Runs consume no further resources"
+            );
+        }
+        const consumed = this.tokensConsumed + requireTokenUsage(tokens);
+        if (cost === undefined) {
+            return this.transition(this.terminal, this.configurations, consumed);
+        }
+        const held =
+            this.costConsumed === undefined
+                ? lineageCurrencies
+                : [this.costConsumed.currency, ...lineageCurrencies];
+        // Canonical order and no repeats, so a refusal names every currency the lineage holds
+        // that this cost disagrees with, and names them the same way whatever order the
+        // lineage recorded them in.
+        const divergent = [
+            ...new Set(
+                held
+                    .filter((currency) => !currency.equals(cost.currency))
+                    .map((currency) => currency.value)
+            )
+        ].sort(compareCanonicalText);
+        if (divergent.length > 0) {
+            throw new AgentCoreError(
+                "run.invalid-state",
+                `Run lineage records cost in ${divergent.join(", ")}, not ${cost.currency.value}`
             );
         }
         return this.transition(
             this.terminal,
             this.configurations,
-            this.tokensConsumed + requireTokenUsage(tokens)
+            consumed,
+            new RealizedCost((this.costConsumed?.micros ?? 0) + cost.micros, cost.currency)
         );
     }
 
@@ -186,6 +238,7 @@ export class Run extends CodecRecord {
             revision: revisionData(this.revision),
             root: this.root.value,
             terminal: this.terminal === undefined ? null : this.terminal.toData(),
+            costConsumed: this.costConsumed === undefined ? null : this.costConsumed.toData(),
             tokensConsumed: this.tokensConsumed
         };
     }
@@ -198,6 +251,7 @@ export class Run extends CodecRecord {
                 "agent",
                 "configuration",
                 "configurations",
+                "costConsumed",
                 "id",
                 "initialBranch",
                 "parent",
@@ -227,6 +281,10 @@ export class Run extends CodecRecord {
                     ? undefined
                     : TerminalSnapshot.fromData(object["terminal"]),
             tokensConsumed: requireInteger(object["tokensConsumed"], "Run token total"),
+            costConsumed:
+                object["costConsumed"] === null
+                    ? undefined
+                    : RealizedCost.fromData(object["costConsumed"] ?? null),
             revision: revisionFromData(object["revision"], "Run revision")
         });
     }
@@ -234,7 +292,8 @@ export class Run extends CodecRecord {
     private transition(
         terminal: TerminalSnapshot | undefined,
         configurations: readonly Digest[] = this.configurations,
-        tokensConsumed: number = this.tokensConsumed
+        tokensConsumed: number = this.tokensConsumed,
+        costConsumed: RealizedCost | undefined = this.costConsumed
     ): Run {
         return new Run({
             id: this.id,
@@ -246,6 +305,7 @@ export class Run extends CodecRecord {
             parent: this.parent,
             terminal,
             tokensConsumed,
+            costConsumed,
             revision: nextRunRevision(this.revision)
         });
     }
@@ -273,11 +333,13 @@ class RunRecordCodec extends RecordCodec<Run> {
                 InvocationId,
                 AcceptanceId,
                 RouteReservationId,
-                EffectAttemptId
+                EffectAttemptId,
+                RealizedCost,
+                Currency
             ],
             "run.record",
             {
-                major: 2,
+                major: 3,
                 minor: 0
             }
         );

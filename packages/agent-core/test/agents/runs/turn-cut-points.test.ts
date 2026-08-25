@@ -19,8 +19,10 @@ import {
 import { RunCommitId } from "../../../src/execution-references";
 import { RunCommit } from "../../../src/agents/runs/commit";
 import {
+    TurnCommitOmission,
     TurnExecutor,
     TurnModelInputReplay,
+    TurnOmission,
     TurnPromptSection,
     TurnPromptSectionName,
     TurnShownContent,
@@ -36,7 +38,7 @@ import {
 } from "../../../src/agents/runs/executor";
 import { TurnInboxEntryId } from "../../../src/agents/runs/id";
 import { TurnInboxEntry } from "../../../src/agents/runs/turn";
-import { UncontributedCutPoints, content, harness, ids, seedRunningTurn } from "./fixture";
+import { UncontributedCutPoints, content, harness, ids, pins, seedRunningTurn } from "./fixture";
 
 const encoder = new TextEncoder();
 
@@ -102,11 +104,39 @@ function declarationFor(cutPoint: TurnBoundCutPoint): InterceptorDeclaration {
     return new InterceptorDeclaration(new InterceptorId("supervisor"), cutPoint, "rewrite", 0);
 }
 
-function section(name: string, body: string): TurnPromptSection {
+function section(
+    name: string,
+    body: string,
+    omission: TurnOmission = TurnOmission.none
+): TurnPromptSection {
     return new TurnPromptSection(
         new TurnPromptSectionName(name),
-        TurnShownContent.inline(encoder.encode(body))
+        TurnShownContent.inline(encoder.encode(body)),
+        omission
     );
+}
+
+/** One `message` commit, so a call's coverage carries more than the root alone. */
+function message(seeded: Fixture["seeded"], id: string, body: ContentRef): RunCommit {
+    const commit = new RunCommit({
+        id: new RunCommitId(id),
+        run: ids.run,
+        branch: ids.branch,
+        kind: "message",
+        parents: [ids.root],
+        pins: pins(),
+        writer: { kind: "turn", token: seeded.token },
+        subjectTurn: ids.turn,
+        content: body
+    });
+    seeded.runtime.appendTurnCommit(
+        commit,
+        seeded.repository.transaction(
+            (tx) => seeded.repository.loadBranch(tx, ids.branch)!.revision
+        ),
+        new Date(1_100)
+    );
+    return commit;
 }
 
 class FunctionExecutor extends TurnExecutor {
@@ -154,10 +184,15 @@ interface Fixture {
     readonly store: ContentStore;
     readonly output: ContentRef;
     readonly port: RecordingModelPort;
-    readonly host: (executor: TurnExecutor, cutPoints: TurnCutPointPort) => TurnExecutorHost<object>;
+    readonly host: (
+        executor: TurnExecutor,
+        cutPoints: TurnCutPointPort
+    ) => TurnExecutorHost<object>;
 }
 
-async function fixture(cutPoints: TurnCutPointPort = new UncontributedCutPoints()): Promise<Fixture> {
+async function fixture(
+    cutPoints: TurnCutPointPort = new UncontributedCutPoints()
+): Promise<Fixture> {
     const seeded = seedRunningTurn(harness(undefined, cutPoints));
     // The Run's own content store is the only plane its records may name, so the prompt and
     // the response go through it and the refs are the addresses that store derived.
@@ -213,7 +248,9 @@ describe("Turn-bound interceptor cut points", () => {
                     resultCommit(turn, "assemble-result", exchange.input, base.output)
                 );
             });
-            await expect(base.host(executor, cutPoints).execute(base.seeded.token)).resolves.toMatchObject({
+            await expect(
+                base.host(executor, cutPoints).execute(base.seeded.token)
+            ).resolves.toMatchObject({
                 kind: "succeeded"
             });
             // The cut point saw the executor's sections, and the record carries the rewrite.
@@ -367,12 +404,14 @@ describe("Turn-bound interceptor cut points", () => {
         async () => {
             const other = new InterceptorId("neighbour");
             const answers: readonly ((step: TurnStepContext) => FacetData)[] = [
+                (step) => new TurnStepContext(step.ordinal + 1, step.head, step.inboxCut).toData(),
                 (step) =>
-                    new TurnStepContext(step.ordinal + 1, step.head, step.inboxCut).toData(),
-                (step) =>
-                    new TurnStepContext(step.ordinal, new RunCommitId("forged"), step.inboxCut).toData(),
-                (step) =>
-                    new TurnStepContext(step.ordinal, step.head, step.inboxCut + 1).toData(),
+                    new TurnStepContext(
+                        step.ordinal,
+                        new RunCommitId("forged"),
+                        step.inboxCut
+                    ).toData(),
+                (step) => new TurnStepContext(step.ordinal, step.head, step.inboxCut + 1).toData(),
                 (step) =>
                     new TurnStepContext(step.ordinal, step.head, step.inboxCut, [
                         new TurnStepAnnotation(other, "signed by someone else")
@@ -411,9 +450,11 @@ describe("Turn-bound interceptor cut points", () => {
         "[C13-TURN-STEP-STOP] scopes a step's annotations and its stop to the Turn that fired the cut point",
         { tags: "p0" },
         async () => {
-            // Two Turns of the same Run, each opening steps through the same schedule. A step
-            // is an iteration of one Turn's loop (§5.3), so the second Turn opens at ordinal
-            // zero with an empty annotation list and is not stopped by the first Turn's stop.
+            // Two Turns opening steps through the same schedule, in two Runs, which is the
+            // easier instance of the rule. A step is an iteration of one Turn's loop (§5.3),
+            // so the second Turn opens at ordinal zero with an empty annotation list and is
+            // not stopped by the first Turn's stop. The narrower instance — two Turns of ONE
+            // Run, on one branch — is the test below.
             const firstTurnStop: TurnStopRequest = {
                 interceptor: "supervisor",
                 contributor: "workspace:supervisor",
@@ -443,7 +484,9 @@ describe("Turn-bound interceptor cut points", () => {
                 );
             });
             await base.host(executor, cutPoints).execute(base.seeded.token);
-            const second = seedRunningTurn(harness(undefined, cutPoints), { id: new TurnId("turn-second") });
+            const second = seedRunningTurn(harness(undefined, cutPoints), {
+                id: new TurnId("turn-second")
+            });
             // The second Turn belongs to a second Run, which owns its own content plane; the
             // same bytes written there resolve to the same address the first Run derived.
             const secondOutput = (await second.storage.content.put(encoder.encode("response"))).ref;
@@ -597,6 +640,161 @@ describe("Turn-bound interceptor cut points", () => {
                 "Content reference must be a SHA-256 content address",
                 "Submitted input contains missing or unknown fields"
             ]);
+        }
+    );
+
+    it(
+        "[C13-TURN-STEP-STOP] scopes the ordinal, the annotations, and the stop to the Turn that fired the cut point, not to its Run",
+        { tags: "p0" },
+        async () => {
+            // Two Turns of ONE Run, on one branch, through one schedule. The first is stopped
+            // after two annotated steps. A step is an iteration of that Turn's loop (§5.3), so
+            // its sibling opens at its own first step with no annotation and no stop.
+            const stop: TurnStopRequest = {
+                interceptor: "supervisor",
+                contributor: "workspace:supervisor",
+                reason: "this Turn's trajectory only"
+            };
+            const cutPoints = new ScriptedCutPoints({
+                "turn.step": (value, at) => {
+                    const step = TurnStepContext.fromData(value);
+                    return at === 2
+                        ? stop
+                        : new TurnStepContext(step.ordinal, step.head, step.inboxCut, [
+                              ...step.annotations,
+                              new TurnStepAnnotation(
+                                  new InterceptorId("supervisor"),
+                                  `firing ${at}`
+                              )
+                          ]).toData();
+                }
+            });
+            const base = await fixture(cutPoints);
+            // The sibling is seeded on the same branch, at the head both Turns start from.
+            const sibling = seedRunningTurn(base.seeded, { id: new TurnId("turn-sibling") });
+            // The premise this test rests on, asserted rather than assumed: one Run, one
+            // branch, two Turns.
+            expect(sibling.running.run.value).toBe(base.seeded.running.run.value);
+            expect(sibling.running.branch.value).toBe(base.seeded.running.branch.value);
+            expect(sibling.token.turn.value).not.toBe(base.seeded.token.turn.value);
+            const observed: string[] = [];
+
+            const supervised = new FunctionExecutor(async (turn) => {
+                for (let attempt = 0; attempt < 3; attempt += 1) {
+                    const decision = await turn.step.open();
+                    observed.push(
+                        `${turn.turn.id.value}: ${decision.kind}#${decision.step.ordinal} ` +
+                            `annotations=${decision.step.annotations.length}`
+                    );
+                    if (decision.kind === "stopped") break;
+                }
+                await expect(
+                    turn.model.call({
+                        covers: await turn.modelInput.accountable(),
+                        sections: [section("body", "after the stop")],
+                        catalog: [],
+                        admitted: []
+                    })
+                ).rejects.toMatchObject({ code: "authority.denied" });
+                return turn.outcome.succeed(
+                    resultCommit(turn, "scoped-stopped", ids.root, base.output)
+                );
+            });
+            await expect(
+                base.host(supervised, cutPoints).execute(base.seeded.token)
+            ).resolves.toMatchObject({ kind: "succeeded" });
+
+            const unaffected = new FunctionExecutor(async (turn) => {
+                const decision = await turn.step.open();
+                observed.push(
+                    `${turn.turn.id.value}: ${decision.kind}#${decision.step.ordinal} ` +
+                        `annotations=${decision.step.annotations.length}`
+                );
+                // The refusal aimed at the other Turn's trajectory reaches nothing here.
+                const exchange = await turn.model.call({
+                    covers: await turn.modelInput.accountable(),
+                    sections: [section("body", "the sibling's own step")],
+                    catalog: [],
+                    admitted: []
+                });
+                return turn.outcome.succeed(
+                    resultCommit(turn, "scoped-sibling", exchange.input, base.output)
+                );
+            });
+            await expect(
+                base.host(unaffected, cutPoints).execute(sibling.token)
+            ).resolves.toMatchObject({ kind: "succeeded" });
+
+            // The first Turn's ordinal and annotations accumulate across its own steps and
+            // stop there; the sibling starts its count and its annotations again.
+            expect(observed).toEqual([
+                `${ids.turn.value}: proceed#0 annotations=1`,
+                `${ids.turn.value}: proceed#1 annotations=2`,
+                `${ids.turn.value}: stopped#2 annotations=2`,
+                "turn-sibling: proceed#0 annotations=1"
+            ]);
+
+            // What the cut point saw at the sibling's first step: ordinal zero, no annotation,
+            // and the head the first Turn left behind. The stop is not in the value at all.
+            expect(
+                cutPoints.seen.filter((entry) => entry.startsWith("turn.step@turn-sibling:"))
+            ).toEqual([
+                `turn.step@turn-sibling:${JSON.stringify(
+                    new TurnStepContext(0, new RunCommitId("scoped-stopped"), 0).toData()
+                )}`
+            ]);
+            // The sibling's model call is the one that landed a request; the stopped Turn's
+            // was withdrawn before anything was recorded.
+            expect(base.port.bytes).toHaveLength(1);
+        }
+    );
+
+    it(
+        "[C13-RUN-DISTINCTION-REPRESENTABLE] refuses a call whose prompt.assemble rewrite withholds more than the host attributed",
+        { tags: "p0" },
+        async () => {
+            // The rewrite the interceptor answers with withholds five bytes more than the
+            // host's own sections did. The host attributed all of its own withholding, and it
+            // never saw this rewrite, so the five extra bytes belong to a commit no entry
+            // names — the record is refused rather than committed.
+            const widened: FacetData = [
+                section("kept", "kept body", TurnOmission.exact(5)).toData(),
+                section("dropped", "a stub", TurnOmission.exact(10)).toData()
+            ];
+            const cutPoints = new ScriptedCutPoints({ "prompt.assemble": () => widened });
+            const base = await fixture(cutPoints);
+            const carried = message(base.seeded, "carried-message", content("a"));
+            let refusal: AgentCoreError | undefined;
+            const executor = new FunctionExecutor(async (turn) => {
+                const covers = await turn.modelInput.accountable();
+                expect(covers).toHaveLength(2);
+                try {
+                    await turn.model.call({
+                        covers,
+                        sections: [
+                            section("kept", "kept body"),
+                            section("dropped", "a stub", TurnOmission.exact(10))
+                        ],
+                        catalog: [],
+                        admitted: [],
+                        withheld: [new TurnCommitOmission(carried.id, TurnOmission.exact(10))]
+                    });
+                } catch (error) {
+                    if (!(error instanceof AgentCoreError)) throw error;
+                    refusal = error;
+                }
+                return turn.outcome.succeed(
+                    resultCommit(turn, "widened-result", carried.id, base.output)
+                );
+            });
+            await expect(
+                base.host(executor, cutPoints).execute(base.seeded.token)
+            ).resolves.toMatchObject({ kind: "succeeded" });
+
+            expect(refusal?.code).toBe("turn.model-input-unaccounted");
+            expect(refusal?.message).toContain("attributes 10 of the 15 bytes");
+            // Fail-closed: the model never read the rewritten surface.
+            expect(base.port.bytes).toHaveLength(0);
         }
     );
 });

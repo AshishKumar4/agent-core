@@ -6,7 +6,9 @@ import { RunCommitId } from "../../../src/execution-references";
 import { InvocationId } from "../../../src/interaction-references";
 import { ReceiptId } from "../../../src/invocations";
 import { RunCommit, type RunCommitInit } from "../../../src/agents/runs/commit";
+import { MemoryRunStorage, RunRepository } from "../../../src/agents/runs";
 import {
+    TurnCommitOmission,
     TurnExecutor,
     TurnExecutorHost,
     TurnModelInput,
@@ -99,7 +101,10 @@ function answer(
         kind: "invocation",
         parents: [parent],
         pins: pins(),
-        writer: { kind: "system", cause: { kind: "receipt", audit: refs.audit, receipt: refs.receipt } },
+        writer: {
+            kind: "system",
+            cause: { kind: "receipt", audit: refs.audit, receipt: refs.receipt }
+        },
         subjectTurn: ids.turn,
         invocation,
         receipt: refs.receipt
@@ -195,7 +200,9 @@ async function seeded() {
 }
 
 interface Dispatch {
-    readonly host: (body: (context: TurnContext) => Promise<TurnOutcome>) => TurnExecutorHost<object>;
+    readonly host: (
+        body: (context: TurnContext) => Promise<TurnOutcome>
+    ) => TurnExecutorHost<object>;
     readonly sent: Uint8Array[];
 }
 
@@ -232,7 +239,8 @@ function surface(
     context: TurnContext,
     store: ContentStore,
     covers: readonly RunCommitId[],
-    omission: TurnOmission = TurnOmission.none
+    omission: TurnOmission = TurnOmission.none,
+    withheld: readonly TurnCommitOmission[] = []
 ) {
     return async (bytes: Uint8Array) => {
         const ref = (await store.put(bytes)).ref;
@@ -246,7 +254,8 @@ function surface(
             ],
             catalog: [],
             admitted: [],
-            covers
+            covers,
+            withheld
         });
     };
 }
@@ -287,9 +296,7 @@ describe("Compaction as a policy over rewrite", () => {
             const outcome = await dispatch
                 .host(async (context) => {
                     accounted = await context.modelInput.accountable();
-                    const bytes = encoder.encode(
-                        `root\nsummary of first..second\nthird`
-                    );
+                    const bytes = encoder.encode(`root\nsummary of first..second\nthird`);
                     const exchange = await surface(context, store, accounted)(bytes);
                     input = exchange.input;
                     return context.outcome.succeed(
@@ -362,8 +369,9 @@ describe("Compaction as a policy over rewrite", () => {
             // never became a record, so the branch stands exactly where it did.
             expect(memory.sent).toHaveLength(0);
             expect(
-                value.repository.transaction((tx) => value.repository.loadBranch(tx, ids.branch)!.head)
-                    .value
+                value.repository.transaction(
+                    (tx) => value.repository.loadBranch(tx, ids.branch)!.head
+                ).value
             ).toBe(commits[2]!.id.value);
 
             // The identical reduction, once the branch itself carries it, is admitted.
@@ -463,7 +471,15 @@ describe("Compaction as a policy over rewrite", () => {
                         context,
                         store,
                         covered,
-                        TurnOmission.exact(whole.length - shown.length)
+                        TurnOmission.exact(whole.length - shown.length),
+                        // The tail the abridgement dropped is the third message's rendering,
+                        // so the attribution names that commit and accounts for all of it.
+                        [
+                            new TurnCommitOmission(
+                                commits[2]!.id,
+                                TurnOmission.exact(whole.length - shown.length)
+                            )
+                        ]
                     )(shown);
                     input = exchange.input;
                     return context.outcome.succeed(
@@ -509,7 +525,10 @@ describe("Compaction as a policy over rewrite", () => {
                         context,
                         abridged.store,
                         covers,
-                        TurnOmission.unknown
+                        TurnOmission.unknown,
+                        // Every carried commit is rendered as no bytes at all, and the host
+                        // never measured what that dropped, so every one is named as unknown.
+                        covers.map((commit) => new TurnCommitOmission(commit, TurnOmission.unknown))
                     )(encoder.encode(""));
                     after = await context.modelInput.accountable();
                     return context.outcome.succeed(
@@ -547,9 +566,13 @@ describe("Compaction as a policy over rewrite", () => {
             const value = seedRunningTurn();
             const store = value.storage.content;
             const output = (await store.put(encoder.encode("response"))).ref;
-            const asked = message(value, "asks", ids.root, (await store.put(encoder.encode("q"))).ref, [
-                refs.invocation
-            ]);
+            const asked = message(
+                value,
+                "asks",
+                ids.root,
+                (await store.put(encoder.encode("q"))).ref,
+                [refs.invocation]
+            );
             const answered = answer(value, "answers", asked.id, refs.invocation);
 
             const dispatch = dispatcher(value, store, output);
@@ -576,7 +599,9 @@ describe("Compaction as a policy over rewrite", () => {
 
             // The first call's own record is now an ancestor of the second's base, and it is
             // not history: a surface never accounts for an earlier surface.
-            expect(second.map((commit) => commit.value)).toEqual(first.map((commit) => commit.value));
+            expect(second.map((commit) => commit.value)).toEqual(
+                first.map((commit) => commit.value)
+            );
             expect(dispatch.sent).toHaveLength(2);
         }
     );
@@ -664,6 +689,183 @@ describe("Compaction as a policy over rewrite", () => {
                 ids.root.value,
                 commits[0]!.id.value
             ]);
+        }
+    );
+
+    it(
+        "[C13-RUN-DISTINCTION-REPRESENTABLE] attributes an abridgement inside a multi-commit section to the commit it withheld, and rebuilds the request without reading it",
+        { tags: "p0" },
+        async () => {
+            const { store, value, commits } = await seeded();
+            const output = (await store.put(encoder.encode("response"))).ref;
+            const dropped = commits[1]!;
+            const withheldBytes = (await store.get(dropped.content!)).length;
+            const rendered = encoder.encode("root\nfirst\nthird");
+            const dispatch = dispatcher(value, store, output);
+            let input: RunCommitId | undefined;
+            let refusal: AgentCoreError | undefined;
+            let covered: readonly RunCommitId[] = [];
+            const outcome = await dispatch
+                .host(async (context) => {
+                    covered = await context.modelInput.accountable();
+                    // One section renders the whole transcript and drops every byte of the
+                    // second message. The attributed surface states which commit that was.
+                    // The same surface without the attribution is the record the rule forbids,
+                    // so the seam refuses it rather than recording it.
+                    const attributed = await surface(
+                        context,
+                        store,
+                        covered,
+                        TurnOmission.exact(withheldBytes),
+                        [new TurnCommitOmission(dropped.id, TurnOmission.exact(withheldBytes))]
+                    )(rendered);
+                    input = attributed.input;
+                    try {
+                        await surface(
+                            context,
+                            store,
+                            await context.modelInput.accountable(),
+                            TurnOmission.exact(withheldBytes)
+                        )(rendered);
+                    } catch (error) {
+                        if (!(error instanceof AgentCoreError)) throw error;
+                        refusal = error;
+                    }
+                    return context.outcome.succeed(
+                        resultCommit(context, "attributed-result", attributed.input, output)
+                    );
+                })
+                .execute(value.token);
+            expect(outcome).toMatchObject({ kind: "succeeded" });
+
+            // A reader could not tell `turn-2`, carried as no bytes, from the two commits the
+            // section carried whole, so the unattributed surface is not a record this Run
+            // holds. Fail-closed on both planes: no model read it and no record carries it.
+            expect(covered).toHaveLength(4);
+            expect(refusal?.code).toBe("turn.model-input-unaccounted");
+            expect(refusal?.message).toContain("carries 4 commits");
+            expect(dispatch.sent).toHaveLength(1);
+
+            const stored = value.repository.transaction((tx) =>
+                value.repository.loadCommit(tx, input!)
+            );
+            const record = TurnModelInput.decode(await store.get(stored!.content!));
+            expect(
+                record.withheld.map((entry) => [entry.commit.value, entry.omission.withheldBytes])
+            ).toEqual([[dropped.id.value, withheldBytes]]);
+
+            // The accounting is a separate fact from the bytes: the request rebuilds byte for
+            // byte as it was sent, and those are the bytes of a request that states no
+            // attribution at all, written out here rather than read back from the record.
+            const replay = new TurnModelInputReplay({
+                repository: value.repository,
+                content: store
+            });
+            const rebuilt = await replay.reconstruct(input!);
+            expect(turnModelRequestBytes(rebuilt)).toEqual(dispatch.sent[0]);
+            expect(
+                turnModelRequestBytes({
+                    input: rebuilt.input,
+                    baseCommit: rebuilt.baseCommit,
+                    sections: [
+                        {
+                            name: new TurnPromptSectionName("transcript"),
+                            bytes: rendered,
+                            omission: TurnOmission.exact(withheldBytes)
+                        }
+                    ],
+                    catalog: [],
+                    admitted: [],
+                    admissionCut: 0,
+                    covers: covered
+                })
+            ).toEqual(dispatch.sent[0]);
+        }
+    );
+
+    it(
+        "[C13-RUN-DISTINCTION-REPRESENTABLE] carries a complete attribution over two commits in one section through a restart, and rebuilds bytes the attribution never reaches",
+        { tags: "p0" },
+        async () => {
+            const { store, value, commits } = await seeded();
+            const output = (await store.put(encoder.encode("response"))).ref;
+            // One section renders the transcript and drops both middle messages whole.
+            const firstBytes = (await store.get(commits[0]!.content!)).length;
+            const secondBytes = (await store.get(commits[1]!.content!)).length;
+            const rendered = encoder.encode("root\nthird");
+            const dispatch = dispatcher(value, store, output);
+            let input: RunCommitId | undefined;
+            let covered: readonly RunCommitId[] = [];
+            const outcome = await dispatch
+                .host(async (context) => {
+                    covered = await context.modelInput.accountable();
+                    const exchange = await surface(
+                        context,
+                        store,
+                        covered,
+                        TurnOmission.exact(firstBytes + secondBytes),
+                        // Stated later commit first, so the record's own order is the one the
+                        // restart reads back rather than the one this host happened to list.
+                        [
+                            new TurnCommitOmission(commits[1]!.id, TurnOmission.exact(secondBytes)),
+                            new TurnCommitOmission(commits[0]!.id, TurnOmission.exact(firstBytes))
+                        ]
+                    )(rendered);
+                    input = exchange.input;
+                    return context.outcome.succeed(
+                        resultCommit(context, "two-commit-result", exchange.input, output)
+                    );
+                })
+                .execute(value.token);
+            expect(outcome).toMatchObject({ kind: "succeeded" });
+            expect(covered).toHaveLength(4);
+
+            // The restart discards every executor process and keeps the records, whose one
+            // aggregate snapshot carries the Run's content custody with them.
+            const reopened = new MemoryRunStorage(
+                ids.holder.tenantId,
+                ids.actor,
+                value.storage.snapshot()
+            );
+            const repository = new RunRepository(reopened);
+            const rebuilt = await new TurnModelInputReplay({
+                repository,
+                content: reopened.content
+            }).reconstruct(input!);
+            expect(turnModelRequestBytes(rebuilt)).toEqual(dispatch.sent[0]);
+            expect(rebuilt.sections[0]!.bytes).toEqual(rendered);
+
+            // Both withheld commits are named after the restart, ordered by commit, and the
+            // two the section carried whole name no entry.
+            const commit = repository.transaction((tx) => repository.loadCommit(tx, input!));
+            const record = TurnModelInput.decode(await reopened.content.get(commit!.content!));
+            expect(
+                record.withheld.map((entry) => [entry.commit.value, entry.omission.withheldBytes])
+            ).toEqual([
+                [commits[0]!.id.value, firstBytes],
+                [commits[1]!.id.value, secondBytes]
+            ]);
+            expect(record.covers).toHaveLength(4);
+
+            // The request the restart rebuilds is the request a surface stating no attribution
+            // at all would have sent, written out here rather than read back from the record.
+            expect(
+                turnModelRequestBytes({
+                    input: rebuilt.input,
+                    baseCommit: rebuilt.baseCommit,
+                    sections: [
+                        {
+                            name: new TurnPromptSectionName("transcript"),
+                            bytes: rendered,
+                            omission: TurnOmission.exact(firstBytes + secondBytes)
+                        }
+                    ],
+                    catalog: [],
+                    admitted: [],
+                    admissionCut: 0,
+                    covers: covered
+                })
+            ).toEqual(dispatch.sent[0]);
         }
     );
 });

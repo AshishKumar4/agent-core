@@ -5,6 +5,7 @@ import type { PrincipalRef } from "../../identity";
 import type { RunCommitId, TurnId } from "../../execution-references";
 import type { ReceiptId } from "../../invocation-references";
 import type { AuditRecordId, EventId, InvocationId } from "../../interaction-references";
+import type { AttemptFailureKind } from "../../invocations";
 import { TurnCutPointPort, type TurnRewriteRule } from "../../operations";
 import type { RunSourceRevisionPort } from "../source";
 import { bytesEqual, requireExactFields, requireObject, requireString } from "../record-data";
@@ -23,9 +24,10 @@ import {
     type ResourceCeiling,
     type ResourceDimension
 } from "./ceiling";
+import type { Currency, RealizedCost } from "./cost";
 import type { MergeFoldStep, RunEvidencePort, RunMergePort } from "./evidence";
 import { ForcedTurnCancellation } from "./forced-cancellation";
-import type { AcceptanceId, RunBranchId, RunId } from "./id";
+import { RunId, type AcceptanceId, type RunBranchId } from "./id";
 import { leaseTokensEqual, type LeaseToken } from "./lease";
 import { RunConfigurationSnapshot, RunPins, type RunPinDivergence } from "./pins";
 import { TurnPlacementSnapshot } from "./placement";
@@ -93,6 +95,12 @@ export interface TerminalizeRunRequest {
     readonly siblingCancellations: ReadonlyMap<string, SiblingCancellationEvidence>;
     // SPEC §5.2: set only when the Run is cancelled because this dimension ran out.
     readonly exhausted?: ResourceDimension;
+    /**
+     * The cancellation a `cancelled` outcome carries (SPEC §5.6). §7.4 builds `aborted` only
+     * from cancellation that reached the attempt, so a cancelled Run has to name the signal
+     * that reached the items its Turns published, and every other outcome names none.
+     */
+    readonly cancellation?: AbortSignal;
     readonly now: Date;
 }
 
@@ -104,6 +112,28 @@ export interface ForcedCancellationControl {
 export interface SiblingCancellationEvidence {
     readonly event: EventId;
     readonly audit: AuditRecordId;
+}
+
+/**
+ * One published item a Run's cancellation reached, with the §7.4 failure kind its still-owed
+ * Receipt must carry (SPEC §5.6). The runs layer appends no Receipt — §7.4 owns that record —
+ * so cancellation reports the kind and the invocation plane records it.
+ */
+export interface RunCancelledItem {
+    readonly invocation: InvocationId;
+    readonly itemIndex: number;
+    readonly itemKey: string;
+    readonly failure: AttemptFailureKind;
+}
+
+/**
+ * What one Run terminalization produced: the durable snapshot, and where a cancellation landed
+ * on the items its Turns published (SPEC §5.2, §5.6). A Run that ended any other way reached
+ * no published item and reports none.
+ */
+export interface RunTerminalization {
+    readonly snapshot: TerminalSnapshot;
+    readonly cancelled: readonly RunCancelledItem[];
 }
 
 export class RunRuntime<Transaction> {
@@ -525,7 +555,13 @@ export class RunRuntime<Transaction> {
         expectedBranchRevision: Revision
     ): RunAdmissionReservation {
         return this.repository.transaction((tx) =>
-            this.reserveRunRewriteInTransaction(tx, runId, branchId, planned, expectedBranchRevision)
+            this.reserveRunRewriteInTransaction(
+                tx,
+                runId,
+                branchId,
+                planned,
+                expectedBranchRevision
+            )
         );
     }
 
@@ -1046,14 +1082,14 @@ export class RunRuntime<Transaction> {
         });
     }
 
-    public terminalizeRun(request: TerminalizeRunRequest): TerminalSnapshot {
+    public terminalizeRun(request: TerminalizeRunRequest): RunTerminalization {
         return this.repository.transaction((tx) => this.terminalizeRunInTransaction(tx, request));
     }
 
     public terminalizeRunInTransaction(
         tx: Transaction,
         request: TerminalizeRunRequest
-    ): TerminalSnapshot {
+    ): RunTerminalization {
         const run = this.requireActiveRun(tx, request.run);
         requireRevision(run.revision, request.expectedRunRevision);
         const turn = this.requireTurnAndBranch(
@@ -1075,6 +1111,20 @@ export class RunRuntime<Transaction> {
             this.remainingInTransaction(tx, run, request.now)?.limit(request.exhausted) !== 0
         ) {
             throw invalidRun("Terminal exhaustion names a dimension with allowance left");
+        }
+        const cancellation = request.cancellation;
+        if ((request.outcome === "cancelled") !== (cancellation !== undefined)) {
+            throw invalidRun(
+                "A cancelled Run names the cancellation that reached its published items, and no other outcome names one"
+            );
+        }
+        if (cancellation !== undefined && !cancellation.aborted) {
+            // §7.4 builds `aborted` only from cancellation that reached the attempt, so a
+            // cancelled Run whose signal has not fired can say nothing about its published
+            // items. Refusing here rather than at the resolution keeps the whole request out.
+            throw invalidRun(
+                "A cancelled Run names cancellation that has already reached its published items"
+            );
         }
         const forcedSiblings = this.forceCancelSiblings(tx, request, run, turn);
         const branch = requireValue(
@@ -1116,22 +1166,162 @@ export class RunRuntime<Transaction> {
             "Run disappeared during terminalization"
         );
         this.repository.replaceRun(tx, currentRun.revision, currentRun.terminalize(snapshot));
-        return snapshot;
+        return Object.freeze({
+            snapshot,
+            cancelled:
+                cancellation === undefined
+                    ? Object.freeze([])
+                    : this.cancelledItemsInTransaction(tx, run.id, obligation, cancellation)
+        });
     }
 
-    // Accumulated where a model call commits (SPEC §5.1, §5.2); the only ceiling
-    // dimension with no derivation from records the Run already keeps.
-    public recordModelTokens(runId: RunId, tokens: number): Run {
+    /**
+     * Where cancelling this Run lands on the items its Turns published (SPEC §5.6).
+     *
+     * Publication is what detaches an item from the Turn that issued it, and it detaches the
+     * item to a Run: the issuing Run for an `InvocationId` handle, the child Run for a
+     * `RunRef`. So this reads each captured item's handle back and asks the handle whose
+     * cancellation it answers to. Cancelling this Run reaches the items it owns and stops
+     * there — a child Run is its own settlement unit — and cancelling a Turn reaches none of
+     * them, because a published item's owner is a RunId and a TurnId never equals one.
+     *
+     * Only an item still owed a Receipt is reached. An item whose current Receipt is already
+     * terminal was finished before the cancellation arrived, and §7.4 admits no second
+     * Receipt over it, so naming a kind for it would name one for work already recorded.
+     *
+     * An item no Turn published is reached by neither: it is still awaited, so the Turn owns
+     * it and `C13-FACET-CANCELLATION-REACH` is the rule that ends it. That is why an
+     * unresolved handle is silence here rather than a refusal — §5.6 draws exactly this line
+     * between an awaited item and a published one.
+     */
+    private cancelledItemsInTransaction(
+        tx: Transaction,
+        run: RunId,
+        obligation: SettlementObligation,
+        cancellation: AbortSignal
+    ): readonly RunCancelledItem[] {
+        const reached: RunCancelledItem[] = [];
+        for (const captured of obligation.obligations) {
+            if (captured.kind !== "invocationItem") continue;
+            const terminal = requireSynchronousResult(
+                this.settlement.invocationItemTerminal(
+                    tx,
+                    captured.invocation,
+                    captured.itemIndex,
+                    captured.itemKey
+                )
+            );
+            if (terminal === true) continue;
+            const handle = requireSynchronousResult(
+                this.evidence.publishedHandle(
+                    tx,
+                    captured.invocation,
+                    captured.itemIndex,
+                    captured.itemKey
+                )
+            );
+            const failure = handle?.cancelledBy(run, cancellation);
+            if (failure === undefined) continue;
+            reached.push(
+                Object.freeze({
+                    invocation: captured.invocation,
+                    itemIndex: captured.itemIndex,
+                    itemKey: captured.itemKey,
+                    failure
+                })
+            );
+        }
+        return Object.freeze(reached);
+    }
+
+    /**
+     * Accumulated where a model call commits (SPEC §5.1, §5.2). `tokens` and `costMicros`
+     * are the two ceiling dimensions with no derivation from records the Run already keeps,
+     * so both advance here, in one transaction, or neither does. A host with no realized
+     * cost to report passes none and leaves the dimension unbounded; it never passes an
+     * estimate, and there is no field an estimate could travel in.
+     */
+    public recordModelUsage(runId: RunId, tokens: number, cost?: RealizedCost): Run {
         return this.repository.transaction((tx) =>
-            this.recordModelTokensInTransaction(tx, runId, tokens)
+            this.recordModelUsageInTransaction(tx, runId, tokens, cost)
         );
     }
 
-    public recordModelTokensInTransaction(tx: Transaction, runId: RunId, tokens: number): Run {
+    public recordModelUsageInTransaction(
+        tx: Transaction,
+        runId: RunId,
+        tokens: number,
+        cost?: RealizedCost
+    ): Run {
         const run = this.requireActiveRun(tx, runId);
-        const updated = run.recordTokens(tokens);
+        const updated = run.recordModelUsage(
+            tokens,
+            cost,
+            cost === undefined ? [] : this.lineageCurrenciesInTransaction(tx, run)
+        );
         this.repository.replaceRun(tx, run.revision, updated);
         return updated;
+    }
+
+    /**
+     * Every currency the Runs sharing this Run's lineage already record cost in (SPEC §5.2).
+     *
+     * A lineage runs from the root down through the spawn chain, so a Run shares a lineage
+     * with its ancestors and with its descendants, and a cost recorded here is a cost in every
+     * one of their lineages. Both directions therefore bind: reading only ancestors admitted a
+     * parent's second currency whenever a child had recorded first, because the child's walk
+     * found nothing above it and the parent's found nothing below. Siblings share no lineage —
+     * neither is the other's ancestor — so neither constrains the other, and a parent that
+     * would sit in both of their lineages is refused instead.
+     *
+     * The answer is derived from the durable Run records the spawn lineage already keeps, so a
+     * mixed-currency lineage is refused at the recording path rather than stored a second time
+     * or surfacing later as a remainder nobody can compare.
+     */
+    private lineageCurrenciesInTransaction(tx: Transaction, run: Run): readonly Currency[] {
+        const held: Currency[] = [];
+        const record = (candidate: Run): void => {
+            const currency = candidate.costConsumed?.currency;
+            if (currency !== undefined && !held.some((value) => value.equals(currency))) {
+                held.push(currency);
+            }
+        };
+        record(run);
+        // The ancestor walk stops on a repeat rather than spinning: a Run graph where a Run is
+        // its own ancestor is corrupt, and this path reports what it read instead of hanging.
+        const walked = new Set<string>([run.id.value]);
+        let ancestor =
+            run.parent === undefined ? undefined : this.repository.loadRun(tx, run.parent);
+        while (ancestor !== undefined && !walked.has(ancestor.id.value)) {
+            walked.add(ancestor.id.value);
+            record(ancestor);
+            ancestor =
+                ancestor.parent === undefined
+                    ? undefined
+                    : this.repository.loadRun(tx, ancestor.parent);
+        }
+        // Descendants are closed over the parent edge from this Run alone, so the closure never
+        // reaches a sibling by way of a shared ancestor.
+        const stored = this.repository.listRuns(tx);
+        const descendants = new Set<string>([run.id.value]);
+        let growing = true;
+        while (growing) {
+            growing = false;
+            for (const candidate of stored) {
+                const parent = candidate.parent;
+                if (
+                    parent === undefined ||
+                    descendants.has(candidate.id.value) ||
+                    !descendants.has(parent.value)
+                ) {
+                    continue;
+                }
+                descendants.add(candidate.id.value);
+                record(candidate);
+                growing = true;
+            }
+        }
+        return Object.freeze(held);
     }
 
     public remainingResources(runId: RunId, now: Date): ResourceCeiling | undefined {
@@ -1746,6 +1936,7 @@ export class RunRuntime<Transaction> {
                 ? undefined
                 : this.requireAttenuation(tx, reservation).ceiling,
             {
+                costMicros: run.costConsumed?.micros ?? 0,
                 tokens: run.tokensConsumed,
                 // A Run's wall clock runs from the transaction that created it: a spawned
                 // Run's reservation timestamp is written alongside its root RunCommit, and
@@ -1816,8 +2007,18 @@ export class RunRuntime<Transaction> {
         return effectiveTranscript(effectiveCommitOf(load, head), load);
     }
 
-
+    /**
+     * A `TextId` keeps its identity in its class and its value, but every subclass has the
+     * same shape, so a TurnId presented where a RunId is required is a value this signature
+     * cannot refuse on its own. Storage keys are text, so such a call would load the Run
+     * whose id reads the same and then compare identities that never match — a cancellation
+     * that reached no published item, and nothing said so. The exact class is required here,
+     * at the one gate every Run mutation passes through.
+     */
     private requireActiveRun(tx: Transaction, id: RunId): Run {
+        if (id.constructor !== RunId) {
+            throw new TypeError("Run identity must be the exact Run ID class");
+        }
         const run = requireValue(this.repository.loadRun(tx, id), "Run does not exist");
         if (run.lifecycle.kind !== RunLifecycle.active.kind) {
             throw new AgentCoreError("run.invalid-state", "Run is terminal");

@@ -17,8 +17,10 @@ import {
     type SettlementAuditObligation,
     type SpawnAttenuation,
     type SpawnReservation,
-    type SynthesisCommitEvidence
+    type SynthesisCommitEvidence,
+    type TurnAdmissionHandle
 } from "../agents";
+import type { Receipt } from "../invocations";
 import type {
     AuditRecordId,
     EventId,
@@ -49,6 +51,13 @@ export interface CanonicalRunEvidenceSource<Transaction> {
         receipt: ReceiptId,
         audit: AuditRecordId
     ): AbandonedRewriteEvidence | undefined;
+    storedReceipt?(transaction: Transaction, receipt: ReceiptId): Receipt | undefined;
+    publishedHandle?(
+        transaction: Transaction,
+        invocation: InvocationId,
+        itemIndex: number,
+        itemKey: string
+    ): TurnAdmissionHandle | undefined;
     synthesis(transaction: Transaction, receipt: ReceiptId): SynthesisCommitEvidence | undefined;
     administer?(
         transaction: Transaction,
@@ -85,6 +94,17 @@ export class CanonicalRunEvidencePort<Transaction> extends RunEvidencePort<Trans
     }
     public abandonedRewrite(transaction: Transaction, receipt: ReceiptId, audit: AuditRecordId) {
         return this.source.abandonedRewrite?.(transaction, receipt, audit);
+    }
+    public storedReceipt(transaction: Transaction, receipt: ReceiptId) {
+        return this.source.storedReceipt?.(transaction, receipt);
+    }
+    public publishedHandle(
+        transaction: Transaction,
+        invocation: InvocationId,
+        itemIndex: number,
+        itemKey: string
+    ) {
+        return this.source.publishedHandle?.(transaction, invocation, itemIndex, itemKey);
     }
     public synthesis(transaction: Transaction, receipt: ReceiptId) {
         return this.source.synthesis(transaction, receipt);

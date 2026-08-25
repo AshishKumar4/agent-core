@@ -182,9 +182,9 @@ describe("Run lifecycle record", () => {
         );
         expectCode(
             "record tokens on terminal",
-            () => terminal.recordTokens(1),
+            () => terminal.recordModelUsage(1, undefined, []),
             "run.invalid-state",
-            "Terminal Runs consume no further tokens"
+            "Terminal Runs consume no further resources"
         );
         const exhausted = new Run({
             id: ids.run,
@@ -207,15 +207,18 @@ describe("Run lifecycle record", () => {
 
         // Zero is a usage a model call can legitimately report, and rejecting it would
         // fail the very call it is meant to account for.
-        expect(active.recordTokens(0).tokensConsumed).toBe(0);
-        expect(active.recordTokens(7).recordTokens(5).tokensConsumed).toBe(12);
+        expect(active.recordModelUsage(0, undefined, []).tokensConsumed).toBe(0);
+        expect(
+            active.recordModelUsage(7, undefined, []).recordModelUsage(5, undefined, [])
+                .tokensConsumed
+        ).toBe(12);
 
         // Both halves of the guard matter: a fractional count is not a token total, and a
         // negative one would hand allowance back to a Run that had already spent it.
         for (const tokens of [-1, 1.5, Number.MAX_SAFE_INTEGER + 2, Number.NaN]) {
             expectTypeError(
                 `usage ${tokens}`,
-                () => active.recordTokens(tokens),
+                () => active.recordModelUsage(tokens, undefined, []),
                 "Run token usage must be a non-negative safe integer"
             );
         }

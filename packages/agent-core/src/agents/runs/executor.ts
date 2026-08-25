@@ -43,12 +43,14 @@ import type { TurnPlacementSnapshot } from "./placement";
 import {
     CodecRecord,
     bytesEqual,
+    compareText,
     requireArray,
     requireExactFields,
     requireInteger,
     requireObject,
     requireString
 } from "../record-data";
+import { RealizedCost } from "./cost";
 import type { RunBranch } from "./run";
 import { RunRuntime } from "./runtime";
 import { RunRepository } from "./store";
@@ -210,11 +212,20 @@ export class GatewayTurnInvocationPort extends TurnInvocationPort {
     }
 }
 
+/**
+ * What one model call consumed, as the host observed it. The token counts arrive in the
+ * model response. `cost` does not: a price comes from a provider rate that varies by model,
+ * by contract, and over time, so SPEC §5.2 leaves the rate source out of scope and requires
+ * the amount reported here to be cost the call actually incurred. A host with no realized
+ * cost reports none, which leaves the `costMicros` dimension unbounded; there is no field
+ * an estimate could travel in.
+ */
 export interface TurnModelUsage {
     readonly inputTokens: number;
     readonly outputTokens: number;
     readonly cacheReadTokens?: number;
     readonly cacheWriteTokens?: number;
+    readonly cost?: RealizedCost | undefined;
 }
 
 /**
@@ -289,6 +300,41 @@ export class TurnOmission {
         if (kind === "none") return TurnOmission.none;
         if (kind === "unknown") return TurnOmission.unknown;
         throw new TypeError("Turn omission kind is unknown");
+    }
+}
+
+/**
+ * How much of one carried commit's content the model was not shown (SPEC §5.2). A prompt
+ * section may render several commits at once, so the section's own omission states how much
+ * that section withheld, and this states which commit the withheld bytes belonged to.
+ * Without it a commit a surface lists in its coverage and renders as no bytes at all reads
+ * exactly like a commit it rendered whole. A commit no entry names was carried whole, so an
+ * entry withholding nothing is refused rather than recorded as `none`.
+ */
+export class TurnCommitOmission {
+    public constructor(
+        public readonly commit: RunCommitId,
+        public readonly omission: TurnOmission
+    ) {
+        if (omission.kind === "none") {
+            throw new TypeError(
+                "A commit omission withholds content; a commit carried whole names no omission"
+            );
+        }
+        Object.freeze(this);
+    }
+
+    public toData(): JsonValue {
+        return { commit: this.commit.value, omission: this.omission.toData() };
+    }
+
+    public static fromData(value: JsonValue): TurnCommitOmission {
+        const object = requireObject(value, "Commit omission");
+        requireExactFields(object, ["commit", "omission"], [], "Commit omission");
+        return new TurnCommitOmission(
+            new RunCommitId(requireString(object["commit"], "Commit omission commit")),
+            TurnOmission.fromData(requireShown(object["omission"]))
+        );
     }
 }
 
@@ -516,6 +562,13 @@ export interface TurnModelInputInit {
     readonly admitted: readonly TurnAdmittedEvent[];
     readonly admissionCut: number;
     readonly covers: readonly RunCommitId[];
+    /**
+     * The omissions this surface attributes to the commits it carries. Absent and empty are
+     * one case. A surface that carries more than one commit and withholds content owes a
+     * complete attribution here; every other surface may leave it absent. The record orders
+     * the entries by commit id, so a caller states them in any order.
+     */
+    readonly withheld?: readonly TurnCommitOmission[];
 }
 
 /**
@@ -529,6 +582,15 @@ export interface TurnModelInputInit {
  * carry them. It lifts that fact out of the section bytes for the same reason SPEC §5.2
  * puts a message's `requests` in the graph rather than in its content: prose cannot be
  * asked which commits it renders, so a claim inside it is unreadable by any check.
+ *
+ * `withheld` attributes each omission to the commit whose content it withheld, which is the
+ * fact the two other fields cannot state between them: `covers` is per record and a
+ * section's omission is per section, so a commit fully abridged inside a multi-commit
+ * section is otherwise indistinguishable from one carried whole. A surface that carries more
+ * than one commit and withholds content attributes all of it; every other surface may
+ * attribute nothing. The field is additive and stays absent while it says nothing, because a
+ * `modelInput` commit derives its identity from these bytes and a key on every record would
+ * fork every identity already recorded.
  */
 export class TurnModelInput extends CodecRecord {
     public static get codec(): RecordCodec<TurnModelInput> {
@@ -539,6 +601,7 @@ export class TurnModelInput extends CodecRecord {
     public readonly admitted: readonly TurnAdmittedEvent[];
     public readonly admissionCut: number;
     public readonly covers: readonly RunCommitId[];
+    public readonly withheld: readonly TurnCommitOmission[];
 
     public constructor(init: TurnModelInputInit) {
         super();
@@ -565,17 +628,21 @@ export class TurnModelInput extends CodecRecord {
         this.admitted = Object.freeze([...init.admitted]);
         this.admissionCut = init.admissionCut;
         this.covers = Object.freeze([...init.covers]);
+        this.withheld = Object.freeze(validateCommitOmissions(init));
         Object.freeze(this);
     }
 
     public toData(): JsonValue {
-        return {
+        const surface = {
             admissionCut: this.admissionCut,
             admitted: this.admitted.map((admitted) => admitted.toData()),
             catalog: this.catalog.map(boundOperationData),
             covers: this.covers.map((commit) => commit.value),
             sections: this.sections.map((section) => section.toData())
         };
+        return this.withheld.length === 0
+            ? surface
+            : { ...surface, withheld: this.withheld.map((entry) => entry.toData()) };
     }
 
     public static fromData(value: JsonValue): TurnModelInput {
@@ -583,9 +650,16 @@ export class TurnModelInput extends CodecRecord {
         requireExactFields(
             object,
             ["admissionCut", "admitted", "catalog", "covers", "sections"],
-            [],
+            ["withheld"],
             "Model input"
         );
+        const withheld = object["withheld"];
+        if (
+            withheld !== undefined &&
+            requireArray(withheld, "Model input omissions").length === 0
+        ) {
+            throw new TypeError("A model input that attributes no omission records no list");
+        }
         return new TurnModelInput({
             sections: requireArray(object["sections"], "Model input sections").map(
                 TurnPromptSection.fromData
@@ -599,11 +673,25 @@ export class TurnModelInput extends CodecRecord {
             admissionCut: requireInteger(object["admissionCut"], "Model input admission cut"),
             covers: requireArray(object["covers"], "Model input coverage").map(
                 (commit) => new RunCommitId(requireString(commit, "Covered commit"))
-            )
+            ),
+            withheld:
+                withheld === undefined
+                    ? []
+                    : requireArray(withheld, "Model input omissions").map(
+                          TurnCommitOmission.fromData
+                      )
         });
     }
 }
 
+/**
+ * The version stays where it is while `withheld` joins the payload. A minor bump is the
+ * §8.3 signal to a reader that cannot understand a newer record, and this codec has no such
+ * reader: it is the only one, the field is optional, and a record that does not use it
+ * encodes the bytes it encoded before. The bump would cost what the field was shaped to
+ * avoid, because the version travels inside the encoded document that a `modelInput`
+ * commit's identity is derived from, so every existing identity would fork.
+ */
 class ModelInputCodec extends RecordCodec<TurnModelInput> {
     public constructor() {
         super(
@@ -615,6 +703,7 @@ class ModelInputCodec extends RecordCodec<TurnModelInput> {
                 TurnAdmittedEvent,
                 RunCommitId,
                 TurnOmission,
+                TurnCommitOmission,
                 TurnShownContent,
                 ContentRef,
                 Digest,
@@ -893,6 +982,14 @@ export interface TurnModelInputAssembly {
     readonly admitted: readonly TurnInboxEntry[];
     /** The transcript commits these sections carry, which `TurnModelInputHandle` supplies. */
     readonly covers: readonly RunCommitId[];
+    /**
+     * Which of those commits the sections carry in abridged form, and how much of each one
+     * they withhold. A host states this where it makes the abridgement, because nothing
+     * downstream can tell which commit's bytes a shortened section dropped. A surface that
+     * carries more than one commit and withholds content is refused without it, and the
+     * record orders the entries, so the host states them in any order.
+     */
+    readonly withheld?: readonly TurnCommitOmission[];
 }
 
 /** One model exchange: the durable record its request was issued from, and the response. */
@@ -1414,10 +1511,12 @@ class ScopedModelHandle<Transaction> extends TurnModelHandle {
         );
         requireUsage(result.usage);
         await this.scope.requireContent(result.output);
-        // SPEC §5.2: the Run's token total advances where the model call commits.
-        this.scope.init.runtime.recordModelTokens(
+        // SPEC §5.2: the Run's token total and its realized-cost total both advance where
+        // the model call commits, and the cost is what the host reported the call incurred.
+        this.scope.init.runtime.recordModelUsage(
             snapshot.scope.turn.run,
-            totalTokens(result.usage)
+            totalTokens(result.usage),
+            result.usage.cost
         );
         return Object.freeze({
             input: commit.id,
@@ -1454,12 +1553,17 @@ class ScopedModelHandle<Transaction> extends TurnModelHandle {
             }
             return new TurnAdmittedEvent(stored.id, stored.sequence, stored.event, stored.payload);
         });
+        // The attribution passes through unchecked here and is checked by the record, whose
+        // constructor holds it against the sections a `prompt.assemble` rewrite left behind:
+        // an interceptor never sees this field, so a rewrite that makes the host's
+        // accounting false is refused rather than recorded.
         return new TurnModelInput({
             sections: assembly.sections,
             catalog: assembly.catalog,
             admitted,
             admissionCut: inbox.length,
-            covers: assembly.covers
+            covers: assembly.covers,
+            withheld: assembly.withheld ?? []
         });
     }
 }
@@ -1723,6 +1827,13 @@ const admitStepRewrite: TurnRewriteRule = (before, after, interceptor) => {
     }
 };
 
+/**
+ * A Turn's bound Operations, checked against the Turn's FacetSet (SPEC §4.1, §5.3). The
+ * membership question goes to the captured snapshot's own predicate, so the executor has one
+ * composition view rather than a second reading a host could answer from the Scope's current
+ * install records. Capture fixes membership only: every use of a member still re-authorizes
+ * under §3.4, so a Grant revoked mid-Turn severs the capability without changing this set.
+ */
 function validateOperations(
     placement: TurnPlacementSnapshot,
     operations: readonly TurnBoundOperation[]
@@ -1735,7 +1846,7 @@ function validateOperations(
         if (bindings.has(operation.binding.value)) {
             throw new TypeError("Turn Operation bindings must be unique");
         }
-        if (!placement.placements.some((pin) => pin.facet.equals(operation.facet))) {
+        if (!placement.composes(operation.facet)) {
             throw invalidTurn("Turn Operation is absent from the immutable placement snapshot");
         }
         bindings.add(operation.binding.value);
@@ -1763,6 +1874,96 @@ function validateOfferedCatalog(
         bindings.add(operation.binding.value);
     }
     return [...catalog];
+}
+
+/**
+ * The omissions a coverage statement attributes, checked against the surface that made them.
+ * Each entry names one commit the surface carries, so an entry naming any other commit
+ * attributes an omission to content this record never carried, and a second entry for one
+ * commit states one commit's withholding twice.
+ *
+ * The sections bound what the entries may claim, because the omission a section states and
+ * the omission an entry attributes are the same withholding counted two ways. A surface
+ * whose sections withhold nothing withheld nothing from any commit. Where every section
+ * states an exact amount, the sections state one total and the attributed amounts stay
+ * inside it. One `unknown` section states no total, so no ceiling applies.
+ *
+ * A surface owes an attribution when it carries more than one commit and its sections
+ * withhold content. SPEC §5.2 attributes each omission to the commit whose content it
+ * withheld, and only a surface of that shape can hide one. A surface that carries one commit
+ * withholds from that commit and from nothing else, so the coverage attributes the omission
+ * on its own, and a surface that carries none names no commit an entry could attribute to.
+ * The check reads the surface rather than one section because no field says which commits a
+ * section renders — the same reason §5.2 keeps `covers` beside the sections instead of inside
+ * their bytes — so every section of a multi-commit surface is one that may carry several.
+ *
+ * An owed attribution is complete when it accounts for what the sections withhold. Where the
+ * sections state an exact total, the attributed amounts sum to exactly that total, so no
+ * commit outside the attribution holds the difference. Where any amount is unknown, no sum
+ * closes the account, so the attribution states an unknown amount too and stays open instead
+ * of claiming a closure it cannot show. That sum is the only thing in the record that tells
+ * a complete attribution from one a commit short, so an absent list and a short list both
+ * fail here.
+ *
+ * The entries come back ordered by commit id. Which commit an omission belonged to is a fact
+ * about one commit, and a set of such facts has no order of its own — unlike `covers`, whose
+ * order is the order the sections carry the commits in. Two hosts that state the same
+ * omissions therefore write the same bytes, and a `modelInput` identity derived from those
+ * bytes does not fork on the order a caller listed them in.
+ */
+function validateCommitOmissions(init: TurnModelInputInit): readonly TurnCommitOmission[] {
+    const withheld = init.withheld ?? [];
+    const carried = new Set(init.covers.map((commit) => commit.value));
+    const attributed = new Set<string>();
+    let claimed = 0;
+    let unknownAmount = false;
+    for (const entry of withheld) {
+        if (!(entry instanceof TurnCommitOmission)) {
+            throw new TypeError("An attributed omission is a canonical commit omission");
+        }
+        if (!carried.has(entry.commit.value)) {
+            throw new TypeError("An attributed omission names a commit this surface carries");
+        }
+        if (attributed.has(entry.commit.value)) {
+            throw new TypeError("One surface attributes an omission to a commit at most once");
+        }
+        attributed.add(entry.commit.value);
+        if (entry.omission.withheldBytes === undefined) unknownAmount = true;
+        else claimed += entry.omission.withheldBytes;
+    }
+    const omissions = init.sections.map((section) => section.omission);
+    if (omissions.every((omission) => omission.kind === "none")) {
+        if (withheld.length > 0) {
+            throw new TypeError(
+                "A surface whose sections withhold nothing attributes no omission to a commit"
+            );
+        }
+        return [];
+    }
+    const stated = omissions.some((omission) => omission.kind === "unknown")
+        ? undefined
+        : omissions.reduce((total, omission) => total + (omission.withheldBytes ?? 0), 0);
+    if (stated !== undefined && claimed > stated) {
+        throw new TypeError(
+            "Attributed omissions withhold no more than this surface's sections state"
+        );
+    }
+    if (init.covers.length > 1 && !unknownAmount && claimed !== stated) {
+        if (withheld.length === 0) {
+            throw unattributed(
+                `it carries ${init.covers.length} commits and attributes the content it withheld to none of them`
+            );
+        }
+        if (stated === undefined) {
+            throw unattributed(
+                "its sections withhold an unknown amount while every attributed amount is exact, so the attribution closes no account"
+            );
+        }
+        throw unattributed(
+            `it attributes ${claimed} of the ${stated} bytes its sections withhold, so a commit it does not name holds the difference`
+        );
+    }
+    return [...withheld].sort((left, right) => compareText(left.commit.value, right.commit.value));
 }
 
 function boundOperationData(operation: TurnBoundOperation): JsonValue {
@@ -1819,6 +2020,19 @@ function unaccounted(input: RunCommitId, discrepancy: string): AgentCoreError {
     return new AgentCoreError(
         "turn.model-input-unaccounted",
         `Model input ${input.value} does not account for its base transcript: ${discrepancy}`
+    );
+}
+
+/**
+ * A surface that withholds content from more than one carried commit and does not say which.
+ * It carries the code `unaccounted` uses, because both refuse a surface whose own statement
+ * does not add up: one over the transcript the surface carries, one over the content the
+ * surface withheld from that transcript.
+ */
+function unattributed(discrepancy: string): AgentCoreError {
+    return new AgentCoreError(
+        "turn.model-input-unaccounted",
+        `A model input does not attribute what its sections withhold: ${discrepancy}`
     );
 }
 
@@ -1888,6 +2102,9 @@ function requireUsage(usage: TurnModelUsage): void {
             throw new TypeError("Turn model usage values must be non-negative safe integers");
         }
     }
+    if (usage.cost !== undefined && usage.cost.constructor !== RealizedCost) {
+        throw new TypeError("Turn model usage cost must use the exact context class");
+    }
 }
 
 function totalTokens(usage: TurnModelUsage): number {
@@ -1909,6 +2126,9 @@ function freezeUsage(usage: TurnModelUsage): TurnModelUsage {
     }
     if (usage.cacheWriteTokens !== undefined) {
         frozen = { ...frozen, cacheWriteTokens: usage.cacheWriteTokens };
+    }
+    if (usage.cost !== undefined) {
+        frozen = { ...frozen, cost: usage.cost };
     }
     return Object.freeze(frozen);
 }

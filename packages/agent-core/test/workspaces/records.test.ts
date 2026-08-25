@@ -16,12 +16,7 @@ function fieldOf(value: JsonValue, field: string): JsonValue {
     if (nested === undefined) throw new TypeError(`Expected a ${field} field`);
     return nested;
 }
-import {
-    ContributionAttribution,
-    EventPattern,
-    FieldMove,
-    PayloadMapping
-} from "../../src/facets";
+import { ContributionAttribution, EventPattern, FieldMove, PayloadMapping } from "../../src/facets";
 import { Event } from "../../src/workspaces/event";
 import { InboxEventReference } from "../../src/workspaces/inbox";
 import {
@@ -72,12 +67,16 @@ describe("workspace durable records", () => {
         ["ContentRetentionReference", codecCase(ContentRetentionReference.codec, retention)]
     ] as const;
 
-    test.each(records)("round-trips %s through canonical codec bytes", { tags: "p1" }, (_name, subject) => {
-        const encoded = subject.encode();
+    test.each(records)(
+        "round-trips %s through canonical codec bytes",
+        { tags: "p1" },
+        (_name, subject) => {
+            const encoded = subject.encode();
 
-        expect(subject.reencode(encoded)).toEqual(encoded);
-        expect(subject.decodeIsFrozen(encoded)).toBe(true);
-    });
+            expect(subject.reencode(encoded)).toEqual(encoded);
+            expect(subject.decodeIsFrozen(encoded)).toBe(true);
+        }
+    );
 
     test.each(records)("rejects an unknown major for %s", { tags: "p2" }, (_name, subject) => {
         const envelope = decodeCanonicalJson(subject.encode());
@@ -122,6 +121,7 @@ describe("workspace durable records", () => {
         const mutableBody = { nested: { value: 1 } };
         const copiedView = new View({
             surface: view.surface,
+            epoch: view.epoch,
             revision: view.revision,
             body: mutableBody,
             actions: view.actions,
@@ -134,6 +134,7 @@ describe("workspace durable records", () => {
         const patch = [{ op: "replace", path: "/body", value: { nested: [1] } }];
         const copiedDelta = new ViewDelta({
             surface: view.surface,
+            epoch: view.epoch,
             baseRevision: view.revision,
             revision: view.revision.next(),
             patch,
@@ -171,8 +172,7 @@ describe("workspace durable records", () => {
         expect(Object.isFrozen(delta.patch)).toBe(true);
         expect(
             delta.patch.every(
-                (value) =>
-                    !(Array.isArray(value) || isJsonObject(value)) || Object.isFrozen(value)
+                (value) => !(Array.isArray(value) || isJsonObject(value)) || Object.isFrozen(value)
             )
         ).toBe(true);
         expect(Object.isFrozen(inbox.init)).toBe(true);
@@ -181,115 +181,139 @@ describe("workspace durable records", () => {
 });
 
 describe("event policy", () => {
-    test("derives host trust only from the complete host-and-lease fact set", { tags: "p0" }, () => {
-        expect(
-            deriveEventTrust({
-                authenticatedPrincipal: principal,
-                principalOwnsScope: false,
-                validTurnLease: true,
-                hostEmission: true
-            })
-        ).toEqual({ tier: "self", initiator: principal });
-        expect(() =>
-            deriveEventTrust({
-                authenticatedPrincipal: principal,
-                principalOwnsScope: false,
-                validTurnLease: true,
-                hostEmission: false
-            })
-        ).toThrow(/host emission under a valid Turn lease/);
-        expect(() =>
-            deriveEventTrust({
-                authenticatedPrincipal: principal,
-                principalOwnsScope: false,
-                validTurnLease: false,
-                hostEmission: true
-            })
-        ).toThrow(/host emission under a valid Turn lease/);
-    });
+    test(
+        "derives host trust only from the complete host-and-lease fact set",
+        { tags: "p0" },
+        () => {
+            expect(
+                deriveEventTrust({
+                    authenticatedPrincipal: principal,
+                    principalOwnsScope: false,
+                    validTurnLease: true,
+                    hostEmission: true
+                })
+            ).toEqual({ tier: "self", initiator: principal });
+            expect(() =>
+                deriveEventTrust({
+                    authenticatedPrincipal: principal,
+                    principalOwnsScope: false,
+                    validTurnLease: true,
+                    hostEmission: false
+                })
+            ).toThrow(/host emission under a valid Turn lease/);
+            expect(() =>
+                deriveEventTrust({
+                    authenticatedPrincipal: principal,
+                    principalOwnsScope: false,
+                    validTurnLease: false,
+                    hostEmission: true
+                })
+            ).toThrow(/host emission under a valid Turn lease/);
+        }
+    );
 
-    test("derives owner, authenticated, and external trust without elevation", { tags: "p0" }, () => {
-        expect(
-            deriveEventTrust({
-                authenticatedPrincipal: principal,
-                principalOwnsScope: true,
-                validTurnLease: false,
-                hostEmission: false
-            })
-        ).toEqual({ tier: "owner", initiator: principal });
-        expect(() =>
-            deriveEventTrust({
-                principalOwnsScope: true,
-                validTurnLease: false,
-                hostEmission: false
-            })
-        ).toThrow(/authenticated Principal/);
-        expect(
-            deriveEventTrust({
-                authenticatedPrincipal: principal,
-                principalOwnsScope: false,
-                validTurnLease: false,
-                hostEmission: false
-            })
-        ).toEqual({ tier: "authenticated", initiator: principal });
-        expect(
-            deriveEventTrust({
-                principalOwnsScope: false,
-                validTurnLease: false,
-                hostEmission: false
-            })
-        ).toEqual({ tier: "external" });
-    });
+    test(
+        "derives owner, authenticated, and external trust without elevation",
+        { tags: "p0" },
+        () => {
+            expect(
+                deriveEventTrust({
+                    authenticatedPrincipal: principal,
+                    principalOwnsScope: true,
+                    validTurnLease: false,
+                    hostEmission: false
+                })
+            ).toEqual({ tier: "owner", initiator: principal });
+            expect(() =>
+                deriveEventTrust({
+                    principalOwnsScope: true,
+                    validTurnLease: false,
+                    hostEmission: false
+                })
+            ).toThrow(/authenticated Principal/);
+            expect(
+                deriveEventTrust({
+                    authenticatedPrincipal: principal,
+                    principalOwnsScope: false,
+                    validTurnLease: false,
+                    hostEmission: false
+                })
+            ).toEqual({ tier: "authenticated", initiator: principal });
+            expect(
+                deriveEventTrust({
+                    principalOwnsScope: false,
+                    validTurnLease: false,
+                    hostEmission: false
+                })
+            ).toEqual({ tier: "external" });
+        }
+    );
 
-    test("matches exact and categorical kind/source patterns plus accepted trust", { tags: "p1" }, () => {
-        const facetEvent = eventFixture("pattern", { kind: "task.created" });
-        expect(eventMatches(subscriptionFixture("pattern").source, facetEvent)).toBe(true);
-        expect(
-            eventMatches(
-                new EventPattern("task.created", ["authenticated"], "facet.test"),
-                facetEvent
-            )
-        ).toBe(true);
-        expect(eventMatches(new EventPattern("task.*", ["authenticated"]), facetEvent)).toBe(true);
-        expect(eventMatches(new EventPattern("other.*", ["authenticated"]), facetEvent)).toBe(
-            false
-        );
-        expect(eventMatches(new EventPattern("task.*", ["external"]), facetEvent)).toBe(false);
+    test(
+        "matches exact and categorical kind/source patterns plus accepted trust",
+        { tags: "p1" },
+        () => {
+            const facetEvent = eventFixture("pattern", { kind: "task.created" });
+            expect(eventMatches(subscriptionFixture("pattern").source, facetEvent)).toBe(true);
+            expect(
+                eventMatches(
+                    new EventPattern("task.created", ["authenticated"], "facet.test"),
+                    facetEvent
+                )
+            ).toBe(true);
+            expect(eventMatches(new EventPattern("task.*", ["authenticated"]), facetEvent)).toBe(
+                true
+            );
+            expect(eventMatches(new EventPattern("other.*", ["authenticated"]), facetEvent)).toBe(
+                false
+            );
+            expect(eventMatches(new EventPattern("task.*", ["external"]), facetEvent)).toBe(false);
 
-        const actorEvent = eventFixture("actor-pattern", { source: "actor" });
-        expect(
-            eventMatches(new EventPattern("task.*", ["authenticated"], "workspace-*"), actorEvent)
-        ).toBe(true);
-        expect(
-            eventMatches(new EventPattern("task.*", ["authenticated"], "other-actor"), actorEvent)
-        ).toBe(false);
-    });
+            const actorEvent = eventFixture("actor-pattern", { source: "actor" });
+            expect(
+                eventMatches(
+                    new EventPattern("task.*", ["authenticated"], "workspace-*"),
+                    actorEvent
+                )
+            ).toBe(true);
+            expect(
+                eventMatches(
+                    new EventPattern("task.*", ["authenticated"], "other-actor"),
+                    actorEvent
+                )
+            ).toBe(false);
+        }
+    );
 
-    test("maps root, arrays, escaped tokens, and literals without aliasing source data", { tags: "p1" }, () => {
-        const source = { payload: { values: ["first", "second"] }, "a/b": { "~key": 3 } };
-        const root = applyPayloadMapping(
-            new PayloadMapping([new FieldMove("", { from: "/payload" })]),
-            source
-        );
-        expect(root).toEqual({ values: ["first", "second"] });
-        expect(root).not.toBe(source.payload);
-        expect(Object.isFrozen(root)).toBe(true);
+    test(
+        "maps root, arrays, escaped tokens, and literals without aliasing source data",
+        { tags: "p1" },
+        () => {
+            const source = { payload: { values: ["first", "second"] }, "a/b": { "~key": 3 } };
+            const root = applyPayloadMapping(
+                new PayloadMapping([new FieldMove("", { from: "/payload" })]),
+                source
+            );
+            expect(root).toEqual({ values: ["first", "second"] });
+            expect(root).not.toBe(source.payload);
+            expect(Object.isFrozen(root)).toBe(true);
 
-        const mapped = applyPayloadMapping(
-            new PayloadMapping([
-                new FieldMove("/items/0/name", { from: "/payload/values/0" }),
-                new FieldMove("/items/1/name", { from: "/payload/values/1" }),
-                new FieldMove("/escaped", { from: "/a~1b/~0key" }),
-                new FieldMove("/literal", { literal: { ok: true } })
-            ]),
-            source
-        );
-        expect(mapped).toEqual({
-            escaped: 3,
-            items: [{ name: "first" }, { name: "second" }],
-            literal: { ok: true }
-        });
-    });
+            const mapped = applyPayloadMapping(
+                new PayloadMapping([
+                    new FieldMove("/items/0/name", { from: "/payload/values/0" }),
+                    new FieldMove("/items/1/name", { from: "/payload/values/1" }),
+                    new FieldMove("/escaped", { from: "/a~1b/~0key" }),
+                    new FieldMove("/literal", { literal: { ok: true } })
+                ]),
+                source
+            );
+            expect(mapped).toEqual({
+                escaped: 3,
+                items: [{ name: "first" }, { name: "second" }],
+                literal: { ok: true }
+            });
+        }
+    );
 
     test("rejects missing source pointers and overlapping targets", { tags: "p2" }, () => {
         expect(() =>
@@ -312,16 +336,20 @@ describe("event policy", () => {
         }
     });
 
-    test("rejects overlapping mapping targets when constructing a durable Subscription", { tags: "p1" }, () => {
-        expect(() =>
-            subscriptionFixture("overlap-install", {
-                mapping: new PayloadMapping([
-                    new FieldMove("/parent", { literal: {} }),
-                    new FieldMove("/parent/child", { literal: true })
-                ])
-            })
-        ).toThrow(/duplicate or overlap/);
-    });
+    test(
+        "rejects overlapping mapping targets when constructing a durable Subscription",
+        { tags: "p1" },
+        () => {
+            expect(() =>
+                subscriptionFixture("overlap-install", {
+                    mapping: new PayloadMapping([
+                        new FieldMove("/parent", { literal: {} }),
+                        new FieldMove("/parent/child", { literal: true })
+                    ])
+                })
+            ).toThrow(/duplicate or overlap/);
+        }
+    );
 
     test(
         "[C13-FACET-WITHDRAWAL-EXACT] a Subscription admits retirement only as the presence marker",

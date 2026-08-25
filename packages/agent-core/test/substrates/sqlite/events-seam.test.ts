@@ -1,4 +1,6 @@
 import { expect, test } from "vitest";
+import { Revision } from "../../../src/core";
+import { SurfaceEpoch, surfaceRevisionKey } from "../../../src/workspaces";
 import { SqliteWorkspaceRecords } from "../../../src/substrates/sqlite/workspace-records";
 import { MemoryWorkspaceRecords, type WorkspaceRecordStorage } from "../../../src/workspaces";
 import { TestSqlite } from "../../helpers/sqlite";
@@ -38,28 +40,41 @@ function verifyWorkspaceStorage(): void {
                 recordKey: "other"
             })
         ).toThrow(expect.objectContaining({ code: "protocol.duplicate" }));
-        store.insertRecord({ kind: "view", id: `surface-${index}@0`, bytes: Uint8Array.of(0) });
+        store.insertRecord({
+            kind: "view",
+            id: viewKey(`surface-${index}`, 0),
+            bytes: Uint8Array.of(0)
+        });
         store.compareAndSetPointer(
             {
                 namespace: "view.current",
                 key: `surface-${index}`,
-                recordKey: `surface-${index}@0`
+                recordKey: viewKey(`surface-${index}`, 0)
             },
             undefined
         );
-        store.insertRecord({ kind: "view", id: `surface-${index}@1`, bytes: Uint8Array.of(1) });
+        store.insertRecord({
+            kind: "view",
+            id: viewKey(`surface-${index}`, 1),
+            bytes: Uint8Array.of(1)
+        });
         store.compareAndSetPointer(
             {
                 namespace: "view.current",
                 key: `surface-${index}`,
-                recordKey: `surface-${index}@1`
+                recordKey: viewKey(`surface-${index}`, 1)
             },
-            `surface-${index}@0`
+            viewKey(`surface-${index}`, 0)
         );
         expect(store.findPointer("view.current", `surface-${index}`)?.recordKey).toBe(
-            `surface-${index}@1`
+            viewKey(`surface-${index}`, 1)
         );
-        store.deleteRecords("view", [`surface-${index}@0`]);
-        expect(store.findRecord("view", `surface-${index}@0`)).toBeUndefined();
+        store.deleteRecords("view", [viewKey(`surface-${index}`, 0)]);
+        expect(store.findRecord("view", viewKey(`surface-${index}`, 0))).toBeUndefined();
     }
+}
+
+/** A View pointer's record key, built the one way production builds it. */
+function viewKey(surface: string, revision: number): string {
+    return surfaceRevisionKey(surface, SurfaceEpoch.first(), new Revision(revision));
 }

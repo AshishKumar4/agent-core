@@ -871,7 +871,7 @@ describe("forced sibling cancellation", () => {
         const value = seedRunningTurn();
         const sibling = claimSibling(value, "sibling-fenced");
         const forced = forcedEvidence(value, sibling, "fenced");
-        const snapshot = value.runtime.terminalizeRun(
+        const { snapshot } = value.runtime.terminalizeRun(
             terminalRequest(value, {
                 forcedCancellationControl: forced.control,
                 siblingCancellations: new Map([[sibling.id.value, forced.evidence]])
@@ -904,7 +904,7 @@ describe("forced sibling cancellation", () => {
             must(value.repository.loadTurn(tx, queuedId))
         );
         const forced = forcedEvidence(value, sibling, "queued-fence");
-        const snapshot = value.runtime.terminalizeRun(
+        const { snapshot } = value.runtime.terminalizeRun(
             terminalRequest(value, {
                 forcedCancellationControl: forced.control,
                 siblingCancellations: new Map([[queuedId.value, forced.evidence]])
@@ -991,7 +991,7 @@ describe("forced sibling cancellation", () => {
             );
             value.runtime.cancelUnheldTurn(cancelledId, new Revision(0));
 
-            const snapshot = value.runtime.terminalizeRun(
+            const { snapshot } = value.runtime.terminalizeRun(
                 terminalRequest(value, {
                     outcome: "succeeded",
                     expectedBranchRevision: new Revision(2),

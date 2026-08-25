@@ -11,6 +11,7 @@ import { TurnId } from "../execution-references";
 import { SurfaceId, TaskId } from "../facets";
 import { requireFields, requireObject, requireString, type JsonObject } from "./codec";
 import { EventCursor } from "./id";
+import type { SurfaceEpoch } from "./surface-epoch";
 import { ActionDescriptor, View } from "./view";
 
 /**
@@ -21,9 +22,7 @@ import { ActionDescriptor, View } from "./view";
  * predicates that can disagree (C13-PLAN-ACYCLIC).
  */
 export type PlanFactKind =
-    | "plan.taskDeclared"
-    | "plan.dependencyDeclared"
-    | "plan.dependencyRetracted";
+    "plan.taskDeclared" | "plan.dependencyDeclared" | "plan.dependencyRetracted";
 
 export interface PlanEdge {
     readonly blocked: TaskId;
@@ -355,12 +354,14 @@ export function criticalPath(plan: TaskPlan): readonly TaskId[] {
  */
 export function planView(
     surface: SurfaceId,
+    epoch: SurfaceEpoch,
     revision: Revision,
     plan: TaskPlan,
     actions: readonly ActionDescriptor[] = []
 ): View {
     return new View({
         surface,
+        epoch,
         revision,
         body: planViewBody(plan),
         actions,

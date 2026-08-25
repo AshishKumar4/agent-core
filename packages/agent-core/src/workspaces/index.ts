@@ -141,6 +141,7 @@ export type {
 } from "./source-protocol";
 export { Subscription } from "./subscription";
 export type { SubscriptionInit } from "./subscription";
+export { SurfaceEpoch, surfaceRevisionKey, surfaceStreamKey } from "./surface-epoch";
 export { WITHDRAWN_TARGET_REASON, WorkspaceRoutingWithdrawal } from "./withdrawal";
 export type { RoutingWithdrawal, RoutingWithdrawalAuditPort } from "./withdrawal";
 export {
@@ -162,10 +163,14 @@ export { ViewReplayProtocol } from "./view-replay";
 export type { ViewReplayResult } from "./view-replay";
 export {
     ActionDescriptor,
+    TERMINAL_VIEW_PATCH,
     View,
     ViewDelta,
     ViewMark,
+    terminalViewDocument,
+    viewDeltaRecordKey,
     viewDocument,
-    viewFromDocument
+    viewFromDocument,
+    viewRecordKey
 } from "./view";
 export type { ActionDescriptorInit, JsonPatchEngine, ViewDeltaInit, ViewInit } from "./view";

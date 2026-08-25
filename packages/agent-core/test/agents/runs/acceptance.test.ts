@@ -389,7 +389,7 @@ describe("Run acceptance criteria", () => {
                 verdict(firstId, digest("e"), "first-pass")
             );
 
-            const snapshot = value.runtime.terminalizeRun({
+            const { snapshot } = value.runtime.terminalizeRun({
                 run: ids.run,
                 turn: ids.turn,
                 expectedRunRevision: value.repository.transaction((tx) => {

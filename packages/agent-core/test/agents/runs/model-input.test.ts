@@ -5,7 +5,13 @@ import {
     type ContentPutResult,
     type MediaHint
 } from "../../../src/content";
-import { ContentRef, Digest, JsonSchema } from "../../../src/core";
+import {
+    ContentRef,
+    Digest,
+    JsonSchema,
+    encodeBase64,
+    encodeCanonicalJson
+} from "../../../src/core";
 import { AgentCoreError } from "../../../src/errors";
 import { ActorCommitUnknownError, type SynchronousResultGuard } from "../../../src/actors";
 import { RunCommitId } from "../../../src/execution-references";
@@ -17,6 +23,7 @@ import {
     RunRuntime,
     TurnAdmittedEvent,
     TurnBoundOperation,
+    TurnCommitOmission,
     TurnExecutor,
     TurnExecutorHost,
     TurnInboxEntry,
@@ -34,6 +41,8 @@ import {
     type TurnModelCall,
     type TurnModelInputAssembly,
     type TurnModelExchange,
+    type TurnModelInputInit,
+    type TurnModelRequest,
     type TurnOutcome
 } from "../../../src/agents/runs";
 import {
@@ -211,7 +220,12 @@ class ObservingModelPort {
 }
 
 function faultyHarness() {
-    const faults = new FaultyRunStorage(ids.holder.tenantId, ids.actor, fixtureMemoryRunSnapshot(), () => new Date(0));
+    const faults = new FaultyRunStorage(
+        ids.holder.tenantId,
+        ids.actor,
+        fixtureMemoryRunSnapshot(),
+        () => new Date(0)
+    );
     const repository = new RunRepository(faults);
     const sources = new TestSourcePort<MemoryTransaction>();
     const evidence = new TestEvidencePort<MemoryTransaction>();
@@ -227,7 +241,17 @@ function faultyHarness() {
         merge,
         new UncontributedCutPoints()
     );
-    return { storage: faults, faults, repository, sources, evidence, settlement, spawn, merge, runtime };
+    return {
+        storage: faults,
+        faults,
+        repository,
+        sources,
+        evidence,
+        settlement,
+        spawn,
+        merge,
+        runtime
+    };
 }
 
 function tool(binding: string, operation: string): TurnBoundOperation {
@@ -405,10 +429,9 @@ describe("Turn model input", () => {
             });
             const replayed = await live.reconstruct(input);
             expect(turnModelRequestBytes(replayed)).toEqual(sent);
-            expect(replayed.sections.map((entry) => new TextDecoder().decode(entry.bytes))).toEqual([
-                "inline section",
-                "referenced section"
-            ]);
+            expect(replayed.sections.map((entry) => new TextDecoder().decode(entry.bytes))).toEqual(
+                ["inline section", "referenced section"]
+            );
             expect(replayed.catalog).toEqual([read]);
             expect(replayed.baseCommit).toEqual(ids.root);
 
@@ -466,7 +489,9 @@ describe("Turn model input", () => {
                     catalog: [context.operations[0]!],
                     admitted: []
                 });
-                return context.outcome.succeed(resultCommit(context, "stray-result", exchange.input, base.output));
+                return context.outcome.succeed(
+                    resultCommit(context, "stray-result", exchange.input, base.output)
+                );
             });
 
             await expect(base.host(executor).execute(base.seeded.token)).resolves.toMatchObject({
@@ -484,9 +509,7 @@ describe("Turn model input", () => {
             const shown = TurnShownContent.inline(encoder.encode("rewritten"));
             expect(shown.inlineBytes()).toEqual(encoder.encode("rewritten"));
             expect(shown.ref).toBeUndefined();
-            expect(
-                TurnShownContent.reference(content("a")).inlineBytes()
-            ).toBeUndefined();
+            expect(TurnShownContent.reference(content("a")).inlineBytes()).toBeUndefined();
             const digest = Digest.sha256(encoder.encode("rewritten"));
             for (const malformed of [
                 {},
@@ -586,7 +609,9 @@ describe("Turn model input", () => {
                 }
                 // A refused dispatch ends the Turn through the §5.3 lifecycle without a
                 // model call rather than surfacing as a model-call failure.
-                return context.outcome.fail(resultCommit(context, `refused-${fault}`, ids.root, base.output));
+                return context.outcome.fail(
+                    resultCommit(context, `refused-${fault}`, ids.root, base.output)
+                );
             });
 
             await expect(base.host(executor).execute(base.seeded.token)).resolves.toMatchObject({
@@ -754,7 +779,9 @@ describe("Turn model input", () => {
                         continue;
                     }
                 }
-                return context.outcome.fail(resultCommit(context, "exhausted-result", ids.root, exhausted.output));
+                return context.outcome.fail(
+                    resultCommit(context, "exhausted-result", ids.root, exhausted.output)
+                );
             });
             await expect(
                 exhausted.host(giveUp).execute(exhausted.seeded.token)
@@ -898,7 +925,11 @@ describe("Turn model input", () => {
                             TurnShownContent.inline(abridged),
                             TurnOmission.exact(whole.length - abridged.length)
                         ),
-                        section("stream", TurnShownContent.inline(encoder.encode("head")), TurnOmission.unknown),
+                        section(
+                            "stream",
+                            TurnShownContent.inline(encoder.encode("head")),
+                            TurnOmission.unknown
+                        ),
                         section("whole", TurnShownContent.reference(wholeRef))
                     ],
                     catalog: [],
@@ -1041,6 +1072,612 @@ describe("Turn model input", () => {
             for (const malformed of [foreign, sectionless, shortCut]) {
                 expect(() => TurnModelInput.fromData(malformed)).toThrow(TypeError);
             }
+        }
+    );
+
+    it(
+        "[C13-RUN-DISTINCTION-REPRESENTABLE] tells a commit carried in fully abridged form from one carried whole, and leaves a surface that attributes nothing byte-identical",
+        { tags: "p0" },
+        () => {
+            const first = new RunCommitId("carried-first");
+            const second = new RunCommitId("carried-second");
+            const shown = encoder.encode("first only");
+            // One section renders two commits and drops every byte of the second one.
+            const base = {
+                sections: [
+                    section("transcript", TurnShownContent.inline(shown), TurnOmission.exact(6))
+                ],
+                catalog: [],
+                admitted: [],
+                admissionCut: 0,
+                covers: [first, second]
+            } satisfies TurnModelInputInit;
+            const attributed = new TurnModelInput({
+                ...base,
+                withheld: [new TurnCommitOmission(second, TurnOmission.exact(6))]
+            });
+            // The same two commits carried whole: the sections withhold nothing, so there is
+            // nothing to attribute and the record attributes nothing.
+            const whole = new TurnModelInput({
+                ...base,
+                sections: [section("transcript", TurnShownContent.inline(shown))]
+            });
+
+            // Same coverage, and the attribution is the only thing that tells the abridged
+            // commit from the whole one.
+            expect(attributed.covers.map((commit) => commit.value)).toEqual(
+                whole.covers.map((commit) => commit.value)
+            );
+            expect(attributed.withheld.map((entry) => entry.commit.value)).toEqual([second.value]);
+            expect(attributed.withheld[0]!.omission).toEqual(TurnOmission.exact(6));
+            expect(whole.withheld).toEqual([]);
+            expect(TurnModelInput.encode(attributed)).not.toEqual(TurnModelInput.encode(whole));
+
+            // The record that states neither is the one the rule forbids: it carries both
+            // commits, withholds six bytes of one of them, and attributes that withholding to
+            // nothing. It is refused rather than recorded, so no reader has to guess.
+            expect(() => new TurnModelInput(base)).toThrow(AgentCoreError);
+
+            const decoded = TurnModelInput.decode(TurnModelInput.encode(attributed));
+            expect(decoded.withheld[0]!.commit.value).toBe(second.value);
+            expect(decoded.withheld[0]!.omission).toEqual(TurnOmission.exact(6));
+            expect(TurnModelInput.encode(decoded)).toEqual(TurnModelInput.encode(attributed));
+
+            // The encoding a surface that attributes nothing had before the field existed,
+            // written out here rather than derived: the key is absent and the codec version is
+            // where it was, so every `modelInput` identity derived from these bytes stands.
+            expect(TurnModelInput.encode(whole)).toEqual(
+                encodeCanonicalJson({
+                    kind: "turn.model-input",
+                    version: { major: 1, minor: 0 },
+                    payload: {
+                        admissionCut: 0,
+                        admitted: [],
+                        catalog: [],
+                        covers: [first.value, second.value],
+                        sections: [
+                            {
+                                name: "transcript",
+                                omission: { kind: "none" },
+                                shown: { inline: encodeBase64(shown) }
+                            }
+                        ]
+                    }
+                })
+            );
+            // A surface that carries one commit attributes its whole withholding to that
+            // commit already, so an abridged one writes those same pre-field bytes too.
+            expect(TurnModelInput.encode(new TurnModelInput({ ...base, covers: [first] }))).toEqual(
+                encodeCanonicalJson({
+                    kind: "turn.model-input",
+                    version: { major: 1, minor: 0 },
+                    payload: {
+                        admissionCut: 0,
+                        admitted: [],
+                        catalog: [],
+                        covers: [first.value],
+                        sections: [
+                            {
+                                name: "transcript",
+                                omission: { kind: "exact", withheldBytes: 6 },
+                                shown: { inline: encodeBase64(shown) }
+                            }
+                        ]
+                    }
+                })
+            );
+        }
+    );
+
+    it(
+        "[C13-RUN-DISTINCTION-REPRESENTABLE] refuses an attribution outside the coverage, a repeated commit, a commit carried whole, and a total its sections contradict",
+        { tags: "p0" },
+        () => {
+            const carried = new RunCommitId("carried-first");
+            const stranger = new RunCommitId("uncarried");
+            const shown = TurnShownContent.inline(encoder.encode("shown"));
+            const surface =
+                (sections: readonly TurnPromptSection[], withheld: readonly TurnCommitOmission[]) =>
+                () =>
+                    new TurnModelInput({
+                        sections,
+                        catalog: [],
+                        admitted: [],
+                        admissionCut: 0,
+                        covers: [carried],
+                        withheld
+                    });
+            const abridged = [section("transcript", shown, TurnOmission.exact(10))];
+            const whole = [section("transcript", shown)];
+
+            // Withholding nothing is the absence of an entry rather than an entry.
+            expect(() => new TurnCommitOmission(carried, TurnOmission.none)).toThrow(TypeError);
+            // An omission attributed to content this record never carried.
+            expect(
+                surface(abridged, [new TurnCommitOmission(stranger, TurnOmission.exact(10))])
+            ).toThrow(TypeError);
+            // One commit's withholding, stated twice.
+            expect(
+                surface(abridged, [
+                    new TurnCommitOmission(carried, TurnOmission.exact(4)),
+                    new TurnCommitOmission(carried, TurnOmission.exact(6))
+                ])
+            ).toThrow(TypeError);
+            // A second, contradictory total: sections that withheld nothing at all, and a
+            // section total smaller than the attribution claims.
+            expect(
+                surface(whole, [new TurnCommitOmission(carried, TurnOmission.exact(10))])
+            ).toThrow(TypeError);
+            expect(surface(whole, [new TurnCommitOmission(carried, TurnOmission.unknown)])).toThrow(
+                TypeError
+            );
+            expect(
+                surface(abridged, [new TurnCommitOmission(carried, TurnOmission.exact(11))])
+            ).toThrow(TypeError);
+            // A section that withheld an unknown amount states no total to contradict.
+            expect(
+                surface(
+                    [section("transcript", shown, TurnOmission.unknown)],
+                    [new TurnCommitOmission(carried, TurnOmission.exact(4_000))]
+                )
+            ).not.toThrow();
+            // A structural stand-in is not the canonical value.
+            const impostor: TurnCommitOmission = Object.freeze({
+                commit: carried,
+                omission: TurnOmission.unknown,
+                toData: () => ({ commit: carried.value, omission: TurnOmission.unknown.toData() })
+            });
+            expect(surface(abridged, [impostor])).toThrow(TypeError);
+
+            // Absence has exactly one encoding — no key, never an empty list — and every
+            // encoded entry decodes through the constructor that refuses a whole commit.
+            const record = surface(abridged, [
+                new TurnCommitOmission(carried, TurnOmission.exact(10))
+            ])();
+            const emptied = mutableData(record.toData());
+            emptied["withheld"] = [];
+            const nameless = mutableData(record.toData());
+            nameless["withheld"] = [{ commit: carried.value }];
+            const nothingWithheld = mutableData(record.toData());
+            nothingWithheld["withheld"] = [{ commit: carried.value, omission: { kind: "none" } }];
+            for (const malformed of [emptied, nameless, nothingWithheld]) {
+                expect(() => TurnModelInput.fromData(malformed)).toThrow(TypeError);
+            }
+        }
+    );
+
+    it(
+        "[C13-RUN-DISTINCTION-REPRESENTABLE] refuses a multi-commit surface that attributes nothing, one commit short, or nothing an unknown amount reaches",
+        { tags: "p0" },
+        () => {
+            const first = new RunCommitId("carried-first");
+            const second = new RunCommitId("carried-second");
+            const shown = TurnShownContent.inline(encoder.encode("neither in full"));
+            const surface =
+                (omission: TurnOmission, withheld: readonly TurnCommitOmission[]) => () =>
+                    new TurnModelInput({
+                        sections: [section("transcript", shown, omission)],
+                        catalog: [],
+                        admitted: [],
+                        admissionCut: 0,
+                        covers: [first, second],
+                        withheld
+                    });
+            const refusalOf = (build: () => TurnModelInput): AgentCoreError => {
+                try {
+                    build();
+                } catch (error) {
+                    if (error instanceof AgentCoreError) return error;
+                    throw error;
+                }
+                throw new TypeError("Expected the surface to be refused");
+            };
+
+            // Nothing attributed at all: the section drops thirty bytes of two carried
+            // commits and says which of them held none of them.
+            const silent = refusalOf(surface(TurnOmission.exact(30), []));
+            expect(silent.code).toBe("turn.model-input-unaccounted");
+            expect(silent.message).toContain("carries 2 commits");
+            // One commit short: twenty of the thirty withheld bytes belong to a commit the
+            // attribution does not name, which is exactly the commit a reader would read as
+            // carried whole.
+            const short = refusalOf(
+                surface(TurnOmission.exact(30), [
+                    new TurnCommitOmission(first, TurnOmission.exact(10))
+                ])
+            );
+            expect(short.code).toBe("turn.model-input-unaccounted");
+            expect(short.message).toContain("attributes 10 of the 30 bytes");
+            // An unknown withholding that every attributed amount claims to measure closes no
+            // account, so the unknown travels into the attribution or the record is refused.
+            const measured = refusalOf(
+                surface(TurnOmission.unknown, [
+                    new TurnCommitOmission(first, TurnOmission.exact(10))
+                ])
+            );
+            expect(measured.code).toBe("turn.model-input-unaccounted");
+            expect(measured.message).toContain("closes no account");
+
+            // A total the sections contradict stays the malformed-entry refusal it was: the
+            // entry claims more than the surface withheld at all.
+            expect(
+                surface(TurnOmission.exact(30), [
+                    new TurnCommitOmission(first, TurnOmission.exact(31))
+                ])
+            ).toThrow(TypeError);
+
+            // Both accounts a surface may state: the exact amounts that close, and the open
+            // one an unknown amount leaves.
+            expect(
+                surface(TurnOmission.exact(30), [
+                    new TurnCommitOmission(first, TurnOmission.exact(10)),
+                    new TurnCommitOmission(second, TurnOmission.exact(20))
+                ])
+            ).not.toThrow();
+            expect(
+                surface(TurnOmission.unknown, [new TurnCommitOmission(first, TurnOmission.unknown)])
+            ).not.toThrow();
+
+            // A stored surface is held to the same rule on the way out, so a restart cannot
+            // read back a record the seam would have refused. The attribution one commit short
+            // and the attribution absent altogether both fail at decode.
+            const complete = surface(TurnOmission.exact(30), [
+                new TurnCommitOmission(first, TurnOmission.exact(10)),
+                new TurnCommitOmission(second, TurnOmission.exact(20))
+            ])();
+            const storedShort = mutableData(complete.toData());
+            storedShort["withheld"] = [
+                { commit: first.value, omission: { kind: "exact", withheldBytes: 10 } }
+            ];
+            const storedSilent = mutableData(
+                new TurnModelInput({
+                    sections: [section("transcript", shown, TurnOmission.exact(30))],
+                    catalog: [],
+                    admitted: [],
+                    admissionCut: 0,
+                    covers: [first]
+                }).toData()
+            );
+            storedSilent["covers"] = [first.value, second.value];
+            for (const stored of [storedShort, storedSilent]) {
+                expect(() => TurnModelInput.fromData(stored)).toThrow(AgentCoreError);
+            }
+        }
+    );
+
+    it(
+        "[C13-RUN-DISTINCTION-REPRESENTABLE] writes one record for an attribution stated in any order, and still refuses a commit named twice",
+        { tags: "p0" },
+        () => {
+            const first = new RunCommitId("carried-first");
+            const second = new RunCommitId("carried-second");
+            const shown = TurnShownContent.inline(encoder.encode("neither in full"));
+            const surface = (withheld: readonly TurnCommitOmission[]) => () =>
+                new TurnModelInput({
+                    sections: [section("transcript", shown, TurnOmission.exact(30))],
+                    catalog: [],
+                    admitted: [],
+                    admissionCut: 0,
+                    covers: [first, second],
+                    withheld
+                });
+            const held = new TurnCommitOmission(first, TurnOmission.exact(10));
+            const dropped = new TurnCommitOmission(second, TurnOmission.exact(20));
+
+            // Which commit an omission belonged to is a fact about one commit, and a set of
+            // those facts has no order, so the caller's order reaches neither the record nor
+            // the identity a `modelInput` commit derives from its bytes.
+            const ascending = surface([held, dropped])();
+            const descending = surface([dropped, held])();
+            expect(descending.withheld.map((entry) => entry.commit.value)).toEqual([
+                first.value,
+                second.value
+            ]);
+            expect(TurnModelInput.encode(descending)).toEqual(TurnModelInput.encode(ascending));
+
+            // A stored record whose entries were written in the other order reads back as the
+            // one canonical record too.
+            const stored = mutableData(ascending.toData());
+            stored["withheld"] = [dropped.toData(), held.toData()];
+            expect(TurnModelInput.encode(TurnModelInput.fromData(stored))).toEqual(
+                TurnModelInput.encode(ascending)
+            );
+
+            // Order is not licence to state one commit's withholding twice, however it adds up.
+            expect(surface([held, new TurnCommitOmission(first, TurnOmission.exact(20))])).toThrow(
+                TypeError
+            );
+        }
+    );
+
+    it(
+        "[C13-TURN-CANCEL-INBOX] hides a mid-step delivery from the running step and names it in the next step's committed record",
+        { tags: "p0" },
+        async () => {
+            const base = await fixture();
+            const payload = (await base.content.put(encoder.encode("delivered mid-step"))).ref;
+            const arrival = inboxEntry("mid-step", 0, "turn.message", payload);
+            const opened: string[] = [];
+            const inputs: RunCommitId[] = [];
+            const executor = new FunctionExecutor(async (context) => {
+                const running = await context.step.open();
+                const before = await context.model.call({
+                    covers: await context.modelInput.accountable(),
+                    sections: [section("s", TurnShownContent.inline(encoder.encode("before")))],
+                    catalog: [],
+                    admitted: []
+                });
+                inputs.push(before.input);
+                // The delivery lands while that step is running, after it opened its cut.
+                base.seeded.runtime.deliverEvent(
+                    ids.turn,
+                    base.seeded.running.revision,
+                    base.seeded.token,
+                    arrival,
+                    new Date(2_000)
+                );
+                opened.push(`step ${running.step.ordinal} cut ${running.step.inboxCut}`);
+                const next = await context.step.open();
+                opened.push(`step ${next.step.ordinal} cut ${next.step.inboxCut}`);
+                const after = await context.model.call({
+                    covers: await context.modelInput.accountable(),
+                    sections: [section("s", TurnShownContent.inline(encoder.encode("after")))],
+                    catalog: [],
+                    admitted: [arrival]
+                });
+                inputs.push(after.input);
+                return context.outcome.succeed(
+                    resultCommit(context, "mid-step-result", after.input, base.output)
+                );
+            });
+            await expect(base.host(executor).execute(base.seeded.token)).resolves.toMatchObject({
+                kind: "succeeded"
+            });
+
+            // The step that was running opened on an empty inbox and stays there; the next
+            // step opens on the arrival.
+            expect(opened).toEqual(["step 0 cut 0", "step 1 cut 1"]);
+
+            // The causal evidence is in the records rather than in the executor: a store
+            // reopened from the snapshot alone answers which call admitted the Event.
+            const reopened = new MemoryRunStorage(
+                ids.holder.tenantId,
+                ids.actor,
+                base.seeded.storage.snapshot()
+            );
+            const replay = new TurnModelInputReplay({
+                repository: new RunRepository(reopened),
+                content: reopened.content
+            });
+            const first = await replay.reconstruct(inputs[0]!);
+            const second = await replay.reconstruct(inputs[1]!);
+            expect(first.admitted).toEqual([]);
+            expect(first.admissionCut).toBe(0);
+            expect(second.admitted.map((entry) => entry.entry.value)).toEqual([arrival.id.value]);
+            expect(second.admissionCut).toBe(1);
+            expect(new TextDecoder().decode(second.admitted[0]!.bytes)).toBe("delivered mid-step");
+        }
+    );
+
+    it(
+        "[C13-TURN-MODEL-INPUT-RECONSTRUCTABLE] re-enters the Turn under the same lease after a crash between steps and loses no accepted work",
+        { tags: "p0" },
+        async () => {
+            const base = await fixture();
+            const payload = (await base.content.put(encoder.encode("delivered before the crash")))
+                .ref;
+            const arrival = inboxEntry("survivor", 0, "turn.message", payload);
+            base.seeded.runtime.deliverEvent(
+                ids.turn,
+                base.seeded.running.revision,
+                base.seeded.token,
+                arrival,
+                new Date(2_000)
+            );
+            const landed: RunCommitId[] = [];
+            const crashing = new FunctionExecutor(async (context) => {
+                for (const body of ["first", "second"]) {
+                    await context.step.open();
+                    const exchange = await context.model.call({
+                        covers: await context.modelInput.accountable(),
+                        sections: [section(body, TurnShownContent.inline(encoder.encode(body)))],
+                        catalog: [],
+                        admitted: [arrival]
+                    });
+                    landed.push(exchange.input);
+                }
+                throw new TypeError("the host died between steps");
+            });
+            await expect(base.host(crashing).execute(base.seeded.token)).rejects.toThrow(TypeError);
+            expect(landed).toHaveLength(2);
+
+            // A rebuilt host: a new executor and a new model port over the same records, under
+            // the same lease. Nothing the Turn accepted lived in the process that died.
+            const port = new ObservingModelPort(base.output);
+            const rebuilt: TurnModelRequest[] = [];
+            let inbox: readonly TurnInboxEntry[] = [];
+            let head: RunCommitId | undefined;
+            const reentering = new FunctionExecutor(async (context) => {
+                inbox = await context.inbox.read(0);
+                head = base.seeded.repository.transaction(
+                    (tx) => base.seeded.repository.loadBranch(tx, ids.branch)!.head
+                );
+                for (const input of landed) {
+                    rebuilt.push(await context.modelInput.reconstruct(input));
+                }
+                return context.outcome.succeed(
+                    resultCommit(context, "reentry-result", head, base.output)
+                );
+            });
+            await expect(
+                base.host(reentering, port).execute(base.seeded.token)
+            ).resolves.toMatchObject({ kind: "succeeded" });
+
+            // The inbox, the admitted Event, and both model input commits crossed the
+            // boundary, and each request rebuilds byte for byte as the first host sent it.
+            expect(inbox).toEqual([arrival]);
+            expect(head?.value).toBe(landed[1]?.value);
+            expect(rebuilt.map((request) => request.input.value)).toEqual(
+                landed.map((commit) => commit.value)
+            );
+            expect(rebuilt.map((request) => turnModelRequestBytes(request))).toEqual(
+                base.port.bytes
+            );
+            expect(rebuilt[1]!.admitted.map((entry) => entry.entry.value)).toEqual([
+                arrival.id.value
+            ]);
+            // The retried step landed on the commits already there: no second request was
+            // recorded, and no second model call was made.
+            expect(port.calls).toHaveLength(0);
+            expect(
+                base.seeded.repository
+                    .transaction((tx) => base.seeded.repository.listCommits(tx))
+                    .filter((commit) => commit.kind === "modelInput")
+                    .map((commit) => commit.id.value)
+            ).toEqual(landed.map((commit) => commit.value));
+        }
+    );
+
+    it(
+        "[C13-TURN-MODEL-INPUT-DURABLE-BEFORE-DISPATCH] a rebuilt host retrying the step a crash left unrecorded lands that same derived commit",
+        { tags: "p0" },
+        async () => {
+            const draft = (covers: readonly RunCommitId[]): TurnModelInputAssembly => ({
+                covers,
+                sections: [section("s", TurnShownContent.inline(encoder.encode("one request")))],
+                catalog: [],
+                admitted: []
+            });
+
+            // The control: the same request, at the same parent, in a Run that never faulted.
+            const control = await fixture();
+            let expected: RunCommitId | undefined;
+            const controlled = new FunctionExecutor(async (context) => {
+                const exchange = await context.model.call(
+                    draft(await context.modelInput.accountable())
+                );
+                expected = exchange.input;
+                return context.outcome.succeed(
+                    resultCommit(context, "control-result", exchange.input, control.output)
+                );
+            });
+            await expect(
+                control.host(controlled).execute(control.seeded.token)
+            ).resolves.toMatchObject({ kind: "succeeded" });
+
+            // The crash: the append is refused, so nothing lands, and the host dies holding
+            // the lease.
+            const crashed = await fixture();
+            crashed.faults.arm("unavailable");
+            const crashing = new FunctionExecutor(async (context) => {
+                await expect(
+                    context.model.call(draft(await context.modelInput.accountable()))
+                ).rejects.toMatchObject({ code: "turn.model-input-undurable" });
+                throw new TypeError("the host died at the refused append");
+            });
+            await expect(crashed.host(crashing).execute(crashed.seeded.token)).rejects.toThrow(
+                TypeError
+            );
+            expect(crashed.faults.unfired).toBe(0);
+            expect(crashed.port.calls).toHaveLength(0);
+
+            // The rebuilt host retries that step. The identity is derived from the record and
+            // the parent, so what it lands is the commit the crash was attempting.
+            const port = new ObservingModelPort(crashed.output);
+            let retried: RunCommitId | undefined;
+            const retrying = new FunctionExecutor(async (context) => {
+                const exchange = await context.model.call(
+                    draft(await context.modelInput.accountable())
+                );
+                retried = exchange.input;
+                return context.outcome.succeed(
+                    resultCommit(context, "retry-result", exchange.input, crashed.output)
+                );
+            });
+            await expect(
+                crashed.host(retrying, port).execute(crashed.seeded.token)
+            ).resolves.toMatchObject({ kind: "succeeded" });
+            expect(retried?.value).toBe(expected?.value);
+            expect(port.calls).toHaveLength(1);
+            expect(
+                crashed.seeded.repository
+                    .transaction((tx) => crashed.seeded.repository.listCommits(tx))
+                    .filter((commit) => commit.kind === "modelInput")
+                    .map((commit) => commit.id.value)
+            ).toEqual([expected?.value]);
+        }
+    );
+
+    it(
+        "[C13-TURN-CANCEL-INBOX] stops committing at the step boundary after a mid-step cancellation and keeps what it committed before",
+        { tags: "p0" },
+        async () => {
+            const base = await fixture();
+            const cancellation = cancellationEntry("mid-step-cancel", base.output);
+            let committed: RunCommitId | undefined;
+            let observed: readonly TurnInboxEntry[] = [];
+            let abortedInStep = true;
+            let abortedAtBoundary = false;
+            const executor = new FunctionExecutor(async (context) => {
+                await context.step.open();
+                const exchange = await context.model.call({
+                    covers: await context.modelInput.accountable(),
+                    sections: [section("s", TurnShownContent.inline(encoder.encode("accepted")))],
+                    catalog: [],
+                    admitted: []
+                });
+                committed = exchange.input;
+                // The fence arrives against the live lease, so the holder is the one that has
+                // to settle it (SPEC §5.6).
+                base.seeded.runtime.deliverEvent(
+                    ids.turn,
+                    base.seeded.running.revision,
+                    base.seeded.token,
+                    cancellation,
+                    new Date(2_000)
+                );
+                abortedInStep = context.cancellation.aborted;
+                await context.step.open();
+                abortedAtBoundary = context.cancellation.aborted;
+                observed = await context.inbox.read(0);
+                return context.outcome.cancel(
+                    resultCommit(context, "cancelled-result", exchange.input, base.output),
+                    cancellation
+                );
+            });
+            await expect(base.host(executor).execute(base.seeded.token)).resolves.toMatchObject({
+                kind: "cancelled"
+            });
+
+            // Nothing inside the step reads the inbox, so the signal is raised where a
+            // conforming executor observes it: at the next step boundary.
+            expect(abortedInStep).toBe(false);
+            expect(abortedAtBoundary).toBe(true);
+            expect(observed).toEqual([cancellation]);
+
+            // One model call and one recorded request: the Turn stopped committing at that
+            // boundary instead of opening another call.
+            expect(base.port.calls).toHaveLength(1);
+            expect(
+                base.seeded.repository
+                    .transaction((tx) => base.seeded.repository.listCommits(tx))
+                    .filter((commit) => commit.kind === "modelInput")
+                    .map((commit) => commit.id.value)
+            ).toEqual([committed?.value]);
+
+            // The work accepted before the cancellation survives it, request and all.
+            const replay = new TurnModelInputReplay({
+                repository: base.seeded.repository,
+                content: base.content
+            });
+            expect(turnModelRequestBytes(await replay.reconstruct(committed!))).toEqual(
+                base.port.bytes[0]
+            );
+            expect(
+                base.seeded.repository.transaction((tx) =>
+                    base.seeded.repository.loadTurn(tx, ids.turn)
+                )?.status.kind
+            ).toBe("cancelled");
         }
     );
 });

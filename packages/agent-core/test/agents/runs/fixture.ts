@@ -17,7 +17,7 @@ import {
     RunSourceRevisionPort
 } from "../../../src/agents/source";
 import { EnvironmentId } from "../../../src/environments";
-import { ApprovalId, EffectAttemptId, ReceiptId } from "../../../src/invocations";
+import { ApprovalId, EffectAttemptId, ReceiptId, type Receipt } from "../../../src/invocations";
 import {
     AuditRecordId,
     EventId,
@@ -25,10 +25,7 @@ import {
     RouteReservationId
 } from "../../../src/interaction-references";
 import { RunCommitId, TurnId } from "../../../src/execution-references";
-import {
-    TurnCutPointPort,
-    type TurnInterceptionResult
-} from "../../../src/operations";
+import { TurnCutPointPort, type TurnInterceptionResult } from "../../../src/operations";
 import type { FacetData, TurnBoundCutPoint } from "../../../src/facets";
 import { RunCommit } from "../../../src/agents/runs/commit";
 import {
@@ -43,6 +40,8 @@ import {
     type SynthesisCommitEvidence,
     RunMergePort
 } from "../../../src/agents/runs/evidence";
+import { runObligationKey } from "../../../src/agents/runs/admission";
+import type { TurnAdmissionHandle } from "../../../src/agents/runs/handle";
 import { MemoryRunStorage, type MemoryRunStorageSnapshot } from "../../../src/agents/runs/memory";
 import { BlueprintPin, RunConfigurationSnapshot, RunPins } from "../../../src/agents/runs/pins";
 import { Run, RunBranch } from "../../../src/agents/runs/run";
@@ -200,6 +199,10 @@ export class TestEvidencePort<Transaction = object> extends RunEvidencePort<Tran
     public readonly administers = new Map<string, AdministerControlEvidence>();
     public readonly cancellations = new Map<string, ForcedCancellationEvidence>();
     public readonly acceptances = new Map<string, AcceptanceReceiptEvidence>();
+    /** The §7.4 Receipt records a commit's evidence is read against, keyed by ReceiptId. */
+    public readonly storedReceipts = new Map<string, Receipt>();
+    /** The handles Turns published, keyed by the item each one names (SPEC §5.6). */
+    public readonly publishedHandles = new Map<string, TurnAdmissionHandle>();
 
     public receipt(_tx: Transaction, receipt: ReceiptId, audit: AuditRecordId) {
         return this.receipts.get(`${receipt.value}:${audit.value}`);
@@ -212,6 +215,19 @@ export class TestEvidencePort<Transaction = object> extends RunEvidencePort<Tran
     }
     public abandonedRewrite(_tx: Transaction, receipt: ReceiptId, audit: AuditRecordId) {
         return this.abandonedRewrites.get(`${receipt.value}:${audit.value}`);
+    }
+    public storedReceipt(_tx: Transaction, receipt: ReceiptId) {
+        return this.storedReceipts.get(receipt.value);
+    }
+    public publishedHandle(
+        _tx: Transaction,
+        invocation: InvocationId,
+        itemIndex: number,
+        itemKey: string
+    ) {
+        return this.publishedHandles.get(
+            runObligationKey({ kind: "invocationItem", invocation, itemIndex, itemKey })
+        );
     }
     public synthesis(_tx: Transaction, receipt: ReceiptId) {
         return this.syntheses.get(receipt.value);

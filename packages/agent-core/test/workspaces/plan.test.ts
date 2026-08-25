@@ -15,6 +15,7 @@ import {
     requireDeclaringTurn
 } from "../../src/workspaces";
 import type { PlanEntry } from "../../src/workspaces";
+import { SurfaceEpoch } from "../../src/workspaces";
 
 const discoverer = new TurnId("turn-discoverer");
 const other = new TurnId("turn-other");
@@ -46,7 +47,7 @@ function names(tasks: readonly TaskId[]): readonly string[] {
 }
 
 function snapshot(plan: TaskPlan): Uint8Array {
-    return View.encode(planView(board, new Revision(4), plan));
+    return View.encode(planView(board, SurfaceEpoch.first(), new Revision(4), plan));
 }
 
 /** An a → b → c chain plus an unrelated d, so the longest chain is a strict subset. */
@@ -364,15 +365,15 @@ test(
     { tags: "p1" },
     () => {
         expect(criticalPath(TaskPlan.empty(origin))).toEqual([]);
-        expect(names(criticalPath(TaskPlan.replay(origin, log(declare("b"), declare("a")))))).toEqual(
-            ["a"]
-        );
+        expect(
+            names(criticalPath(TaskPlan.replay(origin, log(declare("b"), declare("a")))))
+        ).toEqual(["a"]);
     }
 );
 
 test("a plan View renders as data and refuses a body carrying live state", { tags: "p1" }, () => {
     const plan = TaskPlan.replay(origin, chainLog);
-    const view = planView(board, new Revision(6), plan);
+    const view = planView(board, SurfaceEpoch.first(), new Revision(6), plan);
 
     expect(view.cursor.value).toBe(plan.cursor.value);
     expect(view.body).toEqual({
@@ -394,6 +395,7 @@ test("a plan View renders as data and refuses a body carrying live state", { tag
         () =>
             new View({
                 surface: board,
+                epoch: SurfaceEpoch.first(),
                 revision: new Revision(7),
                 body: smuggled,
                 actions: [],

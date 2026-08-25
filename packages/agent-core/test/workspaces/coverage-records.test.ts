@@ -66,6 +66,7 @@ import {
 } from "../../src/workspaces/origin";
 import { ContentRetentionReference, RetainedRecordKind } from "../../src/workspaces/retention";
 import { Subscription } from "../../src/workspaces/subscription";
+import { SurfaceEpoch } from "../../src/workspaces/surface-epoch";
 import { EventProvenance, EventVerification, canonicalJson } from "../../src/workspaces/value";
 import {
     ActionDescriptor,
@@ -290,9 +291,7 @@ function action(id = "submit", argumentsSchema?: JsonSchema): ActionDescriptor {
         emits: new EventKind("coverage.submitted")
     };
     return new ActionDescriptor(
-        argumentsSchema === undefined
-            ? descriptor
-            : { ...descriptor, arguments: argumentsSchema }
+        argumentsSchema === undefined ? descriptor : { ...descriptor, arguments: argumentsSchema }
     );
 }
 
@@ -302,6 +301,7 @@ function view(
 ): View {
     return new View({
         surface: new SurfaceId("surface-coverage"),
+        epoch: SurfaceEpoch.first(),
         revision: Revision.initial(),
         body,
         actions,
@@ -312,6 +312,7 @@ function view(
 function delta(previous: View): ViewDelta {
     return new ViewDelta({
         surface: previous.surface,
+        epoch: previous.epoch,
         baseRevision: previous.revision,
         revision: previous.revision.next(),
         patch: [{ op: "replace", path: "/body", value: { ready: false } }],
@@ -365,110 +366,127 @@ describe("workspace codec primitives", () => {
         expect(() => requireArray({}, "subject")).toThrow(/must be an array/);
     });
 
-    test("round-trips actors, content, revisions, optional principals, scopes, and tenants", { tags: "p1" }, () => {
-        const actors = [
-            new ActorRef("tenant", new ActorId("actor-tenant")),
-            new ActorRef("workspace", new ActorId("actor-workspace")),
-            new ActorRef("run", new ActorId("actor-run")),
-            new ActorRef("environment", new ActorId("actor-environment")),
-            new ActorRef("slate", new ActorId("actor-slate"))
-        ];
-        for (const actor of actors) {
-            const decoded = decodeActor(encodeActor(actor), "Actor");
-            expect(decoded.kind).toBe(actor.kind);
-            expect(decoded.id.equals(actor.id)).toBe(true);
+    test(
+        "round-trips actors, content, revisions, optional principals, scopes, and tenants",
+        { tags: "p1" },
+        () => {
+            const actors = [
+                new ActorRef("tenant", new ActorId("actor-tenant")),
+                new ActorRef("workspace", new ActorId("actor-workspace")),
+                new ActorRef("run", new ActorId("actor-run")),
+                new ActorRef("environment", new ActorId("actor-environment")),
+                new ActorRef("slate", new ActorId("actor-slate"))
+            ];
+            for (const actor of actors) {
+                const decoded = decodeActor(encodeActor(actor), "Actor");
+                expect(decoded.kind).toBe(actor.kind);
+                expect(decoded.id.equals(actor.id)).toBe(true);
+            }
+            expect(() => decodeActor({ id: "actor", kind: "unknown" }, "Actor")).toThrow(
+                /kind is invalid/
+            );
+            expect(() => decodeActor({ id: false, kind: "workspace" }, "Actor")).toThrow(
+                /ID must be a string/
+            );
+
+            const retained = content("coverage-codec-content");
+            expect(decodeContent(encodeContent(retained.ref, retained.digest), "Content")).toEqual(
+                retained
+            );
+            expect(() =>
+                decodeContent(
+                    { digest: Digest.sha256(new Uint8Array()).value, ref: retained.ref.value },
+                    "Content"
+                )
+            ).toThrow(/do not match/);
+
+            const revision = new Revision(7);
+            expect(decodeRevision(encodeRevision(revision), "Revision").equals(revision)).toBe(
+                true
+            );
+            expect(() => decodeRevision(-1, "Revision")).toThrow(/non-negative safe integer/);
+            expect(
+                decodeOptionalPrincipalRef(
+                    encodeOptionalPrincipalRef(principal),
+                    "Principal"
+                )?.equals(principal)
+            ).toBe(true);
+            expect(
+                decodeOptionalPrincipalRef(encodeOptionalPrincipalRef(undefined), "Principal")
+            ).toBeUndefined();
+            expect(() => decodeOptionalPrincipalRef(false, "Principal")).toThrow(
+                /must be an object/
+            );
+            expect(decodeScope(encodeScope(scope)).equals(scope)).toBe(true);
+            expect(requireTenant(tenant.value, "Tenant").equals(tenant)).toBe(true);
         }
-        expect(() => decodeActor({ id: "actor", kind: "unknown" }, "Actor")).toThrow(
-            /kind is invalid/
-        );
-        expect(() => decodeActor({ id: false, kind: "workspace" }, "Actor")).toThrow(
-            /ID must be a string/
-        );
-
-        const retained = content("coverage-codec-content");
-        expect(decodeContent(encodeContent(retained.ref, retained.digest), "Content")).toEqual(
-            retained
-        );
-        expect(() =>
-            decodeContent(
-                { digest: Digest.sha256(new Uint8Array()).value, ref: retained.ref.value },
-                "Content"
-            )
-        ).toThrow(/do not match/);
-
-        const revision = new Revision(7);
-        expect(decodeRevision(encodeRevision(revision), "Revision").equals(revision)).toBe(true);
-        expect(() => decodeRevision(-1, "Revision")).toThrow(/non-negative safe integer/);
-        expect(
-            decodeOptionalPrincipalRef(encodeOptionalPrincipalRef(principal), "Principal")?.equals(
-                principal
-            )
-        ).toBe(true);
-        expect(
-            decodeOptionalPrincipalRef(encodeOptionalPrincipalRef(undefined), "Principal")
-        ).toBeUndefined();
-        expect(() => decodeOptionalPrincipalRef(false, "Principal")).toThrow(/must be an object/);
-        expect(decodeScope(encodeScope(scope)).equals(scope)).toBe(true);
-        expect(requireTenant(tenant.value, "Tenant").equals(tenant)).toBe(true);
-    });
+    );
 });
 
 describe("event values and records", () => {
-    test("models both verification cases and canonical immutable provenance", { tags: "p1" }, () => {
-        expect(EventVerification.verified().kind).toBe("verified");
-        expect(EventVerification.host().kind).toBe("host");
-        expect(EventVerification.verified().equals(EventVerification.verified())).toBe(true);
-        expect(EventVerification.verified().equals(EventVerification.host())).toBe(false);
-        expect(Object.isFrozen(EventVerification.verified())).toBe(true);
-        expect(Object.isFrozen(EventVerification.host())).toBe(true);
+    test(
+        "models both verification cases and canonical immutable provenance",
+        { tags: "p1" },
+        () => {
+            expect(EventVerification.verified().kind).toBe("verified");
+            expect(EventVerification.host().kind).toBe("host");
+            expect(EventVerification.verified().equals(EventVerification.verified())).toBe(true);
+            expect(EventVerification.verified().equals(EventVerification.host())).toBe(false);
+            expect(Object.isFrozen(EventVerification.verified())).toBe(true);
+            expect(Object.isFrozen(EventVerification.host())).toBe(true);
 
-        const claims = { array: [{ nested: true }], scalar: 3 };
-        const complete = provenance({
-            verification: EventVerification.host(),
-            principal,
-            channel: "channel",
-            group: "group",
-            claims
-        });
-        claims.array[0]!.nested = false;
-        expect(complete.verification.kind).toBe("host");
-        expect(complete.claims).toEqual({ array: [{ nested: true }], scalar: 3 });
-        expect(Object.isFrozen(complete)).toBe(true);
-        expect(Object.isFrozen(complete.claims)).toBe(true);
-        if (!isJsonObject(complete.claims)) {
-            throw new TypeError("Complete provenance fixture changed shape");
-        }
-        expect(Object.isFrozen(complete.claims["array"])).toBe(true);
+            const claims = { array: [{ nested: true }], scalar: 3 };
+            const complete = provenance({
+                verification: EventVerification.host(),
+                principal,
+                channel: "channel",
+                group: "group",
+                claims
+            });
+            claims.array[0]!.nested = false;
+            expect(complete.verification.kind).toBe("host");
+            expect(complete.claims).toEqual({ array: [{ nested: true }], scalar: 3 });
+            expect(Object.isFrozen(complete)).toBe(true);
+            expect(Object.isFrozen(complete.claims)).toBe(true);
+            if (!isJsonObject(complete.claims)) {
+                throw new TypeError("Complete provenance fixture changed shape");
+            }
+            expect(Object.isFrozen(complete.claims["array"])).toBe(true);
 
-        const minimal = provenance();
-        expect(minimal).toMatchObject({
-            channel: undefined,
-            group: undefined,
-            principal: undefined,
-            claims: {}
-        });
-        expect(() => provenance({ channel: "" })).toThrow(/nonblank canonical string/);
-        expect(() => provenance({ channel: " padded" })).toThrow(/nonblank canonical string/);
-        expect(() => provenance({ group: "" })).toThrow(/nonblank canonical string/);
-        expect(() => provenance({ group: "padded " })).toThrow(/nonblank canonical string/);
-    });
+            const minimal = provenance();
+            expect(minimal).toMatchObject({
+                channel: undefined,
+                group: undefined,
+                principal: undefined,
+                claims: {}
+            });
+            expect(() => provenance({ channel: "" })).toThrow(/nonblank canonical string/);
+            expect(() => provenance({ channel: " padded" })).toThrow(/nonblank canonical string/);
+            expect(() => provenance({ group: "" })).toThrow(/nonblank canonical string/);
+            expect(() => provenance({ group: "padded " })).toThrow(/nonblank canonical string/);
+        }
+    );
 
-    test("canonicalizes and deeply freezes JSON scalars, arrays, and objects", { tags: "p1" }, () => {
-        for (const scalar of [null, true, 42, "text"] satisfies readonly JsonValue[]) {
-            expect(canonicalJson(scalar)).toBe(scalar);
+    test(
+        "canonicalizes and deeply freezes JSON scalars, arrays, and objects",
+        { tags: "p1" },
+        () => {
+            for (const scalar of [null, true, 42, "text"] satisfies readonly JsonValue[]) {
+                expect(canonicalJson(scalar)).toBe(scalar);
+            }
+            const nestedInput = { nested: [1, false] };
+            const input = [nestedInput, "tail"];
+            const copied = canonicalJson(input);
+            nestedInput.nested.push(2);
+            expect(copied).toEqual([{ nested: [1, false] }, "tail"]);
+            expect(Object.isFrozen(copied)).toBe(true);
+            if (!Array.isArray(copied) || !isJsonObject(copied[0])) {
+                throw new TypeError("Canonical array fixture changed shape");
+            }
+            expect(Object.isFrozen(copied[0])).toBe(true);
+            expect(Object.isFrozen(copied[0]["nested"])).toBe(true);
         }
-        const nestedInput = { nested: [1, false] };
-        const input = [nestedInput, "tail"];
-        const copied = canonicalJson(input);
-        nestedInput.nested.push(2);
-        expect(copied).toEqual([{ nested: [1, false] }, "tail"]);
-        expect(Object.isFrozen(copied)).toBe(true);
-        if (!Array.isArray(copied) || !isJsonObject(copied[0])) {
-            throw new TypeError("Canonical array fixture changed shape");
-        }
-        expect(Object.isFrozen(copied[0])).toBe(true);
-        expect(Object.isFrozen(copied[0]["nested"])).toBe(true);
-    });
+    );
 
     test("enforces every Event constructor trust and identity invariant", { tags: "p0" }, () => {
         const matching = eventInit("matching");
@@ -566,108 +584,121 @@ describe("event values and records", () => {
         ).not.toThrow();
     });
 
-    test("round-trips every source and optional provenance shape without aliasing", { tags: "p1" }, () => {
-        const cause = new EventId("event-coverage-cause");
-        const complete = new Event(eventInit("complete", { causation: cause, source: "actor" }));
-        const decodedComplete = Event.decode(Event.encode(complete));
-        expect(decodedComplete.source.kind).toBe("actor");
-        expect(decodedComplete.causation?.equals(cause)).toBe(true);
-        expect(decodedComplete.provenance).toMatchObject({ channel: "channel", group: "group" });
-        expect(decodedComplete.initiator?.equals(principal)).toBe(true);
-        expect(Object.isFrozen(decodedComplete.source)).toBe(true);
-        expect(Object.isFrozen(decodedComplete.provenance)).toBe(true);
+    test(
+        "round-trips every source and optional provenance shape without aliasing",
+        { tags: "p1" },
+        () => {
+            const cause = new EventId("event-coverage-cause");
+            const complete = new Event(
+                eventInit("complete", { causation: cause, source: "actor" })
+            );
+            const decodedComplete = Event.decode(Event.encode(complete));
+            expect(decodedComplete.source.kind).toBe("actor");
+            expect(decodedComplete.causation?.equals(cause)).toBe(true);
+            expect(decodedComplete.provenance).toMatchObject({
+                channel: "channel",
+                group: "group"
+            });
+            expect(decodedComplete.initiator?.equals(principal)).toBe(true);
+            expect(Object.isFrozen(decodedComplete.source)).toBe(true);
+            expect(Object.isFrozen(decodedComplete.provenance)).toBe(true);
 
-        const anonymous = new Event(
-            eventInit("anonymous", {
-                trust: "external",
-                provenance: provenance({ claims: [1, { accepted: true }] }),
-                initiator: null
-            })
-        );
-        const decodedAnonymous = Event.decode(Event.encode(anonymous));
-        expect(decodedAnonymous.source.kind).toBe("facet");
-        expect(decodedAnonymous.causation).toBeUndefined();
-        expect(decodedAnonymous.initiator).toBeUndefined();
-        expect(decodedAnonymous.provenance).toMatchObject({
-            channel: undefined,
-            group: undefined,
-            principal: undefined,
-            claims: [1, { accepted: true }]
-        });
-        const hosted = new Event(
-            eventInit("hosted", {
-                trust: "self",
-                provenance: provenance({
-                    verification: EventVerification.host(),
-                    principal
+            const anonymous = new Event(
+                eventInit("anonymous", {
+                    trust: "external",
+                    provenance: provenance({ claims: [1, { accepted: true }] }),
+                    initiator: null
                 })
-            })
-        );
-        expect(Event.decode(Event.encode(hosted)).provenance.verification.kind).toBe("host");
-        expectUniformCodec(complete, Event);
-    });
+            );
+            const decodedAnonymous = Event.decode(Event.encode(anonymous));
+            expect(decodedAnonymous.source.kind).toBe("facet");
+            expect(decodedAnonymous.causation).toBeUndefined();
+            expect(decodedAnonymous.initiator).toBeUndefined();
+            expect(decodedAnonymous.provenance).toMatchObject({
+                channel: undefined,
+                group: undefined,
+                principal: undefined,
+                claims: [1, { accepted: true }]
+            });
+            const hosted = new Event(
+                eventInit("hosted", {
+                    trust: "self",
+                    provenance: provenance({
+                        verification: EventVerification.host(),
+                        principal
+                    })
+                })
+            );
+            expect(Event.decode(Event.encode(hosted)).provenance.verification.kind).toBe("host");
+            expectUniformCodec(complete, Event);
+        }
+    );
 
-    test("rejects malformed Event fields, types, discriminants, and envelope versions", { tags: "p2" }, () => {
-        const valid = new Event(eventInit("codec"));
-        const payload = recordPayload(Event.encode(valid));
-        const { id, ...missingId } = payload;
-        expect(id).toBe(valid.id.value);
+    test(
+        "rejects malformed Event fields, types, discriminants, and envelope versions",
+        { tags: "p2" },
+        () => {
+            const valid = new Event(eventInit("codec"));
+            const payload = recordPayload(Event.encode(valid));
+            const { id, ...missingId } = payload;
+            expect(id).toBe(valid.id.value);
 
-        expectCodecInvalid(() => Event.decode(recordBytes(Event.codec.kind, [])));
-        expectCodecInvalid(() => Event.decode(recordBytes(Event.codec.kind, missingId)));
-        expectCodecInvalid(() =>
-            Event.decode(recordBytes(Event.codec.kind, { ...payload, unknown: true }))
-        );
-        expectCodecInvalid(() =>
-            Event.decode(recordBytes(Event.codec.kind, { ...payload, id: false }))
-        );
-        expectCodecInvalid(() =>
-            Event.decode(recordBytes(Event.codec.kind, { ...payload, causation: false }))
-        );
-        expectCodecInvalid(() =>
-            Event.decode(recordBytes(Event.codec.kind, { ...payload, initiator: false }))
-        );
-        expectCodecInvalid(() =>
-            Event.decode(
-                recordBytes(Event.codec.kind, {
-                    ...payload,
-                    source: { kind: "unknown" }
-                })
-            )
-        );
-        expectCodecInvalid(() =>
-            Event.decode(
-                recordBytes(Event.codec.kind, {
-                    ...payload,
-                    source: { actor: { id: "actor", kind: "unknown" }, kind: "actor" }
-                })
-            )
-        );
-        expectCodecInvalid(() =>
-            Event.decode(
-                recordBytes(Event.codec.kind, {
-                    ...payload,
-                    provenance: {
-                        channel: null,
-                        claims: {},
-                        group: null,
-                        principal: null,
-                        verification: "unknown"
-                    }
-                })
-            )
-        );
-        expectCodecInvalid(() =>
-            Event.decode(recordBytes(Event.codec.kind, { ...payload, trust: "unknown" }))
-        );
-        expectCodecInvalid(() =>
-            Event.decode(recordBytes(Event.codec.kind, { ...payload, visibility: "unknown" }))
-        );
-        expectCodecInvalid(() => Event.decode(recordBytes("workspace.other", payload)));
-        expect(() =>
-            Event.decode(recordBytes(Event.codec.kind, payload, { major: 2, minor: 0 }))
-        ).toThrow(expect.objectContaining({ code: "codec.unknown-major" }));
-    });
+            expectCodecInvalid(() => Event.decode(recordBytes(Event.codec.kind, [])));
+            expectCodecInvalid(() => Event.decode(recordBytes(Event.codec.kind, missingId)));
+            expectCodecInvalid(() =>
+                Event.decode(recordBytes(Event.codec.kind, { ...payload, unknown: true }))
+            );
+            expectCodecInvalid(() =>
+                Event.decode(recordBytes(Event.codec.kind, { ...payload, id: false }))
+            );
+            expectCodecInvalid(() =>
+                Event.decode(recordBytes(Event.codec.kind, { ...payload, causation: false }))
+            );
+            expectCodecInvalid(() =>
+                Event.decode(recordBytes(Event.codec.kind, { ...payload, initiator: false }))
+            );
+            expectCodecInvalid(() =>
+                Event.decode(
+                    recordBytes(Event.codec.kind, {
+                        ...payload,
+                        source: { kind: "unknown" }
+                    })
+                )
+            );
+            expectCodecInvalid(() =>
+                Event.decode(
+                    recordBytes(Event.codec.kind, {
+                        ...payload,
+                        source: { actor: { id: "actor", kind: "unknown" }, kind: "actor" }
+                    })
+                )
+            );
+            expectCodecInvalid(() =>
+                Event.decode(
+                    recordBytes(Event.codec.kind, {
+                        ...payload,
+                        provenance: {
+                            channel: null,
+                            claims: {},
+                            group: null,
+                            principal: null,
+                            verification: "unknown"
+                        }
+                    })
+                )
+            );
+            expectCodecInvalid(() =>
+                Event.decode(recordBytes(Event.codec.kind, { ...payload, trust: "unknown" }))
+            );
+            expectCodecInvalid(() =>
+                Event.decode(recordBytes(Event.codec.kind, { ...payload, visibility: "unknown" }))
+            );
+            expectCodecInvalid(() => Event.decode(recordBytes("workspace.other", payload)));
+            expect(() =>
+                Event.decode(recordBytes(Event.codec.kind, payload, { major: 2, minor: 0 }))
+            ).toThrow(expect.objectContaining({ code: "codec.unknown-major" }));
+        }
+    );
 });
 
 describe("authenticated event intents", () => {
@@ -765,84 +796,94 @@ describe("authenticated event intents", () => {
         }
     });
 
-    test("detaches getter substitutions and rejects constructor and structural forgeries", { tags: "p0" }, () => {
-        const authenticator = new ExactEventIntentAuthenticator();
-        const original = eventIntent("getter");
-        const substitutedId = new EventId("event-intent-substituted");
-        let idReads = 0;
-        const getterIntent: EventIntentInput = {
-            ...original,
-            get id(): EventId {
-                idReads += 1;
-                return idReads === 1 ? original.id : substitutedId;
-            }
-        };
-        const authenticated = authenticator.authenticate(
-            getterIntent,
-            authenticator.evidence(original)
-        );
-        expect(idReads).toBe(1);
-        expect(authenticated.intent.id.equals(original.id)).toBe(true);
+    test(
+        "detaches getter substitutions and rejects constructor and structural forgeries",
+        { tags: "p0" },
+        () => {
+            const authenticator = new ExactEventIntentAuthenticator();
+            const original = eventIntent("getter");
+            const substitutedId = new EventId("event-intent-substituted");
+            let idReads = 0;
+            const getterIntent: EventIntentInput = {
+                ...original,
+                get id(): EventId {
+                    idReads += 1;
+                    return idReads === 1 ? original.id : substitutedId;
+                }
+            };
+            const authenticated = authenticator.authenticate(
+                getterIntent,
+                authenticator.evidence(original)
+            );
+            expect(idReads).toBe(1);
+            expect(authenticated.intent.id.equals(original.id)).toBe(true);
 
-        expect(() =>
-            Reflect.construct(AuthenticatedEventIntent, [Symbol("forged-intent"), original])
-        ).toThrow(/construction is host-only/);
+            expect(() =>
+                Reflect.construct(AuthenticatedEventIntent, [Symbol("forged-intent"), original])
+            ).toThrow(/construction is host-only/);
 
-        const forged = Object.create(AuthenticatedEventIntent.prototype);
-        expectAuthorityDenied(() => requireAuthenticatedEventIntent(forged));
-        expectAuthorityDenied(() => requireAuthenticatedEventIntent(Object.create(null)));
-    });
+            const forged = Object.create(AuthenticatedEventIntent.prototype);
+            expectAuthorityDenied(() => requireAuthenticatedEventIntent(forged));
+            expectAuthorityDenied(() => requireAuthenticatedEventIntent(Object.create(null)));
+        }
+    );
 });
 
 describe("subscriptions", () => {
-    test("[C13-SUBSCRIPTION-AUTHORITY] copies values, revises immutably, and supports both authority cases", { tags: "p1" }, () => {
-        const initial = subscription("initial");
-        const revised = initial.revise({
-            source: new EventPattern("other.*", ["owner"], "facet.*"),
-            target: new OperationRef("facet.coverage:other"),
-            mapping: new PayloadMapping([new FieldMove("", { literal: { accepted: true } })]),
-            dedupe: "payload",
-            authority: { kind: "delegated", binding: new BindingName("binding.delegated") }
-        });
-        expect(initial.revision.value).toBe(0);
-        expect(revised.revision.value).toBe(1);
-        expect(revised.id.equals(initial.id)).toBe(true);
-        expect(revised.authority.kind).toBe("delegated");
-        expect(Object.isFrozen(revised)).toBe(true);
-        expect(Object.isFrozen(revised.source)).toBe(true);
-        expect(Object.isFrozen(revised.mapping)).toBe(true);
-        expect(Object.isFrozen(revised.authority)).toBe(true);
-        expectUniformCodec(initial, Subscription);
-        expectUniformCodec(subscription("delegated", "delegated"), Subscription);
-    });
-
-    test("supports every dedupe value and absent or present source patterns", { tags: "p1" }, () => {
-        const base = subscription("dedupe");
-        const payload = recordPayload(Subscription.encode(base));
-        for (const dedupe of [
-            "none",
-            "event",
-            "causation",
-            "payload"
-        ] satisfies readonly JsonValue[]) {
-            const decoded = Subscription.decode(
-                subscriptionVersion({ ...payload, dedupe })
-            );
-            expect(decoded.dedupe).toBe(dedupe);
+    test(
+        "[C13-SUBSCRIPTION-AUTHORITY] copies values, revises immutably, and supports both authority cases",
+        { tags: "p1" },
+        () => {
+            const initial = subscription("initial");
+            const revised = initial.revise({
+                source: new EventPattern("other.*", ["owner"], "facet.*"),
+                target: new OperationRef("facet.coverage:other"),
+                mapping: new PayloadMapping([new FieldMove("", { literal: { accepted: true } })]),
+                dedupe: "payload",
+                authority: { kind: "delegated", binding: new BindingName("binding.delegated") }
+            });
+            expect(initial.revision.value).toBe(0);
+            expect(revised.revision.value).toBe(1);
+            expect(revised.id.equals(initial.id)).toBe(true);
+            expect(revised.authority.kind).toBe("delegated");
+            expect(Object.isFrozen(revised)).toBe(true);
+            expect(Object.isFrozen(revised.source)).toBe(true);
+            expect(Object.isFrozen(revised.mapping)).toBe(true);
+            expect(Object.isFrozen(revised.authority)).toBe(true);
+            expectUniformCodec(initial, Subscription);
+            expectUniformCodec(subscription("delegated", "delegated"), Subscription);
         }
-        const withoutSource = new Subscription({
-            id: new SubscriptionId("subscription-no-source"),
-            revision: Revision.initial(),
-            source: new EventPattern("coverage.*", ["external"]),
-            target: new OperationRef("facet.coverage:operation"),
-            mapping: new PayloadMapping([new FieldMove("", { from: "" })]),
-            dedupe: "none",
-            authority: { kind: "initiator", binding: new BindingName("binding.coverage") }
-        });
-        expect(
-            Subscription.decode(Subscription.encode(withoutSource)).source.source
-        ).toBeUndefined();
-    });
+    );
+
+    test(
+        "supports every dedupe value and absent or present source patterns",
+        { tags: "p1" },
+        () => {
+            const base = subscription("dedupe");
+            const payload = recordPayload(Subscription.encode(base));
+            for (const dedupe of [
+                "none",
+                "event",
+                "causation",
+                "payload"
+            ] satisfies readonly JsonValue[]) {
+                const decoded = Subscription.decode(subscriptionVersion({ ...payload, dedupe }));
+                expect(decoded.dedupe).toBe(dedupe);
+            }
+            const withoutSource = new Subscription({
+                id: new SubscriptionId("subscription-no-source"),
+                revision: Revision.initial(),
+                source: new EventPattern("coverage.*", ["external"]),
+                target: new OperationRef("facet.coverage:operation"),
+                mapping: new PayloadMapping([new FieldMove("", { from: "" })]),
+                dedupe: "none",
+                authority: { kind: "initiator", binding: new BindingName("binding.coverage") }
+            });
+            expect(
+                Subscription.decode(Subscription.encode(withoutSource)).source.source
+            ).toBeUndefined();
+        }
+    );
 
     test("rejects overlapping mappings and malformed Subscription payloads", { tags: "p2" }, () => {
         expect(
@@ -868,9 +909,7 @@ describe("subscriptions", () => {
         const { target, ...missingTarget } = payload;
         expect(target).toBe("facet.coverage:operation");
         expectCodecInvalid(() => Subscription.decode(subscriptionVersion(null)));
-        expectCodecInvalid(() =>
-            Subscription.decode(subscriptionVersion(missingTarget))
-        );
+        expectCodecInvalid(() => Subscription.decode(subscriptionVersion(missingTarget)));
         expectCodecInvalid(() =>
             Subscription.decode(subscriptionVersion({ ...payload, extra: true }))
         );
@@ -878,9 +917,7 @@ describe("subscriptions", () => {
             Subscription.decode(subscriptionVersion({ ...payload, mapping: {} }))
         );
         expectCodecInvalid(() =>
-            Subscription.decode(
-                subscriptionVersion({ ...payload, dedupe: "unknown" })
-            )
+            Subscription.decode(subscriptionVersion({ ...payload, dedupe: "unknown" }))
         );
         expectCodecInvalid(() =>
             Subscription.decode(
@@ -943,76 +980,89 @@ describe("retention and inbox records", () => {
         );
     });
 
-    test("rejects mismatched content and malformed retained kinds or fields", { tags: "p2" }, () => {
-        const retained = content("coverage-retention-mismatch");
-        const other = content("coverage-retention-other");
-        expect(
-            () =>
-                new ContentRetentionReference({
-                    id: new ContentRetentionId("retention-mismatch"),
-                    tenant,
-                    actor: sourceActor,
-                    recordKind: RetainedRecordKind.event(),
-                    record: new RetainedRecordRef("event-mismatch"),
-                    content: retained.ref,
-                    digest: other.digest
-                })
-        ).toThrow(/ContentRef and digest must match/);
+    test(
+        "rejects mismatched content and malformed retained kinds or fields",
+        { tags: "p2" },
+        () => {
+            const retained = content("coverage-retention-mismatch");
+            const other = content("coverage-retention-other");
+            expect(
+                () =>
+                    new ContentRetentionReference({
+                        id: new ContentRetentionId("retention-mismatch"),
+                        tenant,
+                        actor: sourceActor,
+                        recordKind: RetainedRecordKind.event(),
+                        record: new RetainedRecordRef("event-mismatch"),
+                        content: retained.ref,
+                        digest: other.digest
+                    })
+            ).toThrow(/ContentRef and digest must match/);
 
-        const payload = recordPayload(
-            ContentRetentionReference.encode(retention(RetainedRecordKind.event(), "codec"))
-        );
-        const { record, ...missingRecord } = payload;
-        expect(record).toBe("record-coverage-codec");
-        expectCodecInvalid(() =>
-            ContentRetentionReference.decode(recordBytes(ContentRetentionReference.codec.kind, []))
-        );
-        expectCodecInvalid(() =>
-            ContentRetentionReference.decode(
-                recordBytes(ContentRetentionReference.codec.kind, missingRecord)
-            )
-        );
-        expectCodecInvalid(() =>
-            ContentRetentionReference.decode(
-                recordBytes(ContentRetentionReference.codec.kind, { ...payload, unknown: true })
-            )
-        );
-        expectCodecInvalid(() =>
-            ContentRetentionReference.decode(
-                recordBytes(ContentRetentionReference.codec.kind, {
-                    ...payload,
-                    recordKind: "unknown"
-                })
-            )
-        );
-        expectCodecInvalid(() =>
-            ContentRetentionReference.decode(
-                recordBytes(ContentRetentionReference.codec.kind, { ...payload, tenant: false })
-            )
-        );
-        expectCodecInvalid(() =>
-            ContentRetentionReference.decode(recordBytes("workspace.other", payload))
-        );
-        expect(() =>
-            ContentRetentionReference.decode(
-                recordBytes(ContentRetentionReference.codec.kind, payload, { major: 2, minor: 0 })
-            )
-        ).toThrow(expect.objectContaining({ code: "codec.unknown-major" }));
-    });
+            const payload = recordPayload(
+                ContentRetentionReference.encode(retention(RetainedRecordKind.event(), "codec"))
+            );
+            const { record, ...missingRecord } = payload;
+            expect(record).toBe("record-coverage-codec");
+            expectCodecInvalid(() =>
+                ContentRetentionReference.decode(
+                    recordBytes(ContentRetentionReference.codec.kind, [])
+                )
+            );
+            expectCodecInvalid(() =>
+                ContentRetentionReference.decode(
+                    recordBytes(ContentRetentionReference.codec.kind, missingRecord)
+                )
+            );
+            expectCodecInvalid(() =>
+                ContentRetentionReference.decode(
+                    recordBytes(ContentRetentionReference.codec.kind, { ...payload, unknown: true })
+                )
+            );
+            expectCodecInvalid(() =>
+                ContentRetentionReference.decode(
+                    recordBytes(ContentRetentionReference.codec.kind, {
+                        ...payload,
+                        recordKind: "unknown"
+                    })
+                )
+            );
+            expectCodecInvalid(() =>
+                ContentRetentionReference.decode(
+                    recordBytes(ContentRetentionReference.codec.kind, { ...payload, tenant: false })
+                )
+            );
+            expectCodecInvalid(() =>
+                ContentRetentionReference.decode(recordBytes("workspace.other", payload))
+            );
+            expect(() =>
+                ContentRetentionReference.decode(
+                    recordBytes(ContentRetentionReference.codec.kind, payload, {
+                        major: 2,
+                        minor: 0
+                    })
+                )
+            ).toThrow(expect.objectContaining({ code: "codec.unknown-major" }));
+        }
+    );
 
-    test("accepts boundary inbox counters and rejects every invalid counter shape", { tags: "p2" }, () => {
-        expect(inbox(0, Number.MAX_SAFE_INTEGER).leaseEpoch).toBe(Number.MAX_SAFE_INTEGER);
-        for (const sequence of [-1, 0.5, Number.MAX_SAFE_INTEGER + 1]) {
-            expect(() => inbox(sequence, 0)).toThrow(/non-negative safe integers/);
+    test(
+        "accepts boundary inbox counters and rejects every invalid counter shape",
+        { tags: "p2" },
+        () => {
+            expect(inbox(0, Number.MAX_SAFE_INTEGER).leaseEpoch).toBe(Number.MAX_SAFE_INTEGER);
+            for (const sequence of [-1, 0.5, Number.MAX_SAFE_INTEGER + 1]) {
+                expect(() => inbox(sequence, 0)).toThrow(/non-negative safe integers/);
+            }
+            for (const leaseEpoch of [-1, 0.5, Number.MAX_SAFE_INTEGER + 1]) {
+                expect(() => inbox(0, leaseEpoch)).toThrow(/non-negative safe integers/);
+            }
+            const reference = inbox(2, 4);
+            expect(Object.isFrozen(reference)).toBe(true);
+            expect(Object.isFrozen(reference.init)).toBe(true);
+            expectUniformCodec(reference, InboxEventReference);
         }
-        for (const leaseEpoch of [-1, 0.5, Number.MAX_SAFE_INTEGER + 1]) {
-            expect(() => inbox(0, leaseEpoch)).toThrow(/non-negative safe integers/);
-        }
-        const reference = inbox(2, 4);
-        expect(Object.isFrozen(reference)).toBe(true);
-        expect(Object.isFrozen(reference.init)).toBe(true);
-        expectUniformCodec(reference, InboxEventReference);
-    });
+    );
 
     test("rejects malformed Inbox payload fields and envelope versions", { tags: "p2" }, () => {
         const payload = recordPayload(InboxEventReference.encode(inbox(2, 4)));
@@ -1051,261 +1101,310 @@ describe("retention and inbox records", () => {
 });
 
 describe("views and deltas", () => {
-    test("validates action text, copies optional schemas, and rejects duplicate IDs", { tags: "p1" }, () => {
-        for (const id of ["", " padded", "padded "]) {
-            expect(() => action(id)).toThrow(/Action ID must be a nonblank canonical string/);
+    test(
+        "validates action text, copies optional schemas, and rejects duplicate IDs",
+        { tags: "p1" },
+        () => {
+            for (const id of ["", " padded", "padded "]) {
+                expect(() => action(id)).toThrow(/Action ID must be a nonblank canonical string/);
+            }
+            for (const label of ["", " padded", "padded "]) {
+                expect(
+                    () =>
+                        new ActionDescriptor({
+                            id: new ActionId("action"),
+                            label,
+                            emits: new EventKind("coverage.action")
+                        })
+                ).toThrow(/Action label must be a nonblank canonical string/);
+            }
+
+            const schemaDocument = {
+                type: "object",
+                properties: { value: { type: "string" } }
+            } satisfies JsonSchemaDocument;
+            const schema = new JsonSchema(schemaDocument);
+            const withArguments = action("with-arguments", schema);
+            schemaDocument.properties.value.type = "number";
+            expect(withArguments.arguments?.document).toEqual({
+                properties: { value: { type: "string" } },
+                type: "object"
+            });
+            expect(withArguments.arguments).not.toBe(schema);
+            expect(Object.isFrozen(withArguments)).toBe(true);
+            expect(action("without-arguments").arguments).toBeUndefined();
+
+            expect(() => view({}, [action("duplicate"), action("duplicate")])).toThrow(
+                /action IDs must be unique/
+            );
         }
-        for (const label of ["", " padded", "padded "]) {
+    );
+
+    test(
+        "round-trips scalar, array, and object View bodies with optional action schemas",
+        { tags: "p1" },
+        () => {
+            const bodies = [
+                null,
+                false,
+                7,
+                "body",
+                [1, { nested: true }],
+                { nested: [1, false] }
+            ] satisfies readonly JsonValue[];
+            for (const body of bodies) {
+                const value = view(body, [
+                    action("without-schema"),
+                    action("with-schema", new JsonSchema(false))
+                ]);
+                const decoded = View.decode(View.encode(value));
+                expect(decoded.body).toEqual(body);
+                expect(decoded.actions[0]?.arguments).toBeUndefined();
+                expect(decoded.actions[1]?.arguments?.document).toBe(false);
+                const decodedBody = decoded.body;
+                const composite = Array.isArray(decodedBody) || isJsonObject(decodedBody);
+                expect(!composite || Object.isFrozen(decodedBody)).toBe(true);
+            }
+            expectUniformCodec(view(), View);
+        }
+    );
+
+    test(
+        "requires an immediate delta revision and deeply copies patch JSON",
+        { tags: "p1" },
+        () => {
+            const previous = view();
             expect(
                 () =>
-                    new ActionDescriptor({
-                        id: new ActionId("action"),
-                        label,
-                        emits: new EventKind("coverage.action")
+                    new ViewDelta({
+                        surface: previous.surface,
+                        epoch: previous.epoch,
+                        baseRevision: previous.revision,
+                        revision: new Revision(2),
+                        patch: [],
+                        cursor: new EventCursor("cursor-invalid")
                     })
-            ).toThrow(/Action label must be a nonblank canonical string/);
-        }
+            ).toThrow(/immediately follow/);
 
-        const schemaDocument = {
-            type: "object",
-            properties: { value: { type: "string" } }
-        } satisfies JsonSchemaDocument;
-        const schema = new JsonSchema(schemaDocument);
-        const withArguments = action("with-arguments", schema);
-        schemaDocument.properties.value.type = "number";
-        expect(withArguments.arguments?.document).toEqual({
-            properties: { value: { type: "string" } },
-            type: "object"
-        });
-        expect(withArguments.arguments).not.toBe(schema);
-        expect(Object.isFrozen(withArguments)).toBe(true);
-        expect(action("without-arguments").arguments).toBeUndefined();
-
-        expect(() => view({}, [action("duplicate"), action("duplicate")])).toThrow(
-            /action IDs must be unique/
-        );
-    });
-
-    test("round-trips scalar, array, and object View bodies with optional action schemas", { tags: "p1" }, () => {
-        const bodies = [
-            null,
-            false,
-            7,
-            "body",
-            [1, { nested: true }],
-            { nested: [1, false] }
-        ] satisfies readonly JsonValue[];
-        for (const body of bodies) {
-            const value = view(body, [
-                action("without-schema"),
-                action("with-schema", new JsonSchema(false))
-            ]);
-            const decoded = View.decode(View.encode(value));
-            expect(decoded.body).toEqual(body);
-            expect(decoded.actions[0]?.arguments).toBeUndefined();
-            expect(decoded.actions[1]?.arguments?.document).toBe(false);
-            const decodedBody = decoded.body;
-            const composite = Array.isArray(decodedBody) || isJsonObject(decodedBody);
-            expect(!composite || Object.isFrozen(decodedBody)).toBe(true);
-        }
-        expectUniformCodec(view(), View);
-    });
-
-    test("requires an immediate delta revision and deeply copies patch JSON", { tags: "p1" }, () => {
-        const previous = view();
-        expect(
-            () =>
-                new ViewDelta({
-                    surface: previous.surface,
-                    baseRevision: previous.revision,
-                    revision: new Revision(2),
-                    patch: [],
-                    cursor: new EventCursor("cursor-invalid")
-                })
-        ).toThrow(/immediately follow/);
-
-        const patch = [{ op: "replace", path: "/body", value: [{ nested: true }] }];
-        const value = new ViewDelta({
-            surface: previous.surface,
-            baseRevision: previous.revision,
-            revision: previous.revision.next(),
-            patch,
-            cursor: new EventCursor("cursor-next")
-        });
-        patch[0]!.path = "/forged";
-        patch[0]!.value[0]!.nested = false;
-        expect(value.patch).toEqual([
-            {
-                op: "replace",
-                path: "/body",
-                value: [{ nested: true }]
-            }
-        ]);
-        expect(Object.isFrozen(value.patch)).toBe(true);
-        expect(Object.isFrozen(value.patch[0])).toBe(true);
-        expectUniformCodec(value, ViewDelta);
-    });
-
-    test("rebuilds a View document and rejects malformed or mismatched documents", { tags: "p1" }, () => {
-        const previous = view({ ready: true }, [action("old")]);
-        const next = delta(previous);
-        expect(viewDocument(previous)).toEqual({
-            actions: [{ arguments: null, emits: "coverage.submitted", id: "old", label: "Submit" }],
-            body: { ready: true }
-        });
-        const rebuilt = viewFromDocument(previous, next, {
-            actions: [
+            const patch = [{ op: "replace", path: "/body", value: [{ nested: true }] }];
+            const value = new ViewDelta({
+                surface: previous.surface,
+                epoch: previous.epoch,
+                baseRevision: previous.revision,
+                revision: previous.revision.next(),
+                patch,
+                cursor: new EventCursor("cursor-next")
+            });
+            patch[0]!.path = "/forged";
+            patch[0]!.value[0]!.nested = false;
+            expect(value.patch).toEqual([
                 {
-                    arguments: { type: "string" },
-                    emits: "coverage.renamed",
-                    id: "renamed",
-                    label: "Renamed"
+                    op: "replace",
+                    path: "/body",
+                    value: [{ nested: true }]
                 }
-            ],
-            body: ["next"]
-        });
-        expect(rebuilt.revision.equals(next.revision)).toBe(true);
-        expect(rebuilt.cursor.equals(next.cursor)).toBe(true);
-        expect(rebuilt.body).toEqual(["next"]);
-        expect(rebuilt.actions[0]?.arguments?.document).toEqual({ type: "string" });
+            ]);
+            expect(Object.isFrozen(value.patch)).toBe(true);
+            expect(Object.isFrozen(value.patch[0])).toBe(true);
+            expectUniformCodec(value, ViewDelta);
+        }
+    );
 
-        const wrongSurface = new ViewDelta({
-            surface: new SurfaceId("surface-other"),
-            baseRevision: previous.revision,
-            revision: previous.revision.next(),
-            patch: [],
-            cursor: next.cursor
-        });
-        expect(() => viewFromDocument(previous, wrongSurface, viewDocument(previous))).toThrow(
-            expect.objectContaining({ code: "protocol.revision-conflict" })
-        );
-
-        const advanced = new View({
-            surface: previous.surface,
-            revision: previous.revision.next(),
-            body: previous.body,
-            actions: previous.actions,
-            cursor: previous.cursor
-        });
-        expect(() => viewFromDocument(advanced, next, viewDocument(previous))).toThrow(
-            expect.objectContaining({ code: "protocol.revision-conflict" })
-        );
-
-        expect(() => viewFromDocument(previous, next, [])).toThrow(/must be an object/);
-        expect(() => viewFromDocument(previous, next, { body: {} })).toThrow(
-            /missing or unknown fields/
-        );
-        expect(() =>
-            viewFromDocument(previous, next, {
-                actions: [],
-                body: {},
-                unknown: true
-            })
-        ).toThrow(/missing or unknown fields/);
-        expect(() =>
-            viewFromDocument(previous, next, {
-                actions: {},
-                body: {}
-            })
-        ).toThrow(/must be an array/);
-        expect(() =>
-            viewFromDocument(previous, next, {
+    test(
+        "rebuilds a View document and rejects malformed or mismatched documents",
+        { tags: "p1" },
+        () => {
+            const previous = view({ ready: true }, [action("old")]);
+            const next = delta(previous);
+            expect(viewDocument(previous)).toEqual({
                 actions: [
-                    { arguments: null, emits: "coverage.action", id: "same", label: "First" },
+                    { arguments: null, emits: "coverage.submitted", id: "old", label: "Submit" }
+                ],
+                body: { ready: true }
+            });
+            const rebuilt = viewFromDocument(previous, next, {
+                actions: [
                     {
-                        arguments: null,
-                        emits: "coverage.action",
-                        id: "same",
-                        label: "Second"
+                        arguments: { type: "string" },
+                        emits: "coverage.renamed",
+                        id: "renamed",
+                        label: "Renamed"
                     }
                 ],
-                body: {}
-            })
-        ).toThrow(/action IDs must be unique/);
-    });
+                body: ["next"]
+            });
+            expect(rebuilt.revision.equals(next.revision)).toBe(true);
+            expect(rebuilt.cursor.equals(next.cursor)).toBe(true);
+            expect(rebuilt.body).toEqual(["next"]);
+            expect(rebuilt.actions[0]?.arguments?.document).toEqual({ type: "string" });
 
-    test("rejects malformed View and ViewDelta codec fields and discriminants", { tags: "p2" }, () => {
-        const previous = view();
-        const viewPayload = recordPayload(View.encode(previous));
-        const viewVersion = { major: 2, minor: 0 };
-        const viewActions = viewPayload["actions"];
-        if (!Array.isArray(viewActions) || !isJsonObject(viewActions[0])) {
-            throw new TypeError("View action fixture changed shape");
+            const wrongSurface = new ViewDelta({
+                surface: new SurfaceId("surface-other"),
+                epoch: previous.epoch,
+                baseRevision: previous.revision,
+                revision: previous.revision.next(),
+                patch: [],
+                cursor: next.cursor
+            });
+            expect(() => viewFromDocument(previous, wrongSurface, viewDocument(previous))).toThrow(
+                expect.objectContaining({ code: "protocol.revision-conflict" })
+            );
+
+            const advanced = new View({
+                surface: previous.surface,
+                epoch: previous.epoch,
+                revision: previous.revision.next(),
+                body: previous.body,
+                actions: previous.actions,
+                cursor: previous.cursor
+            });
+            expect(() => viewFromDocument(advanced, next, viewDocument(previous))).toThrow(
+                expect.objectContaining({ code: "protocol.revision-conflict" })
+            );
+
+            expect(() => viewFromDocument(previous, next, [])).toThrow(/must be an object/);
+            expect(() => viewFromDocument(previous, next, { body: {} })).toThrow(
+                /missing or unknown fields/
+            );
+            expect(() =>
+                viewFromDocument(previous, next, {
+                    actions: [],
+                    body: {},
+                    unknown: true
+                })
+            ).toThrow(/missing or unknown fields/);
+            expect(() =>
+                viewFromDocument(previous, next, {
+                    actions: {},
+                    body: {}
+                })
+            ).toThrow(/must be an array/);
+            expect(() =>
+                viewFromDocument(previous, next, {
+                    actions: [
+                        { arguments: null, emits: "coverage.action", id: "same", label: "First" },
+                        {
+                            arguments: null,
+                            emits: "coverage.action",
+                            id: "same",
+                            label: "Second"
+                        }
+                    ],
+                    body: {}
+                })
+            ).toThrow(/action IDs must be unique/);
         }
-        const validAction = viewActions[0];
-        const { cursor, ...missingCursor } = viewPayload;
-        expect(cursor).toBe("cursor-coverage-0");
-        expectCodecInvalid(() => View.decode(recordBytes(View.codec.kind, "view", viewVersion)));
-        expectCodecInvalid(() =>
-            View.decode(recordBytes(View.codec.kind, missingCursor, viewVersion))
-        );
-        expectCodecInvalid(() =>
-            View.decode(
-                recordBytes(View.codec.kind, { ...viewPayload, unknown: true }, viewVersion)
-            )
-        );
-        expectCodecInvalid(() =>
-            View.decode(recordBytes(View.codec.kind, { ...viewPayload, actions: {} }, viewVersion))
-        );
-        expectCodecInvalid(() =>
-            View.decode(
-                recordBytes(
-                    View.codec.kind,
-                    {
-                        ...viewPayload,
-                        actions: [{ ...validAction, unknown: true }]
-                    },
-                    viewVersion
-                )
-            )
-        );
-        expectCodecInvalid(() =>
-            View.decode(
-                recordBytes(
-                    View.codec.kind,
-                    {
-                        ...viewPayload,
-                        actions: [{ ...validAction, arguments: [] }]
-                    },
-                    viewVersion
-                )
-            )
-        );
-        expectCodecInvalid(() =>
-            View.decode(recordBytes("workspace.other", viewPayload, viewVersion))
-        );
-        expect(() =>
-            View.decode(recordBytes(View.codec.kind, viewPayload, { major: 3, minor: 0 }))
-        ).toThrow(expect.objectContaining({ code: "codec.unknown-major" }));
+    );
 
-        const viewDelta = delta(previous);
-        const deltaPayload = recordPayload(ViewDelta.encode(viewDelta));
-        const baseRevision = requireInteger(
-            deltaPayload["baseRevision"],
-            "View delta base revision"
-        );
-        const { patch, ...missingPatch } = deltaPayload;
-        expect(Array.isArray(patch)).toBe(true);
-        expectCodecInvalid(() => ViewDelta.decode(recordBytes(ViewDelta.codec.kind, null)));
-        expectCodecInvalid(() => ViewDelta.decode(recordBytes(ViewDelta.codec.kind, missingPatch)));
-        expectCodecInvalid(() =>
-            ViewDelta.decode(recordBytes(ViewDelta.codec.kind, { ...deltaPayload, unknown: true }))
-        );
-        expectCodecInvalid(() =>
-            ViewDelta.decode(recordBytes(ViewDelta.codec.kind, { ...deltaPayload, patch: {} }))
-        );
-        expectCodecInvalid(() =>
-            ViewDelta.decode(
-                recordBytes(ViewDelta.codec.kind, { ...deltaPayload, revision: baseRevision })
-            )
-        );
-        expectCodecInvalid(() => ViewDelta.decode(recordBytes("workspace.other", deltaPayload)));
-        expect(() =>
-            ViewDelta.decode(
-                recordBytes(ViewDelta.codec.kind, deltaPayload, { major: 2, minor: 0 })
-            )
-        ).toThrow(expect.objectContaining({ code: "codec.unknown-major" }));
-    });
+    test(
+        "rejects malformed View and ViewDelta codec fields and discriminants",
+        { tags: "p2" },
+        () => {
+            const previous = view();
+            const viewPayload = recordPayload(View.encode(previous));
+            const viewVersion = { major: 3, minor: 0 };
+            const viewActions = viewPayload["actions"];
+            if (!Array.isArray(viewActions) || !isJsonObject(viewActions[0])) {
+                throw new TypeError("View action fixture changed shape");
+            }
+            const validAction = viewActions[0];
+            const { cursor, ...missingCursor } = viewPayload;
+            expect(cursor).toBe("cursor-coverage-0");
+            expectCodecInvalid(() =>
+                View.decode(recordBytes(View.codec.kind, "view", viewVersion))
+            );
+            expectCodecInvalid(() =>
+                View.decode(recordBytes(View.codec.kind, missingCursor, viewVersion))
+            );
+            expectCodecInvalid(() =>
+                View.decode(
+                    recordBytes(View.codec.kind, { ...viewPayload, unknown: true }, viewVersion)
+                )
+            );
+            expectCodecInvalid(() =>
+                View.decode(
+                    recordBytes(View.codec.kind, { ...viewPayload, actions: {} }, viewVersion)
+                )
+            );
+            expectCodecInvalid(() =>
+                View.decode(
+                    recordBytes(
+                        View.codec.kind,
+                        {
+                            ...viewPayload,
+                            actions: [{ ...validAction, unknown: true }]
+                        },
+                        viewVersion
+                    )
+                )
+            );
+            expectCodecInvalid(() =>
+                View.decode(
+                    recordBytes(
+                        View.codec.kind,
+                        {
+                            ...viewPayload,
+                            actions: [{ ...validAction, arguments: [] }]
+                        },
+                        viewVersion
+                    )
+                )
+            );
+            expectCodecInvalid(() =>
+                View.decode(recordBytes("workspace.other", viewPayload, viewVersion))
+            );
+            expect(() =>
+                View.decode(recordBytes(View.codec.kind, viewPayload, { major: 2, minor: 0 }))
+            ).toThrow(expect.objectContaining({ code: "codec.unknown-major" }));
+
+            const viewDelta = delta(previous);
+            const deltaPayload = recordPayload(ViewDelta.encode(viewDelta));
+            const baseRevision = requireInteger(
+                deltaPayload["baseRevision"],
+                "View delta base revision"
+            );
+            const { patch, ...missingPatch } = deltaPayload;
+            expect(Array.isArray(patch)).toBe(true);
+            const deltaVersion = { major: 2, minor: 0 };
+            expectCodecInvalid(() =>
+                ViewDelta.decode(recordBytes(ViewDelta.codec.kind, null, deltaVersion))
+            );
+            expectCodecInvalid(() =>
+                ViewDelta.decode(recordBytes(ViewDelta.codec.kind, missingPatch, deltaVersion))
+            );
+            expectCodecInvalid(() =>
+                ViewDelta.decode(
+                    recordBytes(
+                        ViewDelta.codec.kind,
+                        { ...deltaPayload, unknown: true },
+                        deltaVersion
+                    )
+                )
+            );
+            expectCodecInvalid(() =>
+                ViewDelta.decode(
+                    recordBytes(ViewDelta.codec.kind, { ...deltaPayload, patch: {} }, deltaVersion)
+                )
+            );
+            expectCodecInvalid(() =>
+                ViewDelta.decode(
+                    recordBytes(
+                        ViewDelta.codec.kind,
+                        { ...deltaPayload, revision: baseRevision },
+                        deltaVersion
+                    )
+                )
+            );
+            expectCodecInvalid(() =>
+                ViewDelta.decode(recordBytes("workspace.other", deltaPayload, deltaVersion))
+            );
+            expect(() =>
+                ViewDelta.decode(
+                    recordBytes(ViewDelta.codec.kind, deltaPayload, { major: 1, minor: 0 })
+                )
+            ).toThrow(expect.objectContaining({ code: "codec.unknown-major" }));
+        }
+    );
 });
 
 describe("workspace identifiers", () => {

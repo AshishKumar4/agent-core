@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Revision, type ContentRef } from "../../../src/core";
+import { JsonSchema, Revision, type ContentRef } from "../../../src/core";
 import {
     ContentStore,
     type ByteRange,
@@ -9,8 +9,18 @@ import {
 import { AgentCoreError } from "../../../src/errors";
 import { RunCommitId, RunId, TurnId } from "../../../src/execution-references";
 import { InvocationId } from "../../../src/interaction-references";
-import { ReceiptId } from "../../../src/invocations";
+import {
+    AttemptCompletion,
+    AttemptFailureKind,
+    AttemptReceipt,
+    EffectAttemptId,
+    PreEffectReceipt,
+    ReceiptId,
+    type AttemptFailureKindName,
+    type Receipt
+} from "../../../src/invocations";
 import { RunCommit, type RunCommitInit } from "../../../src/agents/runs/commit";
+import type { RunObligation } from "../../../src/agents/runs/admission";
 import { RunBranch } from "../../../src/agents/runs/run";
 import { RunBranchId } from "../../../src/agents/runs/id";
 import { Turn } from "../../../src/agents/runs/turn";
@@ -54,6 +64,48 @@ type Harness = ReturnType<typeof seedRunningTurn>;
 const secondInvocation = new InvocationId("invocation-2");
 const secondReceipt = new ReceiptId("receipt-2");
 const rewriteReceipt = new ReceiptId("receipt-rewrite");
+const rewriteAttempt = new EffectAttemptId("attempt-rewrite");
+const abandonedCancellation = new AbortController();
+abandonedCancellation.abort();
+/**
+ * §7.4's closed failure taxonomy, each member built through the precondition its own factory
+ * enforces. A test therefore records a determination §7.4 admits rather than a label, which
+ * is the only form an abandoned rewrite can now read a kind from.
+ */
+const closedFailureKinds: Readonly<Record<AttemptFailureKindName, AttemptFailureKind>> =
+    Object.freeze({
+        aborted: AttemptFailureKind.aborted(abandonedCancellation.signal),
+        deadline: AttemptFailureKind.deadline(new Date(1_000), new Date(2_000)),
+        domainLost: AttemptFailureKind.domainLost({ answering: () => false }),
+        outputInvalid: AttemptFailureKind.outputInvalid(new JsonSchema({ type: "boolean" }), 1),
+        raised: AttemptFailureKind.raised
+    });
+
+/** The §7.4 Receipt a failed attempt leaves behind, which is where §5.2 reads its kind. */
+function failedAttemptReceipt(failure: AttemptFailureKind): AttemptReceipt {
+    return new AttemptReceipt(
+        rewriteReceipt,
+        rewriteAttempt,
+        AttemptCompletion.failed(failure),
+        undefined,
+        new Date(1_300),
+        undefined
+    );
+}
+
+/**
+ * Run obligations as kind and identity text. A TextId keeps its value in a private field
+ * behind a getter, so `toEqual` between two ids compares two objects with no own enumerable
+ * properties and passes for any two ids of one class. An identity has to be read to be
+ * asserted.
+ */
+function obligationLabels(obligations: readonly RunObligation[]): readonly string[] {
+    return obligations.map((obligation) =>
+        obligation.kind === "systemCommit"
+            ? `${obligation.kind}:${obligation.commit.value}`
+            : obligation.kind
+    );
+}
 
 /** Runs one caller-supplied body inside the real seam, so the model call is a real one. */
 class CallingExecutor extends TurnExecutor {
@@ -98,9 +150,7 @@ class ReleasableContentStore extends ContentStore {
 }
 
 function branchRevision(value: Harness, branch = ids.branch): Revision {
-    return value.repository.transaction(
-        (tx) => value.repository.loadBranch(tx, branch)!.revision
-    );
+    return value.repository.transaction((tx) => value.repository.loadBranch(tx, branch)!.revision);
 }
 
 function runRevision(value: Harness): Revision {
@@ -232,7 +282,8 @@ function rewrite(
     id: string,
     parent: RunCommitId,
     shadows: readonly RunCommitId[],
-    branch = ids.branch
+    branch = ids.branch,
+    failure: AttemptFailureKindName = "raised"
 ): RunCommit {
     const init: Assembled<RunCommitInit> = {
         id: new RunCommitId(id),
@@ -257,9 +308,14 @@ function rewrite(
             run: ids.run,
             receipt: rewriteReceipt,
             audit: refs.audit,
-            proposalDigest: commit.proposalDigest.value,
-            outcome: "failed"
+            proposalDigest: commit.proposalDigest.value
         });
+        // Why the attempt ended is not the evidence's to state. §5.2 reads it off the Receipt
+        // §7.4 recorded, so the failed attempt itself is what a test puts in place here.
+        value.evidence.storedReceipts.set(
+            rewriteReceipt.value,
+            failedAttemptReceipt(closedFailureKinds[failure])
+        );
     } else {
         value.evidence.controls.set(key, {
             kind: "control",
@@ -331,9 +387,7 @@ describe("Run effective transcript, rewrite bracket, and cut balance", () => {
             expect(undoFailure.message).toContain(refs.invocation.value);
             expect(undoFailure.message).toContain("unanswered");
             expect(
-                value.repository.transaction((tx) =>
-                    value.repository.loadCommit(tx, stranding.id)
-                )
+                value.repository.transaction((tx) => value.repository.loadCommit(tx, stranding.id))
             ).toBeUndefined();
 
             const fork = new RunBranch(
@@ -426,11 +480,7 @@ describe("Run effective transcript, rewrite bracket, and cut balance", () => {
                 secondAnswer.id
             ]);
             value.runtime.rewriteRun(whole, branchRevision(value), new Date(1500));
-            expect(transcriptIds(value)).toEqual([
-                ids.root.value,
-                whole.id.value,
-                done.id.value
-            ]);
+            expect(transcriptIds(value)).toEqual([ids.root.value, whole.id.value, done.id.value]);
         }
     );
 
@@ -629,12 +679,7 @@ describe("Run effective transcript, rewrite bracket, and cut balance", () => {
                 )
             ).toBe(false);
             const outside = rewrite(value, "rewrite-outside", commits[2]!.id, [elsewhere.id]);
-            value.runtime.reserveRunRewrite(
-                ids.run,
-                ids.branch,
-                outside.id,
-                branchRevision(value)
-            );
+            value.runtime.reserveRunRewrite(ids.run, ids.branch, outside.id, branchRevision(value));
             expect(() =>
                 value.runtime.rewriteRun(outside, branchRevision(value), new Date(1400))
             ).toThrow(/effective transcript does not contain/);
@@ -671,11 +716,15 @@ describe("Run effective transcript, rewrite bracket, and cut balance", () => {
                 planned,
                 branchRevision(value)
             );
-            expect(reservation.obligation).toEqual({ kind: "systemCommit", commit: planned });
+            expect(obligationLabels([reservation.obligation])).toEqual([
+                `systemCommit:${planned.value}`
+            ]);
             const reserved = value.repository.transaction((tx) =>
                 value.repository.loadAdmission(tx, ids.run)
             );
-            expect(reserved?.reserved).toEqual([reservation.obligation]);
+            expect(obligationLabels(reserved?.reserved ?? [])).toEqual([
+                `systemCommit:${planned.value}`
+            ]);
             expect(reserved?.completed).toEqual([]);
 
             expect(() =>
@@ -737,11 +786,14 @@ describe("Run effective transcript, rewrite bracket, and cut balance", () => {
             const closed = value.repository.transaction((tx) =>
                 value.repository.loadAdmission(tx, ids.run)
             );
-            expect(closed?.completed).toEqual([{ kind: "systemCommit", commit: planned }]);
+            expect(obligationLabels(closed?.completed ?? [])).toEqual([
+                `systemCommit:${planned.value}`
+            ]);
             expect(
-                closed?.reserved.some((obligation) =>
-                    obligation.kind === "systemCommit" &&
-                    obligation.commit.equals(siblingPlanned)
+                closed?.reserved.some(
+                    (obligation) =>
+                        obligation.kind === "systemCommit" &&
+                        obligation.commit.equals(siblingPlanned)
                 )
             ).toBe(true);
             expect(
@@ -762,24 +814,154 @@ describe("Run effective transcript, rewrite bracket, and cut balance", () => {
             installed(value, abandoned);
 
             expect(transcriptIds(value)).toEqual(beforeAttempt);
-            const stored = value.repository.transaction((tx) =>
-                value.repository.listCommits(tx)
-            ).filter((commit) => commit.id.equals(abandoned.id));
+            const stored = value.repository
+                .transaction((tx) => value.repository.listCommits(tx))
+                .filter((commit) => commit.id.equals(abandoned.id));
             expect(stored).toHaveLength(1);
             expect(stored[0]!.kind).toBe("rewrite");
             expect(stored[0]!.shadows).toEqual([]);
             expect(stored[0]!.content).toBeUndefined();
             expect(stored[0]!.receipt?.value).toBe(rewriteReceipt.value);
+            // The evidence binds the Receipt and says nothing about why the attempt ended: the
+            // kind lives on the Receipt §7.4 recorded and is read from there.
+            const recorded = value.evidence.abandonedRewrites.get(
+                `${rewriteReceipt.value}:${refs.audit.value}`
+            );
+            expect(recorded?.receipt.equals(rewriteReceipt)).toBe(true);
+            const durable = value.evidence.storedReceipts.get(rewriteReceipt.value);
+            expect(durable?.outcome).toBe("failed");
+            expect(durable instanceof AttemptReceipt && durable.failure?.kind).toBe("raised");
             expect(
-                value.evidence.abandonedRewrites.get(
-                    `${rewriteReceipt.value}:${refs.audit.value}`
-                )?.outcome
-            ).toBe("failed");
-            expect(
-                value.repository
-                    .transaction((tx) => value.repository.loadAdmission(tx, ids.run))
-                    ?.completed
-            ).toEqual([{ kind: "systemCommit", commit: abandoned.id }]);
+                obligationLabels(
+                    value.repository.transaction((tx) =>
+                        value.repository.loadAdmission(tx, ids.run)
+                    )?.completed ?? []
+                )
+            ).toEqual([`systemCommit:${abandoned.id.value}`]);
+        }
+    );
+
+    it(
+        "[C13-RUN-REWRITE-BRACKET] refuses an abandoned attempt whose Receipt records no failed attempt",
+        { tags: "p0" },
+        () => {
+            // Four ways a Receipt fails to say an attempt ended in failure, and one shape the
+            // evidence no longer has. A host used to name the kind beside the Receipt, so it
+            // could name `raised` over a Receipt whose attempt recorded `deadline` and the
+            // commit was admitted; the field is gone, so the Receipt is the only claim left.
+            const refusals: readonly [string, Receipt | undefined, RegExp][] = [
+                ["missing", undefined, /names no stored Receipt/],
+                [
+                    "pre-effect",
+                    new PreEffectReceipt(
+                        rewriteReceipt,
+                        refs.invocation,
+                        0,
+                        "deniedPreEffect",
+                        new Date(1_300),
+                        "authority denied the rewrite"
+                    ),
+                    /reached no EffectAttempt/
+                ],
+                [
+                    "succeeded",
+                    new AttemptReceipt(
+                        rewriteReceipt,
+                        rewriteAttempt,
+                        AttemptCompletion.succeeded,
+                        undefined,
+                        new Date(1_300),
+                        content("9")
+                    ),
+                    /records no failed attempt/
+                ],
+                [
+                    "indeterminate",
+                    new AttemptReceipt(
+                        rewriteReceipt,
+                        rewriteAttempt,
+                        AttemptCompletion.indeterminate,
+                        undefined,
+                        new Date(1_300),
+                        undefined
+                    ),
+                    /records no failed attempt/
+                ]
+            ];
+            for (const [label, stored, message] of refusals) {
+                const { value, commits } = chain(2);
+                const proposal = rewrite(value, `rewrite-${label}`, commits[1]!.id, []);
+                value.evidence.storedReceipts.clear();
+                if (stored !== undefined) {
+                    value.evidence.storedReceipts.set(rewriteReceipt.value, stored);
+                }
+                value.runtime.reserveRunRewrite(
+                    ids.run,
+                    ids.branch,
+                    proposal.id,
+                    branchRevision(value)
+                );
+                const refused = thrownBy(AgentCoreError, () =>
+                    value.runtime.rewriteRun(proposal, branchRevision(value), new Date(1400))
+                );
+                expect([label, refused.code]).toEqual([label, "authority.denied"]);
+                expect(refused.message).toMatch(message);
+                expect(
+                    value.repository
+                        .transaction((tx) => value.repository.listCommits(tx))
+                        .some((commit) => commit.id.equals(proposal.id))
+                ).toBe(false);
+                // The bracket stays open, so the reserved identity is still the one owed.
+                expect(
+                    value.repository
+                        .transaction((tx) => value.repository.loadBranch(tx, ids.branch))
+                        ?.rewrite?.equals(proposal.id)
+                ).toBe(true);
+            }
+
+            // There is no field a host could restate the kind in, so a mismatched label is
+            // unrepresentable rather than rejected.
+            const { value } = chain(2);
+            value.evidence.abandonedRewrites.set(`${rewriteReceipt.value}:${refs.audit.value}`, {
+                kind: "abandonedRewrite",
+                run: ids.run,
+                receipt: rewriteReceipt,
+                audit: refs.audit,
+                proposalDigest: "sha256:0",
+                // @ts-expect-error The Receipt says why the attempt ended; evidence never does.
+                failure: "raised"
+            });
+        }
+    );
+
+    it(
+        "[C13-RUN-REWRITE-BRACKET] derives every closed failure kind from the attempt's own Receipt",
+        { tags: "p0" },
+        () => {
+            for (const [name, failure] of Object.entries(closedFailureKinds)) {
+                const { value, commits } = chain(2);
+                const before = transcriptIds(value);
+                const abandoned = rewrite(
+                    value,
+                    `rewrite-${name}`,
+                    commits[1]!.id,
+                    [],
+                    ids.branch,
+                    failure.kind
+                );
+                installed(value, abandoned);
+                expect(transcriptIds(value)).toEqual(before);
+                const durable = value.evidence.storedReceipts.get(rewriteReceipt.value);
+                expect([name, durable instanceof AttemptReceipt && durable.failure?.kind]).toEqual([
+                    name,
+                    failure.kind
+                ]);
+                expect(
+                    value.repository
+                        .transaction((tx) => value.repository.listCommits(tx))
+                        .filter((commit) => commit.id.equals(abandoned.id))
+                ).toHaveLength(1);
+            }
         }
     );
 
@@ -816,8 +998,7 @@ describe("Run effective transcript, rewrite bracket, and cut balance", () => {
                     run: ids.run,
                     receipt: rewriteReceipt,
                     audit: refs.audit,
-                    proposalDigest: installing.proposalDigest.value,
-                    outcome: "failed"
+                    proposalDigest: installing.proposalDigest.value
                 }
             );
             second.value.runtime.reserveRunRewrite(
@@ -1299,9 +1480,9 @@ describe("Run transcript derivation over records the runtime would refuse", () =
             // commit from a second Run cannot be walked into this one's transcript.
             const foreign = detachedRoot("commit-foreign", new RunId("run-2"));
             const adopting = detachedNote("note-foreign", foreign.id);
-            expect(() =>
-                orderedAncestry(adopting, detachedLoader(foreign, adopting))
-            ).toThrowError(broken);
+            expect(() => orderedAncestry(adopting, detachedLoader(foreign, adopting))).toThrowError(
+                broken
+            );
         }
     );
 

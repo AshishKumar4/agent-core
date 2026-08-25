@@ -29,7 +29,9 @@ import {
     FieldMove,
     OperationRef,
     PayloadMapping,
+    SurfaceDescriptor,
     SurfaceId,
+    SurfaceRegistration,
     type DedupePolicy,
     type TrustTier
 } from "../../src/facets";
@@ -73,6 +75,7 @@ import {
 } from "../../src/workspaces";
 import { InboxEventReference } from "../../src/workspaces/inbox";
 import { ContentRetentionReference, RetainedRecordKind } from "../../src/workspaces/retention";
+import { SurfaceEpoch } from "../../src/workspaces/surface-epoch";
 import {
     AuthenticatedRouteProjection,
     RouteDelivery,
@@ -139,9 +142,7 @@ export function eventFixture(
         visibility: "workspace",
         initiator: principal
     };
-    return new Event(
-        init.causation === undefined ? base : { ...base, causation: init.causation }
-    );
+    return new Event(init.causation === undefined ? base : { ...base, causation: init.causation });
 }
 
 export function subscriptionFixture(
@@ -461,9 +462,10 @@ export function crossRunObservationFixture(suffix = "default"): CrossRunObservat
     };
 }
 
-export function viewFixture(revision = 0, suffix = "default"): View {
+export function viewFixture(revision = 0, suffix = "default", epoch = SurfaceEpoch.first()): View {
     return new View({
         surface: new SurfaceId(`surface-${suffix}`),
+        epoch,
         revision: new Revision(revision),
         body: { count: revision, nested: { enabled: true } },
         actions: [
@@ -481,11 +483,31 @@ export function viewFixture(revision = 0, suffix = "default"): View {
 export function viewDeltaFixture(view: View, count = view.revision.value + 1): ViewDelta {
     return new ViewDelta({
         surface: view.surface,
+        epoch: view.epoch,
         baseRevision: view.revision,
         revision: view.revision.next(),
         patch: [{ op: "replace", path: "/body/count", value: count }],
         cursor: new EventCursor(`cursor-${view.revision.value + 1}`)
     });
+}
+
+/**
+ * Installs the SurfaceRegistration a View stream needs before its first revision. Every
+ * durable View write requires a current registration for the exact Surface, so a test that
+ * renders a Surface registers it first.
+ */
+export function registerSurface<Transaction>(
+    persistence: WorkspacePersistence<Transaction>,
+    transaction: Transaction,
+    surface: SurfaceId,
+    contributor = "workspace:surface"
+): SurfaceRegistration {
+    const registration = new SurfaceRegistration(
+        new SurfaceDescriptor(surface, `${surface.value} board`),
+        contributionAttributionFixture(contributor)
+    );
+    persistence.putSurfaceRegistration(transaction, registration);
+    return registration;
 }
 
 export class DeterministicJsonPatchEngine {
@@ -498,21 +520,24 @@ export class DeterministicJsonPatchEngine {
         this.calls.push({ document, patch });
         const result = structuredClone(document);
         for (const operation of patch) {
+            const op = isJsonObject(operation) ? operation["op"] : undefined;
             if (
                 !isJsonObject(operation) ||
-                operation["op"] !== "replace" ||
+                (op !== "replace" && op !== "add") ||
                 !("value" in operation)
             ) {
-                throw new TypeError("Test JSON Patch engine only supports replace operations");
+                throw new TypeError(
+                    "Test JSON Patch engine only supports replace and add operations"
+                );
             }
             const path = requireString(operation["path"], "Test JSON Patch operation path");
-            replace(result, path, structuredClone(operation["value"]));
+            write(result, path, structuredClone(operation["value"]), op === "add");
         }
         return result;
     }
 }
 
-function replace(document: JsonValue, pointer: string, value: JsonValue): void {
+function write(document: JsonValue, pointer: string, value: JsonValue, insert: boolean): void {
     const tokens = pointer
         .slice(1)
         .split("/")
@@ -525,7 +550,7 @@ function replace(document: JsonValue, pointer: string, value: JsonValue): void {
     }
     const token = tokens.at(-1)!;
     if (Array.isArray(parent)) parent[Number(token)] = value;
-    else if (isJsonObject(parent) && Object.hasOwn(parent, token)) {
+    else if (isJsonObject(parent) && (insert || Object.hasOwn(parent, token))) {
         // SAFETY: `document` is the structuredClone this engine just took, so it owns every
         // node reached here. JsonValue models JSON as readonly, which is the contract for
         // values the caller still holds; dropping it writes only into the private clone.

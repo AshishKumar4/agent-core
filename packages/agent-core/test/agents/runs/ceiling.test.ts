@@ -1,13 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { Revision } from "../../../src/core";
+import { Revision, encodeCanonicalJson } from "../../../src/core";
 import { AgentCoreError } from "../../../src/errors";
 import { RunCommitId, TurnId } from "../../../src/execution-references";
 import {
+    RESOURCE_DIMENSIONS,
     ResourceCeiling,
     SpawnAttenuation,
     SpawnAttenuationCodec,
+    exhaustedResource,
+    narrowResources,
     widensResourceCeiling
 } from "../../../src/agents/runs/ceiling";
+import { Currency, RealizedCost } from "../../../src/agents/runs/cost";
+import { SettlementObligation, TerminalSnapshot } from "../../../src/agents/runs/settlement";
 import { RunCommit } from "../../../src/agents/runs/commit";
 import { RunBranchId, RunId, SpawnReservationId } from "../../../src/agents/runs/id";
 import { TurnPlacementSnapshot } from "../../../src/agents/runs/placement";
@@ -18,6 +23,7 @@ import {
     attenuationDigest,
     configuration,
     content,
+    genesis,
     harness,
     ids,
     pins,
@@ -172,7 +178,7 @@ describe("Run resource ceilings", () => {
                 tokens: 100,
                 wallClockMs: 600
             });
-            root.runtime.recordModelTokens(parent.run, 25);
+            root.runtime.recordModelUsage(parent.run, 25);
             expect(root.runtime.remainingResources(parent.run, new Date(2_400))?.toData()).toEqual({
                 depth: 2,
                 tokens: 75,
@@ -193,7 +199,7 @@ describe("Run resource ceilings", () => {
                 wallClockMs: 300
             });
 
-            root.runtime.recordModelTokens(child.run, 10);
+            root.runtime.recordModelUsage(child.run, 10);
             expect(root.runtime.remainingResources(child.run, new Date(2_600))?.toData()).toEqual({
                 depth: 1,
                 tokens: 65,
@@ -219,7 +225,7 @@ describe("Run resource ceilings", () => {
                 root.token,
                 ceiling({ tokens: 100 })
             );
-            root.runtime.recordModelTokens(parent.run, 40);
+            root.runtime.recordModelUsage(parent.run, 40);
 
             expect(
                 root.runtime.remainingResources(parent.run, new Date(1_600))?.limit("tokens")
@@ -269,7 +275,7 @@ describe("Run resource ceilings", () => {
                 root.token,
                 ceiling({ tokens: 100, depth: 2 })
             );
-            root.runtime.recordModelTokens(parent.run, 25);
+            root.runtime.recordModelUsage(parent.run, 25);
 
             // The child declares neither dimension, so both come from the parent's remainder,
             // with depth spent by the one spawn edge it just crossed.
@@ -337,7 +343,7 @@ describe("Run resource ceilings", () => {
         () => {
             const root = seedRunningTurn();
             const child = spawnChild(root, "spent", ids.run, root.token, ceiling({ tokens: 50 }));
-            root.runtime.recordModelTokens(child.run, 50);
+            root.runtime.recordModelUsage(child.run, 50);
             expect(root.runtime.exhaustedResource(child.run, new Date(1_600))).toBe("tokens");
 
             const terminal = new RunCommit({
@@ -351,6 +357,10 @@ describe("Run resource ceilings", () => {
                 subjectTurn: child.token.turn,
                 content: content("7")
             });
+            // Exhaustion cancels the Run through the ordinary terminal rows, so the request
+            // names the cancellation §7.4 builds `aborted` from for anything it published.
+            const cancellation = new AbortController();
+            cancellation.abort();
             const request = {
                 run: child.run,
                 turn: child.token.turn,
@@ -362,6 +372,7 @@ describe("Run resource ceilings", () => {
                 token: child.token,
                 outcome: "cancelled" as const,
                 commit: terminal,
+                cancellation: cancellation.signal,
                 siblingCancellations: new Map(),
                 now: new Date(1_600)
             };
@@ -370,7 +381,7 @@ describe("Run resource ceilings", () => {
                 root.runtime.terminalizeRun({ ...request, exhausted: "wallClockMs" })
             ).toThrow(/names a dimension with allowance left/);
 
-            const snapshot = root.runtime.terminalizeRun({ ...request, exhausted: "tokens" });
+            const { snapshot } = root.runtime.terminalizeRun({ ...request, exhausted: "tokens" });
             expect(snapshot.outcome).toBe("cancelled");
             expect(snapshot.exhausted).toBe("tokens");
 
@@ -405,23 +416,30 @@ describe("Run resource ceilings", () => {
                 content: content("7")
             });
 
-            const refusal = thrownBy(AgentCoreError, () => {
-                root.runtime.terminalizeRun({
-                    run: ids.run,
-                    turn: root.token.turn,
-                    expectedRunRevision: root.repository.transaction(
-                        (tx) => root.repository.loadRun(tx, ids.run)!.revision
-                    ),
-                    expectedTurnRevision: new Revision(1),
-                    expectedBranchRevision: new Revision(0),
-                    token: root.token,
-                    outcome: "cancelled",
-                    commit: terminal,
-                    exhausted: "tokens",
-                    siblingCancellations: new Map(),
-                    now: new Date(1_600)
-                });
-            }, "terminalization");
+            const cancellation = new AbortController();
+            cancellation.abort();
+            const refusal = thrownBy(
+                AgentCoreError,
+                () => {
+                    root.runtime.terminalizeRun({
+                        run: ids.run,
+                        turn: root.token.turn,
+                        expectedRunRevision: root.repository.transaction(
+                            (tx) => root.repository.loadRun(tx, ids.run)!.revision
+                        ),
+                        expectedTurnRevision: new Revision(1),
+                        expectedBranchRevision: new Revision(0),
+                        token: root.token,
+                        outcome: "cancelled",
+                        commit: terminal,
+                        exhausted: "tokens",
+                        cancellation: cancellation.signal,
+                        siblingCancellations: new Map(),
+                        now: new Date(1_600)
+                    });
+                },
+                "terminalization"
+            );
             expect(refusal.code).toBe("run.invalid-state");
             expect(refusal.message).toBe(
                 "Terminal exhaustion names a dimension with allowance left"
@@ -508,7 +526,7 @@ describe("Run resource ceilings", () => {
         "[C13-RUN-RESOURCE-CEILING] carries exactly the dimensions it declares through data and back",
         { tags: "p1" },
         () => {
-            // A ceiling that declares one dimension leaves the other two undeclared, which
+            // A ceiling that declares one dimension leaves the other three undeclared, which
             // is unbounded rather than zero. Everything downstream reads that distinction
             // off `entries`, so a ceiling that reported an entry per dimension — declared or
             // not — would encode limits the declarer never wrote.
@@ -573,7 +591,7 @@ describe("Run resource ceilings", () => {
                 root.token,
                 ceiling({ tokens: 100 })
             );
-            root.runtime.recordModelTokens(parent.run, 40);
+            root.runtime.recordModelUsage(parent.run, 40);
 
             // Declared at exactly the parent's remainder, so the child's own declaration
             // is what bounds it for now.
@@ -591,10 +609,439 @@ describe("Run resource ceilings", () => {
             // The parent keeps spending. Its remainder is now tighter than what the child
             // declared, and the tighter of the two has to win or the child outlives the
             // bound it was spawned under.
-            root.runtime.recordModelTokens(parent.run, 30);
+            root.runtime.recordModelUsage(parent.run, 30);
             expect(
                 root.runtime.remainingResources(child.run, new Date(1_600))?.limit("tokens")
             ).toBe(30);
+        }
+    );
+});
+
+describe("Run realized cost", () => {
+    const usd = new Currency("USD");
+    const eur = new Currency("EUR");
+
+    function activeRun(): Run {
+        const base = genesis().run;
+        return new Run({
+            id: base.id,
+            agent: base.agent,
+            configuration: base.configuration,
+            root: base.root,
+            initialBranch: base.initialBranch,
+            revision: new Revision(0)
+        });
+    }
+
+    function endedRun(run: Run): Run {
+        return run.terminalize(
+            new TerminalSnapshot(
+                run.id,
+                ids.turn,
+                ids.root,
+                new RunCommitId("terminal-cost-commit"),
+                "succeeded",
+                new SettlementObligation({ registryEpoch: 1, obligations: [] }),
+                new Date(2_000)
+            )
+        );
+    }
+
+    it(
+        "[C13-RUN-CEILING-COST] declares costMicros as a ceiling dimension like any other",
+        { tags: "p0" },
+        () => {
+            // The dimension has to be in the tuple itself rather than handled beside it:
+            // every reader of a ceiling walks RESOURCE_DIMENSIONS, so a cost bound the tuple
+            // omits is a bound nothing enforces.
+            expect(RESOURCE_DIMENSIONS).toContain("costMicros");
+
+            const bound = new ResourceCeiling({ costMicros: 2_500_000 });
+            expect(bound.declared).toEqual(["costMicros"]);
+            expect(bound.toData()).toEqual({ costMicros: 2_500_000 });
+            expect(ResourceCeiling.fromData(bound.toData()).equals(bound)).toBe(true);
+            expect(() => ResourceCeiling.fromData({ costMicros: -1 })).toThrow(
+                "Resource ceiling costMicros must be a non-negative safe integer"
+            );
+
+            // Exhaustion reads the same check every dimension reads. A cost bound with
+            // allowance left is not exhausted, and one with none is named exactly once.
+            expect(exhaustedResource(new ResourceCeiling({ costMicros: 1 }))).toBeUndefined();
+            expect(exhaustedResource(new ResourceCeiling({ costMicros: 0 }))).toBe("costMicros");
+            expect(exhaustedResource(new ResourceCeiling({ costMicros: 5, tokens: 0 }))).toBe(
+                "tokens"
+            );
+        }
+    );
+
+    it(
+        "[C13-RUN-CEILING-COST] narrows a cost bound from the Run's own realized total",
+        { tags: "p0" },
+        () => {
+            // The remainder is spend against a declared bound, so it has to fall by exactly
+            // what the calls incurred. A host that narrowed from anything else would be
+            // reporting a claim about a rate table rather than a fact about spend.
+            const declared = new ResourceCeiling({ costMicros: 1_000_000 });
+            const remainder = narrowResources(undefined, declared, {
+                costMicros: 400_000,
+                tokens: 0,
+                wallClockMs: 0
+            });
+            expect(remainder?.limit("costMicros")).toBe(600_000);
+
+            const spent = narrowResources(undefined, declared, {
+                costMicros: 1_000_000,
+                tokens: 0,
+                wallClockMs: 0
+            });
+            expect(exhaustedResource(spent)).toBe("costMicros");
+        }
+    );
+
+    it(
+        "[C13-RUN-CEILING-COST] accumulates a durable per-Run total and carries it through the codec",
+        { tags: "p0" },
+        () => {
+            const run = activeRun();
+            expect(run.costConsumed).toBeUndefined();
+
+            const once = run.recordModelUsage(0, new RealizedCost(1_250, usd), []);
+            const twice = once.recordModelUsage(0, new RealizedCost(750, usd), []);
+            expect(twice.costConsumed?.micros).toBe(2_000);
+            expect(twice.costConsumed?.currency.equals(usd)).toBe(true);
+
+            const decoded = Run.codec.decode(Run.codec.encode(twice));
+            expect(decoded.costConsumed?.micros).toBe(2_000);
+            expect(decoded.costConsumed?.currency.equals(usd)).toBe(true);
+
+            // A Run that recorded no realized cost declares nothing, which is what lets a
+            // host with no cost to report leave the dimension unbounded instead of writing
+            // a zero that reads as a measured total.
+            expect(Run.codec.decode(Run.codec.encode(run)).costConsumed).toBeUndefined();
+
+            // The record moved to a new major with the total on it, and the previous major
+            // has no reader: a stored Run written before the cost total existed is refused
+            // rather than read as a Run that spent nothing.
+            expect(() =>
+                Run.codec.decode(
+                    encodeCanonicalJson({
+                        kind: "run.record",
+                        version: { major: 2, minor: 0 },
+                        payload: twice.toData()
+                    })
+                )
+            ).toThrow(
+                new AgentCoreError("codec.unknown-major", "Unsupported run.record codec major 2")
+            );
+        }
+    );
+
+    it(
+        "[C13-RUN-CEILING-COST] records one currency per Run lineage and refuses a second",
+        { tags: "p0" },
+        () => {
+            // A comparison between amounts in two currencies is not a comparison, and a
+            // ceiling is nothing but that comparison, so the recording path is where the
+            // second currency has to be refused. It cannot be refused later: by then a
+            // mixed total already exists and every remainder computed from it is nonsense.
+            const started = activeRun().recordModelUsage(0, new RealizedCost(1_000, usd), []);
+            const drift = thrownBy(AgentCoreError, () =>
+                started.recordModelUsage(0, new RealizedCost(1_000, eur), [])
+            );
+            expect(drift.code).toBe("run.invalid-state");
+            expect(drift.message).toContain("USD");
+            expect(drift.message).toContain("EUR");
+
+            // The lineage answer binds a Run that has recorded nothing yet, so a child
+            // cannot open a second currency under an ancestor that already committed to one.
+            const child = thrownBy(AgentCoreError, () =>
+                activeRun().recordModelUsage(0, new RealizedCost(5, eur), [usd])
+            );
+            expect(child.code).toBe("run.invalid-state");
+
+            // The refusal leaves no total behind, so the mixed lineage narrows nothing: the
+            // ceiling still reads the last agreeing total and no other.
+            expect(started.costConsumed?.micros).toBe(1_000);
+            expect(
+                narrowResources(undefined, new ResourceCeiling({ costMicros: 5_000 }), {
+                    costMicros: started.costConsumed?.micros ?? 0,
+                    tokens: 0,
+                    wallClockMs: 0
+                })?.limit("costMicros")
+            ).toBe(4_000);
+        }
+    );
+
+    it(
+        "[C13-RUN-CEILING-COST] has no estimated form and refuses an unusable amount",
+        { tags: "p1" },
+        () => {
+            // There is no field an estimate could travel in. A host with nothing realized to
+            // record cannot build the value at all, which is the rule rather than an omission.
+            expect(() => new RealizedCost(-1, usd)).toThrow(
+                "Realized cost must be a non-negative safe integer of micros"
+            );
+            expect(() => new RealizedCost(1.5, usd)).toThrow(
+                "Realized cost must be a non-negative safe integer of micros"
+            );
+            expect(() => RealizedCost.fromData({ micros: 1 })).toThrow(
+                "Realized cost contains missing or unknown fields"
+            );
+            expect(() =>
+                RealizedCost.fromData({ currency: "USD", micros: 1, estimate: true })
+            ).toThrow("Realized cost contains missing or unknown fields");
+            expect(
+                RealizedCost.fromData(new RealizedCost(7, usd).toData()).equals(
+                    new RealizedCost(7, usd)
+                )
+            ).toBe(true);
+
+            // A terminal Run incurs nothing further, so a late report cannot move a total
+            // the Run's terminal snapshot was derived against.
+            const terminal = thrownBy(AgentCoreError, () => {
+                endedRun(activeRun()).recordModelUsage(0, new RealizedCost(1, usd), []);
+            });
+            expect(terminal.code).toBe("run.invalid-state");
+        }
+    );
+
+    it(
+        "[C13-RUN-CEILING-COST] advances the cost total at the same commit point as the token total",
+        { tags: "p0" },
+        () => {
+            // One commit point for both dimensions. A host that advanced them separately
+            // could leave a Run whose token total says a call happened and whose cost total
+            // says it did not, and a remainder read between the two writes would bound
+            // spend against a call already made.
+            const root = seedRunningTurn();
+            const parent = spawnChild(
+                root,
+                "cost-parent",
+                ids.run,
+                root.token,
+                ceiling({ costMicros: 1_000_000, tokens: 100 })
+            );
+
+            root.runtime.recordModelUsage(parent.run, 25, new RealizedCost(400_000, usd));
+            expect(
+                root.runtime.remainingResources(parent.run, new Date(1_600))?.toData()
+            ).toMatchObject({ costMicros: 600_000, tokens: 75 });
+
+            // A child under no declaration of its own inherits the remainder, so cost the
+            // parent already spent bounds the child without the child accounting for it.
+            const child = spawnChild(
+                root,
+                "cost-child",
+                parent.run,
+                parent.token,
+                new SpawnAttenuation()
+            );
+            root.runtime.recordModelUsage(child.run, 5, new RealizedCost(100_000, usd));
+            expect(
+                root.runtime.remainingResources(child.run, new Date(1_600))?.limit("costMicros")
+            ).toBe(500_000);
+
+            // The lineage answer is read from the ancestor Runs rather than stored again, so
+            // a child cannot open a second currency under a parent that already committed.
+            const drift = thrownBy(AgentCoreError, () =>
+                root.runtime.recordModelUsage(child.run, 1, new RealizedCost(1, eur))
+            );
+            expect(drift.code).toBe("run.invalid-state");
+
+            // The refused call left neither total moved, which is what makes the two
+            // dimensions one commit point rather than two writes that can disagree.
+            const totals = root.repository.transaction((transaction) => {
+                const loaded = root.repository.loadRun(transaction, child.run);
+                return {
+                    cost: loaded?.costConsumed?.micros,
+                    currency: loaded?.costConsumed?.currency.value,
+                    tokens: loaded?.tokensConsumed
+                };
+            });
+            expect(totals).toEqual({ cost: 100_000, currency: "USD", tokens: 5 });
+
+            // A call the host reports no realized cost for advances tokens alone and leaves
+            // the recorded currency untouched.
+            root.runtime.recordModelUsage(child.run, 3);
+            expect(
+                root.repository.transaction(
+                    (transaction) => root.repository.loadRun(transaction, child.run)?.costConsumed
+                )?.micros
+            ).toBe(100_000);
+        }
+    );
+
+    it(
+        "[C13-RUN-CEILING-COST] reaches the same verdict whichever Run in the lineage recorded first",
+        { tags: "p0" },
+        () => {
+            // Parent first, then the child: the child's walk finds the currency above it.
+            const downward = seedRunningTurn();
+            const below = spawnChild(
+                downward,
+                "order-below",
+                ids.run,
+                downward.token,
+                new SpawnAttenuation()
+            );
+            downward.runtime.recordModelUsage(ids.run, 1, new RealizedCost(10, usd));
+            const afterParent = thrownBy(AgentCoreError, () =>
+                downward.runtime.recordModelUsage(below.run, 1, new RealizedCost(10, eur))
+            );
+            expect(afterParent.code).toBe("run.invalid-state");
+
+            // Child first, then the parent. Reading only ancestors admitted this: the child
+            // found nothing above it and the parent found nothing below, so both were taken.
+            const upward = seedRunningTurn();
+            const above = spawnChild(
+                upward,
+                "order-above",
+                ids.run,
+                upward.token,
+                new SpawnAttenuation()
+            );
+            upward.runtime.recordModelUsage(above.run, 1, new RealizedCost(10, usd));
+            const afterChild = thrownBy(AgentCoreError, () =>
+                upward.runtime.recordModelUsage(ids.run, 1, new RealizedCost(10, eur))
+            );
+            expect(afterChild.code).toBe("run.invalid-state");
+            expect(afterChild.message).toBe("Run lineage records cost in USD, not EUR");
+
+            // The refusal moved neither total on either Run, so the mixed lineage narrowed
+            // nothing and no remainder was computed against an amount nobody can compare.
+            const totals = upward.repository.transaction((transaction) => ({
+                child: upward.repository.loadRun(transaction, above.run),
+                root: upward.repository.loadRun(transaction, ids.run)
+            }));
+            expect([totals.root?.tokensConsumed, totals.root?.costConsumed]).toEqual([
+                0,
+                undefined
+            ]);
+            expect([
+                totals.child?.tokensConsumed,
+                totals.child?.costConsumed?.micros,
+                totals.child?.costConsumed?.currency.value
+            ]).toEqual([1, 10, "USD"]);
+
+            // Three deep, with the middle Run recording last. Its cost sits in the lineage of
+            // the Run below it and in its own, so both bind it and neither order changes that.
+            const chained = seedRunningTurn();
+            const middle = spawnChild(
+                chained,
+                "order-middle",
+                ids.run,
+                chained.token,
+                new SpawnAttenuation()
+            );
+            const deepest = spawnChild(
+                chained,
+                "order-deepest",
+                middle.run,
+                middle.token,
+                new SpawnAttenuation()
+            );
+            chained.runtime.recordModelUsage(ids.run, 1, new RealizedCost(10, usd));
+            chained.runtime.recordModelUsage(deepest.run, 1, new RealizedCost(10, usd));
+            const between = thrownBy(AgentCoreError, () =>
+                chained.runtime.recordModelUsage(middle.run, 1, new RealizedCost(10, eur))
+            );
+            expect(between.code).toBe("run.invalid-state");
+            expect(
+                chained.runtime.recordModelUsage(middle.run, 1, new RealizedCost(10, usd))
+                    .costConsumed?.micros
+            ).toBe(10);
+        }
+    );
+
+    it(
+        "[C13-RUN-CEILING-COST] leaves two siblings free to record in different currencies and refuses the parent that would join them",
+        { tags: "p0" },
+        () => {
+            // §5.2 binds one currency per Run lineage, and a lineage runs from the root down
+            // one spawn chain. No lineage holds both siblings — neither is the other's
+            // ancestor — and no ceiling comparison ever adds their amounts, because each child
+            // is bounded by its own attenuation of the parent's remainder. So this is legal,
+            // and refusing it would be a rule the SPEC does not state.
+            const root = seedRunningTurn();
+            const left = spawnChild(root, "twin-left", ids.run, root.token, new SpawnAttenuation());
+            const right = spawnChild(
+                root,
+                "twin-right",
+                ids.run,
+                root.token,
+                new SpawnAttenuation()
+            );
+            expect(
+                root.runtime.recordModelUsage(left.run, 1, new RealizedCost(10, usd)).costConsumed
+                    ?.currency.value
+            ).toBe("USD");
+            expect(
+                root.runtime.recordModelUsage(right.run, 1, new RealizedCost(10, eur)).costConsumed
+                    ?.currency.value
+            ).toBe("EUR");
+
+            // The parent is the Run both lineages pass through, so its own cost would be an
+            // amount in each of them. Each sibling's currency binds it on its own, so the
+            // parent has no currency left to record in and each refusal names the divergence.
+            for (const [candidate, divergent] of [
+                [usd, "EUR"],
+                [eur, "USD"]
+            ] as const) {
+                const joined = thrownBy(AgentCoreError, () =>
+                    root.runtime.recordModelUsage(ids.run, 1, new RealizedCost(10, candidate))
+                );
+                expect(joined.code).toBe("run.invalid-state");
+                expect(joined.message).toBe(
+                    `Run lineage records cost in ${divergent}, not ${candidate.value}`
+                );
+            }
+            expect(
+                root.repository.transaction((transaction) =>
+                    root.repository.loadRun(transaction, ids.run)
+                )?.costConsumed
+            ).toBeUndefined();
+
+            // A grandchild under one sibling answers to that sibling and not to the other.
+            const under = spawnChild(
+                root,
+                "twin-under",
+                left.run,
+                left.token,
+                new SpawnAttenuation()
+            );
+            expect(
+                root.runtime.recordModelUsage(under.run, 1, new RealizedCost(10, usd)).costConsumed
+                    ?.micros
+            ).toBe(10);
+        }
+    );
+
+    it(
+        "[C13-RUN-CEILING-COST] keeps the lineage verdict across a store restart, because it is derived from the Run records",
+        { tags: "p0" },
+        () => {
+            const before = seedRunningTurn();
+            const child = spawnChild(
+                before,
+                "restart-child",
+                ids.run,
+                before.token,
+                new SpawnAttenuation()
+            );
+            before.runtime.recordModelUsage(child.run, 1, new RealizedCost(10, usd));
+
+            // A new runtime over the same stored records, holding nothing in memory from the
+            // first. A lineage currency kept beside the Runs would not survive this.
+            const after = harness(before.storage.snapshot());
+            const refused = thrownBy(AgentCoreError, () =>
+                after.runtime.recordModelUsage(ids.run, 1, new RealizedCost(10, eur))
+            );
+            expect(refused.code).toBe("run.invalid-state");
+            expect(refused.message).toBe("Run lineage records cost in USD, not EUR");
+            expect(
+                after.runtime.recordModelUsage(ids.run, 1, new RealizedCost(10, usd)).costConsumed
+                    ?.micros
+            ).toBe(10);
         }
     );
 });

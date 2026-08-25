@@ -20,7 +20,12 @@ import {
 } from "../../src/workspaces/persistence";
 import { RetainedRecordKind, type ContentRetentionPort } from "../../src/workspaces/retention";
 import { RouteReservation } from "../../src/workspaces/route";
-import { View } from "../../src/workspaces/view";
+import { View, viewRecordKey } from "../../src/workspaces/view";
+import {
+    SurfaceEpoch,
+    surfaceRevisionKey,
+    surfaceStreamKey
+} from "../../src/workspaces/surface-epoch";
 import {
     DeterministicJsonPatchEngine,
     authenticatedProjectionFixture,
@@ -30,6 +35,7 @@ import {
     eventRetention,
     projectionFixture,
     projectionRetention,
+    registerSurface,
     reservationFixture,
     reservationRetention,
     retentionFixture,
@@ -166,14 +172,18 @@ function rebuilt(
 
 describe("memory workspace records", () => {
     test("rejects snapshots that carry duplicate pointers", { tags: "p0" }, () => {
-        const pointer = { namespace: "view.current", key: "surface", recordKey: "surface@0" };
+        const pointer = {
+            namespace: "view.current",
+            key: "surface",
+            recordKey: viewKey("surface", 0)
+        };
         expect(
             () =>
                 new MemoryWorkspaceRecords({
                     version: 1,
                     records: [],
                     uniques: [],
-                    pointers: [pointer, { ...pointer, recordKey: "surface@1" }]
+                    pointers: [pointer, { ...pointer, recordKey: viewKey("surface", 1) }]
                 })
         ).toThrow(
             expect.objectContaining({
@@ -200,7 +210,7 @@ describe("memory workspace records", () => {
         records.insertRecord({ kind: "view", id: "surface@0", bytes: Uint8Array.of(2) });
         records.insertUnique({ namespace: "ns", key: "key", recordKey: "surface@0" });
         records.compareAndSetPointer(
-            { namespace: "view.current", key: "surface", recordKey: "surface@0" },
+            { namespace: "view.current", key: "surface", recordKey: viewKey("surface", 0) },
             undefined
         );
         const snapshot = records[ACTOR_STATE_SNAPSHOT]();
@@ -635,6 +645,7 @@ describe("view persistence", () => {
             code: "protocol.revision-conflict",
             message: "View revision compare-and-set failed"
         });
+        registerSurface(persistence, records, viewFixture(0, "vc").surface);
         expect(() => persistence.saveView(records, viewFixture(1, "vc"), undefined, [])).toThrow(
             initialConflict
         );
@@ -652,7 +663,9 @@ describe("view persistence", () => {
             persistence.saveView(records, viewFixture(1, "vc"), new Revision(3), [])
         ).toThrow(casConflict);
         persistence.saveView(records, viewFixture(1, "vc"), Revision.initial(), []);
-        expect(persistence.currentView(records, "surface-vc")?.revision.value).toBe(1);
+        expect(
+            persistence.currentView(records, "surface-vc", SurfaceEpoch.first())?.revision.value
+        ).toBe(1);
     });
 
     test("rejects view deltas without a matching current view", { tags: "p0" }, () => {
@@ -676,19 +689,25 @@ describe("view persistence", () => {
     test("fails closed when the view pointer names another surface", { tags: "p0" }, () => {
         const records = new MemoryWorkspaceRecords();
         const persistence = persistenceWith();
-        persistence.saveView(records, viewFixture(0, "va"), undefined, []);
-        persistence.saveView(records, viewFixture(0, "vb"), undefined, []);
+        const first = viewFixture(0, "va");
+        const other = viewFixture(0, "vb");
+        registerSurface(persistence, records, first.surface);
+        registerSurface(persistence, records, other.surface, "workspace:other-surface");
+        persistence.saveView(records, first, undefined, []);
+        persistence.saveView(records, other, undefined, []);
         const snapshot = records.snapshot();
         const tampered = new MemoryWorkspaceRecords({
             ...snapshot,
             pointers: snapshot.pointers.map((pointer) =>
-                pointer.key === "surface-va" ? { ...pointer, recordKey: "surface-vb@0" } : pointer
+                pointer.key === surfaceStreamKey(first.surface.value, first.epoch)
+                    ? { ...pointer, recordKey: viewRecordKey(other) }
+                    : pointer
             )
         });
-        expect(() => persistence.currentView(tampered, "surface-va")).toThrow(
+        expect(() => persistence.currentView(tampered, "surface-va", SurfaceEpoch.first())).toThrow(
             expect.objectContaining({
                 code: "codec.invalid",
-                message: "View pointer does not match its Surface"
+                message: "View pointer does not match its Surface stream"
             })
         );
     });
@@ -700,10 +719,11 @@ describe("view persistence", () => {
         const supplied = content("supplied-ref");
         const base = viewFixture(0, "cover");
         const view = new View({ ...base, body: { attachment: required.ref.value } });
+        registerSurface(persistence, records, view.surface);
         const retention = retentionFixture({
             id: "retention-cover",
             recordKind: "view",
-            recordId: "surface-cover@0",
+            recordId: viewRecordKey(view),
             content: supplied
         });
         expect(() => persistence.saveView(records, view, undefined, [retention])).toThrow(
@@ -721,8 +741,11 @@ describe("view persistence", () => {
             ...viewFixture(0, "nulls"),
             body: { note: null, flag: true, size: 3, tags: [null, "plain"] }
         });
+        registerSurface(persistence, records, view.surface);
         persistence.saveView(records, view, undefined, []);
-        expect(persistence.currentView(records, "surface-nulls")).toEqual(view);
+        expect(persistence.currentView(records, "surface-nulls", SurfaceEpoch.first())).toEqual(
+            view
+        );
     });
 
     test(
@@ -733,6 +756,7 @@ describe("view persistence", () => {
             const persistence = persistenceWith();
             const engine = new DeterministicJsonPatchEngine();
             let surface = viewFixture(0, "lvd-s");
+            registerSurface(persistence, storage, surface.surface);
             persistence.saveView(storage, surface, undefined, []);
             for (let step = 0; step < 3; step += 1) {
                 surface = persistence.appendViewDelta(
@@ -744,6 +768,7 @@ describe("view persistence", () => {
                 );
             }
             let other = viewFixture(0, "lvd-o");
+            registerSurface(persistence, storage, other.surface, "workspace:other-surface");
             persistence.saveView(storage, other, undefined, []);
             for (let step = 0; step < 2; step += 1) {
                 other = persistence.appendViewDelta(
@@ -754,7 +779,12 @@ describe("view persistence", () => {
                     []
                 );
             }
-            const deltas = persistence.listViewDeltas(storage, "surface-lvd-s", new Revision(1));
+            const deltas = persistence.listViewDeltas(
+                storage,
+                "surface-lvd-s",
+                SurfaceEpoch.first(),
+                new Revision(1)
+            );
             expect(deltas.map((delta) => `${delta.surface.value}@${delta.revision.value}`)).toEqual(
                 ["surface-lvd-s@2", "surface-lvd-s@3"]
             );
@@ -766,6 +796,7 @@ describe("view persistence", () => {
         const persistence = persistenceWith();
         const engine = new DeterministicJsonPatchEngine();
         let compacted = viewFixture(0, "ca");
+        registerSurface(persistence, records, compacted.surface);
         persistence.saveView(records, compacted, undefined, []);
         for (let step = 0; step < 2; step += 1) {
             compacted = persistence.appendViewDelta(
@@ -777,6 +808,7 @@ describe("view persistence", () => {
             );
         }
         let untouched = viewFixture(0, "cb");
+        registerSurface(persistence, records, untouched.surface, "workspace:other-surface");
         persistence.saveView(records, untouched, undefined, []);
         untouched = persistence.appendViewDelta(
             records,
@@ -785,18 +817,20 @@ describe("view persistence", () => {
             [],
             []
         );
-        persistence.compactView(records, "surface-ca", new Revision(1));
+        persistence.compactView(records, "surface-ca", SurfaceEpoch.first(), new Revision(1));
         expect(records.listRecords("view").map((record) => record.id)).toEqual([
-            "surface-ca@1",
-            "surface-ca@2",
-            "surface-cb@0",
-            "surface-cb@1"
+            viewKey("surface-ca", 1),
+            viewKey("surface-ca", 2),
+            viewKey("surface-cb", 0),
+            viewKey("surface-cb", 1)
         ]);
         expect(records.listRecords("viewDelta").map((record) => record.id)).toEqual([
-            "surface-ca@2",
-            "surface-cb@1"
+            viewKey("surface-ca", 2),
+            viewKey("surface-cb", 1)
         ]);
-        expect(() => persistence.compactView(records, "surface-ca", Revision.initial())).toThrow(
+        expect(() =>
+            persistence.compactView(records, "surface-ca", SurfaceEpoch.first(), Revision.initial())
+        ).toThrow(
             expect.objectContaining({
                 code: "protocol.revision-conflict",
                 message: "View compaction floor is unavailable"
@@ -807,6 +841,7 @@ describe("view persistence", () => {
     test("refuses compaction when no current view pointer exists", { tags: "p1" }, () => {
         const records = new MemoryWorkspaceRecords();
         const persistence = persistenceWith();
+        registerSurface(persistence, records, viewFixture(0, "nocur").surface);
         persistence.saveView(records, viewFixture(0, "nocur"), undefined, []);
         const snapshot = records.snapshot();
         const withoutPointer = new MemoryWorkspaceRecords({
@@ -814,7 +849,12 @@ describe("view persistence", () => {
             pointers: snapshot.pointers.filter((pointer) => pointer.namespace !== "view.current")
         });
         expect(() =>
-            persistence.compactView(withoutPointer, "surface-nocur", Revision.initial())
+            persistence.compactView(
+                withoutPointer,
+                "surface-nocur",
+                SurfaceEpoch.first(),
+                Revision.initial()
+            )
         ).toThrow(
             expect.objectContaining({
                 code: "protocol.revision-conflict",
@@ -828,6 +868,7 @@ describe("view persistence", () => {
         const persistence = persistenceWith();
         const event = eventFixture("lazy");
         persistence.appendEvent(records, event, eventRetention(event));
+        registerSurface(persistence, records, viewFixture(0, "lazy").surface);
         persistence.saveView(records, viewFixture(0, "lazy"), undefined, []);
         const snapshot = records.snapshot();
         const corruptedRetention = new MemoryWorkspaceRecords({
@@ -837,11 +878,16 @@ describe("view persistence", () => {
             )
         });
         expect(() =>
-            persistence.compactView(corruptedRetention, "surface-lazy", Revision.initial())
+            persistence.compactView(
+                corruptedRetention,
+                "surface-lazy",
+                SurfaceEpoch.first(),
+                Revision.initial()
+            )
         ).not.toThrow();
-        expect(persistence.currentView(corruptedRetention, "surface-lazy")).toEqual(
-            viewFixture(0, "lazy")
-        );
+        expect(
+            persistence.currentView(corruptedRetention, "surface-lazy", SurfaceEpoch.first())
+        ).toEqual(viewFixture(0, "lazy"));
     });
 });
 
@@ -851,16 +897,17 @@ describe("retention listing", () => {
         const persistence = persistenceWith();
         const viewRef = content("cross-view");
         const view = new View({ ...viewFixture(0, "lr"), body: { attachment: viewRef.ref.value } });
+        registerSurface(persistence, records, view.surface);
         persistence.saveView(records, view, undefined, [
             retentionFixture({
                 id: "retention-lr-view",
                 recordKind: "view",
-                recordId: "surface-lr@0",
+                recordId: viewRecordKey(view),
                 content: viewRef
             })
         ]);
         const crossEvent = eventVariant(eventFixture("lr-cross"), {
-            id: new EventId("surface-lr@0")
+            id: new EventId(viewRecordKey(view))
         });
         persistence.appendEvent(
             records,
@@ -876,7 +923,7 @@ describe("retention listing", () => {
         const listed = persistence.listRetentionsFor(
             records,
             RetainedRecordKind.event(),
-            "surface-lr@0"
+            viewRecordKey(view)
         );
         expect(listed.map((reference) => reference.id.value)).toEqual(["retention-lr-event"]);
     });
@@ -1040,8 +1087,8 @@ describe("workspace validators", () => {
         });
         expect(() =>
             validateWorkspacePointerAdvance(
-                { namespace: "view.current", key: "k", recordKey: "s@2" },
-                "s@0"
+                { namespace: "view.current", key: "k", recordKey: viewKey("s", 2) },
+                viewKey("s", 0)
             )
         ).toThrow(advanceConflict);
         expect(() =>
@@ -1052,38 +1099,56 @@ describe("workspace validators", () => {
         ).toThrow(advanceConflict);
         expect(() =>
             validateWorkspacePointerAdvance(
-                { namespace: "view.current", key: "k", recordKey: "s@0" },
+                { namespace: "view.current", key: "k", recordKey: viewKey("s", 0) },
                 undefined
             )
         ).not.toThrow();
         expect(() =>
             validateWorkspacePointerAdvance(
-                { namespace: "view.current", key: "k", recordKey: "s@1" },
-                "s@0"
+                { namespace: "view.current", key: "k", recordKey: viewKey("s", 1) },
+                viewKey("s", 0)
             )
         ).not.toThrow();
     });
 
     test("rejects malformed pointer record keys exactly", { tags: "p0" }, () => {
+        // A View pointer's record key is the canonical revision tuple, so anything that is
+        // not that tuple is malformed and reports one message. A suffix-shaped key is
+        // included deliberately: it used to parse, and admitting it is the non-injective read
+        // the tuple exists to prevent.
+        const malformedView = expect.objectContaining({
+            code: "codec.invalid",
+            message: "View pointer record key is malformed"
+        });
+        for (const recordKey of ["0", "s@x", "@1", "s@0", '["view.revision","s",1]']) {
+            expect(() =>
+                validateWorkspacePointerAdvance(
+                    { namespace: "view.current", key: "k", recordKey },
+                    undefined
+                )
+            ).toThrow(malformedView);
+        }
+        expect(() =>
+            validateWorkspacePointerAdvance(
+                { namespace: "view.current", key: "k", recordKey: viewKey("s", 0) },
+                undefined
+            )
+        ).not.toThrow();
+
+        // Every other revision-bearing namespace keeps the suffix rule and its own message.
         const malformed = expect.objectContaining({
             code: "codec.invalid",
             message: "Workspace pointer record key is malformed"
         });
         expect(() =>
             validateWorkspacePointerAdvance(
-                { namespace: "view.current", key: "k", recordKey: "0" },
+                { namespace: "subscription.current", key: "k", recordKey: "s@x" },
                 undefined
             )
         ).toThrow(malformed);
         expect(() =>
             validateWorkspacePointerAdvance(
-                { namespace: "view.current", key: "k", recordKey: "s@x" },
-                undefined
-            )
-        ).toThrow(malformed);
-        expect(() =>
-            validateWorkspacePointerAdvance(
-                { namespace: "view.current", key: "k", recordKey: "@1" },
+                { namespace: "subscription.current", key: "k", recordKey: "@1" },
                 "@0"
             )
         ).not.toThrow();
@@ -1142,6 +1207,7 @@ describe("storage trust boundary kills", () => {
         // The absent-current check has to answer for itself: the pointer advance rule
         // rejects the same call one step later with the same revision-conflict code, so a
         // test that reads only the code passes while this guard is disabled.
+        registerSurface(persistence, records, viewFixture(1, "cas-absent").surface);
         expect(() =>
             persistence.saveView(records, viewFixture(1, "cas-absent"), Revision.initial(), [])
         ).toThrow(
@@ -1160,16 +1226,25 @@ describe("storage trust boundary kills", () => {
         const base = viewFixture(0, "null-body");
         const view = new View({
             surface: base.surface,
+            epoch: base.epoch,
             revision: base.revision,
             body: { gap: null, nested: { hole: null }, values: [null, 1] },
             actions: base.actions,
             cursor: base.cursor
         });
+        registerSurface(persistence, records, view.surface);
         persistence.saveView(records, view, undefined, []);
-        expect(persistence.currentView(records, view.surface.value)?.body).toEqual({
+        expect(
+            persistence.currentView(records, view.surface.value, SurfaceEpoch.first())?.body
+        ).toEqual({
             gap: null,
             nested: { hole: null },
             values: [null, 1]
         });
     });
 });
+
+/** A View pointer's record key, built the one way production builds it. */
+function viewKey(surface: string, revision: number): string {
+    return surfaceRevisionKey(surface, SurfaceEpoch.first(), new Revision(revision));
+}

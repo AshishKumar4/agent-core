@@ -5,6 +5,7 @@ import { PrincipalId, PrincipalRef, TenantId } from "../../../src/identity";
 import { RunCommitId, TurnId } from "../../../src/execution-references";
 import { ReceiptId } from "../../../src/invocations";
 import {
+    MergeParents,
     RunCommit,
     validateCommitWriter,
     type CommitWriter,
@@ -238,7 +239,10 @@ describe("closed commit shape single violations", () => {
                     parents: [ids.root, source, stranger]
                 }
             },
-            { label: "turn writer", init: { ...validMerge("merge-turn-writer"), writer: turnWriter() } },
+            {
+                label: "turn writer",
+                init: { ...validMerge("merge-turn-writer"), writer: turnWriter() }
+            },
             {
                 label: "receipt cause",
                 init: { ...validMerge("merge-receipt-cause"), writer: receiptWriter() }
@@ -273,6 +277,76 @@ describe("closed commit shape single violations", () => {
             expectTypeError(label, () => new RunCommit(init), "Merge commit fields are invalid");
         }
     });
+
+    test(
+        "[C13-RUN-DISTINCTION-REPRESENTABLE] a merge joining one lineage to itself is not a value that exists",
+        { tags: "p0" },
+        () => {
+            expectTypeError(
+                "one commit twice",
+                () => new MergeParents(ids.root, ids.root),
+                "Merge parents must name two distinct commits"
+            );
+            // Sibling TextId classes are statically interchangeable, so the pair reads the
+            // exact class rather than trusting the parameter type.
+            expectTypeError(
+                "foreign identifier class",
+                () => new MergeParents(ids.root, ids.turn),
+                "Merge parents must use exact context classes"
+            );
+            expectTypeError(
+                "merge record naming one commit twice",
+                () =>
+                    new RunCommit({
+                        ...validMerge("merge-one-lineage"),
+                        parents: [ids.root, ids.root]
+                    }),
+                "Merge parents must name two distinct commits"
+            );
+
+            // The pair the record carries is the ordered parent list every reader already
+            // reads, so nothing has to ask whether the two lineages are two.
+            const joined = new RunCommit(validMerge("merge-two-lineages"));
+            expect(joined.mergeParents?.target.value).toBe(ids.root.value);
+            expect(joined.mergeParents?.source.value).toBe(source.value);
+            expect(joined.parents).toBe(joined.mergeParents?.ordered);
+            expect(joined.parents.map((parent) => parent.value)).toEqual([
+                ids.root.value,
+                source.value
+            ]);
+
+            // Every other kind keeps the plain list its own closed shape sizes.
+            const unary = new RunCommit(
+                invocationInit("merge-absent-pair", {
+                    invocation: refs.invocation,
+                    receipt: refs.receipt
+                })
+            );
+            expect(unary.mergeParents).toBeUndefined();
+            expect(unary.parents.map((parent) => parent.value)).toEqual([ids.root.value]);
+
+            // The pair is a record class the commit codec reaches, so it is frozen and its
+            // prototype is sealed with the rest of the codec tuple. A reached class the tuple
+            // omits stays mutable through a decoded record, which is what ACQ-CODEC counts.
+            expect(Object.isFrozen(joined.mergeParents)).toBe(true);
+            expect(Object.isFrozen(joined.mergeParents?.ordered)).toBe(true);
+            expect(Object.isFrozen(MergeParents.prototype)).toBe(true);
+            const decodedJoin = RunCommit.decode(RunCommit.encode(joined));
+            expect(Object.isFrozen(decodedJoin.mergeParents)).toBe(true);
+            expect(decodedJoin.mergeParents?.target.value).toBe(ids.root.value);
+
+            // The arity refusal is a constructor shape violation, so it stays a TypeError. The
+            // codec is what turns it into a stable code at the decoding boundary, which is why
+            // raising AgentCoreError inside the constructor would report a decode failure
+            // under a code that is not codec.invalid. The decode half is proven in
+            // commit-mutation-codec.test.ts against a stored merge naming one commit twice.
+            expectTypeError(
+                "merge naming one parent",
+                () => new RunCommit({ ...validMerge("merge-unary-arity"), parents: [ids.root] }),
+                "Merge commit fields are invalid"
+            );
+        }
+    );
 
     test("requires the tree resolution and checkpoint to occur together", { tags: "p0" }, () => {
         expectTypeError(
@@ -382,7 +456,10 @@ describe("closed commit shape single violations", () => {
             const cases: ReadonlyArray<{ readonly label: string; readonly init: RunCommitInit }> = [
                 {
                     label: "turn writer",
-                    init: { ...invocationInit("invocation-turn-writer", complete), writer: turnWriter() }
+                    init: {
+                        ...invocationInit("invocation-turn-writer", complete),
+                        writer: turnWriter()
+                    }
                 },
                 {
                     label: "delivery cause",
@@ -403,7 +480,10 @@ describe("closed commit shape single violations", () => {
                 },
                 {
                     label: "content present",
-                    init: invocationInit("invocation-content", { ...complete, content: content("3") })
+                    init: invocationInit("invocation-content", {
+                        ...complete,
+                        content: content("3")
+                    })
                 }
             ];
             for (const { label, init } of cases) {
@@ -545,9 +625,9 @@ describe("closed commit shape single violations", () => {
                 migration: { from: pins(), to: migrated }
             });
             expect(exact.migration).toBeDefined();
-            expect(exact.migration === undefined ? false : exact.pins.equals(exact.migration.to)).toBe(
-                true
-            );
+            expect(
+                exact.migration === undefined ? false : exact.pins.equals(exact.migration.to)
+            ).toBe(true);
             expect(
                 exact.migration === undefined ? false : exact.migration.from.equals(pins())
             ).toBe(true);
@@ -592,68 +672,70 @@ describe("closed commit shape single violations", () => {
         }
     );
 
-    test(
-        "rejects lease tokens whose members are not canonical references",
-        { tags: "p0" },
-        () => {
-            const init = (writer: CommitWriter): RunCommitInit => ({
-                id: new RunCommitId("token-members"),
-                run: ids.run,
-                branch: ids.branch,
-                kind: "message",
-                parents: [ids.root],
-                pins: pins(),
-                writer,
-                subjectTurn: ids.turn,
-                content: content("1")
-            });
-            // SAFETY: LeaseToken types `turn` as TurnId and `holder` as PrincipalRef, so a
-            // bare string is unreachable through the token. Forging one proves the commit
-            // checks each member's class rather than accepting any token-like object.
-            expectTypeError(
-                "turn member",
-                () =>
-                    new RunCommit(
-                        init({
-                            kind: "turn",
-                            token: { turn: "turn-1" as never, holder: ids.holder, epoch: 1 }
-                        })
-                    ),
-                "Lease token turn must be a TurnId"
-            );
-            // SAFETY: as above, for the holder member.
-            expectTypeError(
-                "holder member",
-                () =>
-                    new RunCommit(
-                        init({
-                            kind: "turn",
-                            token: { turn: ids.turn, holder: "holder-1" as never, epoch: 1 }
-                        })
-                    ),
-                "Lease token holder must be a PrincipalRef"
-            );
-        }
-    );
+    test("rejects lease tokens whose members are not canonical references", { tags: "p0" }, () => {
+        const init = (writer: CommitWriter): RunCommitInit => ({
+            id: new RunCommitId("token-members"),
+            run: ids.run,
+            branch: ids.branch,
+            kind: "message",
+            parents: [ids.root],
+            pins: pins(),
+            writer,
+            subjectTurn: ids.turn,
+            content: content("1")
+        });
+        // SAFETY: LeaseToken types `turn` as TurnId and `holder` as PrincipalRef, so a
+        // bare string is unreachable through the token. Forging one proves the commit
+        // checks each member's class rather than accepting any token-like object.
+        expectTypeError(
+            "turn member",
+            () =>
+                new RunCommit(
+                    init({
+                        kind: "turn",
+                        token: { turn: "turn-1" as never, holder: ids.holder, epoch: 1 }
+                    })
+                ),
+            "Lease token turn must be a TurnId"
+        );
+        // SAFETY: as above, for the holder member.
+        expectTypeError(
+            "holder member",
+            () =>
+                new RunCommit(
+                    init({
+                        kind: "turn",
+                        token: { turn: ids.turn, holder: "holder-1" as never, epoch: 1 }
+                    })
+                ),
+            "Lease token holder must be a PrincipalRef"
+        );
+    });
 });
 
 describe("writer authority single mismatches", () => {
-    test("states the exact refusal for a root writer beyond the root commit", { tags: "p2" }, () => {
-        const value = harness();
-        expectCode(
-            "root writer on a message commit",
-            () =>
-                value.repository.transaction((tx) =>
-                    validateCommitWriter(
-                        tx,
-                        forgedCommit(message("forged-root-writer"), { writer: { kind: "root" } }),
-                        value.evidence
-                    )
-                ),
-            "run.invalid-state",
-            "Root writer may append only the root commit"
-        );
-    });
+    test(
+        "states the exact refusal for a root writer beyond the root commit",
+        { tags: "p2" },
+        () => {
+            const value = harness();
+            expectCode(
+                "root writer on a message commit",
+                () =>
+                    value.repository.transaction((tx) =>
+                        validateCommitWriter(
+                            tx,
+                            forgedCommit(message("forged-root-writer"), {
+                                writer: { kind: "root" }
+                            }),
+                            value.evidence
+                        )
+                    ),
+                "run.invalid-state",
+                "Root writer may append only the root commit"
+            );
+        }
+    );
 
     test("denies a turn writer when the commit carries no subject Turn", { tags: "p0" }, () => {
         const value = harness();
@@ -845,67 +927,75 @@ describe("writer authority single mismatches", () => {
         );
     });
 
-    test("matches receipt evidence subject Turns exactly in both directions", { tags: "p0" }, () => {
-        const matching = harness();
-        matching.evidence.receipts.set(`${refs.receipt.value}:${refs.audit.value}`, {
-            kind: "receipt",
-            run: ids.run,
-            receipt: refs.receipt,
-            audit: refs.audit,
-            invocation: refs.invocation,
-            subjectTurn: ids.turn
-        });
-        expect(() =>
-            matching.repository.transaction((tx) =>
-                validateCommitWriter(tx, invocation("subject-both", ids.turn), matching.evidence)
-            )
-        ).not.toThrow();
-
-        const missing = harness();
-        missing.evidence.receipts.set(`${refs.receipt.value}:${refs.audit.value}`, {
-            kind: "receipt",
-            run: ids.run,
-            receipt: refs.receipt,
-            audit: refs.audit,
-            invocation: refs.invocation
-        });
-        expectCode(
-            "commit subject without evidence subject",
-            () =>
-                missing.repository.transaction((tx) =>
+    test(
+        "matches receipt evidence subject Turns exactly in both directions",
+        { tags: "p0" },
+        () => {
+            const matching = harness();
+            matching.evidence.receipts.set(`${refs.receipt.value}:${refs.audit.value}`, {
+                kind: "receipt",
+                run: ids.run,
+                receipt: refs.receipt,
+                audit: refs.audit,
+                invocation: refs.invocation,
+                subjectTurn: ids.turn
+            });
+            expect(() =>
+                matching.repository.transaction((tx) =>
                     validateCommitWriter(
                         tx,
-                        invocation("subject-commit-only", ids.turn),
-                        missing.evidence
+                        invocation("subject-both", ids.turn),
+                        matching.evidence
                     )
-                ),
-            "authority.denied",
-            "Receipt writer evidence does not match the Run commit"
-        );
+                )
+            ).not.toThrow();
 
-        const different = harness();
-        different.evidence.receipts.set(`${refs.receipt.value}:${refs.audit.value}`, {
-            kind: "receipt",
-            run: ids.run,
-            receipt: refs.receipt,
-            audit: refs.audit,
-            invocation: refs.invocation,
-            subjectTurn: new TurnId("turn-other")
-        });
-        expectCode(
-            "subjects present on both sides but different",
-            () =>
-                different.repository.transaction((tx) =>
-                    validateCommitWriter(
-                        tx,
-                        invocation("subject-different", ids.turn),
-                        different.evidence
-                    )
-                ),
-            "authority.denied",
-            "Receipt writer evidence does not match the Run commit"
-        );
-    });
+            const missing = harness();
+            missing.evidence.receipts.set(`${refs.receipt.value}:${refs.audit.value}`, {
+                kind: "receipt",
+                run: ids.run,
+                receipt: refs.receipt,
+                audit: refs.audit,
+                invocation: refs.invocation
+            });
+            expectCode(
+                "commit subject without evidence subject",
+                () =>
+                    missing.repository.transaction((tx) =>
+                        validateCommitWriter(
+                            tx,
+                            invocation("subject-commit-only", ids.turn),
+                            missing.evidence
+                        )
+                    ),
+                "authority.denied",
+                "Receipt writer evidence does not match the Run commit"
+            );
+
+            const different = harness();
+            different.evidence.receipts.set(`${refs.receipt.value}:${refs.audit.value}`, {
+                kind: "receipt",
+                run: ids.run,
+                receipt: refs.receipt,
+                audit: refs.audit,
+                invocation: refs.invocation,
+                subjectTurn: new TurnId("turn-other")
+            });
+            expectCode(
+                "subjects present on both sides but different",
+                () =>
+                    different.repository.transaction((tx) =>
+                        validateCommitWriter(
+                            tx,
+                            invocation("subject-different", ids.turn),
+                            different.evidence
+                        )
+                    ),
+                "authority.denied",
+                "Receipt writer evidence does not match the Run commit"
+            );
+        }
+    );
 
     test(
         "accepts exact synthesis evidence and denies token identity mismatches",

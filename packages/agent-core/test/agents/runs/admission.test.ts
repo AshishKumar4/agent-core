@@ -340,7 +340,7 @@ describe("transactional terminal frontier", () => {
             const reservations = obligations.map((obligation) =>
                 value.runtime.reserveRunObligation(ids.run, obligation)
             );
-            const snapshot = value.runtime.terminalizeRun(
+            const { snapshot } = value.runtime.terminalizeRun(
                 terminalRequest(value, "admission-terminal")
             );
 
@@ -383,7 +383,7 @@ describe("transactional terminal frontier", () => {
 
     it("[C13-RUN-FRONTIER-EMPTY] records an honestly empty frontier", { tags: "p1" }, () => {
         const value = seedRunningTurn();
-        const snapshot = value.runtime.terminalizeRun(terminalRequest(value, "empty-terminal"));
+        const { snapshot } = value.runtime.terminalizeRun(terminalRequest(value, "empty-terminal"));
         expect(snapshot.obligation.obligations).toEqual([]);
         expect(snapshot.obligation.registryEpoch).toBe(1);
         expect(value.runtime.settled(ids.run)).toBe(true);

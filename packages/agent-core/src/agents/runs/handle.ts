@@ -15,6 +15,7 @@ import { TurnId } from "../../execution-references";
 import { canonicalFacetData, type FacetData, type Impact } from "../../facets";
 import { InvocationId } from "../../interaction-references";
 import { EffectAttemptId, ReceiptId } from "../../invocation-references";
+import { AttemptFailureKind } from "../../invocations";
 import {
     CodecRecord,
     bytesEqual,
@@ -52,6 +53,14 @@ export abstract class TurnAdmissionIdentity {
     /** The child Run this identity names; an Invocation identity names none. */
     public abstract readonly childRun: RunId | undefined;
 
+    /**
+     * The Run whose cancellation is cancellation of this item's owner (SPEC §5.6). The
+     * caller supplies the Run the issuing Turn belongs to. An Invocation identity detaches
+     * the item from the Turn and not from the Run, so the issuing Run answers for it. A
+     * child RunRef detaches it from that Run as well, so the child Run answers for itself.
+     */
+    public abstract owner(issuingRun: RunId): RunId;
+
     /** The exact canonical value the model reads in the tool position. */
     public abstract toolPosition(): FacetData;
 
@@ -84,6 +93,10 @@ class InvocationAdmissionIdentity extends TurnAdmissionIdentity {
         Object.freeze(this);
     }
 
+    public owner(issuingRun: RunId): RunId {
+        return issuingRun;
+    }
+
     public toolPosition(): FacetData {
         return canonicalFacetData({ invocation: this.invocation.value });
     }
@@ -109,6 +122,10 @@ class ChildRunAdmissionIdentity extends TurnAdmissionIdentity {
     public constructor(public readonly childRun: RunId) {
         super();
         Object.freeze(this);
+    }
+
+    public owner(): RunId {
+        return this.childRun;
     }
 
     public toolPosition(): FacetData {
@@ -206,6 +223,33 @@ export class TurnAdmissionHandle extends CodecRecord {
     /** The stable string a later delivery addresses this admission by. */
     public get address(): string {
         return this.identity.address;
+    }
+
+    /**
+     * The Run that governs this published item's cancellation (SPEC §5.6). §7.4 assigns
+     * `aborted` to cancellation of the Turn or Run that owns an item, and leaves which of
+     * the two open. Publication closes that disjunction. It closes it on a Run in both
+     * cases: the issuing Run for an Invocation identity, and the child Run for a RunRef. A
+     * published item therefore keeps no Turn owner for a Turn's cancellation to be.
+     */
+    public get owner(): RunId {
+        return this.identity.owner(this.run);
+    }
+
+    /**
+     * The §7.4 failure kind that cancelling `scope` records on this published item. It
+     * answers nothing where `scope` does not own the item (SPEC §5.6). The issuing Turn is
+     * the case this method exists for. RunId and TurnId are different classes, so a
+     * cancelled Turn never equals the owner. The prohibition therefore holds by identity,
+     * not by a branch a host can forget. The cancellation is a parameter because §7.4 builds
+     * `aborted` only from cancellation that reached the attempt. A scope that no
+     * cancellation touched is refused rather than recorded.
+     */
+    public cancelledBy(
+        scope: RunId | TurnId,
+        cancellation: AbortSignal
+    ): AttemptFailureKind | undefined {
+        return this.owner.equals(scope) ? AttemptFailureKind.aborted(cancellation) : undefined;
     }
 
     /**

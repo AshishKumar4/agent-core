@@ -2572,6 +2572,7 @@ snapshot of it.
 ```ts
 interface View {
   readonly surface: SurfaceId;
+  readonly epoch: SurfaceEpoch;              // the registration generation this stream belongs to
   readonly revision: Revision;               // replay is keyed on this (§10.3)
   readonly body: ViewBody;                   // JSON data only — no live handles
   readonly actions: readonly ActionDescriptor[];
@@ -2606,6 +2607,10 @@ interface ActionDescriptor {
 
 // An EventCursor is an opaque, codec-stable position in the owning Actor's Event log.
 // A reconnecting client presents its last cursor to resume ViewDelta replay (§10.3).
+
+// A SurfaceEpoch is the generation of one static SurfaceId's stream, taken when a
+// registration of that Surface first renders. A View and a ViewDelta both name it, so the
+// stream they belong to is the pair (SurfaceId, SurfaceEpoch) rather than the SurfaceId alone.
 ```
 
 A View MUST carry no live Facets, stubs, credentials, or hidden state — refs only.
@@ -2616,20 +2621,34 @@ Operations. Aggregating surfaces — dashboards — compose slot-contributed chi
 per §4.2. Token-level model-output streaming is an executor and transport concern
 (§5.6), not Events. This maps to **C13-VIEW-NO-LIVE-STATE**.
 
-A retired Surface terminates its stream. Withdrawing a Facet retires its Surfaces (§4.1);
-a retired Surface emits one final ViewDelta — the patch that adds `terminal` to its View —
-and then no further revision, so the last revision of a retired Surface is discriminated
-by that field's presence exactly as a decision View is by `intentDigest`, and a host MUST
-NOT emit a revision after a View's terminal one. A client presenting an `EventCursor` for a
-retired Surface receives that terminal revision rather than a resumable stream or an error,
-and an aggregating Surface (§4.2) drops the retired child's entry at its next revision
-rather than composing a stale snapshot. Retirement costs a client nothing beyond the
-revision it already tracks, because a View is data and holds no live handle: there is no
-connection to break, no stub to invalidate, and no acquired state to release, so the
-terminal revision is an ordinary revision that happens to be the last, and a retired
-Surface's last View stays exactly as readable as any earlier one. Terminating a stream is
-expressible as one more revision only because the no-live-state rule already holds. This
-maps to **C13-VIEW-WITHDRAWAL-TERMINAL**.
+A retired Surface terminates its stream. A `SurfaceId` is a stable declared name that
+outlives one installation, so the stream a View belongs to is that name paired with a
+**SurfaceEpoch**: the generation of the registration that opened the stream. A stream takes
+the next epoch when its registration first renders, so the ladder counts streams rather than
+registrations and a registration that renders nothing consumes no epoch. Both a View and a
+ViewDelta name the epoch they belong to. Withdrawing a Facet retires its Surfaces
+(§4.1); a retired Surface emits one final ViewDelta — the patch that adds `terminal` to its
+View — and then no further revision, so the last revision of a retired Surface is
+discriminated by that field's presence exactly as a decision View is by `intentDigest`, and
+a host MUST NOT emit a revision after a View's terminal one. A client presenting an
+`EventCursor` for a retired Surface receives that terminal revision rather than a resumable
+stream or an error, and an aggregating Surface (§4.2) drops the retired child's entry at its
+next revision rather than composing a stale snapshot. A terminal stream stays terminal: a
+host MUST NOT reuse a retired epoch, revive its stream, or delete the terminal View that is
+the evidence the stream ended. A later PackagePin MAY register the same static `SurfaceId`
+again, and that registration opens a new stream at the next epoch when it first renders
+instead of continuing the retired one, so reinstalling a Facet gives its Surface a fresh
+stream while every stream it ended stays readable at the revision it ended on. Keying the
+stream on the pair is what makes both facts hold at once, because the terminal rule is about
+one stream and the stable name is about the contribution; keying it on the name alone would
+force a host to choose between refusing the reinstallation and reopening a stream it had
+already ended. Retirement costs a client nothing beyond the revision it already tracks,
+because a View is data and holds no live handle: there is no connection to break, no stub to
+invalidate, and no acquired state to release, so the terminal revision is an ordinary
+revision that happens to be the last, and a retired Surface's last View stays exactly as
+readable as any earlier one. Terminating a stream is expressible as one more revision only
+because the no-live-state rule already holds. This maps to
+**C13-VIEW-WITHDRAWAL-TERMINAL**.
 
 A View that presents an intent for a human decision carries the provenance of what it
 shows. A **decision View** is exactly a View whose `intentDigest` field is present — the
@@ -4417,7 +4436,7 @@ A conforming implementation provides:
 - **C13-VIEW-NO-LIVE-STATE** Views satisfy the no-live-state invariant.
 - **C13-VIEW-DELTA-REPLAY** ViewDelta supports revision replay.
 - **C13-VIEW-APPROVAL-PROVENANCE** A decision View marks every value the host did not originate with its TrustTier, names the exact `intentDigest` it authorizes, and its Surface renders a marked value as data rather than as platform voice.
-- **C13-VIEW-WITHDRAWAL-TERMINAL** A retired Surface emits one final ViewDelta marking its View terminal and no revision after it, an `EventCursor` presented for a retired Surface returns that terminal revision rather than a resumable stream or an error, and an aggregating Surface drops the retired child's entry at its next revision.
+- **C13-VIEW-WITHDRAWAL-TERMINAL** A View stream is one `SurfaceId` paired with the `SurfaceEpoch` it took when its registration first rendered, so a registration that renders nothing consumes no epoch; a retired Surface emits one final ViewDelta marking its View terminal and no revision after it, an `EventCursor` presented for a retired epoch returns that terminal revision rather than a resumable stream or an error, an aggregating Surface drops the retired child's entry at its next revision, no retired epoch is reused, revived, or deleted, and a later PackagePin registering the same static `SurfaceId` opens a new stream at the next epoch.
 - **C13-PLAN-PROJECTION** The plan owns no record: it is a derived, rebuildable, disposable projection folded from Workspace Events, never persisted as a second durable copy, and folding the same Events in the same order reproduces the identical projection.
 - **C13-PLAN-APPEND-ONLY** A task enters the plan, and a dependency is declared or retracted, only by appending an Event; the plan admits no in-place edit and no delete, so reordering work is itself appended evidence.
 - **C13-PLAN-ACYCLIC** Declared dependencies remain acyclic, and the step admitting an appended dependency is the same predicate as the step folding a stored one, so no plan exists in storage that a replay could not produce.

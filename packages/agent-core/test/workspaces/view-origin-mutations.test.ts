@@ -22,12 +22,20 @@ import {
 } from "../../src/workspaces/origin";
 import { WorkspacePersistence } from "../../src/workspaces/persistence";
 import { EventProvenance, EventVerification } from "../../src/workspaces/value";
-import { ActionDescriptor, View, ViewDelta } from "../../src/workspaces/view";
+import {
+    ActionDescriptor,
+    View,
+    ViewDelta,
+    viewDeltaRecordKey,
+    viewRecordKey
+} from "../../src/workspaces/view";
 import { ViewReplayProtocol } from "../../src/workspaces/view-replay";
+import { SurfaceEpoch } from "../../src/workspaces/surface-epoch";
 import {
     DeterministicJsonPatchEngine,
     content,
     principal,
+    registerSurface,
     retentionFixture,
     scope,
     sourceActor,
@@ -123,9 +131,7 @@ function intentInput(
     };
     const withCausation: EventIntentInput =
         options.causation === undefined ? intent : { ...intent, causation: options.causation };
-    return options.lease === undefined
-        ? withCausation
-        : { ...withCausation, lease: options.lease };
+    return options.lease === undefined ? withCausation : { ...withCausation, lease: options.lease };
 }
 
 function intentData(intent: EventIntentInput): JsonObject {
@@ -139,6 +145,7 @@ function intentData(intent: EventIntentInput): JsonObject {
 interface ReplayHarness {
     readonly records: MemoryWorkspaceRecords;
     readonly engine: DeterministicJsonPatchEngine;
+    readonly persistence: WorkspacePersistence<MemoryWorkspaceRecords>;
     readonly protocol: ViewReplayProtocol<MemoryWorkspaceRecords>;
 }
 
@@ -154,6 +161,7 @@ function replayHarness(): ReplayHarness {
     return {
         records,
         engine,
+        persistence,
         protocol: new ViewReplayProtocol(persistence, engine, sourceActor, tenant)
     };
 }
@@ -170,258 +178,347 @@ describe("View record mutation coverage", () => {
         ).toThrow(expect.objectContaining({ message: "Action ID must be an ActionId" }));
     });
 
-    test("View decode reports each tampered field with its exact subject label", {
-        tags: "p2"
-    }, () => {
-        const payload = recordPayload(View.encode(viewFixture(0, "view-labels")));
-        const cases = [
-            { field: "surface", value: 5, message: "View Surface ID must be a string" },
-            { field: "revision", value: "one", message: "View revision must be a non-negative safe integer" },
-            { field: "cursor", value: 5, message: "View cursor must be a string" }
-        ];
-        for (const entry of cases) {
-            expect(() =>
-                View.decode(
-                    recordBytes(
-                        "workspace.view",
-                        { ...payload, [entry.field]: entry.value },
-                        { major: 2, minor: 0 }
+    test(
+        "View decode reports each tampered field with its exact subject label",
+        {
+            tags: "p2"
+        },
+        () => {
+            const payload = recordPayload(View.encode(viewFixture(0, "view-labels")));
+            const cases = [
+                { field: "surface", value: 5, message: "View Surface ID must be a string" },
+                {
+                    field: "revision",
+                    value: "one",
+                    message: "View revision must be a non-negative safe integer"
+                },
+                { field: "cursor", value: 5, message: "View cursor must be a string" }
+            ];
+            for (const entry of cases) {
+                expect(() =>
+                    View.decode(
+                        recordBytes(
+                            "workspace.view",
+                            { ...payload, [entry.field]: entry.value },
+                            { major: 3, minor: 0 }
+                        )
                     )
-                )
-            ).toThrow(
-                expect.objectContaining({
-                    code: "codec.invalid",
-                    message: `Invalid workspace.view record: ${entry.message}`
-                })
-            );
-        }
-    });
-
-    test("ViewDelta decode reports each tampered field with its exact subject label", {
-        tags: "p2"
-    }, () => {
-        const delta = viewDeltaFixture(viewFixture(0, "delta-labels"));
-        const payload = recordPayload(ViewDelta.encode(delta));
-        const cases = [
-            { field: "surface", value: 5, message: "Delta Surface ID must be a string" },
-            {
-                field: "baseRevision",
-                value: "one",
-                message: "Delta base revision must be a non-negative safe integer"
-            },
-            { field: "revision", value: "one", message: "Delta revision must be a non-negative safe integer" },
-            { field: "cursor", value: 5, message: "Delta cursor must be a string" }
-        ];
-        for (const entry of cases) {
-            expect(() =>
-                ViewDelta.decode(
-                    recordBytes("workspace.view-delta", { ...payload, [entry.field]: entry.value })
-                )
-            ).toThrow(
-                expect.objectContaining({
-                    code: "codec.invalid",
-                    message: `Invalid workspace.view-delta record: ${entry.message}`
-                })
-            );
-        }
-    });
-
-    test("ActionDescriptor decode reports each tampered field with its exact subject label", {
-        tags: "p2"
-    }, () => {
-        const descriptor = new ActionDescriptor({
-            id: new ActionId("action-labels"),
-            label: "Label",
-            emits: new EventKind("kind.decode")
-        });
-        const payload = recordPayload(ActionDescriptor.encode(descriptor));
-        const cases = [
-            { field: "id", value: 5, message: "Action ID must be a string" },
-            { field: "label", value: 5, message: "Action label must be a string" },
-            { field: "emits", value: 5, message: "Action Event kind must be a string" }
-        ];
-        for (const entry of cases) {
-            expect(() =>
-                ActionDescriptor.decode(
-                    recordBytes("workspace.action-descriptor", {
-                        ...payload,
-                        [entry.field]: entry.value
+                ).toThrow(
+                    expect.objectContaining({
+                        code: "codec.invalid",
+                        message: `Invalid workspace.view record: ${entry.message}`
                     })
-                )
-            ).toThrow(
-                expect.objectContaining({
-                    code: "codec.invalid",
-                    message: `Invalid workspace.action-descriptor record: ${entry.message}`
-                })
-            );
+                );
+            }
         }
-    });
+    );
+
+    test(
+        "ViewDelta decode reports each tampered field with its exact subject label",
+        {
+            tags: "p2"
+        },
+        () => {
+            const delta = viewDeltaFixture(viewFixture(0, "delta-labels"));
+            const payload = recordPayload(ViewDelta.encode(delta));
+            const cases = [
+                { field: "surface", value: 5, message: "Delta Surface ID must be a string" },
+                {
+                    field: "baseRevision",
+                    value: "one",
+                    message: "Delta base revision must be a non-negative safe integer"
+                },
+                {
+                    field: "revision",
+                    value: "one",
+                    message: "Delta revision must be a non-negative safe integer"
+                },
+                { field: "cursor", value: 5, message: "Delta cursor must be a string" }
+            ];
+            for (const entry of cases) {
+                expect(() =>
+                    ViewDelta.decode(
+                        recordBytes(
+                            "workspace.view-delta",
+                            {
+                                ...payload,
+                                [entry.field]: entry.value
+                            },
+                            { major: 2, minor: 0 }
+                        )
+                    )
+                ).toThrow(
+                    expect.objectContaining({
+                        code: "codec.invalid",
+                        message: `Invalid workspace.view-delta record: ${entry.message}`
+                    })
+                );
+            }
+        }
+    );
+
+    test(
+        "ActionDescriptor decode reports each tampered field with its exact subject label",
+        {
+            tags: "p2"
+        },
+        () => {
+            const descriptor = new ActionDescriptor({
+                id: new ActionId("action-labels"),
+                label: "Label",
+                emits: new EventKind("kind.decode")
+            });
+            const payload = recordPayload(ActionDescriptor.encode(descriptor));
+            const cases = [
+                { field: "id", value: 5, message: "Action ID must be a string" },
+                { field: "label", value: 5, message: "Action label must be a string" },
+                { field: "emits", value: 5, message: "Action Event kind must be a string" }
+            ];
+            for (const entry of cases) {
+                expect(() =>
+                    ActionDescriptor.decode(
+                        recordBytes("workspace.action-descriptor", {
+                            ...payload,
+                            [entry.field]: entry.value
+                        })
+                    )
+                ).toThrow(
+                    expect.objectContaining({
+                        code: "codec.invalid",
+                        message: `Invalid workspace.action-descriptor record: ${entry.message}`
+                    })
+                );
+            }
+        }
+    );
 });
 
 describe("Event intent mutation coverage", () => {
-    test("event intent bytes bind the exact signing domain and source shapes", {
-        tags: "p0"
-    }, () => {
-        const facet = intentData(intentInput("facet-shape"));
-        expect(facet["domain"]).toBe("agent-core.event-intent.v1");
-        expect(facet["sourceActor"]).toEqual({ kind: "workspace", id: "workspace-source" });
-        expect(facet["source"]).toEqual({ kind: "facet", facet: "facet.intent" });
-        expect(facet["lease"]).toBeNull();
+    test(
+        "event intent bytes bind the exact signing domain and source shapes",
+        {
+            tags: "p0"
+        },
+        () => {
+            const facet = intentData(intentInput("facet-shape"));
+            expect(facet["domain"]).toBe("agent-core.event-intent.v1");
+            expect(facet["sourceActor"]).toEqual({ kind: "workspace", id: "workspace-source" });
+            expect(facet["source"]).toEqual({ kind: "facet", facet: "facet.intent" });
+            expect(facet["lease"]).toBeNull();
 
-        const actor = intentData(intentInput("actor-shape", { source: "actor" }));
-        expect(actor["source"]).toEqual({
-            kind: "actor",
-            actor: { kind: "workspace", id: "workspace-source" }
-        });
+            const actor = intentData(intentInput("actor-shape", { source: "actor" }));
+            expect(actor["source"]).toEqual({
+                kind: "actor",
+                actor: { kind: "workspace", id: "workspace-source" }
+            });
 
-        const lease: LeaseToken = { turn: new TurnId("turn-intent"), holder: principal, epoch: 4 };
-        const leased = intentData(intentInput("lease-shape", { lease }));
-        expect(leased["lease"]).toEqual({
-            turn: "turn-intent",
-            holder: { principal: "principal-test", tenant: "tenant-test" },
-            epoch: 4
-        });
-    });
+            const lease: LeaseToken = {
+                turn: new TurnId("turn-intent"),
+                holder: principal,
+                epoch: 4
+            };
+            const leased = intentData(intentInput("lease-shape", { lease }));
+            expect(leased["lease"]).toEqual({
+                turn: "turn-intent",
+                holder: { principal: "principal-test", tenant: "tenant-test" },
+                epoch: 4
+            });
+        }
+    );
 
-    test("authentication verifies detached copies so verifiers cannot corrupt evidence", {
-        tags: "p0"
-    }, () => {
-        const authenticator = new WipingIntentAuthenticator();
-        const intent = intentInput("wiping-verifier");
-        const evidence = authenticator.evidence(intent);
-        const original = evidence.slice();
+    test(
+        "authentication verifies detached copies so verifiers cannot corrupt evidence",
+        {
+            tags: "p0"
+        },
+        () => {
+            const authenticator = new WipingIntentAuthenticator();
+            const intent = intentInput("wiping-verifier");
+            const evidence = authenticator.evidence(intent);
+            const original = evidence.slice();
 
-        expect(authenticator.authenticate(intent, evidence)).toBeInstanceOf(
-            AuthenticatedEventIntent
-        );
-        expect(evidence).toEqual(original);
-        expect(authenticator.authenticate(intent, evidence)).toBeInstanceOf(
-            AuthenticatedEventIntent
-        );
-    });
+            expect(authenticator.authenticate(intent, evidence)).toBeInstanceOf(
+                AuthenticatedEventIntent
+            );
+            expect(evidence).toEqual(original);
+            expect(authenticator.authenticate(intent, evidence)).toBeInstanceOf(
+                AuthenticatedEventIntent
+            );
+        }
+    );
 
-    test("detached authenticated intent omits the causation key when absent", {
-        tags: "p1"
-    }, () => {
-        const authenticator = new SignatureIntentAuthenticator();
-        const absent = intentInput("causation-absent");
-        const authenticated = authenticator.authenticate(absent, authenticator.evidence(absent));
-        expect(Object.hasOwn(authenticated.intent, "causation")).toBe(false);
+    test(
+        "detached authenticated intent omits the causation key when absent",
+        {
+            tags: "p1"
+        },
+        () => {
+            const authenticator = new SignatureIntentAuthenticator();
+            const absent = intentInput("causation-absent");
+            const authenticated = authenticator.authenticate(
+                absent,
+                authenticator.evidence(absent)
+            );
+            expect(Object.hasOwn(authenticated.intent, "causation")).toBe(false);
 
-        const causation = new EventId("event-cause");
-        const present = intentInput("causation-present", { causation });
-        const authenticatedPresent = authenticator.authenticate(
-            present,
-            authenticator.evidence(present)
-        );
-        expect(authenticatedPresent.intent.causation).toEqual(causation);
-    });
+            const causation = new EventId("event-cause");
+            const present = intentInput("causation-present", { causation });
+            const authenticatedPresent = authenticator.authenticate(
+                present,
+                authenticator.evidence(present)
+            );
+            expect(authenticatedPresent.intent.causation).toEqual(causation);
+        }
+    );
 });
 
 describe("ViewReplayProtocol mutation coverage", () => {
-    test("replay without a durable View fails with the exact invalid-state error", {
-        tags: "p2"
-    }, () => {
-        const { records, protocol } = replayHarness();
-        expect(() =>
-            protocol.replay(records, new SurfaceId("surface-absent"), Revision.initial())
-        ).toThrow(
-            expect.objectContaining({
-                code: "protocol.invalid-state",
-                message: "Surface has no durable View"
-            })
-        );
-    });
+    test(
+        "replay without a durable View fails with the exact invalid-state error",
+        {
+            tags: "p2"
+        },
+        () => {
+            const { records, protocol } = replayHarness();
+            expect(() =>
+                protocol.replay(
+                    records,
+                    new SurfaceId("surface-absent"),
+                    SurfaceEpoch.first(),
+                    new EventCursor("cursor-absent")
+                )
+            ).toThrow(
+                expect.objectContaining({
+                    code: "protocol.invalid-state",
+                    message: "Surface has no durable View"
+                })
+            );
+        }
+    );
 
-    test("replay ahead of the durable View fails with the exact revision-conflict error", {
-        tags: "p2"
-    }, () => {
-        const { records, protocol } = replayHarness();
-        const current = viewFixture(0, "ahead");
-        protocol.publishSnapshot(records, current, []);
-        expect(() => protocol.replay(records, current.surface, new Revision(2))).toThrow(
-            expect.objectContaining({
-                code: "protocol.revision-conflict",
-                message: "Replay revision is ahead of the current View"
-            })
-        );
-    });
+    test(
+        "replay ahead of the durable View fails with the exact revision-conflict error",
+        {
+            tags: "p2"
+        },
+        () => {
+            const { records, persistence, protocol } = replayHarness();
+            const current = viewFixture(0, "ahead");
+            registerSurface(persistence, records, current.surface);
+            protocol.publishSnapshot(records, current, []);
+            const ahead = viewDeltaFixture(new View({ ...current, revision: new Revision(1) }), 2);
+            records.insertRecord({
+                kind: "viewDelta",
+                id: viewDeltaRecordKey(ahead),
+                bytes: ViewDelta.encode(ahead)
+            });
+            expect(() =>
+                protocol.replay(records, current.surface, SurfaceEpoch.first(), ahead.cursor)
+            ).toThrow(
+                expect.objectContaining({
+                    code: "protocol.revision-conflict",
+                    message: "Resumed position is ahead of the current View"
+                })
+            );
+        }
+    );
 
-    test("replay at the current revision short-circuits before consulting stored deltas", {
-        tags: "p1"
-    }, () => {
-        const { records, engine, protocol } = replayHarness();
-        const current = viewFixture(0, "fast-path");
-        protocol.publishSnapshot(records, current, []);
-        const orphan = viewDeltaFixture(current, 1);
-        records.insertRecord({
-            kind: "viewDelta",
-            id: `${orphan.surface.value}@${orphan.revision.value}`,
-            bytes: ViewDelta.encode(orphan)
-        });
+    test(
+        "replay at the current revision short-circuits before consulting stored deltas",
+        {
+            tags: "p1"
+        },
+        () => {
+            const { records, engine, persistence, protocol } = replayHarness();
+            const current = viewFixture(0, "fast-path");
+            registerSurface(persistence, records, current.surface);
+            protocol.publishSnapshot(records, current, []);
+            const orphan = viewDeltaFixture(current, 1);
+            records.insertRecord({
+                kind: "viewDelta",
+                id: viewDeltaRecordKey(orphan),
+                bytes: ViewDelta.encode(orphan)
+            });
 
-        const replay = protocol.replay(records, current.surface, current.revision);
-        expect(replay).toEqual({
-            kind: "deltas",
-            base: current.revision,
-            deltas: [],
-            view: current
-        });
-        expect(engine.calls).toEqual([]);
-    });
+            const replay = protocol.replay(
+                records,
+                current.surface,
+                SurfaceEpoch.first(),
+                current.cursor
+            );
+            expect(replay).toEqual({
+                kind: "deltas",
+                base: current.revision,
+                deltas: [],
+                view: current
+            });
+            expect(engine.calls).toEqual([]);
+        }
+    );
 
-    test("replayed deltas that diverge from the durable View by content fall back to a snapshot", {
-        tags: "p0"
-    }, () => {
-        const { records, protocol } = replayHarness();
-        const initial = viewFixture(0, "diverged");
-        protocol.publishSnapshot(records, initial, []);
-        const applied = viewDeltaFixture(initial, 1);
-        const current = protocol.publish(records, applied, [], []);
+    test(
+        "replayed deltas that diverge from the durable View by content fall back to a snapshot",
+        {
+            tags: "p0"
+        },
+        () => {
+            const { records, persistence, protocol } = replayHarness();
+            const initial = viewFixture(0, "diverged");
+            registerSurface(persistence, records, initial.surface);
+            protocol.publishSnapshot(records, initial, []);
+            const applied = viewDeltaFixture(initial, 1);
+            const current = protocol.publish(records, applied, [], []);
 
-        const diverged = viewDeltaFixture(initial, 2);
-        const snapshot = records.snapshot();
-        const tampered = new MemoryWorkspaceRecords({
-            ...snapshot,
-            records: snapshot.records.map((record) =>
-                record.kind === "viewDelta" && record.id === `${applied.surface.value}@1`
-                    ? { ...record, bytes: ViewDelta.encode(diverged) }
-                    : record
-            )
-        });
+            const diverged = viewDeltaFixture(initial, 2);
+            const snapshot = records.snapshot();
+            const tampered = new MemoryWorkspaceRecords({
+                ...snapshot,
+                records: snapshot.records.map((record) =>
+                    record.kind === "viewDelta" && record.id === viewDeltaRecordKey(applied)
+                        ? { ...record, bytes: ViewDelta.encode(diverged) }
+                        : record
+                )
+            });
 
-        const divergedView = new View({
-            ...current,
-            body: { count: 2, nested: { enabled: true } }
-        });
-        expect(View.codec.encode(divergedView).byteLength).toBe(
-            View.codec.encode(current).byteLength
-        );
-        expect(View.codec.encode(divergedView)).not.toEqual(View.codec.encode(current));
+            const divergedView = new View({
+                ...current,
+                body: { count: 2, nested: { enabled: true } }
+            });
+            expect(View.codec.encode(divergedView).byteLength).toBe(
+                View.codec.encode(current).byteLength
+            );
+            expect(View.codec.encode(divergedView)).not.toEqual(View.codec.encode(current));
 
-        expect(protocol.replay(tampered, initial.surface, Revision.initial())).toEqual({
-            kind: "snapshot",
-            view: current
-        });
-    });
+            expect(
+                protocol.replay(tampered, initial.surface, SurfaceEpoch.first(), initial.cursor)
+            ).toEqual({
+                kind: "snapshot",
+                view: current
+            });
+        }
+    );
 
-    test("publish rejects retentions owned by another Actor with the exact error", {
-        tags: "p0"
-    }, () => {
-        const { records, protocol } = replayHarness();
-        const view = viewFixture(0, "foreign-retention");
-        const foreign = retentionFixture({
-            actor: targetActor,
-            id: "retention-foreign-owner",
-            recordKind: "view",
-            recordId: `${view.surface.value}@0`,
-            content: content("foreign-owner")
-        });
-        expect(() => protocol.publishSnapshot(records, view, [foreign])).toThrow(
-            expect.objectContaining({
-                code: "protocol.invalid-state",
-                message: "View retention belongs to another Actor, tenant, or View revision"
-            })
-        );
-    });
+    test(
+        "publish rejects retentions owned by another Actor with the exact error",
+        {
+            tags: "p0"
+        },
+        () => {
+            const { records, protocol } = replayHarness();
+            const view = viewFixture(0, "foreign-retention");
+            const foreign = retentionFixture({
+                actor: targetActor,
+                id: "retention-foreign-owner",
+                recordKind: "view",
+                recordId: viewRecordKey(view),
+                content: content("foreign-owner")
+            });
+            expect(() => protocol.publishSnapshot(records, view, [foreign])).toThrow(
+                expect.objectContaining({
+                    code: "protocol.invalid-state",
+                    message: "View retention belongs to another Actor, tenant, or View revision"
+                })
+            );
+        }
+    );
 });
