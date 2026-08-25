@@ -29,6 +29,8 @@ Objects, but the model itself is backend-agnostic.
 The full specification lives in
 [`packages/agent-core/SPEC.md`](packages/agent-core/SPEC.md). This README is the short
 version.
+[`VERIFIED_SOFTWARE_WORKFLOW.md`](VERIFIED_SOFTWARE_WORKFLOW.md) describes the intended
+development workflow.
 
 ![The system at a glance](packages/agent-core/diagrams/overview.svg)
 

@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1060 430" role="img" aria-labelledby="title desc">
+  <title id="title">Agent responsibility map</title>
+  <desc id="desc">Agents propose intent, models, proofs, implementations, compiler changes, and adapters. Other agents validate and review the candidate. The release gate returns each failure to its owner.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill="#7A8494"/></marker>
+    <marker id="redArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill="#B96F82"/></marker>
+    <marker id="greenArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill="#5FA99B"/></marker>
+  </defs>
+  <rect width="1060" height="430" rx="16" fill="#FBFBFC" stroke="#E3E6EB"/>
+  <g font-family="-apple-system, 'Segoe UI', Arial, sans-serif">
+    <text x="38" y="50" font-size="18" font-weight="650" fill="#1F2733">Agent roles and release control</text>
+
+    <rect x="34" y="94" width="992" height="188" rx="14" fill="#FFFFFF" stroke="#E3E6EB"/>
+    <text x="52" y="118" font-size="10.5" font-weight="700" letter-spacing="1.1" fill="#8A93A1">BUILD PATH</text>
+
+    <g text-anchor="middle">
+      <g transform="translate(52 144)"><rect width="102" height="78" rx="10" fill="#F2EDFA" stroke="#9B7FC7"/><text x="51" y="29" font-size="12" font-weight="650" fill="#1F2733">Intent</text><text x="51" y="47" font-size="10.5" fill="#5A6472">choices</text><text x="51" y="62" font-size="10.5" fill="#5A6472">counterexamples</text></g>
+      <g transform="translate(174 144)"><rect width="102" height="78" rx="10" fill="#F2EDFA" stroke="#9B7FC7"/><text x="51" y="29" font-size="12" font-weight="650" fill="#1F2733">Formalize</text><text x="51" y="47" font-size="10.5" fill="#5A6472">model</text><text x="51" y="62" font-size="10.5" fill="#5A6472">properties</text></g>
+      <g transform="translate(296 144)"><rect width="102" height="78" rx="10" fill="#EEF1FB" stroke="#7A8BD0"/><text x="51" y="29" font-size="12" font-weight="650" fill="#1F2733">Prove</text><text x="51" y="47" font-size="10.5" fill="#5A6472">safety</text><text x="51" y="62" font-size="10.5" fill="#5A6472">termination</text></g>
+      <g transform="translate(418 144)"><rect width="102" height="78" rx="10" fill="#EEF1FB" stroke="#7A8BD0"/><text x="51" y="29" font-size="12" font-weight="650" fill="#1F2733">Implement</text><text x="51" y="47" font-size="10.5" fill="#5A6472">executable</text><text x="51" y="62" font-size="10.5" fill="#5A6472">Lean</text></g>
+      <g transform="translate(540 144)"><rect width="102" height="78" rx="10" fill="#E9F5F2" stroke="#5FA99B"/><text x="51" y="29" font-size="12" font-weight="650" fill="#1F2733">Compile</text><text x="51" y="47" font-size="10.5" fill="#5A6472">TypeScript</text><text x="51" y="62" font-size="10.5" fill="#5A6472">proof manifest</text></g>
+      <g transform="translate(662 144)"><rect width="102" height="78" rx="10" fill="#FBF3E4" stroke="#C9A15E"/><text x="51" y="29" font-size="12" font-weight="650" fill="#1F2733">Adapt</text><text x="51" y="47" font-size="10.5" fill="#5A6472">platform</text><text x="51" y="62" font-size="10.5" fill="#5A6472">boundaries</text></g>
+      <g transform="translate(784 144)"><rect width="102" height="78" rx="10" fill="#FBF3E4" stroke="#C9A15E"/><text x="51" y="29" font-size="12" font-weight="650" fill="#1F2733">Validate</text><text x="51" y="47" font-size="10.5" fill="#5A6472">faults</text><text x="51" y="62" font-size="10.5" fill="#5A6472">conformance</text></g>
+      <g transform="translate(906 144)"><rect width="102" height="78" rx="10" fill="#F9ECEF" stroke="#C88A9A"/><text x="51" y="29" font-size="12" font-weight="650" fill="#1F2733">Review</text><text x="51" y="47" font-size="10.5" fill="#5A6472">countermodels</text><text x="51" y="62" font-size="10.5" fill="#5A6472">substitution</text></g>
+    </g>
+
+    <g stroke="#7A8494" stroke-width="1.4" marker-end="url(#arrow)">
+      <line x1="154" y1="183" x2="172" y2="183"/><line x1="276" y1="183" x2="294" y2="183"/><line x1="398" y1="183" x2="416" y2="183"/><line x1="520" y1="183" x2="538" y2="183"/><line x1="642" y1="183" x2="660" y2="183"/><line x1="764" y1="183" x2="782" y2="183"/><line x1="886" y1="183" x2="904" y2="183"/>
+    </g>
+
+    <rect x="270" y="314" width="176" height="54" rx="10" fill="#F9ECEF" stroke="#C88A9A"/>
+    <text x="358" y="336" font-size="12.5" font-weight="650" fill="#6E3444" text-anchor="middle">Failure dispatcher</text>
+    <text x="358" y="353" font-size="10.5" fill="#8A4D5F" text-anchor="middle">routes by artifact owner</text>
+
+    <rect x="488" y="314" width="170" height="54" rx="10" fill="#FFFFFF" stroke="#5B6EC4" stroke-width="1.5"/>
+    <text x="573" y="336" font-size="12.5" font-weight="650" fill="#1F2733" text-anchor="middle">Release gate</text>
+    <text x="573" y="353" font-size="10.5" fill="#5A6472" text-anchor="middle">all obligations closed</text>
+
+    <rect x="700" y="314" width="138" height="54" rx="10" fill="#E9F5F2" stroke="#5FA99B"/>
+    <text x="769" y="345" font-size="12.5" font-weight="650" fill="#235E54" text-anchor="middle">Publish</text>
+
+    <line x1="957" y1="222" x2="957" y2="268" stroke="#7A8494" stroke-width="1.4"/>
+    <path d="M957 268 C957 290 573 286 573 312" stroke="#7A8494" stroke-width="1.4" fill="none" marker-end="url(#arrow)"/>
+    <line x1="658" y1="341" x2="698" y2="341" stroke="#5FA99B" stroke-width="1.6" marker-end="url(#greenArrow)"/>
+    <path d="M488 341 L448 341" stroke="#B96F82" stroke-width="1.5" marker-end="url(#redArrow)"/>
+    <path d="M358 314 C358 276 225 278 225 224" stroke="#B96F82" stroke-width="1.3" stroke-dasharray="5 4" fill="none" marker-end="url(#redArrow)"/>
+    <path d="M358 314 C358 270 713 274 713 224" stroke="#B96F82" stroke-width="1.3" stroke-dasharray="5 4" fill="none" marker-end="url(#redArrow)"/>
+    <text x="575" y="296" font-size="10.5" fill="#8A93A1" text-anchor="middle">release gate result</text>
+  </g>
+</svg>

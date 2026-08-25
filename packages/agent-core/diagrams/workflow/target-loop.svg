@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 390" role="img" aria-labelledby="title desc">
+  <title id="title">Software acceptance and repair flow</title>
+  <desc id="desc">Each artifact passes its own gate before the package advances. A failed check returns typed evidence to the agent that owns the rejected artifact.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#7A8494"/>
+    </marker>
+    <marker id="redArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#B96F82"/>
+    </marker>
+  </defs>
+  <rect width="1080" height="390" rx="16" fill="#FBFBFC" stroke="#E3E6EB"/>
+  <g font-family="-apple-system, 'Segoe UI', Arial, sans-serif">
+    <text x="38" y="50" font-size="18" font-weight="650" fill="#1F2733">Acceptance and repair flow</text>
+
+    <rect x="36" y="94" width="1008" height="144" rx="14" fill="#FFFFFF" stroke="#E3E6EB"/>
+    <text x="54" y="116" font-size="10.5" font-weight="700" letter-spacing="1.1" fill="#8A93A1">ACCEPTANCE PATH</text>
+
+    <g font-size="12.5" fill="#1F2733" text-anchor="middle">
+      <rect x="56" y="142" width="126" height="58" rx="10" fill="#F2EDFA" stroke="#9B7FC7"/>
+      <text x="119" y="167" font-weight="650">Human intent</text><text x="119" y="184" font-size="10.5" fill="#5A6472">behavior · architecture</text>
+
+      <rect x="216" y="142" width="144" height="58" rx="10" fill="#F2EDFA" stroke="#9B7FC7"/>
+      <text x="288" y="167" font-weight="650">Controlled English</text><text x="288" y="184" font-size="10.5" fill="#5A6472">one typed meaning</text>
+
+      <rect x="394" y="142" width="132" height="58" rx="10" fill="#EEF1FB" stroke="#7A8BD0"/>
+      <text x="460" y="167" font-weight="650">Lean model</text><text x="460" y="184" font-size="10.5" fill="#5A6472">proofs · program</text>
+
+      <rect x="560" y="142" width="126" height="58" rx="10" fill="#E9F5F2" stroke="#5FA99B"/>
+      <text x="623" y="167" font-weight="650">TypeScript</text><text x="623" y="184" font-size="10.5" fill="#5A6472">hashes in proof manifest</text>
+
+      <rect x="720" y="142" width="132" height="58" rx="10" fill="#FBF3E4" stroke="#C9A15E"/>
+      <text x="786" y="167" font-weight="650">Conformance</text><text x="786" y="184" font-size="10.5" fill="#5A6472">runtime · platform</text>
+
+      <rect x="886" y="142" width="136" height="58" rx="10" fill="#E9F5F2" stroke="#5FA99B" stroke-width="1.5"/>
+      <text x="954" y="167" font-weight="650">Deployment</text><text x="954" y="184" font-size="10.5" fill="#5A6472">evidence accepted</text>
+    </g>
+
+    <g stroke="#636D7A" stroke-width="2" fill="none" marker-end="url(#arrow)">
+      <line x1="182" y1="171" x2="214" y2="171"/><line x1="360" y1="171" x2="392" y2="171"/>
+      <line x1="526" y1="171" x2="558" y2="171"/><line x1="686" y1="171" x2="718" y2="171"/>
+      <line x1="852" y1="171" x2="884" y2="171"/>
+    </g>
+
+    <rect x="36" y="262" width="1008" height="94" rx="14" fill="#FFFDFD" stroke="#E8D6DB"/>
+    <text x="54" y="285" font-size="10.5" font-weight="700" letter-spacing="1.1" fill="#A76577">FAILURE PATH</text>
+
+    <rect x="220" y="298" width="190" height="40" rx="9" fill="#F9ECEF" stroke="#C88A9A"/>
+    <text x="315" y="322" font-size="12" font-weight="650" fill="#6E3444" text-anchor="middle">Typed failure evidence</text>
+    <rect x="455" y="298" width="184" height="40" rx="9" fill="#F9ECEF" stroke="#C88A9A"/>
+    <text x="547" y="314" font-size="12" font-weight="650" fill="#6E3444" text-anchor="middle">Failure dispatcher</text>
+    <text x="547" y="329" font-size="10.5" fill="#8A4D5F" text-anchor="middle">intent · model · proof · runtime</text>
+    <rect x="684" y="298" width="176" height="40" rx="9" fill="#FFF7F9" stroke="#C88A9A"/>
+    <text x="772" y="322" font-size="12" font-weight="650" fill="#6E3444" text-anchor="middle">Owning agent repairs</text>
+
+    <g stroke="#B96F82" stroke-width="1.5" fill="none" marker-end="url(#redArrow)">
+      <line x1="410" y1="318" x2="453" y2="318"/><line x1="639" y1="318" x2="682" y2="318"/>
+      <path d="M772 338 C772 366 750 374 720 374 L250 374 C205 374 180 352 180 316 L180 296 C180 242 150 216 119 202"/>
+      <path d="M786 200 C786 245 315 245 315 296"/>
+    </g>
+    <text x="700" y="252" font-size="10.5" fill="#A76577">failed candidate remains isolated</text>
+  </g>
+</svg>

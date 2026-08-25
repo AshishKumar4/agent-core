@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 360" role="img" aria-labelledby="title desc">
+  <title id="title">Unstructured agent work saturates before assurance is complete</title>
+  <desc id="desc">The curve rises quickly while agents implement common paths. It flattens when remaining work shifts to concurrency, authority, recovery, and external assumptions.</desc>
+  <rect width="960" height="360" rx="16" fill="#FBFBFC" stroke="#E3E6EB"/>
+  <text x="42" y="52" font-family="-apple-system, 'Segoe UI', Arial, sans-serif" font-size="18" font-weight="650" fill="#1F2733">Progress from unstructured agent passes</text>
+
+  <g transform="translate(82 88)" font-family="-apple-system, 'Segoe UI', Arial, sans-serif">
+    <line x1="0" y1="210" x2="812" y2="210" stroke="#C9CED6"/>
+    <line x1="0" y1="0" x2="0" y2="210" stroke="#C9CED6"/>
+    <path d="M0 210 C42 166 72 130 126 106 C184 84 258 78 342 76 C468 74 615 70 812 66 L812 210 L0 210 Z" fill="#EEF1FB"/>
+    <path d="M342 42 L812 42 L812 66 C615 70 468 74 342 76 Z" fill="#F9ECEF"/>
+    <line x1="0" y1="42" x2="812" y2="42" stroke="#E8D6DB" stroke-dasharray="5 5"/>
+    <line x1="0" y1="76" x2="812" y2="76" stroke="#CCD2DC" stroke-dasharray="5 5"/>
+    <path d="M0 210 C42 166 72 130 126 106 C184 84 258 78 342 76 C468 74 615 70 812 66" fill="none" stroke="#5B6EC4" stroke-width="4" stroke-linecap="round"/>
++
+    <circle cx="126" cy="106" r="6" fill="#FFFFFF" stroke="#5B6EC4" stroke-width="3"/>
+    <circle cx="342" cy="76" r="6" fill="#FFFFFF" stroke="#5B6EC4" stroke-width="3"/>
+    <circle cx="700" cy="68" r="6" fill="#FFFFFF" stroke="#C88A9A" stroke-width="3"/>
+
+    <text x="-14" y="46" font-size="11" fill="#8A93A1" text-anchor="end">100%</text>
+    <text x="-14" y="80" font-size="11" fill="#8A93A1" text-anchor="end">80%</text>
+    <text x="-14" y="214" font-size="11" fill="#8A93A1" text-anchor="end">0%</text>
+
+    <text x="150" y="132" font-size="12" font-weight="650" fill="#1F2733" text-anchor="middle">Happy path runs</text>
+    <text x="150" y="148" font-size="11" fill="#5A6472" text-anchor="middle">main flow implemented</text>
+
+    <text x="342" y="96" font-size="12" font-weight="650" fill="#1F2733" text-anchor="middle">Feature-complete appearance</text>
+    <text x="342" y="112" font-size="11" fill="#5A6472" text-anchor="middle">common paths implemented</text>
+
+    <rect x="568" y="82" width="230" height="72" rx="10" fill="#FFFFFF" stroke="#E3E6EB"/>
+    <text x="586" y="106" font-size="12" font-weight="650" fill="#9B5367">Assurance gap</text>
+    <text x="586" y="125" font-size="11" fill="#5A6472">races · authority · recovery</text>
+    <text x="586" y="142" font-size="11" fill="#5A6472">hidden assumptions · rare failures</text>
+
+    <text x="0" y="244" font-size="11" fill="#8A93A1">first prompt</text>
+    <text x="812" y="244" font-size="11" fill="#8A93A1" text-anchor="end">more unstructured passes</text>
+  </g>
+</svg>

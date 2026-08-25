@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 500" role="img" aria-labelledby="title desc">
+  <title id="title">Feature acceptance example</title>
+  <desc id="desc">A human ratifies behavior. Agents submit a model, program, and proofs. Lean rejects an incomplete proof. The repaired program proceeds through compilation and runtime fault checks.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill="#7A8494"/></marker>
+    <marker id="redArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill="#B96F82"/></marker>
+    <marker id="amberArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill="#B48940"/></marker>
+  </defs>
+  <rect width="1040" height="500" rx="16" fill="#FBFBFC" stroke="#E3E6EB"/>
+  <g font-family="-apple-system, 'Segoe UI', Arial, sans-serif">
+    <text x="38" y="50" font-size="18" font-weight="650" fill="#1F2733">Feature acceptance example</text>
+
+    <g text-anchor="middle">
+      <rect x="42" y="94" width="144" height="42" rx="9" fill="#F2EDFA" stroke="#9B7FC7"/><text x="114" y="120" font-size="12.5" font-weight="650" fill="#1F2733">Human</text>
+      <rect x="244" y="94" width="144" height="42" rx="9" fill="#F0F2F5" stroke="#97A1AE"/><text x="316" y="120" font-size="12.5" font-weight="650" fill="#1F2733">Agents</text>
+      <rect x="446" y="94" width="144" height="42" rx="9" fill="#EEF1FB" stroke="#7A8BD0"/><text x="518" y="120" font-size="12.5" font-weight="650" fill="#1F2733">Lean kernel</text>
+      <rect x="648" y="94" width="144" height="42" rx="9" fill="#E9F5F2" stroke="#5FA99B"/><text x="720" y="120" font-size="12.5" font-weight="650" fill="#1F2733">Compiler</text>
+      <rect x="850" y="94" width="148" height="42" rx="9" fill="#FBF3E4" stroke="#C9A15E"/><text x="924" y="120" font-size="12.5" font-weight="650" fill="#1F2733">Runtime gate</text>
+    </g>
+
+    <g stroke="#D7DBE1" stroke-width="1" stroke-dasharray="4 5">
+      <line x1="114" y1="136" x2="114" y2="462"/><line x1="316" y1="136" x2="316" y2="462"/><line x1="518" y1="136" x2="518" y2="462"/><line x1="720" y1="136" x2="720" y2="462"/><line x1="924" y1="136" x2="924" y2="462"/>
+    </g>
+
+    <g fill="none" stroke="#7A8494" stroke-width="1.5" marker-end="url(#arrow)">
+      <line x1="114" y1="174" x2="314" y2="174"/>
+      <line x1="316" y1="218" x2="116" y2="218"/>
+      <line x1="114" y1="262" x2="314" y2="262"/>
+      <line x1="316" y1="306" x2="516" y2="306"/>
+      <line x1="518" y1="394" x2="718" y2="394"/>
+      <line x1="720" y1="438" x2="922" y2="438"/>
+    </g>
+    <g fill="none" stroke="#B96F82" stroke-width="1.5" marker-end="url(#redArrow)">
+      <line x1="518" y1="350" x2="318" y2="350"/>
+    </g>
+
+    <g font-size="11.5" fill="#1F2733">
+      <text x="134" y="164">1 · State product intent</text>
+      <text x="132" y="208">2 · Show choices and counterexamples</text>
+      <text x="134" y="252">3 · Ratify visible behavior</text>
+      <text x="336" y="296">4 · Submit model, program, proofs</text>
+      <text x="336" y="340" fill="#8A4D5F">5 · Reject missing exact-plan binding</text>
+      <text x="540" y="384">6 · Accept repaired proof</text>
+      <text x="742" y="428">7 · Emit TS + proof manifest</text>
+    </g>
+
+    <rect x="730" y="284" width="244" height="72" rx="10" fill="#FFFDF8" stroke="#C9A15E"/>
+    <text x="750" y="308" font-size="10.5" font-weight="700" letter-spacing="1" fill="#A17B39">FAULT CAMPAIGN</text>
+    <text x="750" y="329" font-size="11" fill="#5A6472">reset · replay · stale approval</text>
+    <text x="750" y="346" font-size="11" fill="#5A6472">wrong tenant · substituted evidence</text>
+    <path d="M924 356 L924 436" stroke="#B48940" stroke-width="1.5" marker-end="url(#amberArrow)"/>
+
+    <rect x="56" y="424" width="540" height="42" rx="9" fill="#FFFFFF" stroke="#E3E6EB"/>
+    <text x="326" y="450" font-size="11.5" font-weight="650" fill="#1F2733" text-anchor="middle">Shown to the human: accepted behavior and declared assumptions.</text>
+  </g>
+</svg>

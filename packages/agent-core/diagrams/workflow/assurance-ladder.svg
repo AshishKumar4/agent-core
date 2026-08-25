@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 390" role="img" aria-labelledby="title desc">
+  <title id="title">Candidate assurance stages</title>
+  <desc id="desc">A candidate progresses from accepted intent through model, proof, implementation, proof manifest, round trip, adapter conformance, and deployment attestation. New candidates preserve proof stages and re-establish external evidence.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill="#7A8494"/></marker>
+  </defs>
+  <rect width="1040" height="390" rx="16" fill="#FBFBFC" stroke="#E3E6EB"/>
+  <g font-family="-apple-system, 'Segoe UI', Arial, sans-serif">
+    <text x="38" y="50" font-size="18" font-weight="650" fill="#1F2733">Candidate assurance stages</text>
+
+    <g transform="translate(48 100)">
+      <path d="M0 232 H116 V202 H232 V172 H348 V142 H464 V112 H580 V82 H696 V52 H812 V22 H928" fill="none" stroke="#C9CED6" stroke-width="2"/>
+
+      <g text-anchor="middle">
+        <g transform="translate(0 180)"><rect width="108" height="52" rx="9" fill="#F2EDFA" stroke="#9B7FC7"/><text x="54" y="22" font-size="11.5" font-weight="650" fill="#1F2733">1 · Intent</text><text x="54" y="39" font-size="10" fill="#5A6472">accepted</text></g>
+        <g transform="translate(116 150)"><rect width="108" height="52" rx="9" fill="#F2EDFA" stroke="#9B7FC7"/><text x="54" y="22" font-size="11.5" font-weight="650" fill="#1F2733">2 · Model</text><text x="54" y="39" font-size="10" fill="#5A6472">type-checks</text></g>
+        <g transform="translate(232 120)"><rect width="108" height="52" rx="9" fill="#EEF1FB" stroke="#7A8BD0"/><text x="54" y="22" font-size="11.5" font-weight="650" fill="#1F2733">3 · Properties</text><text x="54" y="39" font-size="10" fill="#5A6472">proved</text></g>
+        <g transform="translate(348 90)"><rect width="108" height="52" rx="9" fill="#EEF1FB" stroke="#7A8BD0"/><text x="54" y="22" font-size="11.5" font-weight="650" fill="#1F2733">4 · Program</text><text x="54" y="39" font-size="10" fill="#5A6472">proved</text></g>
+        <g transform="translate(464 60)"><rect width="108" height="52" rx="9" fill="#E9F5F2" stroke="#5FA99B"/><text x="54" y="22" font-size="11.5" font-weight="650" fill="#1F2733">5 · Compiler</text><text x="54" y="39" font-size="10" fill="#5A6472">proof manifest</text></g>
+        <g transform="translate(580 30)"><rect width="108" height="52" rx="9" fill="#E9F5F2" stroke="#5FA99B"/><text x="54" y="22" font-size="11.5" font-weight="650" fill="#1F2733">6 · Round trip</text><text x="54" y="39" font-size="10" fill="#5A6472">stable</text></g>
+        <g transform="translate(696 0)"><rect width="108" height="52" rx="9" fill="#FBF3E4" stroke="#C9A15E"/><text x="54" y="22" font-size="11.5" font-weight="650" fill="#1F2733">7 · Adapter</text><text x="54" y="39" font-size="10" fill="#5A6472">conformant</text></g>
+        <g transform="translate(812 -30)"><rect width="116" height="52" rx="9" fill="#FBF3E4" stroke="#C9A15E"/><text x="58" y="22" font-size="11.5" font-weight="650" fill="#1F2733">8 · Deployment</text><text x="58" y="39" font-size="10" fill="#5A6472">attested</text></g>
+      </g>
+
+      <path d="M22 266 H676" stroke="#5B6EC4" stroke-width="2" marker-end="url(#arrow)"/>
+      <text x="22" y="288" font-size="10.5" fill="#5A6472">results preserved by the next candidate</text>
+      <rect x="706" y="245" width="202" height="54" rx="10" fill="#FFFFFF" stroke="#C9A15E" stroke-dasharray="5 4"/>
+      <text x="807" y="266" font-size="11.5" font-weight="650" fill="#72551F" text-anchor="middle">Checks rerun for each candidate</text>
+      <text x="807" y="284" font-size="10" fill="#725F3A" text-anchor="middle">runtime · platform · deployment</text>
+    </g>
+  </g>
+</svg>

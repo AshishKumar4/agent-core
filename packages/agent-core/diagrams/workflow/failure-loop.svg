@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 480" role="img" aria-labelledby="title desc">
+  <title id="title">Failure routing by artifact type</title>
+  <desc id="desc">A failed check identifies the rejected artifact and returns the candidate to its owning agent. The release path accepts only a candidate with no open obligations.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill="#7A8494"/></marker>
+    <marker id="redArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill="#B96F82"/></marker>
+    <marker id="greenArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill="#5FA99B"/></marker>
+  </defs>
+  <rect width="980" height="480" rx="16" fill="#FBFBFC" stroke="#E3E6EB"/>
+  <g font-family="-apple-system, 'Segoe UI', Arial, sans-serif">
+    <text x="38" y="50" font-size="18" font-weight="650" fill="#1F2733">Failure routing by artifact type</text>
+
+    <circle cx="482" cy="249" r="72" fill="#FFFFFF" stroke="#5B6EC4" stroke-width="2"/>
+    <text x="482" y="239" font-size="15" font-weight="700" fill="#1F2733" text-anchor="middle">Candidate</text>
+    <text x="482" y="259" font-size="11" fill="#5A6472" text-anchor="middle">isolated workspace</text>
+    <text x="482" y="276" font-size="11" fill="#5A6472" text-anchor="middle">no release authority</text>
+
+    <g text-anchor="middle">
+      <g transform="translate(86 102)"><rect width="194" height="62" rx="10" fill="#F9ECEF" stroke="#C88A9A"/><text x="97" y="25" font-size="12.5" font-weight="650" fill="#6E3444">Intent failure</text><text x="97" y="44" font-size="10.5" fill="#8A4D5F">ambiguous · contradictory</text></g>
+      <g transform="translate(86 218)"><rect width="194" height="62" rx="10" fill="#F9ECEF" stroke="#C88A9A"/><text x="97" y="25" font-size="12.5" font-weight="650" fill="#6E3444">Model failure</text><text x="97" y="44" font-size="10.5" fill="#8A4D5F">missing concept · wrong type</text></g>
+      <g transform="translate(86 334)"><rect width="194" height="62" rx="10" fill="#F9ECEF" stroke="#C88A9A"/><text x="97" y="25" font-size="12.5" font-weight="650" fill="#6E3444">Proof failure</text><text x="97" y="44" font-size="10.5" fill="#8A4D5F">goal open · counterexample</text></g>
+
+      <g transform="translate(684 102)"><rect width="210" height="62" rx="10" fill="#F9ECEF" stroke="#C88A9A"/><text x="105" y="25" font-size="12.5" font-weight="650" fill="#6E3444">Compile failure</text><text x="105" y="44" font-size="10.5" fill="#8A4D5F">lowering unproved · unsupported</text></g>
+      <g transform="translate(684 218)"><rect width="210" height="62" rx="10" fill="#F9ECEF" stroke="#C88A9A"/><text x="105" y="25" font-size="12.5" font-weight="650" fill="#6E3444">Assumption failure</text><text x="105" y="44" font-size="10.5" fill="#8A4D5F">evidence missing · stale</text></g>
+      <g transform="translate(684 334)"><rect width="210" height="62" rx="10" fill="#F9ECEF" stroke="#C88A9A"/><text x="105" y="25" font-size="12.5" font-weight="650" fill="#6E3444">Runtime failure</text><text x="105" y="44" font-size="10.5" fill="#8A4D5F">observed counterexample</text></g>
+    </g>
+
+    <g stroke="#B96F82" stroke-width="1.4" fill="none" marker-end="url(#redArrow)">
+      <path d="M410 217 C346 190 324 144 282 133"/><path d="M410 249 L282 249"/><path d="M410 281 C346 306 324 355 282 365"/>
+      <path d="M554 217 C616 190 638 144 682 133"/><path d="M554 249 L682 249"/><path d="M554 281 C616 306 638 355 682 365"/>
+    </g>
+    <g stroke="#9AA3B0" stroke-width="1.2" stroke-dasharray="5 4" fill="none" marker-end="url(#arrow)">
+      <path d="M280 151 C340 165 356 204 420 222"/><path d="M280 267 C344 267 358 258 408 255"/><path d="M280 383 C344 368 356 306 420 280"/>
+      <path d="M684 151 C624 165 610 204 544 222"/><path d="M684 267 C620 267 608 258 556 255"/><path d="M684 383 C620 368 608 306 544 280"/>
+    </g>
+    <text x="350" y="88" font-size="9.5" font-weight="650" fill="#A76577" text-anchor="middle">typed failure</text>
+    <text x="614" y="88" font-size="9.5" font-weight="650" fill="#7A8494" text-anchor="middle">repaired candidate returns</text>
+
+    <rect x="394" y="386" width="176" height="50" rx="10" fill="#E9F5F2" stroke="#5FA99B" stroke-width="1.5"/>
+    <text x="482" y="407" font-size="12.5" font-weight="650" fill="#235E54" text-anchor="middle">Release candidate</text>
+    <text x="482" y="424" font-size="10.5" fill="#4B6E68" text-anchor="middle">no open obligations</text>
+    <line x1="482" y1="321" x2="482" y2="384" stroke="#5FA99B" stroke-width="1.8" marker-end="url(#greenArrow)"/>
+  </g>
+</svg>

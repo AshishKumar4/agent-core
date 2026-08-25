@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 430" role="img" aria-labelledby="title desc">
+  <title id="title">Outputs derived from the formal source</title>
+  <desc id="desc">A controlled requirement produces a Lean contract. The contract defines production TypeScript, platform assembly, verification inputs, and any implementation proof that remains to be synthesized.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill="#7A8494"/></marker>
+  </defs>
+  <rect width="980" height="430" rx="16" fill="#FBFBFC" stroke="#E3E6EB"/>
+  <g font-family="-apple-system, 'Segoe UI', Arial, sans-serif">
+    <text x="38" y="50" font-size="18" font-weight="650" fill="#1F2733">Outputs from the formal source</text>
+
+    <rect x="42" y="106" width="190" height="94" rx="12" fill="#F2EDFA" stroke="#9B7FC7"/>
+    <text x="137" y="137" font-size="13" font-weight="650" fill="#1F2733" text-anchor="middle">Controlled requirement</text>
+    <text x="137" y="157" font-size="11" fill="#5A6472" text-anchor="middle">unique typed meaning</text>
+    <text x="137" y="176" font-size="11" fill="#5A6472" text-anchor="middle">human-ratified behavior</text>
+
+    <rect x="280" y="106" width="194" height="94" rx="12" fill="#EEF1FB" stroke="#7A8BD0"/>
+    <text x="377" y="137" font-size="13" font-weight="650" fill="#1F2733" text-anchor="middle">Lean contract</text>
+    <text x="377" y="157" font-size="11" fill="#5A6472" text-anchor="middle">model · properties</text>
+    <text x="377" y="176" font-size="11" fill="#5A6472" text-anchor="middle">executable definition</text>
+
+    <path d="M232 153 L278 153" stroke="#7A8494" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+    <rect x="522" y="92" width="420" height="278" rx="14" fill="#FFFFFF" stroke="#E3E6EB"/>
+    <text x="542" y="116" font-size="10.5" font-weight="700" letter-spacing="1.1" fill="#8A93A1">DERIVED OUTPUTS</text>
+
+    <rect x="548" y="136" width="368" height="62" rx="10" fill="#E9F5F2" stroke="#5FA99B"/>
+    <text x="570" y="160" font-size="13" font-weight="650" fill="#235E54">Production software</text>
+    <text x="570" y="180" font-size="11" fill="#4B6E68">state machines · policies · routing · reconciliation · effect plans</text>
+
+    <rect x="548" y="218" width="368" height="62" rx="10" fill="#FBF3E4" stroke="#C9A15E"/>
+    <text x="570" y="242" font-size="13" font-weight="650" fill="#72551F">Platform assembly</text>
+    <text x="570" y="262" font-size="11" fill="#725F3A">codecs · schemas · RPC shapes · bindings · adapter calls</text>
+
+    <rect x="548" y="300" width="368" height="62" rx="10" fill="#F9ECEF" stroke="#C88A9A"/>
+    <text x="570" y="324" font-size="13" font-weight="650" fill="#7A3F50">Verification evidence</text>
+    <text x="570" y="344" font-size="11" fill="#765A62">proofs · hostile cases · monitors · proof manifests · conformance</text>
+
+    <path d="M474 153 C502 153 504 167 546 167" stroke="#7A8494" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+    <path d="M474 153 C502 153 504 249 546 249" stroke="#7A8494" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+    <path d="M474 153 C502 153 504 331 546 331" stroke="#7A8494" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+
+    <rect x="42" y="246" width="432" height="124" rx="12" fill="#FFFFFF" stroke="#E3E6EB"/>
+    <text x="62" y="272" font-size="10.5" font-weight="700" letter-spacing="1.1" fill="#8A93A1">IMPLEMENTATION SYNTHESIS</text>
+    <rect x="64" y="294" width="170" height="48" rx="9" fill="#F0F2F5" stroke="#97A1AE"/>
+    <text x="149" y="315" font-size="12" font-weight="650" fill="#1F2733" text-anchor="middle">Agent synthesis</text>
+    <text x="149" y="331" font-size="10.5" fill="#5A6472" text-anchor="middle">proposed executable Lean</text>
+    <rect x="280" y="294" width="170" height="48" rx="9" fill="#EEF1FB" stroke="#7A8BD0"/>
+    <text x="365" y="315" font-size="12" font-weight="650" fill="#1F2733" text-anchor="middle">Kernel proof</text>
+    <text x="365" y="331" font-size="10.5" fill="#5A6472" text-anchor="middle">candidate satisfies contract</text>
+    <line x1="234" y1="318" x2="278" y2="318" stroke="#7A8494" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <path d="M450 318 C500 318 500 188 476 188" stroke="#7A8494" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+  </g>
+</svg>

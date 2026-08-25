@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 390" role="img" aria-labelledby="title desc">
+  <title id="title">Platform conformance boundary</title>
+  <desc id="desc">Proof covers application behavior under the declared platform interface. A small adapter connects that interface to an external runtime. Conformance evidence records whether the runtime matched the interface.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill="#7A8494"/></marker>
+    <marker id="amberArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill="#B48940"/></marker>
+  </defs>
+  <rect width="980" height="390" rx="16" fill="#FBFBFC" stroke="#E3E6EB"/>
+  <g font-family="-apple-system, 'Segoe UI', Arial, sans-serif">
+    <text x="38" y="50" font-size="18" font-weight="650" fill="#1F2733">Platform conformance boundary</text>
+
+    <rect x="36" y="96" width="418" height="214" rx="14" fill="#F7F8FD" stroke="#7A8BD0"/>
+    <text x="56" y="120" font-size="10.5" font-weight="700" letter-spacing="1.1" fill="#5B6EC4">PROVED MODEL</text>
+    <rect x="62" y="148" width="168" height="68" rx="10" fill="#FFFFFF" stroke="#7A8BD0"/>
+    <text x="146" y="175" font-size="12.5" font-weight="650" fill="#1F2733" text-anchor="middle">Application logic</text>
+    <text x="146" y="194" font-size="10.5" fill="#5A6472" text-anchor="middle">state · policy · effects</text>
+    <rect x="266" y="148" width="160" height="68" rx="10" fill="#EEF1FB" stroke="#5B6EC4"/>
+    <text x="346" y="175" font-size="12.5" font-weight="650" fill="#1F2733" text-anchor="middle">Platform interface</text>
+    <text x="346" y="194" font-size="10.5" fill="#5A6472" text-anchor="middle">declared semantics</text>
+    <line x1="230" y1="182" x2="264" y2="182" stroke="#7A8494" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <rect x="86" y="248" width="314" height="38" rx="8" fill="#E9F5F2" stroke="#5FA99B"/>
+    <text x="243" y="272" font-size="11.5" font-weight="650" fill="#235E54" text-anchor="middle">Kernel-checked application properties</text>
+
+    <line x1="490" y1="90" x2="490" y2="324" stroke="#C9CED6" stroke-width="2" stroke-dasharray="6 5"/>
+    <line x1="426" y1="182" x2="454" y2="182" stroke="#7A8494" stroke-width="1.5"/>
+    <line x1="526" y1="182" x2="552" y2="182" stroke="#B48940" stroke-width="1.5" marker-end="url(#amberArrow)"/>
+    <rect x="454" y="160" width="72" height="44" rx="22" fill="#FBF3E4" stroke="#C9A15E"/>
+    <text x="490" y="178" font-size="8.8" font-weight="700" fill="#72551F" text-anchor="middle" letter-spacing=".7">TRUST</text>
+    <text x="490" y="191" font-size="8.8" font-weight="700" fill="#72551F" text-anchor="middle" letter-spacing=".7">BOUNDARY</text>
+
+    <rect x="530" y="96" width="414" height="214" rx="14" fill="#FFFDF8" stroke="#C9A15E"/>
+    <text x="550" y="120" font-size="10.5" font-weight="700" letter-spacing="1.1" fill="#A17B39">OBSERVED RUNTIME</text>
+    <rect x="554" y="148" width="160" height="68" rx="10" fill="#FFFFFF" stroke="#C9A15E"/>
+    <text x="634" y="175" font-size="12.5" font-weight="650" fill="#1F2733" text-anchor="middle">Small adapter</text>
+    <text x="634" y="194" font-size="10.5" fill="#5A6472" text-anchor="middle">I/O translation only</text>
+    <rect x="750" y="148" width="168" height="68" rx="10" fill="#FBF3E4" stroke="#C9A15E"/>
+    <text x="834" y="175" font-size="12.5" font-weight="650" fill="#1F2733" text-anchor="middle">External runtime</text>
+    <text x="834" y="194" font-size="10.5" fill="#5A6472" text-anchor="middle">Cloudflare · Linux · APIs</text>
+    <line x1="714" y1="182" x2="748" y2="182" stroke="#B48940" stroke-width="1.5" marker-end="url(#amberArrow)"/>
+    <rect x="580" y="248" width="314" height="38" rx="8" fill="#FBF3E4" stroke="#C9A15E"/>
+    <text x="737" y="272" font-size="11.5" font-weight="650" fill="#72551F" text-anchor="middle">Version-bound conformance evidence</text>
+
+    <path d="M834 216 C834 232 914 228 914 300 C914 348 432 348 432 218" stroke="#B48940" stroke-width="1.5" fill="none" marker-end="url(#amberArrow)"/>
+    <text x="590" y="350" font-size="11" fill="#725F3A" text-anchor="middle">platform behavior must continue matching the declared interface</text>
+  </g>
+</svg>
