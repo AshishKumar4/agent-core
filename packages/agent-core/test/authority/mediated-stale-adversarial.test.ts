@@ -52,15 +52,18 @@ import {
     type InvocationMemoryState,
     type Receipt
 } from "../../src/invocations";
-import { SqliteProtocolPersistence, type TransactionalSqlite } from "../../src/substrates/sqlite";
-import { SqliteInvocationMediationPersistence } from "../../src/substrates/sqlite/invocations";
+import {
+    SqliteActorStore,
+    SqliteInvalidationWatermarkStore,
+    SqliteInvocationMediationPersistence,
+    SqliteProtocolPersistence,
+    type TransactionalSqlite
+} from "../../src/substrates";
 import { invocationCodecs } from "../invocations/fixture";
 import {
     createSqliteInvocationPersistence,
     runSynchronousSqliteTransaction
 } from "../substrates/sqlite/invocations/fixture";
-import { SqliteActorStore } from "../../src/substrates/sqlite/actor";
-import { SqliteInvalidationWatermarkStore } from "../../src/substrates/sqlite/watermark";
 import { PrincipalRef, Workspace } from "../identity/internal-fixture";
 import { TestSqlite } from "../helpers/sqlite";
 

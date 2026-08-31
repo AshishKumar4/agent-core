@@ -47,7 +47,7 @@ import {
     Workspace,
     mintGuestVerification
 } from "../identity/internal-fixture";
-import { createSqliteTenantControlStore } from "../../src/substrates/sqlite/tenant";
+import { createSqliteTenantControlStore } from "../../src/substrates";
 import { TestSqlite } from "../helpers/sqlite";
 
 const tenantId = new TenantId("tenant-share-offer");

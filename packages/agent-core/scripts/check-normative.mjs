@@ -16,6 +16,11 @@ const lockPath = join(packageRoot, "artifacts", "normative.lock");
 const lakeCommand = process.env.LEAN_LAKE?.trim() || "lake";
 const schemaVersion = 2;
 const formalModuleRoot = "AgentCore";
+// Libraries that sit above the model: they import `AgentCore` and nothing in `AgentCore`
+// imports them, so they contribute no audited module and no designated theorem. They are
+// still built here, because a library nobody elaborates is a library whose refusals have
+// stopped holding.
+const adjacentFormalLibraries = ["RuntimeAssurance"];
 const moduleComponentPattern = /^[A-Za-z][A-Za-z0-9_']*$/u;
 
 function compareCodeUnits(left, right) {
@@ -95,9 +100,7 @@ export function parseStructuralPackageLine(line, location) {
     const expected = [...structuralPackageKeys].sort();
     const keys = Object.keys(value).sort();
     if (JSON.stringify(keys) !== JSON.stringify(expected)) {
-        throw new TypeError(
-            `${location} top-level key set must be exactly ${expected.join(", ")}`
-        );
+        throw new TypeError(`${location} top-level key set must be exactly ${expected.join(", ")}`);
     }
     strings(value.auditedModules, `${location}.auditedModules`);
     strings(value.allowedAxioms, `${location}.allowedAxioms`);
@@ -111,7 +114,6 @@ export function parseStructuralPackageLine(line, location) {
     }
     return value;
 }
-
 
 export function structuralPackage(source) {
     const candidates = [];
@@ -256,17 +258,11 @@ export function parseOriginMarker(structure) {
     }
     const tail = structure[structure.length - 1];
     if (!isNonEmptyString(tail) || !originMarkers.includes(tail)) {
-        throw new TypeError(
-            "declaration structure must end in origin marker sourced|synthetic"
-        );
+        throw new TypeError("declaration structure must end in origin marker sourced|synthetic");
     }
     const prefix = structure.slice(0, -1);
-    if (
-        prefix.some((item) => isNonEmptyString(item) && originMarkers.includes(item))
-    ) {
-        throw new TypeError(
-            "declaration origin marker must occur exactly once, at the tail"
-        );
+    if (prefix.some((item) => isNonEmptyString(item) && originMarkers.includes(item))) {
+        throw new TypeError("declaration origin marker must occur exactly once, at the tail");
     }
     return tail;
 }
@@ -397,6 +393,9 @@ export function generateNormativeLock() {
     const designations = extractAxiomDesignations(axiomsSource);
     const auditedModules = auditedFormalModules();
     runLake(["build", ...auditedModules], "Lean build");
+    for (const library of adjacentFormalLibraries) {
+        runLake(["build", library], `${library} build`);
+    }
     const directory = mkdtempSync(join(tmpdir(), "agent-core-normative-driver-"));
     const driverPath = join(directory, "NormativeDriver.lean");
     try {

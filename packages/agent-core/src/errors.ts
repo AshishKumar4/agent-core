@@ -1,6 +1,11 @@
 export type AgentCoreErrorCode =
     | "actor.closed"
     | "actor.stale-callback"
+    | "assurance.duplicate-evidence"
+    | "assurance.invalid-claim"
+    | "assurance.observation-refused"
+    | "assurance.unknown-fault"
+    | "assurance.unknown-premise"
     | "authority.denied"
     | "binding.invalid"
     | "codec.invalid"

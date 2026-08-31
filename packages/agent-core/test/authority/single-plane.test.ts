@@ -12,7 +12,7 @@ import { MemoryTenantControlStore } from "../../src/authority/memory";
 import { scopeKey } from "../../src/authority/reference";
 import { TenantAuthorityRuntime } from "../../src/authority/runtime";
 import { AuthorityMutationService, type AuthorityMutationStore } from "../../src/authority/service";
-import { createSqliteTenantControlStore } from "../../src/substrates/sqlite/tenant";
+import { createSqliteTenantControlStore } from "../../src/substrates";
 import { TestSqlite } from "../helpers/sqlite";
 import { PrincipalRef, Workspace } from "../identity/internal-fixture";
 import { AuthorityDivergence, DivergentAuthorityStore } from "./divergent-store";

@@ -11,7 +11,7 @@ import {
     TenantId,
     WorkspaceId
 } from "../../src/identity";
-import { scopePath } from "../../src/identity/scope";
+import { scopePath } from "../../src/identity";
 import { Binding } from "../../src/authority/binding";
 import { BindingValidationRequest } from "../../src/authority/binding-evidence";
 import { PathEpochEvidence } from "../../src/authority/epoch";

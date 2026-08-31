@@ -26,6 +26,7 @@ export {
     hasExactJsonKeys,
     hasExactKeys,
     isJsonObject,
+    isJsonString,
     isJsonValue,
     isObjectRecord,
     jsonDataParser

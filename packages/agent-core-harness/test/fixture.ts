@@ -123,6 +123,12 @@ class EmptyEvidencePort extends RunEvidencePort<MemoryTransaction> {
     public acceptance() {
         return undefined;
     }
+    public storedReceipt() {
+        return undefined;
+    }
+    public publishedHandle() {
+        return undefined;
+    }
 }
 
 /**
