@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { format as formatWithPrettier, resolveConfig } from "prettier";
 import { canonicalSpec } from "./spec.mjs";
 import { isJsonObject } from "./project.mjs";
 import { allowedBuiltInAxioms } from "../formal-policy.mjs";
@@ -123,6 +124,16 @@ function runLeanReport() {
 
 async function verifyControlledLanguage(artifactsRoot = join(packageRoot, "artifacts", "cnl")) {
     return verify(artifactsRoot);
+}
+
+/** Artifact JSON is written in the repository's prettier style, so this gate's byte
+ * comparison and the format gate accept the same bytes from one serialization. The
+ * config is resolved from this package, not the artifact path, so a scratch copy of
+ * the artifacts is still compared in the repository's style. */
+async function renderJsonArtifact(path, value) {
+    const source = `${JSON.stringify(value, null, 2)}\n`;
+    const config = await resolveConfig(join(packageRoot, "package.json"));
+    return formatWithPrettier(source, { ...config, filepath: path });
 }
 
 // --- Verification ---------------------------------------------------------------
@@ -439,7 +450,7 @@ async function verify(artifactsRoot) {
     // deleting the artifact is a way to make drift undetectable, so a fresh snapshot is
     // only ever written when the caller asks for one with `--update`.
     const ledgerPath = join(artifactsRoot, "ledger.json");
-    const rendered = `${JSON.stringify(ledger, null, 2)}\n`;
+    const rendered = await renderJsonArtifact(ledgerPath, ledger);
     if (updating) {
         const previous = reachability?.record;
         const record = {
@@ -452,7 +463,8 @@ async function verify(artifactsRoot) {
                     "verifies from the digested text.",
             reachableFloor: Math.max(previous?.reachableFloor ?? 0, measured.reachable)
         };
-        writeFileSync(join(artifactsRoot, "ratchet.json"), `${JSON.stringify(record, null, 2)}\n`);
+        const ratchetPath = join(artifactsRoot, "ratchet.json");
+        writeFileSync(ratchetPath, await renderJsonArtifact(ratchetPath, record), "utf8");
         writeFileSync(ledgerPath, rendered, "utf8");
         console.log(`cnl: refreshed ${artifactsRoot}; review the diff and commit`);
         return "controlled language artifacts refreshed";

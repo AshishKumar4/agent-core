@@ -18,7 +18,7 @@ namespace SpecCnl.Hostile
 /-! ## The negative corpus refuses, and refuses for the recorded reason -/
 
 #guard Adversarial.negativeFailures.isEmpty
-#guard Adversarial.cases.length == 12
+#guard Adversarial.cases.length == 29
 
 /-! ## Every adjacent transposition of every corpus sentence is refused
 
@@ -27,7 +27,7 @@ admitted, the exact round trip `compile` enforces would be reproducing a string 
 would have taken in any order. -/
 
 #guard Adversarial.admittedScrambles.isEmpty
-#guard Adversarial.allScrambles.length == 109
+#guard Adversarial.allScrambles.length == 302
 
 /-! ## Every admitted sentence linearises back to itself, exactly -/
 
@@ -85,6 +85,28 @@ error: refused: no reading of 'every lease reclaim requires an unheld branch for
 -/
 #guard_msgs in
 example : Prop := cnl% "every lease reclaim requires an unheld branch for the appended commit"
+
+/-! Two custody rules that read almost identically in English are kept apart by the ledger
+they range over. `a home tenant` is the §8.2 content relation; the §3.5 secret lifter wants
+the secret one, and no amount of grammatical well-formedness bridges them. -/
+
+/--
+error: refused: no reading of 'every secret resolve requires a home tenant for the resolved secret' as a sentence
+-/
+#guard_msgs in
+example : Prop := cnl% "every secret resolve requires a home tenant for the resolved secret"
+
+/-! ## A relation property is not a transition property
+
+`is transitive` takes a binary relation over one type. A transition family relates a state,
+a label, and a state, so the sentence below is refused by the category algebra rather than
+by a check somebody remembered to write. -/
+
+/--
+error: refused: no reading of 'every secret step is transitive' as a sentence
+-/
+#guard_msgs in
+example : Prop := cnl% "every secret step is transitive"
 
 /-! ## A wrong denotation is a Lean type error
 

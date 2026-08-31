@@ -266,6 +266,28 @@ describe("controlled language gate", () => {
         expect(run.stderr).toContain("the proved numerator shrank");
     });
 
+    test("refuses an undemonstrated lexicon entry", async () => {
+        scratch = await prepareScratch();
+        // SAFETY: recordedReport is captured from a real Lean run at module load; its
+        // ledger line parsed successfully inside the gate before any fixture runs.
+        const parsed = JSON.parse(ledgerLine(recordedReport)) as {
+            lexicon: Array<{ id: string }>;
+            unexercisedEntries: string[];
+        };
+        // Lean refuses the build outright when a paradigm cell no sentence uses ships, so
+        // the only way to see the gate's own copy of that rule is to hand it a report in
+        // which one already has. Without this case the check is dead code and the reported
+        // grammar could exceed the grammar with evidence behind it.
+        const orphan = first(parsed.lexicon, "lexicon entries").id;
+        parsed.unexercisedEntries.push(orphan);
+        await stubLake(scratch, `cnl-ledger ${JSON.stringify(parsed)}`);
+        const run = runGate(scratch);
+        expect([run.status, run.stderr]).toEqual([
+            1,
+            expect.stringContaining(`unexercised lexicon entries: ${orphan}`)
+        ]);
+    });
+
     test("refuses a stale measured field", async () => {
         scratch = await prepareScratch();
         await stubLake(scratch, recordedReport);

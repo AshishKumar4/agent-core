@@ -107,4 +107,86 @@ theorem proved_C13_RUN_ACCEPTANCE_OBLIGATION : Bridge.hand_C13_RUN_ACCEPTANCE_OB
   rw [leftTree] at rightTree
   exact Option.some.inj rightTree
 
+theorem proved_C13_CONFIG_SECRET_REF : Bridge.hand_C13_CONFIG_SECRET_REF :=
+  fun _ _ _ step refOnly => secret_step_preserves_carrier_ref_only refOnly step
+
+theorem proved_C13_CONTENT_CUSTODY : Bridge.hand_C13_CONTENT_CUSTODY := by
+  refine ⟨fun _ _ _ step owned => content_step_preserves_owned_implies_stored owned step, ?_⟩
+  intro _ _ _ ⟨_, step⟩ ref isCollect
+  exact (collect_requires_unowned (isCollect ▸ step)).2
+
+theorem proved_C13_AUTH_SCOPE_DIRECTION : Bridge.hand_C13_AUTH_SCOPE_DIRECTION :=
+  ⟨fun _ _ _ first second => scope_reaches_trans first second,
+    fun _ _ forward backward => scope_reaches_antisymm forward backward⟩
+
+theorem proved_C13_AUDIT_EDGE_RELATION : Bridge.hand_C13_AUDIT_EDGE_RELATION := by
+  refine ⟨?_, ?_⟩
+  · intro _ _ _ ⟨_, _, step⟩ id entry stored
+    exact audit_step_preserves_existing_entry step stored
+  · intro _ _ _ ⟨_, _, step⟩
+    exact local_cause_same_actor_lower_sequence step
+
+theorem proved_C13_ROUTE_DELIVERY_ONCE : Bridge.hand_C13_ROUTE_DELIVERY_ONCE := by
+  refine ⟨fun _ _ _ step _ _ consumed => consumed_is_monotone step consumed, ?_⟩
+  intro _ _ _ ⟨_, step⟩ _ _ _ isFire _ stored consumed
+  exact consumed_key_never_refires stored consumed (isFire ▸ step)
+
+theorem proved_C13_ENVIRONMENT_SESSION_LIFECYCLE :
+    Bridge.hand_C13_ENVIRONMENT_SESSION_LIFECYCLE := by
+  refine ⟨?_, ?_⟩
+  · refine ⟨?_, ?_⟩
+    · intro _ _ _ step use isUse
+      obtain ⟨session, _, stored, live, epoch, _, _, _⟩ :=
+        session_use_is_turn_owned_and_live step isUse
+      exact ⟨session, stored, live, epoch⟩
+    · intro _ _ _ ⟨⟨_, isRotate⟩, step⟩
+      exact (rotation_does_not_retarget_open_sessions (isRotate ▸ step)).1
+  · intro _ _ _ ⟨_, step⟩ session isClose
+    exact close_disposes_child_facets (isClose ▸ step)
+
+theorem proved_C13_PLACEMENT_DYNAMIC_NO_EGRESS :
+    Bridge.hand_C13_PLACEMENT_DYNAMIC_NO_EGRESS := by
+  refine ⟨?_, ?_⟩
+  · intro before _ _ ⟨fresh, step⟩
+    rw [fresh] at step
+    exact fresh_dynamic_isolate_admits_only_host_pass step
+  · intro _ _ _ ⟨_, step⟩ _ _ isEgress
+    exact isolate_egress_matches_passed_destination (isEgress ▸ step)
+
+theorem proved_C13_RUN_BINARY_TREE_MERGE : Bridge.hand_C13_RUN_BINARY_TREE_MERGE := by
+  intro before label after family id expected commit isAppend
+  exact Nat.le_of_eq
+    (proved_C13_RUN_GRAPH_ARITY before label after family id expected commit isAppend)
+
+theorem proved_C13_INTERCEPTOR_ORDER : Bridge.hand_C13_INTERCEPTOR_ORDER :=
+  ⟨fun _ _ _ first second => interceptor_order_trans first second,
+    fun contribution => interceptor_order_irrefl contribution⟩
+
+theorem proved_C13_BLUEPRINT_REMATERIALIZE : Bridge.hand_C13_BLUEPRINT_REMATERIALIZE := by
+  intro _ label _ ⟨_, step⟩ blueprint template id isMaterialize
+  subst isMaterialize
+  cases step with
+  | materialize fresh _ => exact fresh
+
+theorem proved_C13_ENVIRONMENT_TURN_OWNED : Bridge.hand_C13_ENVIRONMENT_TURN_OWNED := by
+  intro _ _ _ step use isUse
+  obtain ⟨session, lease, stored, _, _, held, holder, admits⟩ :=
+    session_use_is_turn_owned_and_live step isUse
+  exact ⟨session, lease, stored, held, holder, admits⟩
+
+theorem proved_C13_AUTH_SECRET_SCOPE : Bridge.hand_C13_AUTH_SECRET_SCOPE := by
+  intro _ _ _ ⟨_, step⟩ _ _ _ _ _ isResolve
+  exact secret_resolution_requires_exact_tenant (isResolve ▸ step)
+
+theorem proved_C13_PREPARED_APPROVAL_UNIQUE :
+    Bridge.hand_C13_PREPARED_APPROVAL_UNIQUE :=
+  fun _ _ _ _ first second => approval_is_unique_per_invocation first second
+
+theorem proved_C13_PROTOCOL_DUPLICATE : Bridge.hand_C13_PROTOCOL_DUPLICATE := by
+  refine ⟨?_, ?_⟩
+  · intro _ _ _ ⟨⟨id, isResubmit⟩, step⟩
+    exact duplicate_submission_reserves_and_emits_nothing (isResubmit ▸ step)
+  · intro _ _ _ ⟨_, step⟩ id isDuplicate
+    exact resubmission_returns_recorded_reply (isDuplicate ▸ step)
+
 end SpecCnl.Proofs

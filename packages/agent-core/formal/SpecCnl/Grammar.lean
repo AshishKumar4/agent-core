@@ -38,6 +38,15 @@ def qNoObj {α β : Type} (cn : β → Prop) (tv : β → α → Prop) : α → 
 left, so the surface order and the conjunction order agree. -/
 def sAnd (right left : Prop) : Prop := left ∧ right
 
+/-- The first half of the explicitly delimited three-clause form
+`<S> and <S> and additionally <S>`. Its result has category `CJ`, not `S`, so the
+ordinary coordinator cannot associate the first sentence around the final pair. -/
+def sPair (right left : Prop) : Prop := left ∧ right
+
+/-- Finishes an explicit three-clause conjunction. `additionally` is grammatical
+delimitation only: it contributes conjunction, never temporal order or priority. -/
+def sAdditionally (right pair : Prop) : Prop := pair ∧ right
+
 /-- `<RE> or <RE>`, pointwise in the state and both arguments. Coordination sits at the
 relation level, not at `ST`, because `(A → B) ∨ (A → C)` is strictly stronger than
 `A → (B ∨ C)`: coordinating whole conditions would silently claim more than the SPEC
@@ -48,8 +57,12 @@ def reOr {σ κ ν : Type} (right left : σ → κ → ν → Prop) : σ → κ 
 /-! ## Transition connectives
 
 `TR[σ,λ]` is a transition family, `ST[σ,λ]` a condition on its source state and label,
-`CN[σ]` a one-state invariant, and `PR[σ]` a two-state relation. Immutability is not an
-invariant of a single state, which is why `PR` exists. -/
+`PO[σ,λ]` a condition that may also read the successor, `CN[σ]` a one-state invariant,
+and `PR[σ]` a two-state relation. `PO` has the same Lean type as `TR`, but a distinct
+category: that distinction prevents a transition family from standing in for the
+postcondition it is meant to establish. `PX[σ,k]` is the matching payload-indexed
+postcondition. A lifting entry moves it under one label constructor, so no condition
+recovers a label payload by matching the label inside its own denotation. -/
 
 /-- `<TR> requires <ST>` -/
 def trRequires {σ lab : Type} (cond : σ → lab → Prop) (family : σ → lab → σ → Prop) : Prop :=
@@ -67,6 +80,13 @@ def trPreserves {σ lab : Type} (inv : σ → Prop) (family : σ → lab → σ 
 /-- `<TR> maintains <PR>` -/
 def trMaintains {σ lab : Type} (rel : σ → σ → Prop) (family : σ → lab → σ → Prop) : Prop :=
   ∀ before label after, family before label after → rel before after
+
+/-- `<TR> establishes <PO>` — unlike `requires`, the postcondition may read the state
+after the transition. `PO` stays distinct from `TR` even though both inhabit the same
+Lean type, so the grammar cannot silently use a transition family as its own conclusion. -/
+def trEstablishes {σ lab : Type} (post : σ → lab → σ → Prop)
+    (family : σ → lab → σ → Prop) : Prop :=
+  ∀ before label after, family before label after → post before label after
 
 /-! ## Quantities
 
@@ -101,6 +121,30 @@ def reAtMostOneValue {σ κ ν : Type} (rel : σ → κ → ν → Prop) : Prop 
 state alone. -/
 def reDependsOnlyOn {σ γ κ ν : Type} (field : σ → γ) (rel : σ → κ → ν → Prop) : Prop :=
   ∀ left right, field left = field right → ∀ key value, rel left key value ↔ rel right key value
+
+/-! ## Relation properties
+
+`PR[τ]` is a binary relation over one type. The transition connectives above read it as a
+two-state relation, which is the same shape as an order over a domain type, so the three
+properties below apply to both without a second category.
+
+Each one is a property *of* a relation rather than a condition on a state, so it lands at
+`S` directly: `<PR> is transitive` is already a sentence. Repeated ordinary `and` remains
+ambiguous at three clauses and is refused. A rule that needs exactly three sentence clauses
+uses the separate, explicitly delimited `and additionally` form above; it fixes the parse
+shape without adding an order claim. -/
+
+/-- `<PR> is transitive` -/
+def prTransitive {α : Type} (rel : α → α → Prop) : Prop :=
+  ∀ left middle right, rel left middle → rel middle right → rel left right
+
+/-- `<PR> is antisymmetric` — the relation has one direction: two elements that reach each
+other are the same element. -/
+def prAntisymmetric {α : Type} (rel : α → α → Prop) : Prop :=
+  ∀ left right, rel left right → rel right left → left = right
+
+/-- `<PR> is irreflexive` -/
+def prIrreflexive {α : Type} (rel : α → α → Prop) : Prop := ∀ element, ¬ rel element element
 
 /-! ## Lexicon type synonyms
 

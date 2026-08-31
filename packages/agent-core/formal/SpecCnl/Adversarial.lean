@@ -93,17 +93,108 @@ def cases : List Case :=
         "every content resolve requires a home tenant or a granted tenant or a home \
          tenant for the resolved reference"
       kind := .ambiguous 2
-      reason := "three-way coordination. `or` is binary, so a three-term list has a left \
-        and a right reading. The grammar has no list construct, and rather than pick one \
-        association it refuses the sentence. Two-term coordination is what the corpus \
-        exercises and therefore all that is shipped" },
+      reason := "three-way ordinary `or` coordination. `or` is binary, so a three-term \
+        list has a left and a right reading. No list construct or final `or` coordinator \
+        ships, so rather than pick an association the grammar refuses the sentence. The \
+        separately typed `and additionally` form is available only for explicit \
+        three-sentence conjunctions" },
     { sentence :=
         "every effect step preserves disjoint receipt ids and every effect step preserves \
          disjoint receipt ids and every effect step preserves disjoint receipt ids"
       kind := .ambiguous 2
       reason := "the same defect at sentence level. Conjunction is associative in meaning, \
         which is exactly why the grammar must not silently choose: an ambiguity it \
-        tolerates here is one it would tolerate where association changes the reading" } ]
+        tolerates here is one it would tolerate where association changes the reading" },
+    { sentence := "every secret step maintains carrier refs only"
+      kind := .noReading
+      reason := "the nearby misreading of the custody sentence. `maintains` takes a \
+        two-state relation and `carrier refs only` is a one-state invariant, so reading \
+        the ref-only rule as a relation between the states either side of a step is \
+        refused rather than silently accepted as the invariant it is not" },
+    { sentence := "every content step preserves an unowned reference"
+      kind := .noReading
+      reason := "the converse nearby misreading. `preserves` takes a one-state invariant \
+        and `an unowned reference` is a condition on a state and a payload, so a \
+        precondition cannot be smuggled in as an invariant" },
+    { sentence := "every secret step is transitive"
+      kind := .noReading
+      reason := "the ontology refuses it. `is transitive` takes a binary relation over one \
+        type; a transition family is a relation over a state, a label, and a state, and \
+        the two are not interchangeable however similar the English reads" },
+    { sentence := "every routing step maintains an unconsumed event key for the firing"
+      kind := .noReading
+      reason := "the label match is not optional in the other direction either. Lifting a \
+        firing-payload condition under the firing label yields a condition, not a \
+        two-state relation, so `maintains` refuses it" },
+    { sentence := "every isolate egress requires a passed destination"
+      kind := .noReading
+      reason := "an unlifted payload condition, on a second domain. `a passed destination` \
+        is a relation over a Binding and a destination, and `requires` needs a condition \
+        on the transition's label, so the egress label match cannot be left implicit" },
+    { sentence := "every environment step requires a live current session"
+      kind := .noReading
+      reason := "the same defect for a session-scoped use: the condition ranges over a \
+        SessionUse and the transition over an EnvironmentLabel, so the use projection \
+        cannot be left implicit" },
+    { sentence := "every template materialization requires an unmaterialized template"
+      kind := .noReading
+      reason := "the same defect once more, and the reason the lifter is a separate entry \
+        rather than a match inside the condition's own denotation" },
+    { sentence := "every secret resolve requires a home tenant for the resolved secret"
+      kind := .noReading
+      reason := "the model refuses a grammatical sentence. `a home tenant` is a relation \
+        over a ContentLedger, a ContentRef, and a Tenant; the resolved-secret lifter wants \
+        one over a SecretLedger, a SecretRef, and a Tenant. Two custody rules that read \
+        almost identically in English are kept apart by the ledger they range over" },
+    { sentence := "every content collect requires an unowned reference for the resolved reference"
+      kind := .noReading
+      reason := "two lifters of one domain are not interchangeable. The resolved-reference \
+        lifter scopes a reference-and-Tenant relation under a resolve label; `an unowned \
+        reference` is a condition on a reference alone, so pairing them is refused" },
+    { sentence := "the parent count is at most two for the appended commit"
+      kind := .noReading
+      reason := "a lifted condition is not a sentence. Without a transition family there \
+        is nothing for the bound to be a bound of, and the grammar has no way to supply \
+        the missing quantifier" },
+    { sentence := "interceptor ordering is at most two"
+      kind := .noReading
+      reason := "a relation is not a quantity. `is at most` compares two quantities read \
+        off a source state and a label, and an order over contributions is neither" },
+    { sentence :=
+        "every audit step maintains a typed lower local cause and recorded entry immutability"
+      kind := .noReading
+      reason := "coordination at the wrong level. Sentence-level `and` takes a sentence on \
+        each side, and `recorded entry immutability` is a two-state relation. Conjoining \
+        the two invariants would need coordination at the relation level, which the \
+        grammar does not have and which this corpus therefore does not report" },
+    { sentence := "every fresh isolate step requires a passed destination"
+      kind := .noReading
+      reason := "the fresh-state family cannot recover the egress payload. `a passed \
+        destination` is a Binding-and-Destination relation, while `requires` needs a \
+        condition on the IsolateLabel; the egress lifter remains necessary even when the \
+        source state is known exactly" },
+    { sentence := "approval mapping is transitive"
+      kind := .noReading
+      reason := "a functional state-relative mapping is not a binary relation over one \
+        domain. `is transitive` takes `PR`, whereas an approval lookup is `RE` over a \
+        ledger, an InvocationId, and an ApprovalId" },
+    { sentence := "every duplicate submission establishes a recorded original reply"
+      kind := .noReading
+      reason := "the duplicate write id cannot be left implicit. `a recorded original \
+        reply` is a payload-indexed postcondition, while `establishes` needs a \
+        postcondition on the SubmissionLabel; the `for the duplicate` lifter is what \
+        ties that id to the resubmit label" },
+    { sentence := "every session close establishes disposed child facets"
+      kind := .noReading
+      reason := "the same post-state payload rule on a second label family. `disposed \
+        child facets` is indexed by the SessionId a close label carries; without `for \
+        the closed session`, the grammar refuses the missing label-to-payload binding" },
+    { sentence := "every duplicate submission establishes every duplicate submission"
+      kind := .noReading
+      reason := "`PO` is deliberately distinct from `TR` despite sharing its Lean type. \
+        A transition family says which steps exist; a postcondition says what those steps \
+        establish. Letting the former stand in for the latter would make the new grammar \
+        form tautological, so the category mismatch is refused" } ]
 
 /-- Adjacent-token transpositions of a sentence, dropping any that reproduce the input. -/
 def scrambles (sentence : String) : List String :=

@@ -17,11 +17,14 @@ Atoms are fixed by the shape of the model, which is a labelled transition system
 | category  | interpretation      | reads as                                    |
 | --------- | ------------------- | ------------------------------------------- |
 | `S`       | `Prop`              | a sentence                                  |
+| `CJ`      | `Prop`              | an explicitly delimited conjunction pair    |
 | `NP[t]`   | `t`                 | an individual                               |
 | `CN[t]`   | `t -> Prop`         | a common noun, a one-state invariant        |
 | `PR[t]`   | `t -> t -> Prop`    | a two-state relation                        |
 | `TR[s,l]` | `s -> l -> s -> Prop` | a transition family                       |
 | `ST[s,l]` | `s -> l -> Prop`    | a condition on source state and label       |
+| `PO[s,l]` | `s -> l -> s -> Prop` | a postcondition on a transition           |
+| `PX[s,k]` | `s -> k -> s -> Prop` | a postcondition indexed by label payload  |
 | `NU[s,l]` | `s -> l -> Nat`     | a quantity read off source state and label  |
 | `RE[s,a,b]` | `s -> a -> b -> Prop` | a state-relative relation                 |
 
@@ -43,11 +46,14 @@ inductive Ty where
 `a` and the result is `r`, so direction is the only difference. -/
 inductive Cat where
   | s
+  | cj
   | np (ty : Ty)
   | cn (ty : Ty)
   | pr (ty : Ty)
   | tr (state label : Ty)
   | st (state label : Ty)
+  | po (state label : Ty)
+  | px (state key : Ty)
   | nu (state label : Ty)
   | re (state key value : Ty)
   | fwd (result arg : Cat)
@@ -125,11 +131,14 @@ namespace Cat
 
 def apply (σ : Subst) : Cat → Cat
   | .s => .s
+  | .cj => .cj
   | .np ty => .np (ty.apply σ)
   | .cn ty => .cn (ty.apply σ)
   | .pr ty => .pr (ty.apply σ)
   | .tr state label => .tr (state.apply σ) (label.apply σ)
   | .st state label => .st (state.apply σ) (label.apply σ)
+  | .po state label => .po (state.apply σ) (label.apply σ)
+  | .px state key => .px (state.apply σ) (key.apply σ)
   | .nu state label => .nu (state.apply σ) (label.apply σ)
   | .re state key value => .re (state.apply σ) (key.apply σ) (value.apply σ)
   | .fwd result arg => .fwd (result.apply σ) (arg.apply σ)
@@ -137,11 +146,14 @@ def apply (σ : Subst) : Cat → Cat
 
 def freshen (tag : Nat) : Cat → Cat
   | .s => .s
+  | .cj => .cj
   | .np ty => .np (ty.freshen tag)
   | .cn ty => .cn (ty.freshen tag)
   | .pr ty => .pr (ty.freshen tag)
   | .tr state label => .tr (state.freshen tag) (label.freshen tag)
   | .st state label => .st (state.freshen tag) (label.freshen tag)
+  | .po state label => .po (state.freshen tag) (label.freshen tag)
+  | .px state key => .px (state.freshen tag) (key.freshen tag)
   | .nu state label => .nu (state.freshen tag) (label.freshen tag)
   | .re state key value => .re (state.freshen tag) (key.freshen tag) (value.freshen tag)
   | .fwd result arg => .fwd (result.freshen tag) (arg.freshen tag)
@@ -149,11 +161,14 @@ def freshen (tag : Nat) : Cat → Cat
 
 def unify (σ : Subst) : Cat → Cat → Except String Subst
   | .s, .s => .ok σ
+  | .cj, .cj => .ok σ
   | .np a, .np b => Ty.unify σ a b
   | .cn a, .cn b => Ty.unify σ a b
   | .pr a, .pr b => Ty.unify σ a b
   | .tr a b, .tr c d => do Ty.unify (← Ty.unify σ a c) b d
   | .st a b, .st c d => do Ty.unify (← Ty.unify σ a c) b d
+  | .po a b, .po c d => do Ty.unify (← Ty.unify σ a c) b d
+  | .px a b, .px c d => do Ty.unify (← Ty.unify σ a c) b d
   | .nu a b, .nu c d => do Ty.unify (← Ty.unify σ a c) b d
   | .re a b c, .re d e f => do Ty.unify (← Ty.unify (← Ty.unify σ a d) b e) c f
   | .fwd r₁ a₁, .fwd r₂ a₂ => do Cat.unify (← Cat.unify σ r₁ r₂) a₁ a₂
@@ -163,6 +178,7 @@ def unify (σ : Subst) : Cat → Cat → Except String Subst
 /-- The Lean type a denotation of this category must inhabit. -/
 def interp : Cat → Except String String
   | .s => .ok "Prop"
+  | .cj => .ok "Prop"
   | .np ty => ty.interp
   | .cn ty => do return s!"({← ty.interp}) → Prop"
   | .pr ty => do let t ← ty.interp; return s!"({t}) → ({t}) → Prop"
@@ -170,6 +186,12 @@ def interp : Cat → Except String String
       let σ ← state.interp
       return s!"({σ}) → ({← label.interp}) → ({σ}) → Prop"
   | .st state label => do return s!"({← state.interp}) → ({← label.interp}) → Prop"
+  | .po state label => do
+      let σ ← state.interp
+      return s!"({σ}) → ({← label.interp}) → ({σ}) → Prop"
+  | .px state key => do
+      let σ ← state.interp
+      return s!"({σ}) → ({← key.interp}) → ({σ}) → Prop"
   | .nu state label => do return s!"({← state.interp}) → ({← label.interp}) → Nat"
   | .re state key value => do
       return s!"({← state.interp}) → ({← key.interp}) → ({← value.interp}) → Prop"
@@ -179,11 +201,14 @@ def interp : Cat → Except String String
 /-- Surface form of a category, in the notation the lexicon and the ledger use. -/
 def render : Cat → String
   | .s => "S"
+  | .cj => "CJ"
   | .np ty => s!"NP[{ty.render}]"
   | .cn ty => s!"CN[{ty.render}]"
   | .pr ty => s!"PR[{ty.render}]"
   | .tr state label => s!"TR[{state.render},{label.render}]"
   | .st state label => s!"ST[{state.render},{label.render}]"
+  | .po state label => s!"PO[{state.render},{label.render}]"
+  | .px state key => s!"PX[{state.render},{key.render}]"
   | .nu state label => s!"NU[{state.render},{label.render}]"
   | .re state key value => s!"RE[{state.render},{key.render},{value.render}]"
   | .fwd result arg => s!"({result.render}/{arg.render})"
@@ -216,6 +241,8 @@ private def binaryAtom (name : String) (state label : Ty) : Except String Cat :=
   match name with
   | "TR" => .ok (.tr state label)
   | "ST" => .ok (.st state label)
+  | "PO" => .ok (.po state label)
+  | "PX" => .ok (.px state label)
   | "NU" => .ok (.nu state label)
   | _ => .error s!"unknown two-argument category atom '{name}'"
 
@@ -243,11 +270,12 @@ private def readAtom : Nat → List Char → Except String (Cat × List Char)
       | _ => do
           let (name, rest) := takeName input
           if name == "S" then return (.s, rest)
+          if name == "CJ" then return (.cj, rest)
           if name == "NP" || name == "CN" || name == "PR" then
             let rest ← expect '[' rest
             let (ty, rest) ← readTy rest
             return (← unaryAtom name ty, ← expect ']' rest)
-          if name == "TR" || name == "ST" || name == "NU" then
+          if name == "TR" || name == "ST" || name == "PO" || name == "PX" || name == "NU" then
             let rest ← expect '[' rest
             let (state, rest) ← readTy rest
             let rest ← expect ',' rest
