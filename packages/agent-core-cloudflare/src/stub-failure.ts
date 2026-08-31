@@ -5,6 +5,9 @@ import {
 } from "./error.js";
 import { isPlatformObject } from "./platform-value.js";
 
+const RETRYABLE_PROPERTY = "retryable";
+const OVERLOADED_PROPERTY = "overloaded";
+
 /**
  * Cloudflare marks an exception raised by Durable Objects' own infrastructure with
  * `.retryable` when a retry may succeed, and with `.overloaded` when the object already
@@ -14,12 +17,6 @@ import { isPlatformObject } from "./platform-value.js";
  * The two readings differ in what they permit: a retryable failure is retried with
  * backoff, and retrying an overloaded one worsens the overload it reports.
  */
-
-/** A thrown platform value as it arrives, before its disposition is established. */
-interface PlatformDispositionCandidate {
-    readonly retryable?: unknown;
-    readonly overloaded?: unknown;
-}
 
 /** Why one call into another object failed, in the terms the platform documents. */
 export abstract class CloudflareStubFailure {
@@ -46,9 +43,10 @@ export abstract class CloudflareStubFailure {
     public static classify(cause: CloudflareCapturedCause): CloudflareStubFailure {
         const thrown = cause.value;
         if (!isPlatformObject(thrown)) return permanentFailure;
-        const disposition: PlatformDispositionCandidate = thrown;
-        if (disposition.overloaded === true) return overloadedFailure;
-        if (disposition.retryable === true) return retryableFailure;
+        // `in` proves the property exists before it is read, so the disposition is narrowed
+        // at the boundary rather than declared as an unverified field.
+        if (OVERLOADED_PROPERTY in thrown && thrown.overloaded === true) return overloadedFailure;
+        if (RETRYABLE_PROPERTY in thrown && thrown.retryable === true) return retryableFailure;
         return permanentFailure;
     }
 
@@ -124,6 +122,28 @@ export interface CloudflareStubCallOptions<Stub> {
 }
 
 /**
+ * Proves a retry policy bounds something before any attempt runs. A policy is construction
+ * shape rather than an operational condition, so it refuses with TypeError, and it refuses
+ * here in one named place so no caller re-states the rule.
+ */
+export function requireStubRetryPolicy(
+    policy: CloudflareStubRetryPolicy
+): CloudflareStubRetryPolicy {
+    if (!Number.isSafeInteger(policy.attempts) || policy.attempts < 1) {
+        throw new TypeError("Durable Object stub retry policy must permit at least one attempt");
+    }
+    if (
+        !Number.isSafeInteger(policy.baseDelayMilliseconds) ||
+        policy.baseDelayMilliseconds < 0 ||
+        !Number.isSafeInteger(policy.maximumDelayMilliseconds) ||
+        policy.maximumDelayMilliseconds < policy.baseDelayMilliseconds
+    ) {
+        throw new TypeError("Durable Object stub retry delays must be an ordered safe range");
+    }
+    return policy;
+}
+
+/**
  * Runs one call that may be delivered more than once, against a fresh stub per attempt.
  * The call itself carries the idempotency key that makes redelivery safe; this seam owns
  * only the platform's own disposition rules, so a caller never encodes them twice.
@@ -132,20 +152,11 @@ export async function throughFreshStub<Stub, Result>(
     options: CloudflareStubCallOptions<Stub>,
     call: (stub: Stub) => Promise<Result>
 ): Promise<Result> {
-    const { attempts, baseDelayMilliseconds, maximumDelayMilliseconds } = options.policy;
-    if (!Number.isSafeInteger(attempts) || attempts < 1) {
-        throw new TypeError("Durable Object stub retry policy must permit at least one attempt");
-    }
-    if (
-        !Number.isSafeInteger(baseDelayMilliseconds) ||
-        baseDelayMilliseconds < 0 ||
-        !Number.isSafeInteger(maximumDelayMilliseconds) ||
-        maximumDelayMilliseconds < baseDelayMilliseconds
-    ) {
-        throw new TypeError("Durable Object stub retry delays must be an ordered safe range");
-    }
+    const { attempts, baseDelayMilliseconds, maximumDelayMilliseconds } = requireStubRetryPolicy(
+        options.policy
+    );
     let attempted = 0;
-    let lastCause: unknown;
+    let lastCause: CloudflareCapturedCause | undefined;
     let lastFailure: CloudflareStubFailure = CloudflareStubFailure.permanent;
     while (attempted < attempts) {
         // Minting is outside the try on purpose: a namespace lookup that fails is not a
@@ -155,8 +166,8 @@ export async function throughFreshStub<Stub, Result>(
         try {
             return await call(stub);
         } catch (cause) {
-            lastCause = cause;
-            lastFailure = CloudflareStubFailure.classify({ value: cause });
+            lastCause = { value: cause };
+            lastFailure = CloudflareStubFailure.classify(lastCause);
             attempted += 1;
             if (!lastFailure.retry || attempted >= attempts) break;
             await options.sleep(
@@ -171,6 +182,6 @@ export async function throughFreshStub<Stub, Result>(
         options.errors,
         "protocol.invalid-state",
         `Durable Object call failed after ${attempted} attempt(s): ${lastFailure.summary}`,
-        { value: lastCause }
+        lastCause
     );
 }

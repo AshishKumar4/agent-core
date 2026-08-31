@@ -30,7 +30,8 @@ import type { CloudflareErrorPort } from "./error.js";
 import { operationalFailure } from "./error.js";
 import type { SqliteApplicationMigration, SynchronousSqlitePort } from "./migration.js";
 import { isFiniteNumber, isText } from "./platform-value.js";
-import { requireStorableBlob } from "./sqlite.js";
+import { SQL_BLOB_LIMIT_BYTES, requireStorableBlob, type SqliteValue } from "./sqlite.js";
+import { R2_BUFFERED_OBJECT_LIMIT_BYTES } from "./content-object.js";
 
 const SNAPSHOT_FORMAT = "agent-core-environment-snapshot/1";
 const MAX_FILE_PATH_LENGTH = 1024;
@@ -56,6 +57,23 @@ const UPSERT_FILE = `INSERT INTO agent_core_environment_session_files (session_i
     VALUES (?, ?, ?)
     ON CONFLICT (session_id, path) DO UPDATE SET content = excluded.content`;
 const DELETE_FILES = "DELETE FROM agent_core_environment_session_files WHERE session_id = ?";
+const READ_CONTENT_TOTAL = `SELECT COALESCE(SUM(length(content)), 0) AS total
+    FROM agent_core_environment_session_files WHERE session_id = ?`;
+const READ_CONTENT_LENGTH = `SELECT length(content) AS length
+    FROM agent_core_environment_session_files WHERE session_id = ? AND path = ?`;
+
+/**
+ * How many raw session bytes one session may hold. A snapshot is one buffered content
+ * object, so the ceiling is R2_BUFFERED_OBJECT_LIMIT_BYTES; the snapshot encodes each file
+ * as base64, which is four bytes per three, and the canonical JSON adds keys and quoting on
+ * top. Deriving the raw budget from that same constant keeps the two from drifting: a
+ * session inside this budget always serializes inside the object bound, so a session can
+ * never become unsnapshottable by a write this provider accepted.
+ *
+ * Per-file writes were already bounded and file count was not, so the budget is what makes
+ * the refusal land on the write that would break the snapshot rather than on the snapshot.
+ */
+const SESSION_CONTENT_BUDGET_BYTES = Math.floor((R2_BUFFERED_OBJECT_LIMIT_BYTES / 4) * 3) - 65_536;
 const READ_SNAPSHOT = `SELECT environment_id, session_id, revision, generation, session_epoch, content_ref
     FROM agent_core_environment_snapshots WHERE snapshot_id = ?`;
 const INSERT_SNAPSHOT = `INSERT INTO agent_core_environment_snapshots
@@ -409,6 +427,7 @@ export class DurableObjectEnvironmentProvider extends EnvironmentProvider {
         }
         requireStorableBlob("Environment session file content", content, this.errors);
         this.requireOpenSession(request);
+        this.requireContentBudget(request.sessionId.value, path, content.byteLength);
         this.database.run(UPSERT_FILE, [request.sessionId.value, path, content.slice()]);
     }
 
@@ -516,6 +535,56 @@ export class DurableObjectEnvironmentProvider extends EnvironmentProvider {
         return `https://${token.slice(0, 32)}.${token.slice(32)}.${this.options.previewHost}/`;
     }
 
+    /**
+     * Refuses the write that would put this session past what one snapshot can carry. The
+     * total is summed from the files table rather than kept in a session row, because a
+     * stored counter would be a second durable copy of a fact the rows already hold and it
+     * could drift from them; this is derived and cannot.
+     */
+    private requireContentBudget(session: string, path: string, incoming: number): void {
+        const total = this.requireStoredLength(
+            this.database.all(READ_CONTENT_TOTAL, [session])[0]?.total,
+            "Environment session content total"
+        );
+        const rows = this.database.all(READ_CONTENT_LENGTH, [session, path]);
+        // An upsert replaces one path's content, so only the delta counts against the budget.
+        const replaced =
+            rows.length === 0
+                ? 0
+                : this.requireStoredLength(rows[0]?.length, "Environment session file length");
+        const projected = total - replaced + incoming;
+        if (projected > SESSION_CONTENT_BUDGET_BYTES) {
+            operationalFailure(
+                this.errors,
+                "operation.invalid-input",
+                `Environment session content of ${projected} bytes exceeds the ` +
+                    `${SESSION_CONTENT_BUDGET_BYTES}-byte snapshottable session budget`
+            );
+        }
+    }
+
+    private requireStoredLength(value: SqliteValue | undefined, subject: string): number {
+        if (!isFiniteNumber(value) || !Number.isSafeInteger(value) || value < 0) {
+            this.corrupt(`${subject} is not a nonnegative safe integer`);
+        }
+        return value;
+    }
+
+    /**
+     * The same rule `requireFilePath` enforces, as a predicate rather than a throw. The
+     * restore path needs the answer to decide a definitive outcome; the write path needs the
+     * refusal. One rule, two shapes, so the two cannot drift apart.
+     */
+    private isRestorableFilePath(path: string): boolean {
+        try {
+            this.requireFilePath(path);
+            return true;
+        } catch (error) {
+            if (error instanceof AgentCoreError) return false;
+            throw error;
+        }
+    }
+
     private serializeSessionFiles(session: string): Uint8Array {
         const entries: Array<readonly [string, string]> = [];
         for (const row of this.database.all(READ_FILES, [session])) {
@@ -553,15 +622,29 @@ export class DurableObjectEnvironmentProvider extends EnvironmentProvider {
         const encodedFiles = decoded.files;
         if (!isJsonRecord(encodedFiles)) return undefined;
         const files = new Map<string, Uint8Array>();
+        let budget = 0;
         for (const [path, encoded] of Object.entries(encodedFiles)) {
             if (!isText(encoded)) return undefined;
+            let content: Uint8Array;
             try {
-                files.set(path, decodeBase64(encoded));
+                content = decodeBase64(encoded);
             } catch {
                 // decodeBase64 rejects non-canonical RFC 4648 input; stored snapshot
                 // content that fails to decode is corrupt, not an operational error.
                 return undefined;
             }
+            // A restore names any object in the tenant's shared content store, so this path
+            // must hold every bound the write path holds. Without them an over-limit blob or
+            // an unaddressable path fails inside the open transaction as an opaque statement
+            // error reported as protocol.invalid-state, which reads as retriable and burns
+            // retries on input that can never succeed; and a path this provider's own read
+            // and write API cannot address would create a row nothing can reach. A violation
+            // is content this provider will not accept, which is a definitive failure.
+            if (!this.isRestorableFilePath(path)) return undefined;
+            if (content.byteLength > SQL_BLOB_LIMIT_BYTES) return undefined;
+            budget += content.byteLength;
+            if (budget > SESSION_CONTENT_BUDGET_BYTES) return undefined;
+            files.set(path, content);
         }
         return files;
     }

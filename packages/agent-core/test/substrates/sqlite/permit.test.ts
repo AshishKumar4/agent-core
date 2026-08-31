@@ -321,36 +321,55 @@ describe("SQLite authority permit store exact behavior", () => {
         ).toBe(permit.digest().value);
     });
 
-    test("recovery validates consumed rows against the exact owner", { tags: "p0" }, async () => {
-        const database = new TestSqlite();
-        const target = new SqliteAuthorityPermitStore(database, targetActor);
-        const { permit, authentication } = await admit("owner-nonce", target);
-        target.transaction((transaction) =>
-            target.consume(transaction, authentication, permit, permit.expectation, consumeAt)
-        );
-        expectExactFailure(
-            () =>
-                new SqliteAuthorityPermitStore(
-                    database,
-                    new ActorRef("run", new ActorId("other-target"))
-                ),
-            "codec.invalid",
-            corruptMessage
-        );
-        expectExactFailure(
-            () =>
-                new SqliteAuthorityPermitStore(
-                    database,
-                    new ActorRef("workspace", new ActorId(targetActor.id.value))
-                ),
-            "codec.invalid",
-            corruptMessage
-        );
-        expect(() => new SqliteAuthorityPermitStore(database, targetActor)).not.toThrow();
-    });
+    test(
+        "a consumed row is validated against the exact owner when it is read",
+        { tags: "p0" },
+        async () => {
+            const database = new TestSqlite();
+            const target = new SqliteAuthorityPermitStore(database, targetActor);
+            const { permit, authentication } = await admit("owner-nonce", target);
+            target.transaction((transaction) =>
+                target.consume(transaction, authentication, permit, permit.expectation, consumeAt)
+            );
+
+            // The contract moved, not the fixture: a row this Actor does not own is still refused
+            // with the same typed corruption, by the read that meets it rather than by a scan of
+            // every table on construction. Constructing a foreign-owner store is now cheap and
+            // says nothing; asking it for the row is what fails.
+            const foreignId = new SqliteAuthorityPermitStore(
+                database,
+                new ActorRef("run", new ActorId("other-target"))
+            );
+            expectExactFailure(
+                () =>
+                    foreignId.transaction((transaction) =>
+                        foreignId.consumed(transaction, "owner-nonce")
+                    ),
+                "codec.invalid",
+                corruptMessage
+            );
+            const foreignKind = new SqliteAuthorityPermitStore(
+                database,
+                new ActorRef("workspace", new ActorId(targetActor.id.value))
+            );
+            expectExactFailure(
+                () =>
+                    foreignKind.transaction((transaction) =>
+                        foreignKind.consumed(transaction, "owner-nonce")
+                    ),
+                "codec.invalid",
+                corruptMessage
+            );
+            expect(
+                new SqliteAuthorityPermitStore(database, targetActor).transaction((transaction) =>
+                    target.consumed(transaction, "owner-nonce")
+                )?.value
+            ).toBe(permit.digest().value);
+        }
+    );
 
     test(
-        "recovery rejects limbo states and resurrected consumed records",
+        "a limbo state and a resurrected consumed record are refused when read",
         { tags: "p0" },
         async () => {
             const database = new ProjectedSqlite();
@@ -359,21 +378,34 @@ describe("SQLite authority permit store exact behavior", () => {
             target.transaction((transaction) =>
                 target.consume(transaction, authentication, permit, permit.expectation, consumeAt)
             );
+
+            // Same two fixtures, same code: a state outside the closed set, and an issued
+            // record resurrected over a spent nonce. Both are now caught by the read that
+            // decodes the row.
             database.mapRows = (rows) => rows.map((value) => ({ ...value, state: "limbo" }));
             expectExactFailure(
-                () => new SqliteAuthorityPermitStore(database, targetActor),
+                () =>
+                    target.transaction((transaction) =>
+                        target.issued(transaction, "recovery-nonce")
+                    ),
                 "codec.invalid",
                 corruptMessage
             );
             database.mapRows = (rows) =>
                 rows.map((value) => ({ ...value, record: AuthorityPermit.encode(permit) }));
             expectExactFailure(
-                () => new SqliteAuthorityPermitStore(database, targetActor),
+                () =>
+                    target.transaction((transaction) =>
+                        target.requested(transaction, "recovery-nonce")
+                    ),
                 "codec.invalid",
                 corruptMessage
             );
             database.mapRows = (rows) => rows;
-            expect(() => new SqliteAuthorityPermitStore(database, targetActor)).not.toThrow();
+            expect(
+                target.transaction((transaction) => target.consumed(transaction, "recovery-nonce"))
+                    ?.value
+            ).toBe(permit.digest().value);
         }
     );
 
@@ -553,7 +585,8 @@ describe("SQLite authority permit store exact behavior", () => {
             "Authority permit nonce is bound to another target request"
         );
         expect(
-            store.transaction((transaction) => store.requested(transaction, "bound-request"))
+            store
+                .transaction((transaction) => store.requested(transaction, "bound-request"))
                 ?.digest().value
         ).toBe(request.digest().value);
     });
@@ -569,7 +602,7 @@ describe("SQLite authority permit store exact behavior", () => {
                     store.request(transaction, targetRequest("dropped-request"))
                 ),
             "authority.denied",
-            "Authority permit nonce was already used by this Actor owner"
+            "Authority permit target request could not be recorded atomically"
         );
     });
 
@@ -610,10 +643,7 @@ describe("SQLite authority permit store exact behavior", () => {
                     store.deny(
                         transaction,
                         deniedTargetRequest(
-                            targetRequestFor(
-                                expectation({ attemptOrdinal: 1 }),
-                                "undenied-request"
-                            )
+                            targetRequestFor(expectation({ attemptOrdinal: 1 }), "undenied-request")
                         )
                     )
                 ),
@@ -661,10 +691,7 @@ describe("SQLite authority permit store exact behavior", () => {
         expectExactFailure(
             () =>
                 target.transaction((transaction) =>
-                    target.deny(
-                        transaction,
-                        deniedTargetRequest(targetRequest("consumed-denial"))
-                    )
+                    target.deny(transaction, deniedTargetRequest(targetRequest("consumed-denial")))
                 ),
             "authority.denied",
             "Authority permit nonce was already consumed by this Actor owner"
@@ -752,7 +779,7 @@ describe("SQLite authority permit store exact behavior", () => {
         expectExactFailure(
             record,
             "authority.denied",
-            "Authority permit nonce was already used by this Actor owner"
+            "Authority permit nonce could not be issued atomically"
         );
     });
 
@@ -800,7 +827,7 @@ describe("SQLite authority permit store exact behavior", () => {
                     )
                 ),
             "authority.denied",
-            "Authority permit nonce was already used by this Actor owner"
+            "Authority permit nonce is already held by another Actor owner"
         );
         expect(
             target.transaction((transaction) => target.consumed(transaction, "occupied-nonce"))
@@ -936,20 +963,25 @@ describe("SQLite authority permit store exact behavior", () => {
         );
     });
 
-    test("recovery read failures keep their typed cause", { tags: "p2" }, () => {
+    test("read failures keep their typed cause", { tags: "p2" }, () => {
         const database = new ProjectedSqlite();
+        const store = new SqliteAuthorityPermitStore(database, targetActor);
 
+        // Construction performs no table read at all now, so a failing driver cannot make an
+        // Actor unconstructable — which is the whole point of the change. The typed cause is
+        // preserved exactly where the read happens.
         database.failAll = new AgentCoreError("actor.closed", "recovery read is closed");
+        expect(() => new SqliteAuthorityPermitStore(database, targetActor)).not.toThrow();
         expectExactFailure(
-            () => new SqliteAuthorityPermitStore(database, targetActor),
+            () => store.transaction((transaction) => store.requested(transaction, "any-nonce")),
             "actor.closed",
             "recovery read is closed"
         );
         database.failAll = new TypeError("recovery read failure");
         expectExactFailure(
-            () => new SqliteAuthorityPermitStore(database, targetActor),
+            () => store.transaction((transaction) => store.requested(transaction, "any-nonce")),
             "codec.invalid",
-            "Authority permit recovery read failed"
+            "Authority permit read failed"
         );
     });
 
@@ -986,32 +1018,39 @@ describe("SQLite authority permit store exact behavior", () => {
         ).toBe(permit.digest().value);
     });
 
-    test("recovery refuses a nonce that is both denied and consumed", { tags: "p0" }, async () => {
-        const database = new TestSqlite();
-        const target = new SqliteAuthorityPermitStore(database, targetActor);
-        const { permit, authentication } = await admit("limbo-nonce", target);
-        target.transaction((transaction) =>
-            target.consume(transaction, authentication, permit, permit.expectation, consumeAt)
-        );
-        const denial = deniedTargetRequest(targetRequest("limbo-nonce"));
-        database.run(
-            `INSERT INTO authority_permit_denials (nonce, owner_kind, owner_id, digest, denial)
+    test(
+        "a nonce that is both denied and consumed is refused when read",
+        { tags: "p0" },
+        async () => {
+            const database = new TestSqlite();
+            const target = new SqliteAuthorityPermitStore(database, targetActor);
+            const { permit, authentication } = await admit("limbo-nonce", target);
+            target.transaction((transaction) =>
+                target.consume(transaction, authentication, permit, permit.expectation, consumeAt)
+            );
+            const denial = deniedTargetRequest(targetRequest("limbo-nonce"));
+            database.run(
+                `INSERT INTO authority_permit_denials (nonce, owner_kind, owner_id, digest, denial)
              VALUES (?, ?, ?, ?, ?)`,
-            [
-                "limbo-nonce",
-                targetActor.kind,
-                targetActor.id.value,
-                denial.digest().value,
-                TargetAuthorityPermitDenial.encode(denial)
-            ]
-        );
+                [
+                    "limbo-nonce",
+                    targetActor.kind,
+                    targetActor.id.value,
+                    denial.digest().value,
+                    TargetAuthorityPermitDenial.encode(denial)
+                ]
+            );
 
-        expectExactFailure(
-            () => new SqliteAuthorityPermitStore(database, targetActor),
-            "codec.invalid",
-            corruptMessage
-        );
-    });
+            // A denial over a consumed nonce is a state neither write could have produced. The
+            // same fixture is refused with the same code by the denied read.
+            expectExactFailure(
+                () =>
+                    target.transaction((transaction) => target.denied(transaction, "limbo-nonce")),
+                "codec.invalid",
+                corruptMessage
+            );
+        }
+    );
 
     test("stored target requests must match their row exactly", { tags: "p2" }, () => {
         const database = new ProjectedSqlite();
@@ -1044,9 +1083,7 @@ describe("SQLite authority permit store exact behavior", () => {
             rows.map((row) => ("record" in row ? { ...row, record: null } : row));
         expectExactFailure(read, "codec.invalid", corruptMessage);
         database.mapRows = (rows) =>
-            rows.map((row) =>
-                "record" in row ? { ...row, record: Uint8Array.of(9, 9, 9) } : row
-            );
+            rows.map((row) => ("record" in row ? { ...row, record: Uint8Array.of(9, 9, 9) } : row));
         expectExactFailure(read, "codec.invalid", corruptMessage);
         database.mapRows = (rows) => rows;
         expect(read()?.digest().value).toBe(permit.digest().value);
@@ -1066,9 +1103,7 @@ describe("SQLite authority permit store exact behavior", () => {
             rows.map((row) => ("permit" in row ? { ...row, permit: null } : row));
         expectExactFailure(read, "codec.invalid", corruptMessage);
         database.mapRows = (rows) =>
-            rows.map((row) =>
-                "permit" in row ? { ...row, permit: Uint8Array.of(9, 9, 9) } : row
-            );
+            rows.map((row) => ("permit" in row ? { ...row, permit: Uint8Array.of(9, 9, 9) } : row));
         expectExactFailure(read, "codec.invalid", corruptMessage);
         database.mapRows = (rows) =>
             rows.map((row) => ("permit" in row ? { ...row, digest: "0".repeat(64) } : row));
@@ -1093,9 +1128,7 @@ describe("SQLite authority permit store exact behavior", () => {
             rows.map((row) => ("denial" in row ? { ...row, denial: null } : row));
         expectExactFailure(read, "codec.invalid", corruptMessage);
         database.mapRows = (rows) =>
-            rows.map((row) =>
-                "denial" in row ? { ...row, denial: Uint8Array.of(9, 9, 9) } : row
-            );
+            rows.map((row) => ("denial" in row ? { ...row, denial: Uint8Array.of(9, 9, 9) } : row));
         expectExactFailure(read, "codec.invalid", corruptMessage);
         database.mapRows = (rows) =>
             rows.map((row) => ("denial" in row ? { ...row, digest: "0".repeat(64) } : row));
@@ -1135,7 +1168,8 @@ describe("SQLite authority permit store exact behavior", () => {
                 ?.epoch
         ).toBe(1);
         expectExactFailure(
-            () => store.bindActor(new ActorRef("tenant", new ActorId("sqlite-permit-other-tenant"))),
+            () =>
+                store.bindActor(new ActorRef("tenant", new ActorId("sqlite-permit-other-tenant"))),
             "protocol.invalid-state",
             "SQLite ActorStore is bound to a different Actor"
         );
@@ -1147,9 +1181,7 @@ describe("SQLite authority permit store exact behavior", () => {
 
         const view = store.transaction((transaction) => store.authority(transaction));
         expect(view.tenantId.value).toBe(tenant.value);
-        expect(view.principal(principal.principalId)?.id.value).toBe(
-            principal.principalId.value
-        );
+        expect(view.principal(principal.principalId)?.id.value).toBe(principal.principalId.value);
         expectExactTypeError(
             () => store.authority(new TestSqlite()),
             "Tenant authority transaction belongs to another SQLite owner"
@@ -1180,6 +1212,294 @@ describe("SQLite authority permit store exact behavior", () => {
         });
         expect(states).toEqual(["issued"]);
     });
+    test("prune keeps a requested row until its expiry passes the horizon", { tags: "p0" }, () => {
+        const database = new TestSqlite();
+        const target = new SqliteAuthorityPermitStore(database, targetActor);
+        const request = targetRequest("pending-nonce");
+        target.transaction((transaction) => target.request(transaction, request));
+
+        // Before its expiry the request is live and a retry may still need it.
+        const kept = target.transaction((transaction) =>
+            target.prune(transaction, new Date(request.expiresAt.getTime()), 64, "")
+        );
+        expect(kept.removed).toBe(0);
+        expect(
+            target
+                .transaction((transaction) => target.requested(transaction, "pending-nonce"))
+                ?.digest().value
+        ).toBe(request.digest().value);
+
+        // Past it the row buys nothing: issuance refuses an expired request, so retaining it
+        // only grows the table. Time is what settles a permit, not the consumption ledger.
+        const swept = target.transaction((transaction) =>
+            target.prune(transaction, new Date(request.expiresAt.getTime() + 1), 64, "")
+        );
+        expect(swept.removed).toBe(1);
+        expect(
+            target.transaction((transaction) => target.requested(transaction, "pending-nonce"))
+        ).toBeUndefined();
+    });
+
+    test("prune keeps an unsettled issued row until its expiry passes", { tags: "p0" }, () => {
+        const database = new TestSqlite();
+        const store = new SqliteAuthorityPermitStore(database, issuerActor);
+        const permit = store.transaction((transaction) =>
+            store.issue(transaction, issuedPermit("unsettled-nonce"))
+        );
+
+        // While it is live the decision stands even though the target has not acted on it.
+        const kept = store.transaction((transaction) =>
+            store.prune(transaction, new Date(permit.expiresAt.getTime()), 64, "")
+        );
+        expect(kept.removed).toBe(0);
+        expect(
+            store
+                .transaction((transaction) => store.issued(transaction, "unsettled-nonce"))
+                ?.digest().value
+        ).toBe(permit.digest().value);
+
+        // Once expired it can admit nothing, so an issuance the target never came back for
+        // stops being a permanent resident.
+        const swept = store.transaction((transaction) =>
+            store.prune(transaction, new Date(permit.expiresAt.getTime() + 1), 64, "")
+        );
+        expect(swept.removed).toBe(1);
+        expect(
+            store.transaction((transaction) => store.issued(transaction, "unsettled-nonce"))
+        ).toBeUndefined();
+    });
+
+    test(
+        "prune removes a settled row only once its permit expired before the horizon",
+        { tags: "p0" },
+        async () => {
+            const database = new TestSqlite();
+            const target = new SqliteAuthorityPermitStore(database, targetActor);
+            const { permit, authentication } = await admit("settled-nonce", target);
+            target.transaction((transaction) =>
+                target.consume(transaction, authentication, permit, permit.expectation, consumeAt)
+            );
+            const expiresAt = permit.expiresAt.getTime();
+
+            // A horizon at the expiry is not past it: the row survives.
+            expect(
+                target.transaction((transaction) =>
+                    target.prune(transaction, new Date(expiresAt), 64, "")
+                ).removed
+            ).toBe(0);
+            expect(
+                target.transaction((transaction) => target.consumed(transaction, "settled-nonce"))
+                    ?.value
+            ).toBe(permit.digest().value);
+
+            // One millisecond past it is, and both the nonce and its consumption go.
+            expect(
+                target.transaction((transaction) =>
+                    target.prune(transaction, new Date(expiresAt + 1), 64, "")
+                ).removed
+            ).toBe(1);
+            expect(
+                target.transaction((transaction) => target.consumed(transaction, "settled-nonce"))
+            ).toBeUndefined();
+            expect(
+                target.transaction((transaction) => target.issued(transaction, "settled-nonce"))
+            ).toBeUndefined();
+
+            // Pruning again removes nothing: the sweep is idempotent over a drained page.
+            expect(
+                target.transaction((transaction) =>
+                    target.prune(transaction, new Date(expiresAt + 1), 64, "")
+                ).removed
+            ).toBe(0);
+        }
+    );
+
+    test(
+        "prune reads a bounded page and leaves the rest for a later sweep",
+        { tags: "p0" },
+        async () => {
+            const database = new TestSqlite();
+            const target = new SqliteAuthorityPermitStore(database, targetActor);
+            const nonces = ["page-a", "page-b", "page-c"];
+            let expiresAt = 0;
+            for (const nonce of nonces) {
+                const { permit, authentication } = await admit(nonce, target);
+                target.transaction((transaction) =>
+                    target.consume(
+                        transaction,
+                        authentication,
+                        permit,
+                        permit.expectation,
+                        consumeAt
+                    )
+                );
+                expiresAt = Math.max(expiresAt, permit.expiresAt.getTime());
+            }
+            const horizon = new Date(expiresAt + 1);
+
+            // The bound is on candidate rows read, so a page of one removes at most one and the
+            // sweep cannot become the unbounded scan it replaced.
+            expect(
+                target.transaction((transaction) => target.prune(transaction, horizon, 1, ""))
+                    .removed
+            ).toBe(1);
+            const surviving = nonces.filter(
+                (nonce) =>
+                    target.transaction((transaction) => target.consumed(transaction, nonce)) !==
+                    undefined
+            );
+            expect(surviving).toHaveLength(2);
+
+            // Candidates are read in nonce order, so the page is deterministic rather than
+            // whatever the driver happened to return.
+            expect(surviving).toEqual(["page-b", "page-c"]);
+
+            expect(
+                target.transaction((transaction) => target.prune(transaction, horizon, 64, ""))
+                    .removed
+            ).toBe(2);
+            for (const nonce of nonces) {
+                expect(
+                    target.transaction((transaction) => target.consumed(transaction, nonce))
+                ).toBeUndefined();
+            }
+        }
+    );
+
+    test("prune refuses a limit that bounds nothing and an invalid horizon", { tags: "p1" }, () => {
+        const target = new SqliteAuthorityPermitStore(new TestSqlite(), targetActor);
+
+        for (const limit of [0, -1, 1.5, Number.NaN]) {
+            expect(() =>
+                target.transaction((transaction) => target.prune(transaction, consumeAt, limit, ""))
+            ).toThrow(TypeError);
+        }
+        expect(() =>
+            target.transaction((transaction) =>
+                target.prune(transaction, new Date(Number.NaN), 64, "")
+            )
+        ).toThrow(TypeError);
+    });
+
+    test("prune requires the active Actor transaction", { tags: "p1" }, () => {
+        const database = new TestSqlite();
+        const target = new SqliteAuthorityPermitStore(database, targetActor);
+
+        // The same scope rule every other write obeys: a prune outside the Actor's span, or
+        // on a transaction captured from a closed one, is refused.
+        expect(() => target.prune(database, consumeAt, 64, "")).toThrow();
+        let captured: (() => void) | undefined;
+        target.transaction((transaction) => {
+            captured = () => {
+                target.prune(transaction, consumeAt, 64, "");
+            };
+        });
+        if (captured === undefined) throw new TypeError("Expected a captured SQLite transaction");
+        expect(captured).toThrow();
+    });
+    test(
+        "a run of unprunable rows at the head of the ordering never jams the page",
+        { tags: "p0" },
+        async () => {
+            const database = new TestSqlite();
+            const target = new SqliteAuthorityPermitStore(database, targetActor);
+            const limit = 2;
+
+            // Four rows that sort FIRST and are too young to prune. Under a fixed
+            // `ORDER BY nonce LIMIT 2` window these occupy every page forever and nothing
+            // after them is ever reached, which is the jam the keyset cursor exists to break.
+            // Their expiry sits far past the horizon below, so they are unprunable for the
+            // reason the test needs: still live, not merely unsettled. Time settles a permit
+            // now, so a resident that shared the settled rows' expiry would be swept with
+            // them and the test would prove nothing about paging.
+            const resident = ["aaa-1", "aaa-2", "aaa-3", "aaa-4"];
+            for (const nonce of resident) {
+                target.transaction((transaction) =>
+                    target.request(
+                        transaction,
+                        targetRequestFor(
+                            expectation(),
+                            nonce,
+                            new GrantId("sqlite-permit-grant"),
+                            new Date(expiresAt.getTime() + 1_000_000)
+                        )
+                    )
+                );
+            }
+            // Two settled, expired rows behind them.
+            let settledExpiry = 0;
+            for (const nonce of ["zzz-1", "zzz-2"]) {
+                const { permit, authentication } = await admit(nonce, target);
+                target.transaction((transaction) =>
+                    target.consume(
+                        transaction,
+                        authentication,
+                        permit,
+                        permit.expectation,
+                        consumeAt
+                    )
+                );
+                settledExpiry = Math.max(settledExpiry, permit.expiresAt.getTime());
+            }
+            // A horizon past the settled rows but before the residents' own expiry, so the
+            // residents stay and only the tail is prunable.
+            const horizon = new Date(settledExpiry + 1);
+
+            let cursor = "";
+            let removed = 0;
+            let pages = 0;
+            for (;;) {
+                const page = target.transaction((transaction) =>
+                    target.prune(transaction, horizon, limit, cursor)
+                );
+                removed += page.removed;
+                pages += 1;
+                // The cursor must advance past examined rows even when nothing was pruned.
+                expect(page.cursor > cursor || !page.more).toBe(true);
+                cursor = page.cursor;
+                if (!page.more) break;
+                if (pages > 8) throw new TypeError("Prune paging did not terminate");
+            }
+
+            // The tail was reached and swept despite four unprunable rows sorting ahead of it.
+            expect(removed).toBe(2);
+            expect(pages).toBeGreaterThan(1);
+            for (const nonce of ["zzz-1", "zzz-2"]) {
+                expect(
+                    target.transaction((transaction) => target.consumed(transaction, nonce))
+                ).toBeUndefined();
+            }
+            for (const nonce of resident) {
+                expect(
+                    target.transaction((transaction) => target.requested(transaction, nonce))
+                ).toBeDefined();
+            }
+        }
+    );
+
+    test("prune reports a full page as more and a short page as the end", { tags: "p0" }, () => {
+        const database = new TestSqlite();
+        const target = new SqliteAuthorityPermitStore(database, targetActor);
+        for (const nonce of ["p-1", "p-2", "p-3"]) {
+            target.transaction((transaction) => target.request(transaction, targetRequest(nonce)));
+        }
+
+        // `more` follows how far the page read, never how much it removed. Every row here is
+        // too young to prune, so a sweep keyed on `removed` would stop on the first page and
+        // never reach the rest.
+        const first = target.transaction((transaction) =>
+            target.prune(transaction, new Date(1), 2, "")
+        );
+        expect(first.removed).toBe(0);
+        expect(first.examined).toBe(2);
+        expect(first.more).toBe(true);
+
+        const second = target.transaction((transaction) =>
+            target.prune(transaction, new Date(1), 2, first.cursor)
+        );
+        expect(second.examined).toBe(1);
+        expect(second.more).toBe(false);
+    });
 });
 
 class ProjectedSqlite extends TestSqlite {
@@ -1189,7 +1509,10 @@ class ProjectedSqlite extends TestSqlite {
     public failRun: unknown;
     public mapRows: (rows: readonly SqliteRow[]) => readonly SqliteRow[] = (rows) => rows;
 
-    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+    protected override query(
+        statement: string,
+        bindings: readonly SqliteValue[]
+    ): readonly SqliteRow[] {
         if (this.failAll !== undefined) throw this.failAll;
         return this.mapRows(this.#database.all(statement, bindings));
     }
@@ -1315,7 +1638,8 @@ function targetRequest(nonce: string): TargetAuthorityPermitRequest {
 function targetRequestFor(
     expected: AuthorityPermitExpectation,
     nonce: string,
-    grant = new GrantId("sqlite-permit-grant")
+    grant = new GrantId("sqlite-permit-grant"),
+    expiry = expiresAt
 ): TargetAuthorityPermitRequest {
     const binding = new Binding(
         expected.pathEpochs.target.scope,
@@ -1350,7 +1674,7 @@ function targetRequestFor(
             nonce
         }),
         nonce,
-        expiresAt
+        expiry
     );
 }
 
@@ -1378,9 +1702,7 @@ function deniedTargetRequest(
 
 function tenantPermitStore(database: TransactionalSqlite): SqliteTenantAuthorityPermitStore {
     const control = createSqliteTenantControlStore(database, tenantAnchor);
-    database.transaction(() =>
-        control.bootstrapTenant(database, tenantAnchor, Revision.initial())
-    );
+    database.transaction(() => control.bootstrapTenant(database, tenantAnchor, Revision.initial()));
     return new SqliteTenantAuthorityPermitStore(database, issuerActor);
 }
 

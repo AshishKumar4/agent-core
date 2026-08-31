@@ -8,7 +8,7 @@ import type { SqliteValue } from "./sqlite.js";
 const READ_CLAIM = "SELECT due_at FROM agent_core_alarm_claims WHERE owner = ?";
 const WRITE_CLAIM = `INSERT INTO agent_core_alarm_claims (owner, due_at) VALUES (?, ?)
      ON CONFLICT (owner) DO UPDATE SET due_at = excluded.due_at`;
-const DELETE_CLAIM = "DELETE FROM agent_core_alarm_claims WHERE owner = ?";
+const DELETE_CLAIM_AT = "DELETE FROM agent_core_alarm_claims WHERE owner = ? AND due_at = ?";
 const READ_EARLIEST = "SELECT MIN(due_at) AS due_at FROM agent_core_alarm_claims";
 
 /**
@@ -39,8 +39,18 @@ export class DurableAlarmClaims {
         this.database.run(WRITE_CLAIM, [owner, dueAt]);
     }
 
-    public release(owner: string): void {
-        this.database.run(DELETE_CLAIM, [owner]);
+    /**
+     * Releases this owner's claim only while it still holds the due time the caller
+     * observed. A release is decided from a read that happened before an await, and the
+     * same owner can claim again in that gap — a sweep-end drain racing a request's arm —
+     * so an unfenced delete can remove a wakeup that was registered after the release was
+     * already justified. Fencing on the observed time turns that race into a no-op.
+     */
+    public release(owner: string, dueAt: number | null): void {
+        // Nothing observed means nothing this caller may release: another task's claim is
+        // not this release's to remove.
+        if (dueAt === null) return;
+        this.database.run(DELETE_CLAIM_AT, [owner, dueAt]);
     }
 
     public earliest(): number | null {
@@ -93,7 +103,10 @@ class ClaimedAlarmStorage implements AlarmStorageLike {
     }
 
     public async deleteAlarm(): Promise<void> {
-        this.claims.release(this.name);
+        // Fence the release on the claim this caller can still see. A drain is decided from
+        // a read taken before an await, and the same owner can claim again in that gap, so
+        // an unfenced delete removes a wakeup registered after the drain was justified.
+        this.claims.release(this.name, this.claims.claimed(this.name));
         await this.synchronize();
     }
 

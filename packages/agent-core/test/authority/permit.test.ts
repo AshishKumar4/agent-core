@@ -382,30 +382,34 @@ function permitStoreContract<Transaction>(
             }
         );
 
-        test("replays an exact issuance after response loss and restart", { tags: "p0" }, async () => {
-            const harness = create();
-            const authority = new CurrentAuthority<Transaction>();
-            const expected = expectation();
-            const nonce = `${name}-response-loss`;
-            const first = harness.tenantStore.transaction((transaction) =>
-                new AuthorityPermitIssuer(harness.tenantStore, authority).issue(
-                    transaction,
-                    targetRequestFor(expected, nonce),
-                    issuedAt
-                )
-            );
+        test(
+            "replays an exact issuance after response loss and restart",
+            { tags: "p0" },
+            async () => {
+                const harness = create();
+                const authority = new CurrentAuthority<Transaction>();
+                const expected = expectation();
+                const nonce = `${name}-response-loss`;
+                const first = harness.tenantStore.transaction((transaction) =>
+                    new AuthorityPermitIssuer(harness.tenantStore, authority).issue(
+                        transaction,
+                        targetRequestFor(expected, nonce),
+                        issuedAt
+                    )
+                );
 
-            const restarted = harness.restartTenant();
-            const replay = restarted.transaction((transaction) =>
-                new AuthorityPermitIssuer(restarted, authority).issue(
-                    transaction,
-                    targetRequestFor(expected, nonce),
-                    new Date(issuedAt.getTime() + 1_000)
-                )
-            );
+                const restarted = harness.restartTenant();
+                const replay = restarted.transaction((transaction) =>
+                    new AuthorityPermitIssuer(restarted, authority).issue(
+                        transaction,
+                        targetRequestFor(expected, nonce),
+                        new Date(issuedAt.getTime() + 1_000)
+                    )
+                );
 
-            expect(AuthorityPermit.encode(replay)).toEqual(AuthorityPermit.encode(first));
-        });
+                expect(AuthorityPermit.encode(replay)).toEqual(AuthorityPermit.encode(first));
+            }
+        );
 
         test(
             "concurrent deterministic issuance converges on one exact permit",
@@ -655,29 +659,33 @@ function permitStoreContract<Transaction>(
             ).toThrow();
         });
 
-        test("rolls target denial evidence back with its owner transaction", { tags: "p0" }, async () => {
-            const harness = create();
-            const request = targetRequest(`${name}-denial-rollback`);
-            const authority = new CurrentAuthority<Transaction>();
-            authority.live = false;
-            const denial = new TargetAuthorityPermitDenial(
-                request,
-                authority.evidence(undefined, request, issuedAt)
-            );
+        test(
+            "rolls target denial evidence back with its owner transaction",
+            { tags: "p0" },
+            async () => {
+                const harness = create();
+                const request = targetRequest(`${name}-denial-rollback`);
+                const authority = new CurrentAuthority<Transaction>();
+                authority.live = false;
+                const denial = new TargetAuthorityPermitDenial(
+                    request,
+                    authority.evidence(undefined, request, issuedAt)
+                );
 
-            expect(() =>
-                harness.targetStore.transaction((transaction) => {
-                    harness.targetStore.request(transaction, request);
-                    harness.targetStore.deny(transaction, denial);
-                    throw new AgentCoreError("protocol.invalid-state", "abort target denial");
-                })
-            ).toThrow(/abort target denial/);
-            expect(
-                harness.targetStore.transaction((transaction) =>
-                    harness.targetStore.denied(transaction, request.nonce)
-                )
-            ).toBeUndefined();
-        });
+                expect(() =>
+                    harness.targetStore.transaction((transaction) => {
+                        harness.targetStore.request(transaction, request);
+                        harness.targetStore.deny(transaction, denial);
+                        throw new AgentCoreError("protocol.invalid-state", "abort target denial");
+                    })
+                ).toThrow(/abort target denial/);
+                expect(
+                    harness.targetStore.transaction((transaction) =>
+                        harness.targetStore.denied(transaction, request.nonce)
+                    )
+                ).toBeUndefined();
+            }
+        );
 
         test(
             "closes captured transactions and rolls nested transactions back",
@@ -769,88 +777,79 @@ test("memory permit transactions do not expose mutable scope state", { tags: "p0
     });
 });
 
-test(
-    "Tenant issuance requires the exact projected source lease evidence",
-    { tags: "p0" },
-    () => {
-        const store = new MemoryAuthorityPermitStore(issuerActor);
-        const expected = expectation();
-        const nonce = "projected-source-evidence";
-        const authority = targetRequestFor(expected, nonce).authority;
-        const sourceKey = new TargetLeaseEvidenceKey(expected.source, nonce);
-        const sourceEvidence = new TargetLeaseEvidence({
-            key: sourceKey,
-            tenant: expected.tenant,
-            run: expected.reservation.run,
-            lease: expected.lease!,
-            target: expected.target,
-            requestIdentity: TargetAuthorityPermitRequest.identityFor(
-                expected,
-                authority,
-                nonce,
-                expiresAt
-            ),
-            deadline: expiresAt,
-            watermark: InvalidationWatermark.empty(
-                expected.tenant,
-                expected.source,
-                expected.lease!.holder
-            )
-        });
-        const request = new TargetAuthorityPermitRequest(
+test("Tenant issuance requires the exact projected source lease evidence", { tags: "p0" }, () => {
+    const store = new MemoryAuthorityPermitStore(issuerActor);
+    const expected = expectation();
+    const nonce = "projected-source-evidence";
+    const authority = targetRequestFor(expected, nonce).authority;
+    const sourceKey = new TargetLeaseEvidenceKey(expected.source, nonce);
+    const sourceEvidence = new TargetLeaseEvidence({
+        key: sourceKey,
+        tenant: expected.tenant,
+        run: expected.reservation.run,
+        lease: expected.lease!,
+        target: expected.target,
+        requestIdentity: TargetAuthorityPermitRequest.identityFor(
             expected,
             authority,
             nonce,
-            expiresAt,
-            sourceEvidence.reference()
-        );
-        const decision = new CurrentAuthority<MemoryAuthorityPermitTransaction>().evidence(
-            undefined,
+            expiresAt
+        ),
+        deadline: expiresAt,
+        watermark: InvalidationWatermark.empty(
+            expected.tenant,
+            expected.source,
+            expected.lease!.holder
+        )
+    });
+    const request = new TargetAuthorityPermitRequest(
+        expected,
+        authority,
+        nonce,
+        expiresAt,
+        sourceEvidence.reference()
+    );
+    const decision = new CurrentAuthority<MemoryAuthorityPermitTransaction>().evidence(
+        undefined,
+        request,
+        issuedAt
+    );
+
+    expect(() =>
+        store.transaction((transaction) =>
+            new TenantAuthorityPermitIssuer(store).issue(transaction, request, decision, issuedAt)
+        )
+    ).toThrow(/source lease evidence/);
+    const issued = store.transaction((transaction) => {
+        store.projectEvidence(transaction, sourceEvidence);
+        return new TenantAuthorityPermitIssuer(store).issue(
+            transaction,
             request,
+            decision,
             issuedAt
         );
-
-        expect(() =>
-            store.transaction((transaction) =>
-                new TenantAuthorityPermitIssuer(store).issue(
-                    transaction,
-                    request,
-                    decision,
-                    issuedAt
-                )
-            )
-        ).toThrow(/source lease evidence/);
-        const issued = store.transaction((transaction) => {
-            store.projectEvidence(transaction, sourceEvidence);
-            return new TenantAuthorityPermitIssuer(store).issue(
+    });
+    expect(issued.requestDigest.equals(request.digest())).toBe(true);
+    expect(() =>
+        store.transaction((transaction) =>
+            store.projectEvidence(
                 transaction,
-                request,
-                decision,
-                issuedAt
-            );
-        });
-        expect(issued.requestDigest.equals(request.digest())).toBe(true);
-        expect(() =>
-            store.transaction((transaction) =>
-                store.projectEvidence(
-                    transaction,
-                    new TargetLeaseEvidence({
-                        key: sourceEvidence.key,
-                        tenant: sourceEvidence.tenant,
-                        run: sourceEvidence.run,
-                        lease: sourceEvidence.lease,
-                        target: sourceEvidence.target,
-                        requestIdentity: Digest.sha256(
-                            new TextEncoder().encode("substituted-projected-evidence")
-                        ),
-                        deadline: sourceEvidence.deadline,
-                        watermark: sourceEvidence.watermark
-                    })
-                )
+                new TargetLeaseEvidence({
+                    key: sourceEvidence.key,
+                    tenant: sourceEvidence.tenant,
+                    run: sourceEvidence.run,
+                    lease: sourceEvidence.lease,
+                    target: sourceEvidence.target,
+                    requestIdentity: Digest.sha256(
+                        new TextEncoder().encode("substituted-projected-evidence")
+                    ),
+                    deadline: sourceEvidence.deadline,
+                    watermark: sourceEvidence.watermark
+                })
             )
-        ).toThrow(/bound to another attestation/);
-    }
-);
+        )
+    ).toThrow(/bound to another attestation/);
+});
 
 interface SourceEvidenceContext<Transaction> {
     readonly storage: RunStoragePort<Transaction>;
@@ -1002,7 +1001,8 @@ function seededTurnIn<Transaction>(
 
 function sourceEvidenceContract<Transaction extends object>(
     name: string,
-    createContext: () => SourceEvidenceContext<Transaction> | Promise<SourceEvidenceContext<Transaction>>
+    createContext: () =>
+        SourceEvidenceContext<Transaction> | Promise<SourceEvidenceContext<Transaction>>
 ): void {
     describe(`source lease evidence issuer (${name})`, () => {
         // A real RunRuntime claim opens the unclaimed Turn at epoch 1; every request
@@ -1017,9 +1017,15 @@ function sourceEvidenceContract<Transaction extends object>(
         });
         const nonce = `source-issuer-${name}`;
         const provisionalExpiry = new Date(issuedAt.getTime() + 10_000);
-        let request: TargetAuthorityPermitRequest = targetRequestFor(expected, nonce, provisionalExpiry);
+        let request: TargetAuthorityPermitRequest = targetRequestFor(
+            expected,
+            nonce,
+            provisionalExpiry
+        );
 
-        function prepare(context: SourceEvidenceContext<Transaction>): TargetLeaseEvidenceIssuer<Transaction> {
+        function prepare(
+            context: SourceEvidenceContext<Transaction>
+        ): TargetLeaseEvidenceIssuer<Transaction> {
             context.intents.set(evidenceRuns.run.value, expected.intentDigest);
             seedDelegatedTurn(context, nonce, issuedAt, expiresAt);
             const storedTurn = seededTurn(context);
@@ -1035,257 +1041,299 @@ function sourceEvidenceContract<Transaction extends object>(
             return new TargetLeaseEvidenceIssuer(context.store, context.store.source);
         }
 
-        test("[target-lease-evidence-source] records the original current lease deadline and invocation lineage", { tags: "p0" }, async () => {
-            const context = await createContext();
-            const issuer = prepare(context);
-            const attested = context.store.transaction((transaction) =>
-                issuer.attest(transaction, request, issuedAt)
-            );
+        test(
+            "[target-lease-evidence-source] records the original current lease deadline and invocation lineage",
+            { tags: "p0" },
+            async () => {
+                const context = await createContext();
+                const issuer = prepare(context);
+                const attested = context.store.transaction((transaction) =>
+                    issuer.attest(transaction, request, issuedAt)
+                );
 
-            expect(attested?.deadline).toEqual(expiresAt);
-            expect(attested?.requestIdentity.equals(
-                TargetAuthorityPermitRequest.identityFor(
-                    expected,
-                    request.authority,
-                    nonce,
-                    expiresAt
-                )
-            )).toBe(true);
-        });
+                expect(attested?.deadline).toEqual(expiresAt);
+                expect(
+                    attested?.requestIdentity.equals(
+                        TargetAuthorityPermitRequest.identityFor(
+                            expected,
+                            request.authority,
+                            nonce,
+                            expiresAt
+                        )
+                    )
+                ).toBe(true);
+            }
+        );
 
-        test("replays the original attestation when a renewed lease retries a lost response", { tags: "p0" }, async () => {
-            const context = await createContext();
-            const issuer = prepare(context);
-            const original = context.store.transaction((transaction) =>
-                issuer.attest(transaction, request, issuedAt)
-            );
+        test(
+            "replays the original attestation when a renewed lease retries a lost response",
+            { tags: "p0" },
+            async () => {
+                const context = await createContext();
+                const issuer = prepare(context);
+                const original = context.store.transaction((transaction) =>
+                    issuer.attest(transaction, request, issuedAt)
+                );
 
-            // Renewal runs through the real RunRuntime inside the SAME transaction that
-            // re-attests: read-your-writes against the canonical lease, and the retry
-            // returns the committed record instead of regenerating a later deadline.
-            context.store.transaction((transaction) => {
-                const stored = seededTurnIn(context, transaction);
-                context.runtime.renewTurnInTransaction(
-                    transaction,
-                    stored.id,
-                    stored.revision,
-                    { turn: stored.id, holder: principal, epoch: stored.lease.epoch },
-                    issuedAt,
+                // Renewal runs through the real RunRuntime inside the SAME transaction that
+                // re-attests: read-your-writes against the canonical lease, and the retry
+                // returns the committed record instead of regenerating a later deadline.
+                context.store.transaction((transaction) => {
+                    const stored = seededTurnIn(context, transaction);
+                    context.runtime.renewTurnInTransaction(
+                        transaction,
+                        stored.id,
+                        stored.revision,
+                        { turn: stored.id, holder: principal, epoch: stored.lease.epoch },
+                        issuedAt,
+                        provisionalExpiry
+                    );
+                    const replayed = issuer.attest(transaction, request, issuedAt);
+                    expect(replayed?.digest().equals(original!.digest())).toBe(true);
+                    expect(replayed?.deadline).toEqual(expiresAt);
+                    return replayed;
+                });
+            }
+        );
+
+        test(
+            "refuses once the runtime reclaims the Turn or the watermark advances",
+            { tags: "p0" },
+            async () => {
+                const reclaimed = await createContext();
+                const reclaimedIssuer = prepare(reclaimed);
+                reclaimed.store.transaction((transaction) =>
+                    reclaimedIssuer.attest(transaction, request, issuedAt)
+                );
+                // A valid live lease from Run A with the request naming Run B refuses on
+                // the canonical run identity ALONE: Run B's ledger carries exactly the
+                // intent digest this request names, so only loaded.run !== request.run can
+                // refuse (a pre-fix store echoed the requested run and would pass).
+                const otherRunIntent = Digest.sha256(
+                    new TextEncoder().encode("shared-other-run-intent")
+                );
+                const wrongRun = targetRequestFor(
+                    expectation({
+                        lease: { ...seededTurn(reclaimed).lease, holder: principal },
+                        intentDigest: otherRunIntent,
+                        argumentsDigest: expected.argumentsDigest,
+                        reservation: {
+                            run: new RunId("evidence-other-run"),
+                            registryEpoch: 5,
+                            obligation: {
+                                kind: "invocationItem",
+                                invocation,
+                                itemIndex: 2,
+                                itemKey
+                            }
+                        }
+                    }),
+                    `${nonce}-wrong-run`,
                     provisionalExpiry
                 );
-                const replayed = issuer.attest(transaction, request, issuedAt);
-                expect(replayed?.digest().equals(original!.digest())).toBe(true);
-                expect(replayed?.deadline).toEqual(expiresAt);
-                return replayed;
-            });
-        });
+                reclaimed.intents.set("evidence-other-run", otherRunIntent);
+                expect(
+                    reclaimed.store.transaction((transaction) =>
+                        reclaimedIssuer.attest(transaction, wrongRun, issuedAt)
+                    )
+                ).toBeUndefined();
 
-        test("refuses once the runtime reclaims the Turn or the watermark advances", { tags: "p0" }, async () => {
-            const reclaimed = await createContext();
-            const reclaimedIssuer = prepare(reclaimed);
-            reclaimed.store.transaction((transaction) =>
-                reclaimedIssuer.attest(transaction, request, issuedAt)
-            );
-            // A valid live lease from Run A with the request naming Run B refuses on
-            // the canonical run identity ALONE: Run B's ledger carries exactly the
-            // intent digest this request names, so only loaded.run !== request.run can
-            // refuse (a pre-fix store echoed the requested run and would pass).
-            const otherRunIntent = Digest.sha256(
-                new TextEncoder().encode("shared-other-run-intent")
-            );
-            const wrongRun = targetRequestFor(
-                expectation({
-                    lease: { ...seededTurn(reclaimed).lease, holder: principal },
-                    intentDigest: otherRunIntent,
-                    argumentsDigest: expected.argumentsDigest,
-                    reservation: {
-                        run: new RunId("evidence-other-run"),
-                        registryEpoch: 5,
-                        obligation: {
-                            kind: "invocationItem",
-                            invocation,
-                            itemIndex: 2,
-                            itemKey
-                        }
-                    }
-                }),
-                `${nonce}-wrong-run`,
-                provisionalExpiry
-            );
-            reclaimed.intents.set("evidence-other-run", otherRunIntent);
-            expect(
-                reclaimed.store.transaction((transaction) =>
-                    reclaimedIssuer.attest(transaction, wrongRun, issuedAt)
-                )
-            ).toBeUndefined();
-
-            // Fence the still-active Turn through the canonical RunRuntime held
-            // cancellation transition BEFORE the original lease/evidence deadline.
-            // A pre-fix mirrored lease remains live and accepts the original token;
-            // the repaired store reads the now-cancelled repository Turn and refuses.
-            {
-                const active = seededTurn(reclaimed);
-                const branch = reclaimed.repository.transaction((tx) =>
-                    reclaimed.repository.loadBranch(tx, active.branch)
-                );
-                if (branch === undefined) throw new TypeError("Seeded Turn branch is missing");
-                const originalToken = {
-                    turn: active.id,
-                    holder: principal,
-                    epoch: active.lease.epoch
-                };
-                const cancellation = new TurnInboxEntry(
-                    new TurnInboxEntryId(`${nonce}-active-cancel-entry`),
-                    active.id,
-                    0,
-                    "turn.cancel",
-                    content("b"),
-                    content("b").digest,
-                    `${nonce}-active-cancel-key`,
-                    originalToken,
-                    new Date(issuedAt.getTime() + 1)
-                );
-                const result = new RunCommit({
-                    id: new RunCommitId(`${nonce}-active-cancel-result`),
-                    run: active.run,
-                    branch: active.branch,
-                    kind: "result",
-                    parents: [branch.head],
-                    pins: active.pins,
-                    writer: { kind: "turn", token: originalToken },
-                    subjectTurn: active.id,
-                    content: content("7")
-                });
-                const beforeDeadline = new Date(issuedAt.getTime() + 2);
-                reclaimed.runtime.cancelHeldTurn(
-                    {
+                // Fence the still-active Turn through the canonical RunRuntime held
+                // cancellation transition BEFORE the original lease/evidence deadline.
+                // A pre-fix mirrored lease remains live and accepts the original token;
+                // the repaired store reads the now-cancelled repository Turn and refuses.
+                {
+                    const active = seededTurn(reclaimed);
+                    const branch = reclaimed.repository.transaction((tx) =>
+                        reclaimed.repository.loadBranch(tx, active.branch)
+                    );
+                    if (branch === undefined) throw new TypeError("Seeded Turn branch is missing");
+                    const originalToken = {
                         turn: active.id,
-                        expectedTurnRevision: active.revision,
-                        expectedBranchRevision: branch.revision,
-                        token: originalToken,
-                        outcome: "cancelled",
-                        commit: result,
-                        now: beforeDeadline
-                    },
-                    cancellation
+                        holder: principal,
+                        epoch: active.lease.epoch
+                    };
+                    const cancellation = new TurnInboxEntry(
+                        new TurnInboxEntryId(`${nonce}-active-cancel-entry`),
+                        active.id,
+                        0,
+                        "turn.cancel",
+                        content("b"),
+                        content("b").digest,
+                        `${nonce}-active-cancel-key`,
+                        originalToken,
+                        new Date(issuedAt.getTime() + 1)
+                    );
+                    const result = new RunCommit({
+                        id: new RunCommitId(`${nonce}-active-cancel-result`),
+                        run: active.run,
+                        branch: active.branch,
+                        kind: "result",
+                        parents: [branch.head],
+                        pins: active.pins,
+                        writer: { kind: "turn", token: originalToken },
+                        subjectTurn: active.id,
+                        content: content("7")
+                    });
+                    const beforeDeadline = new Date(issuedAt.getTime() + 2);
+                    reclaimed.runtime.cancelHeldTurn(
+                        {
+                            turn: active.id,
+                            expectedTurnRevision: active.revision,
+                            expectedBranchRevision: branch.revision,
+                            token: originalToken,
+                            outcome: "cancelled",
+                            commit: result,
+                            now: beforeDeadline
+                        },
+                        cancellation
+                    );
+                    expect(
+                        reclaimed.store.transaction((transaction) =>
+                            reclaimedIssuer.attest(transaction, request, beforeDeadline)
+                        )
+                    ).toBeUndefined();
+                }
+
+                // A token naming a Turn the RunRepository has never seen refuses at once.
+                const stranger = targetRequestFor(
+                    expectation({
+                        lease: {
+                            turn: new TurnId("never-created-turn"),
+                            holder: principal,
+                            epoch: 1
+                        },
+                        reservation: {
+                            run: evidenceRuns.run,
+                            registryEpoch: 5,
+                            obligation: {
+                                kind: "invocationItem",
+                                invocation,
+                                itemIndex: 2,
+                                itemKey
+                            }
+                        }
+                    }),
+                    `${nonce}-stranger-turn`,
+                    provisionalExpiry
                 );
                 expect(
                     reclaimed.store.transaction((transaction) =>
-                        reclaimedIssuer.attest(transaction, request, beforeDeadline)
+                        reclaimedIssuer.attest(transaction, stranger, issuedAt)
+                    )
+                ).toBeUndefined();
+
+                const invalidated = await createContext();
+                const invalidatedIssuer = prepare(invalidated);
+                invalidated.store.transaction((transaction) =>
+                    invalidatedIssuer.attest(transaction, request, issuedAt)
+                );
+                {
+                    // Canonical invalidation delivery initializes the holder watermark,
+                    // then joins the advanced epoch through the same owner.
+                    const owner = invalidated.watermarks;
+                    const empty = InvalidationWatermark.empty(tenant, sourceActor, principal);
+                    const key = watermarkKey(empty);
+                    if (owner.load(key) === undefined) owner.save(empty);
+                    owner.join(key, [
+                        new ScopeEpoch(ScopeRef.tenant(tenant), path.path[0]!.epoch + 1)
+                    ]);
+                }
+                expect(
+                    invalidated.store.transaction((transaction) =>
+                        invalidatedIssuer.attest(transaction, request, issuedAt)
+                    )
+                ).toBeUndefined();
+
+                // A token naming a wrong epoch for the same live Turn attests nothing.
+                const forged = await createContext();
+                const forgedIssuer = prepare(forged);
+                const liveTurn = seededTurn(forged);
+                const forgedRequest = targetRequestFor(
+                    expectation({
+                        lease: {
+                            turn: liveTurn.id,
+                            holder: principal,
+                            epoch: liveTurn.lease.epoch + 7
+                        },
+                        reservation: {
+                            run: evidenceRuns.run,
+                            registryEpoch: 5,
+                            obligation: {
+                                kind: "invocationItem",
+                                invocation,
+                                itemIndex: 2,
+                                itemKey
+                            }
+                        }
+                    }),
+                    `${nonce}-forged-epoch`,
+                    provisionalExpiry
+                );
+                expect(
+                    forged.store.transaction((transaction) =>
+                        forgedIssuer.attest(transaction, forgedRequest, issuedAt)
                     )
                 ).toBeUndefined();
             }
+        );
 
-            // A token naming a Turn the RunRepository has never seen refuses at once.
-            const stranger = targetRequestFor(
-                expectation({
-                    lease: { turn: new TurnId("never-created-turn"), holder: principal, epoch: 1 },
-                    reservation: {
-                        run: evidenceRuns.run,
-                        registryEpoch: 5,
-                        obligation: { kind: "invocationItem", invocation, itemIndex: 2, itemKey }
-                    }
-                }),
-                `${nonce}-stranger-turn`,
-                provisionalExpiry
-            );
-            expect(
-                reclaimed.store.transaction((transaction) =>
-                    reclaimedIssuer.attest(transaction, stranger, issuedAt)
-                )
-            ).toBeUndefined();
-
-            const invalidated = await createContext();
-            const invalidatedIssuer = prepare(invalidated);
-            invalidated.store.transaction((transaction) =>
-                invalidatedIssuer.attest(transaction, request, issuedAt)
-            );
-            {
-                // Canonical invalidation delivery initializes the holder watermark,
-                // then joins the advanced epoch through the same owner.
-                const owner = invalidated.watermarks;
-                const empty = InvalidationWatermark.empty(tenant, sourceActor, principal);
-                const key = watermarkKey(empty);
-                if (owner.load(key) === undefined) owner.save(empty);
-                owner.join(key, [new ScopeEpoch(ScopeRef.tenant(tenant), path.path[0]!.epoch + 1)]);
-            }
-            expect(
-                invalidated.store.transaction((transaction) =>
-                    invalidatedIssuer.attest(transaction, request, issuedAt)
-                )
-            ).toBeUndefined();
-
-            // A token naming a wrong epoch for the same live Turn attests nothing.
-            const forged = await createContext();
-            const forgedIssuer = prepare(forged);
-            const liveTurn = seededTurn(forged);
-            const forgedRequest = targetRequestFor(
-                expectation({
-                    lease: { turn: liveTurn.id, holder: principal, epoch: liveTurn.lease.epoch + 7 },
-                    reservation: {
-                        run: evidenceRuns.run,
-                        registryEpoch: 5,
-                        obligation: { kind: "invocationItem", invocation, itemIndex: 2, itemKey }
-                    }
-                }),
-                `${nonce}-forged-epoch`,
-                provisionalExpiry
-            );
-            expect(
-                forged.store.transaction((transaction) =>
-                    forgedIssuer.attest(transaction, forgedRequest, issuedAt)
-                )
-            ).toBeUndefined();
-        });
-
-        test("refuses after intent substitution and detects a substituted same-key request", { tags: "p0" }, async () => {
-            const context = await createContext();
-            const issuer = prepare(context);
-            context.store.transaction((transaction) =>
-                issuer.attest(transaction, request, issuedAt)
-            );
-            // The delegation ledger moves to another intent under the same Run.
-            context.intents.set(
-                evidenceRuns.run.value,
-                Digest.sha256(new TextEncoder().encode(`${name}-intent-substitution`))
-            );
-            expect(
+        test(
+            "refuses after intent substitution and detects a substituted same-key request",
+            { tags: "p0" },
+            async () => {
+                const context = await createContext();
+                const issuer = prepare(context);
                 context.store.transaction((transaction) =>
                     issuer.attest(transaction, request, issuedAt)
-                )
-            ).toBeUndefined();
-            const unrelated = targetRequestFor(expected, `${nonce}-unrelated`, provisionalExpiry);
-            expect(
-                context.store.transaction((transaction) =>
-                    issuer.attest(transaction, unrelated, issuedAt)
-                )
-            ).toBeUndefined();
+                );
+                // The delegation ledger moves to another intent under the same Run.
+                context.intents.set(
+                    evidenceRuns.run.value,
+                    Digest.sha256(new TextEncoder().encode(`${name}-intent-substitution`))
+                );
+                expect(
+                    context.store.transaction((transaction) =>
+                        issuer.attest(transaction, request, issuedAt)
+                    )
+                ).toBeUndefined();
+                const unrelated = targetRequestFor(
+                    expected,
+                    `${nonce}-unrelated`,
+                    provisionalExpiry
+                );
+                expect(
+                    context.store.transaction((transaction) =>
+                        issuer.attest(transaction, unrelated, issuedAt)
+                    )
+                ).toBeUndefined();
 
-            const liveTurn = seededTurn(context);
-            const substituted = targetRequestFor(
-                expectation({
-                    lease: { ...liveTurn.lease, holder: principal },
-                    itemIndex: 3,
-                    reservation: {
-                        run: evidenceRuns.run,
-                        registryEpoch: 5,
-                        obligation: {
-                            kind: "invocationItem",
-                            invocation,
-                            itemIndex: 3,
-                            itemKey
+                const liveTurn = seededTurn(context);
+                const substituted = targetRequestFor(
+                    expectation({
+                        lease: { ...liveTurn.lease, holder: principal },
+                        itemIndex: 3,
+                        reservation: {
+                            run: evidenceRuns.run,
+                            registryEpoch: 5,
+                            obligation: {
+                                kind: "invocationItem",
+                                invocation,
+                                itemIndex: 3,
+                                itemKey
+                            }
                         }
-                    }
-                }),
-                nonce,
-                provisionalExpiry
-            );
-            expect(() =>
-                context.store.transaction((transaction) =>
-                    issuer.attest(transaction, substituted, issuedAt)
-                )
-            ).toThrow(/bound to another source attestation/);
-        });
+                    }),
+                    nonce,
+                    provisionalExpiry
+                );
+                expect(() =>
+                    context.store.transaction((transaction) =>
+                        issuer.attest(transaction, substituted, issuedAt)
+                    )
+                ).toThrow(/bound to another source attestation/);
+            }
+        );
 
         test("attests nothing for a foreign source owner", { tags: "p0" }, async () => {
             const context = await createContext();
@@ -1467,97 +1515,105 @@ describe("AuthorityPermit", () => {
         }
     );
 
-    test("rejects malformed permit identities and times before issuance", { tags: "p0" }, async () => {
-        expect(() =>
-            expectation({ issuer: new ActorRef("workspace", new ActorId("not-a-tenant")) })
-        ).toThrow(/Tenant Actor/);
-        expect(() => expectation({ tenant: new TenantId("other-tenant") })).toThrow(
-            /qualify its principal/
-        );
-        expect(() =>
-            expectation({
-                authority: {
-                    kind: "initiator",
-                    principal,
-                    binding: new BindingName("other-binding")
-                }
-            })
-        ).toThrow(/source must match/);
-        expect(() =>
-            expectation({
-                reservation: {
-                    run: new RunId("permit-run"),
-                    registryEpoch: 5,
-                    obligation: {
-                        kind: "invocationItem",
-                        invocation,
-                        itemIndex: 2,
-                        itemKey: "wrong-item"
+    test(
+        "rejects malformed permit identities and times before issuance",
+        { tags: "p0" },
+        async () => {
+            expect(() =>
+                expectation({ issuer: new ActorRef("workspace", new ActorId("not-a-tenant")) })
+            ).toThrow(/Tenant Actor/);
+            expect(() => expectation({ tenant: new TenantId("other-tenant") })).toThrow(
+                /qualify its principal/
+            );
+            expect(() =>
+                expectation({
+                    authority: {
+                        kind: "initiator",
+                        principal,
+                        binding: new BindingName("other-binding")
                     }
-                }
-            })
-        ).toThrow(/reservation must match/);
-        expect(() =>
-            expectation({
-                lease: Object.freeze({
-                    turn: lease.turn,
-                    holder: new PrincipalRef(tenant, new PrincipalId("wrong-holder")),
-                    epoch: lease.epoch
                 })
-            })
-        ).toThrow(/lease holder/);
-        expect(() => expectation({ target: { ...expectation().target, fence: -1 } })).toThrow(
-            /non-negative/
-        );
-        expect(() => expectation(violating(expectation(), { impact: "invalid" }))).toThrow(
-            /impact is invalid/
-        );
-        expect(
-            () =>
-                new AuthorityPermit({
-                    ...expectation(),
-                    nonce: " ",
-                    requestDigest: requestDigestFor(expectation(), "invalid-nonce"),
-                    issuedAt,
-                    expiresAt
+            ).toThrow(/source must match/);
+            expect(() =>
+                expectation({
+                    reservation: {
+                        run: new RunId("permit-run"),
+                        registryEpoch: 5,
+                        obligation: {
+                            kind: "invocationItem",
+                            invocation,
+                            itemIndex: 2,
+                            itemKey: "wrong-item"
+                        }
+                    }
                 })
-        ).toThrow(/nonblank/);
-        expect(
-            () =>
-                new AuthorityPermit({
-                    ...expectation(),
-                    nonce: "bad-expiry",
-                    requestDigest: requestDigestFor(expectation(), "bad-expiry"),
-                    issuedAt,
-                    expiresAt: issuedAt
+            ).toThrow(/reservation must match/);
+            expect(() =>
+                expectation({
+                    lease: Object.freeze({
+                        turn: lease.turn,
+                        holder: new PrincipalRef(tenant, new PrincipalId("wrong-holder")),
+                        epoch: lease.epoch
+                    })
                 })
-        ).toThrow(/after issuance/);
-        expect(
-            () =>
-                new AuthorityPermit({
-                    ...expectation(),
-                    nonce: "bad-time",
-                    requestDigest: requestDigestFor(expectation(), "bad-time"),
-                    issuedAt: new Date(Number.NaN),
-                    expiresAt
-                })
-        ).toThrow(/valid non-negative Date/);
-    });
+            ).toThrow(/lease holder/);
+            expect(() => expectation({ target: { ...expectation().target, fence: -1 } })).toThrow(
+                /non-negative/
+            );
+            expect(() => expectation(violating(expectation(), { impact: "invalid" }))).toThrow(
+                /impact is invalid/
+            );
+            expect(
+                () =>
+                    new AuthorityPermit({
+                        ...expectation(),
+                        nonce: " ",
+                        requestDigest: requestDigestFor(expectation(), "invalid-nonce"),
+                        issuedAt,
+                        expiresAt
+                    })
+            ).toThrow(/nonblank/);
+            expect(
+                () =>
+                    new AuthorityPermit({
+                        ...expectation(),
+                        nonce: "bad-expiry",
+                        requestDigest: requestDigestFor(expectation(), "bad-expiry"),
+                        issuedAt,
+                        expiresAt: issuedAt
+                    })
+            ).toThrow(/after issuance/);
+            expect(
+                () =>
+                    new AuthorityPermit({
+                        ...expectation(),
+                        nonce: "bad-time",
+                        requestDigest: requestDigestFor(expectation(), "bad-time"),
+                        issuedAt: new Date(Number.NaN),
+                        expiresAt
+                    })
+            ).toThrow(/valid non-negative Date/);
+        }
+    );
 
-    test("rejects reservation obligations that are not invocation items", { tags: "p0" }, async () => {
-        expect(() =>
-            expectation({
-                reservation: {
-                    run: new RunId("permit-run"),
-                    registryEpoch: 5,
-                    obligation: violating(
-                        { kind: "invocationItem", invocation, itemIndex: 2, itemKey } as const,
-                        { kind: "route" }
-                    )
-                }
-            })
-        ).toThrow(TypeError);
-    });
+    test(
+        "rejects reservation obligations that are not invocation items",
+        { tags: "p0" },
+        async () => {
+            expect(() =>
+                expectation({
+                    reservation: {
+                        run: new RunId("permit-run"),
+                        registryEpoch: 5,
+                        obligation: violating(
+                            { kind: "invocationItem", invocation, itemIndex: 2, itemKey } as const,
+                            { kind: "route" }
+                        )
+                    }
+                })
+            ).toThrow(TypeError);
+        }
+    );
 
     test("rejects malformed codec variants fail closed", { tags: "p0" }, async () => {
         const permit = new AuthorityPermit({
@@ -1711,10 +1767,7 @@ describe("AuthorityPermit", () => {
             ).toThrow(/malformed/);
             expect(
                 () =>
-                    new MemoryAuthorityPermitStore(
-                        issuerActor,
-                        violating(snapshot, { version: 3 })
-                    )
+                    new MemoryAuthorityPermitStore(issuerActor, violating(snapshot, { version: 3 }))
             ).toThrow(/malformed/);
             expect(
                 () =>
@@ -1888,7 +1941,7 @@ describe("AuthorityPermit", () => {
     );
 
     test(
-        "SQLite recovery rejects a substituted owner and malformed permit bytes",
+        "SQLite reads reject a substituted owner and malformed permit bytes",
         { tags: "p0" },
         () => {
             const database = new TestSqlite();
@@ -1901,18 +1954,31 @@ describe("AuthorityPermit", () => {
                     issuedAt
                 )
             );
+
+            // Same fixtures, same refusals, moved to the read. Constructing a store for the
+            // wrong owner is now cheap and asserts nothing; asking it for the row is what
+            // refuses, and malformed record bytes are refused by the decode that meets them.
+            // A row this store does not own is that Actor's business, not a broken store, so
+            // a substituted owner reads as absent rather than as corruption. That is what
+            // keeps cross-owner occupancy answerable in a shared database.
+            const wrongOwner = new SqliteAuthorityPermitStore(
+                database,
+                new ActorRef("tenant", new ActorId("wrong-owner"))
+            );
             expect(
-                () =>
-                    new SqliteAuthorityPermitStore(
-                        database,
-                        new ActorRef("tenant", new ActorId("wrong-owner"))
-                    )
-            ).toThrow(/malformed/);
+                wrongOwner.transaction((transaction) =>
+                    wrongOwner.issued(transaction, permit.nonce)
+                )
+            ).toBeUndefined();
+
+            // Malformed bytes are still corruption, and the owning store is what meets them.
             database.run("UPDATE authority_permit_nonces SET record = ? WHERE nonce = ?", [
                 Uint8Array.of(0),
                 permit.nonce
             ]);
-            expect(() => new SqliteAuthorityPermitStore(database, issuerActor)).toThrow();
+            expect(() =>
+                store.transaction((transaction) => store.issued(transaction, permit.nonce))
+            ).toThrow(/malformed/);
         }
     );
 
@@ -1974,7 +2040,7 @@ describe("AuthorityPermit", () => {
                 droppedIssueStore.transaction((transaction) =>
                     droppedIssueStore.issue(transaction, permit)
                 )
-            ).toThrow(/already used/);
+            ).toThrow(/could not be issued atomically/);
 
             const consumeFailure = new ControlledSqlite();
             const consumeStore = new SqliteAuthorityPermitStore(consumeFailure, targetActor);
@@ -2046,16 +2112,26 @@ describe("AuthorityPermit", () => {
                 readStore.transaction((transaction) => readStore.issued(transaction, permit.nonce))
             ).toThrow(/closed read/);
 
+            // Construction reads no table now, so a driver that fails every read can no
+            // longer make an Actor unconstructable — that unbounded startup scan was the
+            // defect. The typed causes are asserted where the read actually happens.
             const recoveryFailure = new ControlledSqlite();
-            new SqliteAuthorityPermitStore(recoveryFailure, issuerActor);
+            const recoveryStore = new SqliteAuthorityPermitStore(recoveryFailure, issuerActor);
             recoveryFailure.failAll = new TypeError("recovery failure");
-            expect(() => new SqliteAuthorityPermitStore(recoveryFailure, issuerActor)).toThrow(
-                /recovery read failed/
-            );
+            expect(
+                () => new SqliteAuthorityPermitStore(recoveryFailure, issuerActor)
+            ).not.toThrow();
+            expect(() =>
+                recoveryStore.transaction((transaction) =>
+                    recoveryStore.issued(transaction, permit.nonce)
+                )
+            ).toThrow(/read failed/);
             recoveryFailure.failAll = new AgentCoreError("codec.invalid", "closed recovery");
-            expect(() => new SqliteAuthorityPermitStore(recoveryFailure, issuerActor)).toThrow(
-                /closed recovery/
-            );
+            expect(() =>
+                recoveryStore.transaction((transaction) =>
+                    recoveryStore.issued(transaction, permit.nonce)
+                )
+            ).toThrow(/closed recovery/);
 
             const corruptProjection = new ControlledSqlite();
             const corruptStore = new SqliteAuthorityPermitStore(corruptProjection, issuerActor);
@@ -2069,9 +2145,11 @@ describe("AuthorityPermit", () => {
             ).toThrow(/malformed/);
 
             corruptProjection.mapRows = (rows) => rows.map((row) => ({ ...row, state: "invalid" }));
-            expect(() => new SqliteAuthorityPermitStore(corruptProjection, issuerActor)).toThrow(
-                /malformed/
-            );
+            expect(() =>
+                corruptStore.transaction((transaction) =>
+                    corruptStore.issued(transaction, permit.nonce)
+                )
+            ).toThrow(/malformed/);
             corruptProjection.mapRows = (rows) => rows.map((row) => ({ ...row, record: null }));
             expect(() =>
                 corruptStore.transaction((transaction) =>
@@ -2145,7 +2223,10 @@ class ControlledSqlite extends TestSqlite {
     public dropRun = false;
     public mapRows: (rows: readonly SqliteRow[]) => readonly SqliteRow[] = (rows) => rows;
 
-    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+    protected override query(
+        statement: string,
+        bindings: readonly SqliteValue[]
+    ): readonly SqliteRow[] {
         if (this.failAll !== undefined) throw this.failAll;
         return this.mapRows(this.#database.all(statement, bindings));
     }
@@ -2556,35 +2637,39 @@ describe("AuthorityPermit mutation gates", () => {
         }
     );
 
-    test("pins the reservation obligation to the exact invocation item", { tags: "p0" }, async () => {
-        expect(() =>
-            expectation({
-                reservation: {
-                    run: new RunId("permit-run"),
-                    registryEpoch: 5,
-                    obligation: {
-                        kind: "invocationItem",
-                        invocation: new InvocationId("permit-drift-invocation"),
-                        itemIndex: 2,
-                        itemKey
+    test(
+        "pins the reservation obligation to the exact invocation item",
+        { tags: "p0" },
+        async () => {
+            expect(() =>
+                expectation({
+                    reservation: {
+                        run: new RunId("permit-run"),
+                        registryEpoch: 5,
+                        obligation: {
+                            kind: "invocationItem",
+                            invocation: new InvocationId("permit-drift-invocation"),
+                            itemIndex: 2,
+                            itemKey
+                        }
                     }
-                }
-            })
-        ).toThrow(
-            new TypeError("Authority permit reservation must match its exact invocation item")
-        );
-        expect(() =>
-            expectation({
-                reservation: {
-                    run: new RunId("permit-run"),
-                    registryEpoch: 5,
-                    obligation: { kind: "invocationItem", invocation, itemIndex: 3, itemKey }
-                }
-            })
-        ).toThrow(
-            new TypeError("Authority permit reservation must match its exact invocation item")
-        );
-    });
+                })
+            ).toThrow(
+                new TypeError("Authority permit reservation must match its exact invocation item")
+            );
+            expect(() =>
+                expectation({
+                    reservation: {
+                        run: new RunId("permit-run"),
+                        registryEpoch: 5,
+                        obligation: { kind: "invocationItem", invocation, itemIndex: 3, itemKey }
+                    }
+                })
+            ).toThrow(
+                new TypeError("Authority permit reservation must match its exact invocation item")
+            );
+        }
+    );
 
     test("decodes only canonical Actor and claim owner kinds", { tags: "p0" }, async () => {
         const data = expectation().toData();
@@ -3545,23 +3630,27 @@ describe("TargetAuthorityPermitRequest construction gates", () => {
         }
     });
 
-    test("refuses a request whose authority input names another nonce", { tags: "p0" }, async () => {
-        const valid = targetRequest("request-identity-gate");
+    test(
+        "refuses a request whose authority input names another nonce",
+        { tags: "p0" },
+        async () => {
+            const valid = targetRequest("request-identity-gate");
 
-        const error = caughtTypeError(
-            () =>
-                new TargetAuthorityPermitRequest(
-                    valid.expectation,
-                    valid.authority,
-                    "request-identity-gate-substituted",
-                    expiresAt
-                )
-        );
+            const error = caughtTypeError(
+                () =>
+                    new TargetAuthorityPermitRequest(
+                        valid.expectation,
+                        valid.authority,
+                        "request-identity-gate-substituted",
+                        expiresAt
+                    )
+            );
 
-        expect(error.message).toBe(
-            "Target authority permit request does not match its exact target identity"
-        );
-    });
+            expect(error.message).toBe(
+                "Target authority permit request does not match its exact target identity"
+            );
+        }
+    );
 
     test("refuses a request whose Tenant issuer is its own target", { tags: "p0" }, async () => {
         const nonce = "request-self-issued-gate";
@@ -3856,7 +3945,10 @@ const DECISION_BOUND_REFINEMENTS: readonly (readonly [
         }
     ],
     ["attempt ordinal", { attemptOrdinal: 2 }],
-    ["arguments digest", { argumentsDigest: Digest.sha256(encodeCanonicalJson(externalArguments)) }],
+    [
+        "arguments digest",
+        { argumentsDigest: Digest.sha256(encodeCanonicalJson(externalArguments)) }
+    ],
     ["whole intent", { intentDigest: digest("permit-other-whole-intent") }]
 ];
 

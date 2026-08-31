@@ -109,13 +109,6 @@ export class CapabilityTargetLeaseEvidenceProjection extends TargetLeaseEvidence
     }
 }
 
-/** A stub as it arrives, before its three methods are established. */
-interface TenantAuthorityCapabilityCandidate {
-    readonly issuePermit?: unknown;
-    readonly issuedPermit?: unknown;
-    readonly projectLeaseEvidence?: unknown;
-}
-
 function requireCapability(channel: TenantAuthorityCapabilityChannel): void {
     if (!isPlatformObject(channel.capability)) {
         operationalFailure(
@@ -127,10 +120,17 @@ function requireCapability(channel: TenantAuthorityCapabilityChannel): void {
     if (channel.issuer.kind !== "tenant") {
         throw new TypeError("A Tenant capability channel requires a Tenant Actor issuer");
     }
-    const capability: TenantAuthorityCapabilityCandidate = channel.capability;
+    // Narrowed rather than declared: `in` proves the property exists and isPlatformMethod
+    // proves it is callable, so each read carries its own proof and no field is declared as
+    // an unverified value that a later reader could trust without checking.
+    const capability = channel.capability;
     const complete =
+        isPlatformObject(capability) &&
+        "issuePermit" in capability &&
         isPlatformMethod(capability.issuePermit) &&
+        "issuedPermit" in capability &&
         isPlatformMethod(capability.issuedPermit) &&
+        "projectLeaseEvidence" in capability &&
         isPlatformMethod(capability.projectLeaseEvidence);
     if (complete) return;
     operationalFailure(

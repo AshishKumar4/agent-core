@@ -36,7 +36,15 @@
   "r2_buckets": [{ "binding": "CONTENT", "bucket_name": "agent-core-cloudflare-test-content" }],
   "queues": {
     "producers": [{ "binding": "DELIVERIES", "queue": "agent-core-cloudflare-test-deliveries" }],
-    "consumers": [{ "queue": "agent-core-cloudflare-test-deliveries", "max_batch_size": 10 }]
+    "consumers": [
+      {
+        "queue": "agent-core-cloudflare-test-deliveries",
+        "max_batch_size": 10,
+        "max_retries": 2,
+        "dead_letter_queue": "agent-core-cloudflare-test-poison"
+      },
+      { "queue": "agent-core-cloudflare-test-poison", "max_batch_size": 10, "max_retries": 0 }
+    ]
   },
   "worker_loaders": [{ "binding": "LOADER" }]
 }

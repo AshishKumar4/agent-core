@@ -5,7 +5,11 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { SymbolFlags } from "typescript/unstable/sync";
 import { openProject } from "../../agent-core/scripts/quality/compiler.mjs";
-import { parseCanonicalJson, portablePath } from "../../agent-core/scripts/quality/project.mjs";
+import {
+    isNonEmptyString,
+    parseCanonicalJson,
+    portablePath
+} from "../../agent-core/scripts/quality/project.mjs";
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const coreRoot = resolve(packageRoot, "../agent-core");
@@ -24,6 +28,49 @@ if (JSON.stringify(packageJson.exports) !== JSON.stringify(registry.exports)) {
 }
 if (Object.keys(packageJson.exports).length !== 1 || packageJson.exports["."] === undefined) {
     throw new TypeError("Cloudflare package must expose only its root entrypoint");
+}
+
+/**
+ * AtLeastOnceQueueAdapter retries an undecodable body on purpose, so the queue's own
+ * dead-letter policy takes custody instead of the adapter destroying an authoritative
+ * delivery. Without a dead-letter queue that disposition becomes retry-then-drop, which is
+ * exactly the accepted-mutation loss the adapter exists to avoid. Every consumer this
+ * package configures therefore declares its custody: either it dead-letters somewhere, or
+ * it IS a dead-letter queue and says so by taking no retries.
+ */
+for (const [label, configPath] of [
+    ["wrangler.test.jsonc", resolve(packageRoot, "wrangler.test.jsonc")],
+    ["live/wrangler.live.jsonc", resolve(packageRoot, "live/wrangler.live.jsonc")]
+]) {
+    const config = parseCanonicalJson(
+        (await readFile(configPath, "utf8")).replace(/^\s*\/\/.*$/gmu, ""),
+        portablePath(configPath)
+    );
+    const consumers = config.queues?.consumers ?? [];
+    if (consumers.length === 0) {
+        throw new TypeError(`${label} declares a queue producer with no consumer`);
+    }
+    const terminal = new Set(
+        consumers.filter((entry) => entry.max_retries === 0).map((entry) => entry.queue)
+    );
+    for (const consumer of consumers) {
+        if (!Number.isSafeInteger(consumer.max_retries) || consumer.max_retries < 0) {
+            throw new TypeError(`${label} consumer ${consumer.queue} declares no max_retries`);
+        }
+        if (terminal.has(consumer.queue)) continue;
+        if (!isNonEmptyString(consumer.dead_letter_queue)) {
+            throw new TypeError(
+                `${label} consumer ${consumer.queue} has no dead_letter_queue, so a poison ` +
+                    "body the adapter retries is dropped rather than preserved"
+            );
+        }
+        if (!terminal.has(consumer.dead_letter_queue)) {
+            throw new TypeError(
+                `${label} dead-letter queue ${consumer.dead_letter_queue} is not declared as a ` +
+                    "consumer that takes no retries, so dead-lettered deliveries have no custody"
+            );
+        }
+    }
 }
 
 try {

@@ -78,6 +78,16 @@ export const cloudflareRuntimeMigrations: readonly SqliteApplicationMigration[] 
                 PRIMARY KEY (operation_id, step)
             ) STRICT`
         ])
+    }),
+    Object.freeze({
+        version: 4,
+        name: "cloudflare-runtime-permit-retention",
+        statements: Object.freeze([
+            `CREATE TABLE agent_core_permit_retention (
+                owner TEXT PRIMARY KEY,
+                cursor TEXT NOT NULL
+            ) STRICT`
+        ])
     })
 ]);
 

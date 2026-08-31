@@ -21,7 +21,7 @@ export { locateActorObject } from "./namespace.js";
 export type { ActorNamespaceLocation, DurableObjectNamespaceLike } from "./namespace.js";
 export { throughActorObject } from "./namespace.js";
 export type { ActorObjectCallOptions } from "./namespace.js";
-export { CloudflareStubFailure, throughFreshStub } from "./stub-failure.js";
+export { CloudflareStubFailure, requireStubRetryPolicy, throughFreshStub } from "./stub-failure.js";
 export type {
     CloudflareStubCallOptions,
     CloudflareStubFactory,
@@ -80,6 +80,15 @@ export type {
     ResumableWork,
     ResumptionSchedule
 } from "./resumption.js";
+export {
+    PERMIT_PRUNE_LIMIT,
+    PERMIT_RETENTION_INTERVAL_MILLISECONDS,
+    PERMIT_RETENTION_MILLISECONDS,
+    PERMIT_RETENTION_PAGE_DELAY_MILLISECONDS,
+    PermitRetentionSweep,
+    ScheduledPermitRetention
+} from "./permit-retention.js";
+export type { PermitRetentionOptions, PrunableAuthorityPermitStore } from "./permit-retention.js";
 export { operationalFailure } from "./error.js";
 export type { CloudflareErrorPort, CloudflareOperationalErrorCode } from "./error.js";
 export { QueueMessageId, ReconciliationOutboxId } from "./id.js";
@@ -146,6 +155,7 @@ export type { R2BucketBinding } from "./r2.js";
 export { createCloudflareWorker } from "./worker.js";
 export type {
     AuthoritativeWorkerRouter,
+    QueueBatchObserver,
     CloudflareExecutionContextLike,
     CloudflareWorkerEntrypoint,
     CloudflareWorkerOptions

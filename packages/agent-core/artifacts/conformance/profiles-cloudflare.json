@@ -123,6 +123,9 @@
         "Real-isolate adversaries measured green in workerd: wrong target Actor, authenticated Tenant denial, single use on redelivery, expiry at the admission instant, expectation mismatch on target fence, path epoch, item key and argument digest, retention of the immutable request beside the consumption across instance loss, and no consumption row written when the admission is refused. The wrong-Tenant lookup is refused by CapabilityAuthorityPermitRecords before the stub is reached, so a target cannot authenticate against a Tenant its capability does not name.",
         "The seven approved core boundary symbols are now public on the authority and protocol subpaths and remain forbidden on the root package. The packed consumer verifies those exact surfaces, and the real-workerd consumption lane exercises the composed path without duplicating the core permit store or admission policy.",
         "Deployed cross-Actor evidence remains owed after the local real-isolate vertical: rollback under a real rollout, and a post-issuance watermark movement that must not cancel an admitted permit, are both account-level scenarios no local lane reaches."
+      ],
+      "bounds": [
+        "Permit retention does not sweep authority_permit_lease_evidence. That table is keyed by source and idempotency key rather than by nonce, so the nonce-ordered keyset walk the prune sweep uses cannot reach its rows coherently, and a source may legitimately re-project an attestation after the permit it attested has expired. Sweeping it needs its own source-keyed pass with its own retention rule, and this rule claims nothing about that table's growth."
       ]
     },
     {

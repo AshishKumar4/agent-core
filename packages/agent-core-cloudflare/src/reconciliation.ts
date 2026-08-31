@@ -83,6 +83,8 @@ export class AlarmOutboxReconciler {
     readonly #retryDelayMs: number;
     readonly #sweepBudgetMs: number;
     readonly #clock: ReconciliationClock;
+    /** Tail of the alarm-synchronization chain; see `synchronizeAlarm`. */
+    #synchronizing: Promise<void> = Promise.resolve();
 
     public constructor(
         private readonly alarms: AlarmStorageLike,
@@ -116,8 +118,30 @@ export class AlarmOutboxReconciler {
         await this.synchronizeAlarm();
     }
 
-    /** `notBefore` floors the physical alarm; entries stay due at their outbox schedule. */
+    /**
+     * `notBefore` floors the physical alarm; entries stay due at their outbox schedule.
+     *
+     * Serialized per reconciler. The decision reads the outbox before its first await and
+     * acts on it after later ones, so two concurrent synchronizations of the same driver —
+     * a sweep-end drain racing a request's arm — could interleave such that the drain
+     * deleted the wakeup the arm had just written and both then observed an empty claim
+     * set. Queueing them makes each decision act on the state it read.
+     */
     private async synchronizeAlarm(notBefore = 0): Promise<void> {
+        const previous = this.#synchronizing;
+        let release = (): void => undefined;
+        this.#synchronizing = new Promise<void>((resolve) => {
+            release = resolve;
+        });
+        await previous;
+        try {
+            await this.synchronizeAlarmExclusively(notBefore);
+        } finally {
+            release();
+        }
+    }
+
+    private async synchronizeAlarmExclusively(notBefore: number): Promise<void> {
         const expected = await this.operation("Reconciliation outbox read failed", () =>
             this.outbox.nextDueAt()
         );
@@ -165,7 +189,7 @@ export class AlarmOutboxReconciler {
                 visited.add(id.value);
                 let cause: AgentCoreError;
                 try {
-                    await this.reconcile(id);
+                    await this.withinSweepBudget(now, id);
                     await this.operation(
                         `Reconciliation outbox acknowledgement failed for ${id}`,
                         () => this.outbox.acknowledge(entry)
@@ -207,6 +231,43 @@ export class AlarmOutboxReconciler {
             succeededIds: Object.freeze(succeededIds),
             failures: Object.freeze(failures)
         });
+    }
+
+    /**
+     * Runs one reconcile, bounded by what is left of the sweep budget. The budget between
+     * entries bounds many slow ones and bounds nothing about a single one that never
+     * settles, and a handler carried to the platform's fifteen-minute wall-clock kill is
+     * not a throw: it reaches neither the retry path nor the floored re-arm, so the entry
+     * stays due with no wakeup. A timeout here is an ordinary reconcile failure, which the
+     * caller already rescheduling and re-arming knows how to settle.
+     */
+    private async withinSweepBudget(now: number, id: ReconciliationOutboxId): Promise<void> {
+        const remaining = this.#sweepBudgetMs - (this.#clock.now() - now);
+        if (remaining <= 0) {
+            operationalFailure(
+                this.errors,
+                "protocol.invalid-state",
+                `Reconciliation for ${id} had no sweep budget left`
+            );
+        }
+        let cancel: (() => void) | undefined;
+        const deadline = new Promise<never>((_resolve, reject) => {
+            const handle = setTimeout(() => {
+                reject(
+                    operationalError(
+                        this.errors,
+                        "protocol.invalid-state",
+                        `Reconciliation for ${id} exceeded the remaining ${remaining}ms sweep budget`
+                    )
+                );
+            }, remaining);
+            cancel = () => clearTimeout(handle);
+        });
+        try {
+            await Promise.race([this.reconcile(id), deadline]);
+        } finally {
+            cancel?.();
+        }
     }
 
     private retryTime(now: number): number {
