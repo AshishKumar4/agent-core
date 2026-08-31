@@ -600,7 +600,7 @@
       "owner": "W2",
       "specAnchor": "C13-AUTH-SHARE-OFFER",
       "specTextSha256": "sha256:b5228f658644d620bdfd0c1c6e0e6420e285eb622961c2535085d58921d38ee6",
-      "status": "verified",
+      "status": "implemented",
       "prerequisites": [],
       "sourceSymbols": [
         "src/identity/share-offer.ts#ShareOffer",
@@ -641,14 +641,28 @@
         "test/authority/share-offer-service.test.ts#share offer authority in the sqlite Tenant control store [C13-AUTH-SHARE-OFFER] answers a second at-least-once delivery across a restart exactly as the first",
         "test/authority/share-offer-service.test.ts#share offer authority in the sqlite Tenant control store [C13-AUTH-SHARE-OFFER] [identity.share-offer] keeps an issued and redeemed offer byte-identical across a restart",
         "test/authority/share-offer-service.test.ts#share offer authority in the sqlite Tenant control store [C13-AUTH-SHARE-OFFER] mints a guest holder's Membership only against current host-minted verification",
-        "test/authority/share-offer-service.test.ts#share offer authority in the sqlite Tenant control store [C13-AUTH-SHARE-OFFER] refuses the widest guest issuer, and never widens a foreign issuer through a Team"
+        "test/authority/share-offer-service.test.ts#share offer authority in the sqlite Tenant control store [C13-AUTH-SHARE-OFFER] refuses the widest guest issuer, and never widens a foreign issuer through a Team",
+        "test/authority/share-offer-service.test.ts#share offer authority in the memory Tenant control store [C13-AUTH-SHARE-OFFER] refuses disabled direct and Team issuers without writing an offer, Grant, or epoch",
+        "test/authority/share-offer-service.test.ts#share offer authority in the memory Tenant control store [C13-AUTH-SHARE-OFFER] refuses redemption after the issued Role content widens",
+        "test/authority/share-offer-service.test.ts#share offer authority in the memory Tenant control store [C13-AUTH-SHARE-OFFER] maps cross-Tenant local issuers and holders to authority denial without writes",
+        "test/authority/share-offer-service.test.ts#share offer authority in the sqlite Tenant control store [C13-AUTH-SHARE-OFFER] refuses disabled direct and Team issuers without writing an offer, Grant, or epoch",
+        "test/authority/share-offer-service.test.ts#share offer authority in the sqlite Tenant control store [C13-AUTH-SHARE-OFFER] refuses redemption after the issued Role content widens",
+        "test/authority/share-offer-service.test.ts#share offer authority in the sqlite Tenant control store [C13-AUTH-SHARE-OFFER] maps cross-Tenant local issuers and holders to authority denial without writes",
+        "test/identity/share-offer.test.ts#share offers [C13-AUTH-SHARE-OFFER] [identity.share-offer] preserves prior redemption time and foreign verification evidence exactly",
+        "test/authority/record-closure.test.ts#Tenant authority record closure: memory [authority-mutation-store] refuses a redeemed Membership that moved Scope in both full and incremental closure, while allowing its later Role revision",
+        "test/authority/record-closure.test.ts#Tenant authority record closure: SQLite [authority-mutation-store] refuses a redeemed Membership that moved Scope in both full and incremental closure, while allowing its later Role revision"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
-      "remainingEvidence": [],
+      "remainingEvidence": [
+        "The status is held at implemented rather than verified because this repair's evidence is written but not executed. The role pin is a wire change — identity.share-offer moves to codec major 2 and the SQLite projection gains a role_digest column — and the run that would execute the new memory and SQLite cases is reserved for integration under the parent's resource rule, so no measured pass exists in this worktree yet. Promotion needs that run and nothing else: the mechanism, the substrate projection and the hostile cases are all present"
+      ],
       "bounds": [
         "This rule does not claim that the subject named as issuer is the authenticated caller. issueShareOffer decides the administer-impact bound against the authority that named subject actually holds on the one durable Grant plane; binding a name to a caller is the section 8.5 dispatcher obligation evidenced by the C13-PROTOCOL-* atoms, exactly as every other AuthorityMutationService mutation names its subject as an argument.",
         "The issuance bound is decided by one live allow Grant rather than by the union of the issuer's Grants. 'Bounded by what the issuer could have assigned directly' is read as the delegation bound Grant.canAttenuate already decides, and that bound names a single parent authority, so an issuer holding administer over two facet patterns through two separate Grants cannot issue an offer for a Role spanning both. Widening it to a union would be a second, weaker containment rule beside the attenuation one.",
-        "Issuer authority is decided once, at issuance. The offer that results carries no authority of its own, so a later redemption is governed by the offer's own terms rather than by the issuer's standing: the expiry window, the remaining bound and the offer's revocation state decide it, and an issuer whose administer Grant is revoked after issuance does not thereby stop a redemption. What such a revocation does reach is the Memberships already minted, which are revoked as Memberships and advance their own path epochs. Nothing here claims that a redemption re-checks the issuer."
+        "Issuer authority is decided once, at issuance. The offer that results carries no authority of its own, so a later redemption is governed by the offer's own terms rather than by the issuer's standing: the expiry window, the remaining bound and the offer's revocation state decide it, and an issuer whose administer Grant is revoked after issuance does not thereby stop a redemption. What such a revocation does reach is the Memberships already minted, which are revoked as Memberships and advance their own path epochs. Nothing here claims that a redemption re-checks the issuer.",
+        "The Role pin compares exact canonical Role bytes rather than a subset relation, so a narrowing change to a Role refuses an open offer exactly as a widening one does, and changing a Role back to byte-identical content makes its offers redeemable again. That is the intended reading of 'the Role the issuer authorised': an offer names one exact Role content, not a family of Roles a later editor considers no wider.",
+        "changeRole neither scans nor closes open offers. A widened Role leaves every open offer for it refusing at redemption rather than revoked, which keeps a global template edit off an unbounded offer scan and keeps the refusal on the path that mints authority. An offer refused this way is not repaired: an issuer with current authority issues a new offer against the new Role content.",
+        "Cross-Tenant identity is not reclassified by this rule. A ForeignPrincipalRef remains the valid cross-Tenant form and keeps its guest-trust evidence path; what issueShareOffer and redeemShareOffer refuse is a local PrincipalRef naming another Tenant, which is a malformed local subject rather than a guest, and each refusal is the stable authority.denied rather than a leaked constructor TypeError."
       ]
     },
     {

@@ -53,12 +53,12 @@ export type FakeRunUsage = "empty" | "nonempty" | "unknown";
 export interface MaterializationHarnessState extends MemoryManagedResourceState {
     readonly records: MemoryProtocolRecords;
     readonly recovery: Map<string, ActorRecoveryState>;
+    readonly recordSetDeclarations: Map<string, Uint8Array>;
     readonly plans: Map<string, MaterializationPlan>;
     readonly applyPlans: Map<string, MaterializationPlan>;
     readonly generations: Map<string, MaterializationGeneration>;
     readonly managedState: Map<string, ManagedStateRecord>;
     readonly pointers: Map<string, MaterializationGenerationPointer>;
-    nextId: number;
     applyCount: number;
     applyAt: Date | undefined;
     fault: boolean;
@@ -157,6 +157,21 @@ export class MaterializationHarnessStore
         state: ActorRecoveryState
     ): void {
         transaction.recovery.set(actorKey(state.actor), state);
+    }
+
+    public loadRecordSetDeclaration(
+        transaction: MaterializationHarnessState,
+        actor: ActorRef
+    ): Uint8Array | undefined {
+        return transaction.recordSetDeclarations.get(actorKey(actor))?.slice();
+    }
+
+    public saveRecordSetDeclaration(
+        transaction: MaterializationHarnessState,
+        actor: ActorRef,
+        declaration: Uint8Array
+    ): void {
+        transaction.recordSetDeclarations.set(actorKey(actor), declaration.slice());
     }
 
     public loadGeneration(
@@ -493,6 +508,7 @@ function createState(): MaterializationHarnessState {
     return {
         records: new MemoryProtocolRecords(),
         recovery: new Map(),
+        recordSetDeclarations: new Map(),
         plans: new Map(),
         applyPlans: new Map(),
         generations: new Map(),
@@ -512,6 +528,9 @@ function cloneState(state: MaterializationHarnessState): MaterializationHarnessS
     return {
         records: state.records.clone(),
         recovery: new Map(state.recovery),
+        recordSetDeclarations: new Map(
+            [...state.recordSetDeclarations].map(([key, value]) => [key, value.slice()])
+        ),
         plans: new Map(state.plans),
         applyPlans: new Map(state.applyPlans),
         generations: new Map(state.generations),

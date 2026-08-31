@@ -96,6 +96,7 @@ const CREATE_SHARE_OFFERS = `CREATE TABLE IF NOT EXISTS tenant_share_offers (
     id TEXT PRIMARY KEY CHECK (length(id) > 0),
     scope_key TEXT NOT NULL CHECK (length(scope_key) > 0),
     role_name TEXT NOT NULL CHECK (length(role_name) > 0),
+    role_digest TEXT NOT NULL CHECK (length(role_digest) > 0),
     secret_digest TEXT NOT NULL CHECK (length(secret_digest) > 0),
     state TEXT NOT NULL CHECK (state IN ('open', 'revoked')),
     created_at INTEGER NOT NULL CHECK (created_at >= 0),
@@ -257,6 +258,7 @@ export class SqliteIdentityReader extends IdentityRepository {
             offer.id.value !== text(row, "id") ||
             sqliteScopeKey(offer.scope) !== text(row, "scope_key") ||
             offer.role.value !== text(row, "role_name") ||
+            offer.roleDigest.value !== text(row, "role_digest") ||
             offer.secretDigest.value !== text(row, "secret_digest") ||
             offer.state !== text(row, "state") ||
             offer.createdAt.getTime() !== integer(row, "created_at") ||

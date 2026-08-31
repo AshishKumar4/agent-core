@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 import { ActorId } from "../../src/actors";
 import {
     AuthorityMutationService,
+    Grant,
     MemoryTenantControlStore,
     ScopeEpoch,
     type AuthorityMutationStore,
     type Binding,
-    type Grant,
     type GrantId
 } from "../../src/authority";
 import { Digest, Revision } from "../../src/core";
@@ -136,6 +136,168 @@ describe.each([
         }
     );
 
+    it(
+        "[C13-AUTH-SHARE-OFFER] refuses disabled direct and Team issuers without writing an offer, Grant, or epoch",
+        { tags: "p0" },
+        () => {
+            const harness = seeded(open());
+            const teamSubject = SubjectRef.team(teamId);
+
+            expect(() =>
+                harness.service.issueShareOffer(offer("offer-team-subject"), teamSubject)
+            ).toThrow(
+                expect.objectContaining({
+                    code: "protocol.invalid-state",
+                    message: "A share offer issuer must be a local Principal"
+                })
+            );
+
+            for (const [kind, issuerId] of [
+                ["direct", ownerId],
+                ["Team", teamMemberId]
+            ] as const) {
+                const issuer = principal(issuerId);
+                expect(
+                    harness.service.issueShareOffer(offer(`offer-${kind}-before-disable`), issuer)
+                        .isOpen
+                ).toBe(true);
+
+                expect(harness.service.disablePrincipal(issuerId).canAct, kind).toBe(false);
+                const before = {
+                    epochs: harness.store.epochs().map(ScopeEpoch.encode),
+                    grants: harness.store.grants().map(Grant.encode),
+                    offers: harness.store.shareOffers().map(ShareOffer.encode)
+                };
+
+                expect(() =>
+                    harness.service.issueShareOffer(offer(`offer-${kind}-after-disable`), issuer)
+                ).toThrow(
+                    expect.objectContaining({
+                        code: "authority.denied",
+                        message: "Disabled Principal cannot issue share offers"
+                    })
+                );
+                expect(harness.store.shareOffers().map(ShareOffer.encode), kind).toEqual(
+                    before.offers
+                );
+                expect(harness.store.grants().map(Grant.encode), kind).toEqual(before.grants);
+                expect(harness.store.epochs().map(ScopeEpoch.encode), kind).toEqual(before.epochs);
+            }
+        }
+    );
+
+
+    it(
+        "[C13-AUTH-SHARE-OFFER] refuses redemption after the issued Role content widens",
+        { tags: "p0" },
+        () => {
+            const harness = seeded(open());
+            const issued = harness.service.issueShareOffer(
+                offer("offer-role-pin", 2, facetAdminRole.name),
+                principal(ownerId)
+            );
+            const widened = new Role(facetAdminRole.name, [
+                new RoleRule(
+                    "allow",
+                    new CapabilitySpec({
+                        facetPattern: "*",
+                        impacts: ["administer", "externalSend", "observe"]
+                    })
+                )
+            ]);
+
+            expect(issued.roleDigest.equals(Digest.sha256(Role.encode(facetAdminRole)))).toBe(true);
+            expect(harness.service.changeRole(widened, redeemedAt).rules).toEqual(widened.rules);
+            const before = {
+                epochs: harness.store.epochs().map(ScopeEpoch.encode),
+                grants: harness.store.grants().map(Grant.encode),
+                memberships: harness.store.memberships().map(Membership.encode),
+                offers: harness.store.shareOffers().map(ShareOffer.encode)
+            };
+
+            expect(() =>
+                harness.service.redeemShareOffer(
+                    issued.id,
+                    redemption(holderId, "membership-role-drift")
+                )
+            ).toThrow(
+                expect.objectContaining({
+                    code: "authority.denied",
+                    message: "Share offer Role changed after issuance"
+                })
+            );
+            expect(harness.store.epochs().map(ScopeEpoch.encode)).toEqual(before.epochs);
+            expect(harness.store.grants().map(Grant.encode)).toEqual(before.grants);
+            expect(harness.store.memberships().map(Membership.encode)).toEqual(before.memberships);
+            expect(harness.store.shareOffers().map(ShareOffer.encode)).toEqual(before.offers);
+        }
+    );
+
+    it(
+        "[C13-AUTH-SHARE-OFFER] maps cross-Tenant local issuers and holders to authority denial without writes",
+        { tags: "p0" },
+        () => {
+            const harness = seeded(open());
+            const otherTenant = new TenantId("tenant-share-offer-other");
+            const foreignLocalIssuer = SubjectRef.principal(new PrincipalRef(otherTenant, ownerId));
+            const beforeIssuer = {
+                epochs: harness.store.epochs().map(ScopeEpoch.encode),
+                grants: harness.store.grants().map(Grant.encode),
+                offers: harness.store.shareOffers().map(ShareOffer.encode)
+            };
+
+            expect(() =>
+                harness.service.issueShareOffer(offer("offer-cross-tenant-issuer"), foreignLocalIssuer)
+            ).toThrow(
+                expect.objectContaining({
+                    code: "authority.denied",
+                    message: "Share offer issuer belongs to another Tenant"
+                })
+            );
+            expect(harness.store.epochs().map(ScopeEpoch.encode)).toEqual(beforeIssuer.epochs);
+            expect(harness.store.grants().map(Grant.encode)).toEqual(beforeIssuer.grants);
+            expect(harness.store.shareOffers().map(ShareOffer.encode)).toEqual(beforeIssuer.offers);
+
+            const issued = harness.service.issueShareOffer(
+                offer("offer-cross-tenant-holder", 2),
+                principal(ownerId)
+            );
+            const beforeHolder = {
+                epochs: harness.store.epochs().map(ScopeEpoch.encode),
+                grants: harness.store.grants().map(Grant.encode),
+                memberships: harness.store.memberships().map(Membership.encode),
+                offers: harness.store.shareOffers().map(ShareOffer.encode)
+            };
+            const foreignLocalHolder = SubjectRef.principal(new PrincipalRef(otherTenant, holderId));
+
+            expect(() =>
+                harness.service.redeemShareOffer(issued.id, {
+                    secret,
+                    subject: foreignLocalHolder,
+                    membership: new MembershipId("membership-cross-tenant-holder"),
+                    now: redeemedAt
+                })
+            ).toThrow(
+                expect.objectContaining({
+                    code: "authority.denied",
+                    message: "Share offer redemption holder belongs to another Tenant"
+                })
+            );
+            expect(harness.store.epochs().map(ScopeEpoch.encode)).toEqual(beforeHolder.epochs);
+            expect(harness.store.grants().map(Grant.encode)).toEqual(beforeHolder.grants);
+            expect(harness.store.memberships().map(Membership.encode)).toEqual(
+                beforeHolder.memberships
+            );
+            expect(harness.store.shareOffers().map(ShareOffer.encode)).toEqual(beforeHolder.offers);
+
+            // A ForeignPrincipalRef is the valid cross-Tenant form. The guest test below
+            // supplies its verified provenance; this branch must not reclassify it as a
+            // malformed local Principal merely because its home Tenant differs.
+            expect(
+                SubjectRef.foreign(otherTenant, holderId, GuestVerificationScheme.callback).kind
+            ).toBe("foreign");
+        }
+    );
     it(
         "[C13-AUTH-SHARE-OFFER] refuses a duplicate issuance, an unknown issuer or Role, a pre-redeemed record, and a second revocation writes nothing",
         { tags: "p0" },
@@ -563,11 +725,17 @@ function seeded(harness: ShareOfferHarness): ShareOfferHarness {
     return harness;
 }
 
-function offer(id: string, bound = 1, role: RoleName = READER_ROLE.name): ShareOffer {
+function offer(
+    id: string,
+    bound = 1,
+    role: RoleName = READER_ROLE.name,
+    roleDigest: Digest = digestForRole(role)
+): ShareOffer {
     return new ShareOffer(
         new ShareOfferId(id),
         workspaceScope,
         role,
+        roleDigest,
         Digest.sha256(secret),
         createdAt,
         expiresAt,
@@ -578,6 +746,14 @@ function offer(id: string, bound = 1, role: RoleName = READER_ROLE.name): ShareO
     );
 }
 
+function digestForRole(name: RoleName): Digest {
+    const role = [READER_ROLE, EDITOR_ROLE, OWNER_ROLE, facetAdminRole].find((candidate) =>
+        candidate.name.equals(name)
+    );
+    return role === undefined
+        ? Digest.sha256(new TextEncoder().encode(`unknown-role:${name.value}`))
+        : Digest.sha256(Role.encode(role));
+}
 function redemption(holder: PrincipalId, membership: string): ShareOfferRedemptionRequest {
     return {
         secret,

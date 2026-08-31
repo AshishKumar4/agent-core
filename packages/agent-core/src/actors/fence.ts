@@ -1,39 +1,38 @@
 import {
-    CodecDeclaration,
     RecordCodec,
     hasExactJsonKeys,
     isJsonObject,
     type JsonValue,
-    type RecordVersion,
     TextId
 } from "../core";
 import { AgentCoreError } from "../errors";
 import { ActorId } from "./id";
 import { ActorFence, ActorRef, type ActorKind } from "./types";
 
+/**
+ * The stable Actor bootstrap carrier. It intentionally stays at 1.0 and names only the
+ * fields needed to construct and fence an Actor. Codec declarations live in the separate
+ * store carrier that Actor reads before it starts its record-owning work: putting them here
+ * would make the very record needed for construction unreadable on a rollback.
+ */
 class ActorRecoveryStateCodec extends RecordCodec<ActorRecoveryState> {
     public constructor() {
-        super(
-            [ActorRecoveryState, CodecDeclaration, ActorRef, TextId, ActorId],
-            "actor.recovery-state",
-            {
-                major: 1,
-                minor: 1
-            }
-        );
+        super([ActorRecoveryState, ActorRef, TextId, ActorId], "actor.recovery-state", {
+            major: 1,
+            minor: 0
+        });
     }
 
     protected encodePayload(state: ActorRecoveryState): JsonValue {
         return {
             actor: { kind: state.actor.kind, id: state.actor.id.value },
-            declaration: state.declaration.toData(),
             epoch: state.epoch,
             recoveries: state.recoveries
         };
     }
 
-    protected decodePayload(payload: JsonValue, version: RecordVersion): ActorRecoveryState {
-        if (!isActorRecoveryStatePayload(payload, version)) {
+    protected decodePayload(payload: JsonValue): ActorRecoveryState {
+        if (!isActorRecoveryStatePayload(payload)) {
             throw malformedRecoveryState();
         }
 
@@ -41,8 +40,7 @@ class ActorRecoveryStateCodec extends RecordCodec<ActorRecoveryState> {
             return new ActorRecoveryState(
                 new ActorRef(payload.actor.kind, new ActorId(payload.actor.id)),
                 payload.epoch,
-                payload.recoveries,
-                declaredCodecs(payload, version)
+                payload.recoveries
             );
         } catch {
             throw malformedRecoveryState();
@@ -52,7 +50,6 @@ class ActorRecoveryStateCodec extends RecordCodec<ActorRecoveryState> {
 
 interface ActorRecoveryStatePayload {
     readonly actor: { readonly kind: ActorKind; readonly id: string };
-    readonly declaration: JsonValue | undefined;
     readonly epoch: number;
     readonly recoveries: number;
 }
@@ -65,17 +62,13 @@ export class ActorRecoveryState {
     public constructor(
         public readonly actor: ActorRef,
         public readonly epoch: number,
-        public readonly recoveries: number,
-        public readonly declaration: CodecDeclaration = CodecDeclaration.empty
+        public readonly recoveries: number
     ) {
         if (!Number.isSafeInteger(epoch) || epoch < 0) {
             throw new TypeError("Actor recovery epoch must be a non-negative safe integer");
         }
         if (!Number.isSafeInteger(recoveries) || recoveries < 1) {
             throw new TypeError("Actor recovery count must be a positive safe integer");
-        }
-        if (declaration.constructor !== CodecDeclaration) {
-            throw new TypeError("Actor recovery state requires an exact CodecDeclaration");
         }
         Object.freeze(this);
     }
@@ -100,8 +93,7 @@ export class ActorRecoveryState {
         return new ActorRecoveryState(
             this.actor,
             increment(this.epoch, "Actor fence epoch"),
-            increment(this.recoveries, "Actor recovery count"),
-            this.declaration
+            increment(this.recoveries, "Actor recovery count")
         );
     }
 
@@ -109,22 +101,15 @@ export class ActorRecoveryState {
         return new ActorRecoveryState(
             this.actor,
             increment(this.epoch, "Actor fence epoch"),
-            this.recoveries,
-            this.declaration
+            this.recoveries
         );
-    }
-
-    /** Records the codec versions this Actor's records are written under (§8.3). */
-    public declaring(declaration: CodecDeclaration): ActorRecoveryState {
-        return new ActorRecoveryState(this.actor, this.epoch, this.recoveries, declaration);
     }
 }
 
 const actorRecoveryStateCodecInstance = new ActorRecoveryStateCodec();
 
 function isActorRecoveryStatePayload(
-    payload: JsonValue,
-    version: RecordVersion
+    payload: JsonValue
 ): payload is JsonValue & ActorRecoveryStatePayload {
     if (!isJsonObject(payload)) {
         return false;
@@ -133,29 +118,12 @@ function isActorRecoveryStatePayload(
     const actor = payload["actor"];
     const epoch = payload["epoch"];
     const recoveries = payload["recoveries"];
-    const fields =
-        version.minor === 0
-            ? (["actor", "epoch", "recoveries"] as const)
-            : (["actor", "declaration", "epoch", "recoveries"] as const);
     return (
-        hasExactJsonKeys(payload, fields) &&
+        hasExactJsonKeys(payload, ["actor", "epoch", "recoveries"]) &&
         isActor(actor) &&
         isFenceEpoch(epoch) &&
         isRecoveryCount(recoveries)
     );
-}
-
-/**
- * Minor 0 predates the §8.3 record-set declaration and named no codec, so it upcasts to an
- * empty declaration: a set that declares nothing is readable by every reader.
- */
-function declaredCodecs(
-    payload: ActorRecoveryStatePayload,
-    version: RecordVersion
-): CodecDeclaration {
-    return version.minor === 0
-        ? CodecDeclaration.empty
-        : CodecDeclaration.fromData(payload.declaration);
 }
 
 function isActor(

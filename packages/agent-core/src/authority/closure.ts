@@ -225,10 +225,11 @@ class AuthorityClosure {
 
     /**
      * An offer names a canonical Scope and an existing Role, and every redemption it
-     * records names the Membership that redemption minted for exactly the holder it
-     * records. A Membership's subject and Scope are immutable and a Membership is never
-     * deleted, so only writing the offer can break these — which is why no other written
-     * kind pulls offers into an incremental audit.
+     * records names the Membership that redemption minted at that exact Scope for exactly
+     * the holder it records. A Membership may later revise its Role or lifecycle, so the
+     * offer never constrains either; its subject and Scope are the immutable evidence an
+     * offer retains. A Membership is never deleted, so only writing the offer can break
+     * these — which is why no other written kind pulls offers into an incremental audit.
      */
     #assertShareOffer(offer: ShareOffer): void {
         this.#requireCanonicalScope(offer.scope);
@@ -239,6 +240,7 @@ class AuthorityClosure {
             const membership = this.store.membership(redemption.membership);
             if (
                 membership === undefined ||
+                !membership.scope.equals(offer.scope) ||
                 subjectKey(membership.subject) !== subjectKey(redemption.subject)
             ) {
                 throw corruptAuthorityClosure(

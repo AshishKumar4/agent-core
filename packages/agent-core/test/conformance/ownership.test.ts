@@ -3,7 +3,6 @@ import {
     Actor,
     ActorFence,
     ActorId,
-    ActorRecoveryState,
     ActorRef,
     MemoryActorStore,
     type ActorContext
@@ -37,9 +36,7 @@ class ContractCounterActor<Transaction> extends Actor<Transaction> implements Co
         context: ActorContext<Transaction>,
         private readonly operations: CounterOperations<Transaction>
     ) {
-        super(context, CodecDeclaration.of([ActorRecoveryState.codec]), (transaction) =>
-            operations.start(transaction)
-        );
+        super(context, CodecDeclaration.empty, (transaction) => operations.start(transaction));
     }
 
     public increment(): Promise<number> {

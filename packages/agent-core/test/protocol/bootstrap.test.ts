@@ -1083,7 +1083,7 @@ test("memory bootstrap names every snapshot rejection exactly", { tags: "p1" }, 
         createMemoryTenantBootstrap({ actor, anchor, content, snapshot: value });
 
     const actorEnvelope = restore(
-        forgedSnapshot({ version: 1, opaque: { ...opaque, version: 2 } })
+        forgedSnapshot({ version: 1, opaque: { ...opaque, version: 3 } })
     );
     expectAgentCoreError(actorEnvelope, "codec.invalid");
     expect(actorEnvelope).toThrow("Memory Actor snapshot is malformed");

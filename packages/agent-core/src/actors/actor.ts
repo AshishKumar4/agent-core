@@ -1,4 +1,4 @@
-import { CodecCompatibility, isObjectRecord, type CodecDeclaration } from "../core";
+import { CodecCompatibility, CodecDeclaration, isObjectRecord } from "../core";
 import { AgentCoreError, type AgentCoreErrorCode } from "../errors";
 import { createActorContext, type ActorContext } from "./context";
 import { ActorRecoveryState } from "./fence";
@@ -36,12 +36,14 @@ export abstract class Actor<TTransaction> {
     #closePromise: Promise<void> | undefined;
     #fence: ActorFence;
     #compatibility: CodecCompatibility = CodecCompatibility.compatible;
+    #bootstrapFailure: AgentCoreError | undefined;
 
     /**
-     * `declaration` names the codec versions this Actor reads its own records under (§8.3).
-     * Activation reaches the stored declaration before any record of the set is decoded, so
-     * an incompatible set never reaches `start`: construction still succeeds, and every
-     * operation raises the codec's typed error while the stored bytes stay untouched.
+     * Subclasses declare only the record codecs they own. Actor unions the stable recovery
+     * carrier itself, so no subclass can omit it or choose its version. The stored
+     * declaration sits in a separate raw carrier that the store returns before `start`
+     * decodes domain records; an incompatible or malformed future carrier therefore leaves
+     * construction possible and refuses every operation instead.
      */
     protected constructor(
         context: ActorContext<TTransaction>,
@@ -50,10 +52,28 @@ export abstract class Actor<TTransaction> {
     ) {
         this.#context = createActorContext(context.actor, context.store);
         const store = this.#context.store;
+        const completeDeclaration = declarationForActor(declaration);
         this.#fence = store.activateActor(context.actor, (transaction, activation) => {
-            this.#compatibility = activation.recovery.declaration.compatibilityWith(declaration);
+            const carrier = store.loadRecordSetDeclaration(transaction, context.actor);
+            let stored = CodecDeclaration.empty;
+            if (carrier !== undefined) {
+                try {
+                    stored = CodecDeclaration.decode(carrier);
+                } catch (error) {
+                    if (!(error instanceof AgentCoreError)) throw error;
+                    this.#bootstrapFailure = error;
+                    return;
+                }
+            }
+            this.#compatibility = stored.compatibilityWith(completeDeclaration);
             this.#compatibility.admit(() => {
-                store.saveRecoveryState(transaction, activation.recovery.declaring(declaration));
+                if (!stored.equals(completeDeclaration)) {
+                    store.saveRecordSetDeclaration(
+                        transaction,
+                        context.actor,
+                        CodecDeclaration.encode(completeDeclaration)
+                    );
+                }
                 requireSynchronousResult(start(transaction, activation));
             });
         }).fence;
@@ -222,6 +242,7 @@ export abstract class Actor<TTransaction> {
         if (this.#closed) {
             throw new AgentCoreError("actor.closed", "Actor is closed");
         }
+        if (this.#bootstrapFailure !== undefined) throw this.#bootstrapFailure;
         this.#compatibility.requireCompatible();
     }
 }
@@ -238,4 +259,11 @@ function isStaleFence(error: unknown): error is AgentCoreError {
 
 function isActorCommitUnknown(error: unknown): error is ActorCommitUnknownError {
     return isObjectRecord(error) && actorCommitUnknownErrors.has(error);
+}
+
+function declarationForActor(declaration: CodecDeclaration): CodecDeclaration {
+    if (declaration.versionOf(ActorRecoveryState.codec.kind) !== undefined) {
+        throw new TypeError("Actor subclasses must not declare the stable recovery carrier");
+    }
+    return CodecDeclaration.of([ActorRecoveryState.codec, ...declaration.declared]);
 }

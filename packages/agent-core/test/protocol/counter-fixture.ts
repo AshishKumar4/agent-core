@@ -533,6 +533,21 @@ class FaultingMemoryActorStore implements ActorLocalStore<CounterState> {
         this.store.saveRecoveryState(transaction, state);
     }
 
+    public loadRecordSetDeclaration(
+        transaction: CounterState,
+        actor: ActorRef
+    ): Uint8Array | undefined {
+        return this.store.loadRecordSetDeclaration(transaction, actor);
+    }
+
+    public saveRecordSetDeclaration(
+        transaction: CounterState,
+        actor: ActorRef,
+        declaration: Uint8Array
+    ): void {
+        this.store.saveRecordSetDeclaration(transaction, actor, declaration);
+    }
+
     public snapshot(): MemoryActorStoreSnapshot<CounterState> {
         return this.store.snapshot();
     }

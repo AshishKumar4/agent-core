@@ -18,6 +18,19 @@ const CREATE_ACTOR_STATE = `CREATE TABLE IF NOT EXISTS actor_recovery_state (
     PRIMARY KEY (actor_kind, actor_id)
 )`;
 
+/**
+ * Separate from actor_recovery_state on purpose. Recovery is the stable bootstrap carrier
+ * a rollback must decode to construct and fence the Actor; these raw declaration bytes are
+ * read by the current Actor before it starts any record-owning work and can therefore defer
+ * a malformed or future declaration to every operation rather than construction.
+ */
+const CREATE_ACTOR_RECORD_SET_DECLARATION = `CREATE TABLE IF NOT EXISTS actor_record_set_declaration (
+    actor_kind TEXT NOT NULL,
+    actor_id TEXT NOT NULL,
+    declaration BLOB NOT NULL,
+    PRIMARY KEY (actor_kind, actor_id)
+)`;
+
 const CREATE_ACTOR_IDENTITY = `CREATE TABLE IF NOT EXISTS actor_identity (
     singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
     actor_kind TEXT NOT NULL,
@@ -41,6 +54,7 @@ export class SqliteActorStore implements ActorLocalStore<TransactionalSqlite, Re
         this.database.transaction(() => {
             this.database.run(CREATE_ACTOR_IDENTITY, []);
             this.database.run(CREATE_ACTOR_STATE, []);
+            this.database.run(CREATE_ACTOR_RECORD_SET_DECLARATION, []);
         });
     }
 
@@ -175,6 +189,37 @@ export class SqliteActorStore implements ActorLocalStore<TransactionalSqlite, Re
              ON CONFLICT(actor_kind, actor_id) DO UPDATE SET
                 state = excluded.state`,
             [state.actor.kind, state.actor.id.value, ActorRecoveryState.codec.encode(state)]
+        );
+    }
+
+    public loadRecordSetDeclaration(
+        transaction: TransactionalSqlite,
+        actor: ActorRef
+    ): Uint8Array | undefined {
+        this.requireActiveTransaction(transaction);
+        this.requireBoundActor(actor);
+        const row = transaction.all(
+            `SELECT declaration
+             FROM actor_record_set_declaration
+             WHERE actor_kind = ? AND actor_id = ?`,
+            [actor.kind, actor.id.value]
+        )[0];
+        return row === undefined ? undefined : bytes(row, "declaration");
+    }
+
+    public saveRecordSetDeclaration(
+        transaction: TransactionalSqlite,
+        actor: ActorRef,
+        declaration: Uint8Array
+    ): void {
+        this.requireActiveTransaction(transaction);
+        this.requireBoundActor(actor);
+        transaction.run(
+            `INSERT INTO actor_record_set_declaration (actor_kind, actor_id, declaration)
+             VALUES (?, ?, ?)
+             ON CONFLICT(actor_kind, actor_id) DO UPDATE SET
+                declaration = excluded.declaration`,
+            [actor.kind, actor.id.value, declaration.slice()]
         );
     }
 

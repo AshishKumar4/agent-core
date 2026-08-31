@@ -3,7 +3,6 @@ import {
     Actor,
     ActorFence,
     ActorId,
-    ActorRecoveryState,
     ActorRef,
     MemoryActorStore,
     type ActorContext,
@@ -201,7 +200,7 @@ interface Counter {
 
 class GateActor extends Actor<Counter> {
     public constructor(context: ActorContext<Counter>) {
-        super(context, CodecDeclaration.of([ActorRecoveryState.codec]), () => {});
+        super(context, CodecDeclaration.empty, () => {});
     }
 
     public bump(fence: ActorFence): Promise<number> {

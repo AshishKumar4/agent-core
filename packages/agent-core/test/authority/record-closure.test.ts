@@ -1,7 +1,7 @@
 import { Database } from "bun:sqlite";
 import { describe, expect, test } from "vitest";
 import { ActorId, requireSynchronousResult, type SynchronousResultGuard } from "../../src/actors";
-import { Revision } from "../../src/core";
+import { Digest, Revision } from "../../src/core";
 import { AgentCoreError } from "../../src/errors";
 import { BindingName, CapabilitySpec, FacetRef, ProtectionDomain } from "../../src/facets";
 import {
@@ -13,6 +13,8 @@ import {
     RoleName,
     RoleRule,
     ScopeRef,
+    ShareOffer,
+    ShareOfferId,
     SubjectRef,
     TenantId,
     WorkspaceId
@@ -227,7 +229,117 @@ describe.each([
         expect(() => assertAuthorityClosure(store, changed)).not.toThrow();
         expect(() => assertAuthorityClosure(store, new AuthorityChangeSet())).not.toThrow();
     });
+
+    test(
+        "refuses a redeemed Membership that moved Scope in both full and incremental closure, while allowing its later Role revision",
+        { tags: "p0" },
+        () => {
+            const invalid = backing.open();
+            const reader = new Role(new RoleName("closure-offer-reader"), [
+                new RoleRule("allow", observe)
+            ]);
+            const member = new Membership(
+                new MembershipId("closure-offer-member"),
+                workspaceScope,
+                ownerSubject,
+                reader.name,
+                "active",
+                Revision.initial()
+            );
+            const offer = redeemedOffer(invalid.store, invalid.service, reader, member);
+            const moved = new Membership(
+                member.id,
+                otherWorkspaceScope,
+                member.subject,
+                member.role,
+                member.state,
+                member.revision
+            );
+            const divergence = new AuthorityDivergence();
+            divergence.memberships.answer(member.id.value, moved);
+            const divergent = new DivergentAuthorityStore(invalid.store, divergence);
+            const changed = new AuthorityChangeSet();
+            changed.shareOffers.record(offer.id.value, offer, "replaced");
+            const fault = expect.objectContaining({
+                code: "codec.invalid",
+                message: "Share offer redemption references invalid Membership evidence"
+            });
+
+            expect(() => assertAuthorityClosure(divergent)).toThrow(fault);
+            expect(() => assertAuthorityClosure(divergent, changed)).toThrow(fault);
+
+            const valid = backing.open();
+            const initialRole = new Role(new RoleName("closure-offer-role-before"), [
+                new RoleRule("allow", observe)
+            ]);
+            const laterRole = new Role(new RoleName("closure-offer-role-after"), [
+                new RoleRule("allow", observeAndMutate)
+            ]);
+            const stableMember = new Membership(
+                new MembershipId("closure-offer-member-role-change"),
+                workspaceScope,
+                ownerSubject,
+                initialRole.name,
+                "active",
+                Revision.initial()
+            );
+            const stableOffer = redeemedOffer(
+                valid.store,
+                valid.service,
+                initialRole,
+                stableMember
+            );
+            valid.service.createRole(laterRole);
+            valid.service.changeMembership(
+                stableMember.id,
+                { role: laterRole.name, state: "active" },
+                new Date(160)
+            );
+            const roleChanged = new AuthorityChangeSet();
+            roleChanged.shareOffers.record(stableOffer.id.value, stableOffer, "replaced");
+
+            expect(() => assertAuthorityClosure(valid.store)).not.toThrow();
+            expect(() => assertAuthorityClosure(valid.store, roleChanged)).not.toThrow();
+        }
+    );
 });
+
+function redeemedOffer(
+    store: AuthorityMutationStore,
+    service: AuthorityMutationService,
+    role: Role,
+    membership: Membership
+): ShareOffer {
+    const secret = Uint8Array.of(5, 7, 11);
+    service.createRole(role);
+    service.assignMembership(membership);
+    const initial = new ShareOffer(
+        new ShareOfferId(`closure-offer-${membership.id.value}`),
+        workspaceScope,
+        role.name,
+        Digest.sha256(Role.encode(role)),
+        Digest.sha256(secret),
+        new Date(100),
+        new Date(200),
+        1,
+        [],
+        "open",
+        Revision.initial()
+    );
+    store.transaction((transaction) => {
+        transaction.putShareOffer(initial);
+    });
+    const redeemed = initial.redeem({
+        secret,
+        subject: membership.subject,
+        membership: membership.id,
+        now: new Date(150)
+    }).offer;
+    store.transaction((transaction) => {
+        transaction.putShareOffer(redeemed);
+    });
+    return redeemed;
+}
 
 /**
  * Each Grant names the other as its attenuation parent. No sequence of writes builds this,

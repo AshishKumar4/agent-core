@@ -1619,6 +1619,35 @@ describe("CodecDeclaration", () => {
     );
 
     test(
+        "[C13-CODEC-INCOMPATIBILITY-TOTAL] freezes the compatible singleton against public method replacement",
+        { tags: "p0" },
+        () => {
+            const compatible = CodecCompatibility.compatible;
+            let served = false;
+
+            expect(Object.isFrozen(compatible)).toBe(true);
+            expect(
+                Reflect.set(compatible, "admit", () => {
+                    throw new Error("forged compatibility refusal");
+                })
+            ).toBe(false);
+            expect(
+                Reflect.defineProperty(compatible, "requireCompatible", {
+                    configurable: true,
+                    value: () => {
+                        throw new Error("forged compatibility refusal");
+                    }
+                })
+            ).toBe(false);
+            compatible.admit(() => {
+                served = true;
+            });
+            expect(served).toBe(true);
+            expect(() => compatible.requireCompatible()).not.toThrow();
+        }
+    );
+
+    test(
         "[C13-CODEC-INCOMPATIBILITY-TOTAL] round-trips through its stored form and refuses a malformed one",
         { tags: "p1" },
         () => {
@@ -1634,13 +1663,48 @@ describe("CodecDeclaration", () => {
                 [{ kind: "test.fixture" }],
                 [{ kind: "test.fixture", version: { major: 1 } }],
                 [{ kind: "test.fixture", version: { major: 1, minor: 0, patch: 0 } }],
-                [{ kind: "test.fixture", version: { major: 1, minor: 0 }, extra: true }],
                 [{ kind: 1, version: { major: 1, minor: 0 } }],
-                [{ kind: "test.fixture", version: { major: 1.5, minor: 0 } }]
+                [{ kind: "test.fixture", version: { major: 1.5, minor: 0 } }],
+                [
+                    { kind: "test.duplicate", version: { major: 1, minor: 0 } },
+                    { kind: "test.duplicate", version: { major: 1, minor: 0 } }
+                ],
+                [{ kind: " test.padded", version: { major: 1, minor: 0 } }],
+                [{ kind: "test.padded ", version: { major: 1, minor: 0 } }],
+                [{ kind: "   ", version: { major: 1, minor: 0 } }],
+                [{ kind: "test.\ud800", version: { major: 1, minor: 0 } }],
+                [{ kind: "test.\udfff", version: { major: 1, minor: 0 } }]
             ];
             for (const malformed of malformedDeclarations) {
-                expect(() => CodecDeclaration.fromData(malformed)).toThrow(AgentCoreError);
+                expect(() => CodecDeclaration.fromData(malformed)).toThrow(
+                    expect.objectContaining({ code: "codec.invalid" })
+                );
             }
+        }
+    );
+
+    test(
+        "[C13-CODEC-INCOMPATIBILITY-TOTAL] carries raw canonical bytes and refuses a declaration lookalike",
+        { tags: "p0" },
+        () => {
+            const carrier = CodecDeclaration.encode(reader);
+
+            // No RecordCodec envelope by design: this carrier stays readable while a future
+            // record codec is exactly what the reader refuses to understand.
+            expect(decodeCanonicalJson(carrier)).toEqual(reader.toData());
+            expect(CodecDeclaration.decode(carrier).equals(reader)).toBe(true);
+            expect(CodecDeclaration.decode(CodecDeclaration.encode(CodecDeclaration.empty))).toEqual(
+                CodecDeclaration.empty
+            );
+            expectTypeFailure(
+                () =>
+                    // @ts-expect-error Runtime callers can supply a CodecDeclaration lookalike.
+                    CodecDeclaration.encode({ declared: reader.declared, toData: () => [] }),
+                "Codec declaration encoding requires an exact CodecDeclaration"
+            );
+            expect(() => CodecDeclaration.decode(new TextEncoder().encode("{"))).toThrow(
+                AgentCoreError
+            );
         }
     );
 

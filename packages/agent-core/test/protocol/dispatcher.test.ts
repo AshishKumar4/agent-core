@@ -920,7 +920,9 @@ test("function-typed Actor activation stores are admitted", { tags: "p2" }, asyn
         transaction: base.transaction.bind(base),
         read: base.read.bind(base),
         loadRecoveryState: base.loadRecoveryState.bind(base),
-        saveRecoveryState: base.saveRecoveryState.bind(base)
+        saveRecoveryState: base.saveRecoveryState.bind(base),
+        loadRecordSetDeclaration: base.loadRecordSetDeclaration.bind(base),
+        saveRecordSetDeclaration: base.saveRecordSetDeclaration.bind(base)
     });
     const dispatcher = new CommandDispatcher(
         probeDispatcherInitOver(state.records, forgedActorStore(store))

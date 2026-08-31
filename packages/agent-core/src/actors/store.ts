@@ -42,9 +42,27 @@ type InspectableActorState =
 export interface ActorStore<TTransaction> extends TransactionalStore<TTransaction> {
     bindActor(actor: ActorRef): void;
 
+    /**
+     * The stable bootstrap record, decoded before any record the Actor itself owns.
+     * It never carries a codec declaration: keeping that carrier stable lets an older
+     * runtime construct and fence the Actor instead of failing before it can refuse work.
+     */
     loadRecoveryState(transaction: TTransaction, actor: ActorRef): ActorRecoveryState | undefined;
 
     saveRecoveryState(transaction: TTransaction, state: ActorRecoveryState): void;
+
+    /**
+     * Raw canonical CodecDeclaration bytes in the separate record-set bootstrap carrier.
+     * Stores deliberately do not decode these bytes: Actor decides compatibility before it
+     * starts its record-owning work and defers a malformed or future carrier to operations.
+     */
+    loadRecordSetDeclaration(transaction: TTransaction, actor: ActorRef): Uint8Array | undefined;
+
+    saveRecordSetDeclaration(
+        transaction: TTransaction,
+        actor: ActorRef,
+        declaration: Uint8Array
+    ): void;
 }
 
 export class ActorActivation {
@@ -99,10 +117,11 @@ export interface ActorLocalStore<
 }
 
 export interface MemoryActorStoreSnapshot<TState> {
-    readonly version: 1;
+    readonly version: 1 | 2;
     readonly state: TState;
     readonly actor: { readonly kind: ActorKind; readonly id: string } | null;
     readonly recoveryState: Uint8Array | null;
+    readonly recordSetDeclaration?: Uint8Array | null;
 }
 
 export class MemoryActorStore<TTransaction extends object>
@@ -110,9 +129,11 @@ export class MemoryActorStore<TTransaction extends object>
 {
     #value: TTransaction;
     #recovery: ActorRecoveryState | undefined;
+    #recordSetDeclaration: Uint8Array | undefined;
     #activeTransaction: TTransaction | undefined;
     #activeDraft: TTransaction | undefined;
     #activeRecovery: ActorRecoveryState | undefined;
+    #activeRecordSetDeclaration: Uint8Array | undefined;
     #activeActor: ActorRef | undefined;
     #actor: ActorRef | undefined;
 
@@ -130,19 +151,29 @@ export class MemoryActorStore<TTransaction extends object>
         requireSnapshot(snapshot);
         const store = new MemoryActorStore(snapshot.state, clone);
         if (snapshot.actor === null) {
-            if (snapshot.recoveryState !== null) {
-                throw corruptSnapshot("Unbound Actor snapshots cannot contain recovery state");
+            if (
+                snapshot.recoveryState !== null ||
+                (snapshot.recordSetDeclaration !== undefined &&
+                    snapshot.recordSetDeclaration !== null)
+            ) {
+                throw corruptSnapshot("Unbound Actor snapshots cannot contain bootstrap state");
             }
             return store;
         }
         const actor = new ActorRef(snapshot.actor.kind, new ActorId(snapshot.actor.id));
         store.#actor = actor;
+        if (snapshot.recordSetDeclaration !== undefined && snapshot.recordSetDeclaration !== null) {
+            store.#recordSetDeclaration = snapshot.recordSetDeclaration.slice();
+        }
         if (snapshot.recoveryState !== null) {
             const recovery = ActorRecoveryState.codec.decode(snapshot.recoveryState.slice());
             if (!recovery.actor.equals(actor)) {
                 throw corruptSnapshot("Actor snapshot recovery state belongs to a different Actor");
             }
             store.#recovery = recovery;
+        }
+        if (store.#recordSetDeclaration !== undefined && store.#recovery === undefined) {
+            throw corruptSnapshot("Actor snapshot declaration requires recovery state");
         }
         return store;
     }
@@ -204,6 +235,7 @@ export class MemoryActorStore<TTransaction extends object>
             this.#recovery === undefined
                 ? undefined
                 : ActorRecoveryState.codec.decode(ActorRecoveryState.codec.encode(this.#recovery));
+        const declarationDraft = this.#recordSetDeclaration?.slice();
         let active = true;
         const scope = new Proxy(draft, {
             defineProperty(target, property, descriptor) {
@@ -257,6 +289,7 @@ export class MemoryActorStore<TTransaction extends object>
         this.#activeTransaction = scope;
         this.#activeDraft = draft;
         this.#activeRecovery = recoveryDraft;
+        this.#activeRecordSetDeclaration = declarationDraft;
         this.#activeActor = this.#actor;
 
         try {
@@ -264,12 +297,14 @@ export class MemoryActorStore<TTransaction extends object>
             const committed = copyDetached(draft, this.clone);
             this.#value = committed;
             this.#recovery = this.#activeRecovery;
+            this.#recordSetDeclaration = this.#activeRecordSetDeclaration;
             this.#actor = this.#activeActor;
             return result;
         } finally {
             this.#activeTransaction = undefined;
             this.#activeDraft = undefined;
             this.#activeRecovery = undefined;
+            this.#activeRecordSetDeclaration = undefined;
             this.#activeActor = undefined;
             active = false;
         }
@@ -300,10 +335,30 @@ export class MemoryActorStore<TTransaction extends object>
         this.#activeRecovery = state;
     }
 
+    public loadRecordSetDeclaration(
+        transaction: TTransaction,
+        actor: ActorRef
+    ): Uint8Array | undefined {
+        this.requireActor(transaction, actor);
+        return this.#activeRecordSetDeclaration?.slice();
+    }
+
+    public saveRecordSetDeclaration(
+        transaction: TTransaction,
+        actor: ActorRef,
+        declaration: Uint8Array
+    ): void {
+        this.requireActor(transaction, actor);
+        if (!(declaration instanceof Uint8Array)) {
+            throw new AgentCoreError("codec.invalid", "Actor record set declaration must be bytes");
+        }
+        this.#activeRecordSetDeclaration = declaration.slice();
+    }
+
     public snapshot(): MemoryActorStoreSnapshot<TTransaction> {
         const state = copyDetached(this.#value, this.clone);
         return Object.freeze({
-            version: 1,
+            version: 2,
             state,
             actor:
                 this.#actor === undefined
@@ -312,7 +367,8 @@ export class MemoryActorStore<TTransaction extends object>
             recoveryState:
                 this.#recovery === undefined
                     ? null
-                    : ActorRecoveryState.codec.encode(this.#recovery).slice()
+                    : ActorRecoveryState.codec.encode(this.#recovery).slice(),
+            recordSetDeclaration: this.#recordSetDeclaration?.slice() ?? null
         });
     }
 
@@ -350,10 +406,23 @@ function isThenableCandidate(value: unknown): value is object {
 function noop(): void {}
 
 function requireSnapshot<TState>(value: MemoryActorStoreSnapshot<TState>): void {
+    const legacy =
+        isActorStateObject(value) &&
+        hasExactKeys(value, ["actor", "recoveryState", "state", "version"]) &&
+        value.version === 1;
+    const current =
+        isActorStateObject(value) &&
+        hasExactKeys(value, [
+            "actor",
+            "recordSetDeclaration",
+            "recoveryState",
+            "state",
+            "version"
+        ]) &&
+        value.version === 2 &&
+        (value.recordSetDeclaration === null || value.recordSetDeclaration instanceof Uint8Array);
     if (
-        !isActorStateObject(value) ||
-        !hasExactKeys(value, ["actor", "recoveryState", "state", "version"]) ||
-        value.version !== 1 ||
+        (!legacy && !current) ||
         !isActorStateObject(value.state) ||
         !isSnapshotActor(value.actor) ||
         (value.recoveryState !== null && !(value.recoveryState instanceof Uint8Array))

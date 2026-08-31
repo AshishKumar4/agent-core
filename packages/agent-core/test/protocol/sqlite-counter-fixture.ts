@@ -133,6 +133,21 @@ class FaultingSqliteActorStore implements ActorLocalStore<TransactionalSqlite, R
     public saveRecoveryState(transaction: TransactionalSqlite, state: ActorRecoveryState): void {
         this.store.saveRecoveryState(transaction, state);
     }
+
+    public loadRecordSetDeclaration(
+        transaction: TransactionalSqlite,
+        actor: ActorRef
+    ): Uint8Array | undefined {
+        return this.store.loadRecordSetDeclaration(transaction, actor);
+    }
+
+    public saveRecordSetDeclaration(
+        transaction: TransactionalSqlite,
+        actor: ActorRef,
+        declaration: Uint8Array
+    ): void {
+        this.store.saveRecordSetDeclaration(transaction, actor, declaration);
+    }
 }
 
 export class SqliteCounterHarness implements CounterFixture {

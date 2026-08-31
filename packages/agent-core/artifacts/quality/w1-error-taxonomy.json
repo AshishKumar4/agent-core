@@ -81,6 +81,9 @@
       "test/core/semver.test.ts#rejects noncanonical, unsafe, and malformed runtime versions",
       "test/core/semver.test.ts#rejects a non-string parse input without coercion"
     ],
+    "src/actors/actor.ts": [
+      "test/actors/actor.test.ts#refuses a subclass that declares the stable recovery carrier itself"
+    ],
     "src/actors/context.ts": [
       "test/actors/actor.test.ts#validates and narrows generic Actor stores without casts"
     ],
@@ -145,6 +148,18 @@
   },
   "entries": [
     {
+      "id": "w1.actors.actor.declarationforactor.fbb230bdfd",
+      "source": "src/actors/actor.ts",
+      "sourceAnchor": {
+        "container": "declarationForActor",
+        "guard": "declaration.versionOf(ActorRecoveryState.codec.kind) !== undefined",
+        "expression": "new TypeError(\"Actor subclasses must not declare the stable recovery carrier\")"
+      },
+      "classification": "programmer-contract",
+      "rationale": "Refuses a subclass that declares the stable bootstrap carrier Actor owns, which is an API misuse rather than a runtime condition.",
+      "testedBy": ["test/actors/actor.test.ts"]
+    },
+    {
       "id": "w1.actors.context.validateactorcontext.ac6c81bd66",
       "source": "src/actors/context.ts",
       "sourceAnchor": {
@@ -178,18 +193,6 @@
       },
       "classification": "constructor-shape",
       "rationale": "Rejects malformed immediate construction or value shape without consulting runtime state.",
-      "testedBy": ["test/actors/fence.test.ts"]
-    },
-    {
-      "id": "w1.actors.fence.actorrecoverystate-constructor.942f528775",
-      "source": "src/actors/fence.ts",
-      "sourceAnchor": {
-        "container": "ActorRecoveryState.constructor",
-        "guard": "declaration.constructor !== CodecDeclaration",
-        "expression": "new TypeError(\"Actor recovery state requires an exact CodecDeclaration\")"
-      },
-      "classification": "constructor-shape",
-      "rationale": "Rejects a declaration that is not exactly a CodecDeclaration at construction, without consulting runtime state.",
       "testedBy": ["test/actors/fence.test.ts"]
     },
     {
@@ -574,6 +577,18 @@
       },
       "classification": "constructor-shape",
       "rationale": "Rejects a malformed or duplicated record kind while a CodecDeclaration is constructed, without consulting runtime state.",
+      "testedBy": ["test/core/codec.test.ts"]
+    },
+    {
+      "id": "w1.core.codec.codecdeclaration-encode.e59aa7f302",
+      "source": "src/core/codec.ts",
+      "sourceAnchor": {
+        "container": "CodecDeclaration.encode",
+        "guard": "declaration.constructor !== CodecDeclaration",
+        "expression": "new TypeError(\"Codec declaration encoding requires an exact CodecDeclaration\")"
+      },
+      "classification": "programmer-contract",
+      "rationale": "The raw bootstrap carrier must encode an exact CodecDeclaration; a lookalike is a caller wiring fault rather than stored input.",
       "testedBy": ["test/core/codec.test.ts"]
     },
     {

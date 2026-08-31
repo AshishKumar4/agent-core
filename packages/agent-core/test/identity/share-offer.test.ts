@@ -41,6 +41,7 @@ const scope = ScopeRef.workspace(
 const editor = new RoleName("editor");
 const secret = Uint8Array.of(7, 11, 13, 17, 19, 23);
 const secretDigest = Digest.sha256(secret);
+const roleDigest = Digest.sha256(Uint8Array.of(29, 31, 37));
 const createdAt = new Date(1_000_000);
 const expiresAt = new Date(2_000_000);
 const withinWindow = new Date(1_500_000);
@@ -55,6 +56,7 @@ function offer(bound = 1, redemptions: readonly ShareOfferRedemption[] = []): Sh
         new ShareOfferId("offer-share"),
         scope,
         editor,
+        roleDigest,
         secretDigest,
         createdAt,
         expiresAt,
@@ -93,6 +95,7 @@ function driftedTerms(source: ShareOffer): readonly (readonly [string, ShareOffe
             readonly id?: ShareOfferId;
             readonly scope?: ScopeRef;
             readonly role?: RoleName;
+            readonly roleDigest?: Digest;
             readonly secretDigest?: Digest;
             readonly createdAt?: Date;
             readonly expiresAt?: Date;
@@ -105,6 +108,7 @@ function driftedTerms(source: ShareOffer): readonly (readonly [string, ShareOffe
             override.id ?? source.id,
             override.scope ?? source.scope,
             override.role ?? source.role,
+            override.roleDigest ?? source.roleDigest,
             override.secretDigest ?? source.secretDigest,
             override.createdAt ?? source.createdAt,
             override.expiresAt ?? source.expiresAt,
@@ -118,12 +122,12 @@ function driftedTerms(source: ShareOffer): readonly (readonly [string, ShareOffe
         successor("id", { id: new ShareOfferId("offer-drifted") }),
         successor("scope", { scope: ScopeRef.tenant(tenantId) }),
         successor("role", { role: new RoleName("reader") }),
+        successor("roleDigest", { roleDigest: Digest.sha256(Uint8Array.of(41)) }),
         successor("secretDigest", { secretDigest: Digest.sha256(Uint8Array.of(1)) }),
         successor("createdAt", { createdAt: new Date(1_100_000) }),
         successor("expiresAt", { expiresAt: new Date(2_100_000) }),
         successor("bound", { bound: source.bound + 1 }),
         successor("revision", { revision: source.revision.next().next() })
-    ];
 }
 
 describe("share offers", () => {
@@ -187,7 +191,7 @@ describe("share offers", () => {
             const envelope = decodeCanonicalJson(bytes);
             if (!isJsonObject(envelope)) throw new TypeError("Expected share offer envelope");
             expect(envelope["kind"]).toBe("identity.share-offer");
-            expect(envelope["version"]).toEqual({ major: 1, minor: 0 });
+            expect(envelope["version"]).toEqual({ major: 2, minor: 0 });
             // Only the digest of the bearer secret is durable, never the secret itself. The
             // exact payload key set is the witness: scanning the bytes for one chosen encoding
             // of the secret would pass for any encoding that is not the one guessed.
@@ -201,6 +205,7 @@ describe("share offers", () => {
                 "redemptions",
                 "revision",
                 "role",
+                "roleDigest",
                 "scope",
                 "secretDigest",
                 "state"
@@ -285,6 +290,7 @@ describe("share offers", () => {
                         redeemed.id,
                         redeemed.scope,
                         redeemed.role,
+                        redeemed.roleDigest,
                         redeemed.secretDigest,
                         redeemed.createdAt,
                         redeemed.expiresAt,
@@ -306,6 +312,73 @@ describe("share offers", () => {
                         code: "protocol.revision-conflict",
                         message:
                             "Share offer terms are immutable and updates require the next revision"
+                    })
+                );
+            }
+        }
+    );
+
+    test(
+        "[C13-AUTH-SHARE-OFFER] [identity.share-offer] preserves prior redemption time and foreign verification evidence exactly",
+        { tags: "p0" },
+        () => {
+            const foreignHolder = SubjectRef.foreign(
+                homeTenantId,
+                new PrincipalId("holder-foreign"),
+                GuestVerificationScheme.token
+            );
+            const redeemed = redeem(
+                foreignHolder,
+                offer(2),
+                withinWindow,
+                secret,
+                new MembershipId("membership-foreign")
+            ).offer;
+            const recorded = redeemed.redemptions[0];
+            if (recorded === undefined) throw new TypeError("Expected recorded foreign redemption");
+
+            const successors = [
+                [
+                    "redeemedAt",
+                    new ShareOfferRedemption(
+                        foreignHolder,
+                        recorded.membership,
+                        new Date(recorded.redeemedAt.getTime() + 1)
+                    )
+                ],
+                [
+                    "verifiedVia",
+                    new ShareOfferRedemption(
+                        SubjectRef.foreign(
+                            homeTenantId,
+                            foreignHolder.principalId,
+                            GuestVerificationScheme.callback
+                        ),
+                        recorded.membership,
+                        recorded.redeemedAt
+                    )
+                ]
+            ] as const;
+
+            for (const [field, replacement] of successors) {
+                const successor = new ShareOffer(
+                    redeemed.id,
+                    redeemed.scope,
+                    redeemed.role,
+                    redeemed.roleDigest,
+                    redeemed.secretDigest,
+                    redeemed.createdAt,
+                    redeemed.expiresAt,
+                    redeemed.bound,
+                    [replacement],
+                    redeemed.state,
+                    redeemed.revision.next()
+                );
+
+                expect(() => redeemed.assertCanReplace(successor), field).toThrow(
+                    expect.objectContaining({
+                        code: "protocol.invalid-state",
+                        message: "Share offer redemptions are append-only"
                     })
                 );
             }
@@ -511,6 +584,7 @@ describe("share offer adversarial redemption", () => {
                         new ShareOfferId("offer-share"),
                         scope,
                         editor,
+                        roleDigest,
                         secretDigest,
                         createdAt,
                         createdAt,
@@ -526,6 +600,7 @@ describe("share offer adversarial redemption", () => {
                         new ShareOfferId("offer-share"),
                         scope,
                         editor,
+                        roleDigest,
                         secretDigest,
                         createdAt,
                         expiresAt,
@@ -544,6 +619,7 @@ describe("share offer adversarial redemption", () => {
                         new ShareOfferId("offer-share"),
                         scope,
                         editor,
+                        roleDigest,
                         secretDigest,
                         createdAt,
                         expiresAt,
@@ -569,6 +645,7 @@ class ForgedDigest extends Digest {}
 class ForgedRedemption extends ShareOfferRedemption {}
 
 interface ShareOfferOverrides {
+    readonly roleDigest?: Digest;
     readonly secretDigest?: Digest;
     readonly createdAt?: Date;
     readonly expiresAt?: Date;
@@ -583,6 +660,7 @@ function offerWith(overrides: ShareOfferOverrides): ShareOffer {
         new ShareOfferId("offer-share"),
         scope,
         editor,
+        overrides.roleDigest ?? roleDigest,
         overrides.secretDigest ?? secretDigest,
         overrides.createdAt ?? createdAt,
         overrides.expiresAt ?? expiresAt,
@@ -625,7 +703,7 @@ function decodeOfferPayload(payload: JsonObject): ShareOffer {
     return ShareOffer.decode(
         encodeCanonicalJson({
             kind: "identity.share-offer",
-            version: { major: 1, minor: 0 },
+            version: { major: 2, minor: 0 },
             payload
         })
     );

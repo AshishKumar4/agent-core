@@ -1,7 +1,6 @@
 import {
     Actor,
     ActorCommitUnknownError,
-    ActorRecoveryState,
     isActorActivationStore,
     requireSynchronousResult,
     type ActorContext,
@@ -161,13 +160,10 @@ export class CommandPreparationUnavailableError extends AgentCoreError {
 }
 
 /**
- * The codec versions a dispatcher's own record set is written under (§8.3): its durable
- * Actor recovery state and the write and audit evidence its persistence holds. A stored set
- * that declares any of these under a version this build cannot read refuses every command
- * rather than serving the records that still decode.
+ * The codec versions a dispatcher owns besides the stable recovery carrier. Actor adds that
+ * carrier itself, so no subclass can omit or manually version bootstrap state.
  */
 const DISPATCHER_CODECS: CodecDeclaration = CodecDeclaration.of([
-    ActorRecoveryState.codec,
     AuditRecord.codec,
     WriteRecord.codec
 ]);

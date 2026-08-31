@@ -731,19 +731,21 @@ export class SqliteTenantControlStore
         }
         this.writeDatabase().run(
             `INSERT INTO tenant_share_offers (
-                id, scope_key, role_name, secret_digest, state, created_at, expires_at,
-                redemption_bound, redemption_count, revision, record
-             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                id, scope_key, role_name, role_digest, secret_digest, state, created_at,
+                expires_at, redemption_bound, redemption_count, revision, record
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT(id) DO UPDATE SET scope_key = excluded.scope_key,
-                role_name = excluded.role_name, secret_digest = excluded.secret_digest,
-                state = excluded.state, created_at = excluded.created_at,
-                expires_at = excluded.expires_at, redemption_bound = excluded.redemption_bound,
+                role_name = excluded.role_name, role_digest = excluded.role_digest,
+                secret_digest = excluded.secret_digest, state = excluded.state,
+                created_at = excluded.created_at, expires_at = excluded.expires_at,
+                redemption_bound = excluded.redemption_bound,
                 redemption_count = excluded.redemption_count, revision = excluded.revision,
                 record = excluded.record`,
             [
                 offer.id.value,
                 sqliteScopeKey(offer.scope),
                 offer.role.value,
+                offer.roleDigest.value,
                 offer.secretDigest.value,
                 offer.state,
                 offer.createdAt.getTime(),

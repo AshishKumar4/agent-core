@@ -652,6 +652,7 @@ function shareOffer(
         new ShareOfferId(id),
         workspaceScope,
         role,
+        Digest.sha256(Uint8Array.of(3, 5, 7)),
         Digest.sha256(Uint8Array.of(11, 13)),
         new Date(100),
         new Date(200),

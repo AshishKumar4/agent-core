@@ -796,6 +796,21 @@ export class SqliteTenantAuthorityPermitStore
         this.#actors.saveRecoveryState(transaction, state);
     }
 
+    public loadRecordSetDeclaration(
+        transaction: TransactionalSqlite,
+        actor: ActorRef
+    ): Uint8Array | undefined {
+        return this.#actors.loadRecordSetDeclaration(transaction, actor);
+    }
+
+    public saveRecordSetDeclaration(
+        transaction: TransactionalSqlite,
+        actor: ActorRef,
+        declaration: Uint8Array
+    ): void {
+        this.#actors.saveRecordSetDeclaration(transaction, actor, declaration);
+    }
+
     public authority(transaction: TransactionalSqlite): TenantAuthorityReadStore {
         this.requireTransaction(transaction);
         return this.#authority;

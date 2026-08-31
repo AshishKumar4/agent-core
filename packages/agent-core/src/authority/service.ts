@@ -26,7 +26,6 @@ import {
     TenantId,
     WorkspaceId,
     Workspace,
-    requireSubjectTenant,
     type ForeignPrincipalRef,
     type GuestTrustVerifier,
     type MembershipState,
@@ -517,6 +516,12 @@ export class AuthorityMutationService {
             }
             requireCanonicalScope(store, offer.scope);
             const role = requireRecord(store.role(offer.role), "Role");
+            if (!offer.roleDigest.equals(roleContentDigest(role))) {
+                throw new AgentCoreError(
+                    "protocol.invalid-state",
+                    "Share offer Role content does not match the Role issued"
+                );
+            }
             requireShareOfferIssuanceAuthority(store, offer, role, issuer);
             store.putShareOffer(offer);
             return offer;
@@ -551,11 +556,32 @@ export class AuthorityMutationService {
         request: ShareOfferRedemptionRequest
     ): ShareOfferRedemptionOutcome {
         return this.store.transaction((store) => {
-            const outcome = requireRecord(store.shareOffer(id), "Share offer").redeem(request);
+            const offer = requireRecord(store.shareOffer(id), "Share offer");
+            let outcome: ShareOfferRedemptionOutcome;
+            try {
+                outcome = offer.redeem(request);
+            } catch (error) {
+                if (
+                    isCrossTenantPrincipal(request.subject, store.tenantId) &&
+                    error instanceof TypeError
+                ) {
+                    throw new AgentCoreError(
+                        "authority.denied",
+                        "Share offer redemption holder belongs to another Tenant"
+                    );
+                }
+                throw error;
+            }
             const minted = outcome.membership;
             if (minted === undefined) return outcome;
             requireAbsent(store.membership(minted.id), "Membership");
             const role = requireRecord(store.role(minted.role), "Role");
+            if (!outcome.offer.roleDigest.equals(roleContentDigest(role))) {
+                throw new AgentCoreError(
+                    "authority.denied",
+                    "Share offer Role changed after issuance"
+                );
+            }
             requireCanonicalScope(store, minted.scope);
             requireMembershipSubject(store, minted);
             requireRedeemedProvenance(store, minted, request.now);
@@ -690,20 +716,50 @@ function requireShareOfferIssuanceAuthority(
     }
 }
 
+/** The durable bytes of the Role content an offer names at issuance, not its mutable name. */
+function roleContentDigest(role: Role): Digest {
+    return Digest.sha256(Role.encode(role));
+}
+
+function isCrossTenantPrincipal(subject: SubjectRef, tenant: TenantId): boolean {
+    return subject.kind === "principal" && !subject.principal.tenantId.equals(tenant);
+}
+
 /**
- * The subjects an issuer acts under: itself, plus every Team it belongs to. A foreign
- * issuer acts only as itself, exactly as the Binding resolver's effective subjects do.
+ * A local Principal issues in its own name and through the Teams it belongs to. The
+ * Principal must still be able to act before either subject is considered: durable Grants
+ * survive disabling for audit history, but a disabled Principal cannot exercise them. A Team
+ * is a grant subject, never a protocol caller, so presenting one directly is malformed
+ * rather than an alternate way around the Principal lifecycle check. A foreign issuer acts
+ * only as itself and then fails the normal authority bound because foreign Grants never
+ * carry elevation.
  */
 function issuerSubjects(store: AuthorityMutationStore, issuer: SubjectRef): readonly SubjectRef[] {
+    if (issuer.kind === "team") {
+        throw new AgentCoreError(
+            "protocol.invalid-state",
+            "A share offer issuer must be a local Principal"
+        );
+    }
     if (issuer.kind !== "principal") return [issuer];
-    requireSubjectTenant(issuer, store.tenantId, "Share offer issuer");
-    const principalId = issuer.principal.principalId;
-    requireRecord(store.principal(principalId), "Share offer issuer Principal");
+    if (!issuer.principal.tenantId.equals(store.tenantId)) {
+        throw new AgentCoreError(
+            "authority.denied",
+            "Share offer issuer belongs to another Tenant"
+        );
+    }
+    const principal = requireRecord(
+        store.principal(issuer.principal.principalId),
+        "Share offer issuer Principal"
+    );
+    if (!principal.canAct) {
+        throw new AgentCoreError("authority.denied", "Disabled Principal cannot issue share offers");
+    }
     return [
         issuer,
         ...store
             .teams()
-            .filter((team) => team.has(principalId))
+            .filter((team) => team.has(principal.id))
             .map((team) => SubjectRef.team(team.id))
     ];
 }

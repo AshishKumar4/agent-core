@@ -47,17 +47,36 @@ const ACTOR_REF = new ActorRef("run", ACTOR_ID);
 const OTHER_ACTOR_REF = new ActorRef("workspace", new ActorId("actor-other"));
 const ACTOR_KINDS: readonly ActorKind[] = ["tenant", "workspace", "run", "environment", "slate"];
 
-/** What the counter Actor reads its own record set under, and three readers that cannot. */
-const COUNTER_CODECS = CodecDeclaration.of([ActorRecoveryState.codec]);
-const ROLLED_FORWARD_CODECS = CodecDeclaration.of([
+/**
+ * CounterActor owns no durable domain record. Actor adds its stable recovery carrier itself,
+ * so an empty subclass declaration is the hostile case: a subclass cannot omit or manually
+ * version bootstrap state.
+ */
+const COUNTER_CODECS = CodecDeclaration.empty;
+const ACTOR_CODECS = CodecDeclaration.of([ActorRecoveryState.codec]);
+const VERSIONED_COUNTER_CODECS = CodecDeclaration.of([
+    { kind: "test.counter", version: { major: 1, minor: 1 } }
+]);
+const ROLLED_FORWARD_COUNTER_CODES = CodecDeclaration.of([
+    { kind: "test.future", version: { major: 1, minor: 0 } }
+]);
+const ROLLED_FORWARD_CARRIER = CodecDeclaration.of([
     ActorRecoveryState.codec,
-    { kind: "test.rolled-forward", version: { major: 1, minor: 0 } }
+    ...ROLLED_FORWARD_COUNTER_CODES.declared
 ]);
-const OLDER_MINOR_CODECS = CodecDeclaration.of([
-    { kind: ActorRecoveryState.codec.kind, version: { major: 1, minor: 0 } }
+const VERSIONED_CARRIER = CodecDeclaration.of([
+    ActorRecoveryState.codec,
+    ...VERSIONED_COUNTER_CODECS.declared
 ]);
-const FOREIGN_MAJOR_CODECS = CodecDeclaration.of([
-    { kind: ActorRecoveryState.codec.kind, version: { major: 2, minor: 0 } }
+const OLDER_MINOR_COUNTER_CODES = CodecDeclaration.of([
+    { kind: "test.counter", version: { major: 1, minor: 0 } }
+]);
+const FOREIGN_MAJOR_COUNTER_CODES = CodecDeclaration.of([
+    { kind: "test.counter", version: { major: 2, minor: 0 } }
+]);
+const FOREIGN_MAJOR_CARRIER = CodecDeclaration.of([
+    ActorRecoveryState.codec,
+    ...FOREIGN_MAJOR_COUNTER_CODES.declared
 ]);
 const IMMUTABLE_READ_MESSAGE = "Actor read views are immutable";
 
@@ -189,8 +208,9 @@ interface ActorHarness {
     readonly actor: CounterActorClient;
     restart(declaration?: CodecDeclaration): CounterActorClient;
 
-    /** Stores the declaration a newer release would have written, without a reader. */
+    /** Stores raw bootstrap carrier bytes a newer release would have written. */
     declare(declaration: CodecDeclaration): void;
+    declaration(): CodecDeclaration | undefined;
     value(): number;
     initializations(): number;
     recovery(): ActorRecoveryState | undefined;
@@ -536,36 +556,56 @@ function actorStoreContract(name: string, create: HarnessFactory): void {
         );
 
         test(
-            "[C13-CODEC-INCOMPATIBILITY-TOTAL] declares the codec versions its own records are written under",
+            "[C13-CODEC-INCOMPATIBILITY-TOTAL] adds the stable recovery carrier to an empty subclass declaration",
             { tags: "p0" },
             async () => {
                 const harness = create();
 
-                expect(harness.recovery()?.declaration.equals(COUNTER_CODECS)).toBe(true);
+                expect(harness.declaration()?.equals(ACTOR_CODECS)).toBe(true);
                 await expect(harness.actor.increment()).resolves.toBe(1);
 
                 harness.restart();
 
-                expect(harness.recovery()?.declaration.equals(COUNTER_CODECS)).toBe(true);
+                expect(harness.declaration()?.equals(ACTOR_CODECS)).toBe(true);
                 expect(harness.initializations()).toBe(2);
             }
         );
 
         test.each([
-            ["an undeclared kind", ROLLED_FORWARD_CODECS, COUNTER_CODECS, "schema.unreadable"],
-            ["an unsupported minor", COUNTER_CODECS, OLDER_MINOR_CODECS, "codec.invalid"],
-            ["an unknown major", FOREIGN_MAJOR_CODECS, COUNTER_CODECS, "codec.unknown-major"]
+            [
+                "an undeclared future kind",
+                ROLLED_FORWARD_CARRIER,
+                COUNTER_CODECS,
+                ROLLED_FORWARD_COUNTER_CODES,
+                "schema.unreadable"
+            ],
+            [
+                "an unsupported minor",
+                VERSIONED_CARRIER,
+                OLDER_MINOR_COUNTER_CODES,
+                VERSIONED_COUNTER_CODECS,
+                "codec.invalid"
+            ],
+            [
+                "an unknown major",
+                FOREIGN_MAJOR_CARRIER,
+                VERSIONED_COUNTER_CODECS,
+                FOREIGN_MAJOR_COUNTER_CODES,
+                "codec.unknown-major"
+            ]
         ] as const)(
-            "[C13-CODEC-INCOMPATIBILITY-TOTAL] refuses every operation over a set naming %s",
-            async (_case, stored, reader, code) => {
+            "[C13-CODEC-INCOMPATIBILITY-TOTAL] constructs on a stable recovery carrier and refuses a set naming %s",
+            async (_case, stored, reader, forwardReader, code) => {
                 const harness = create();
                 await expect(harness.actor.increment()).resolves.toBe(1);
                 harness.declare(stored);
-                const declared = harness.recovery()?.declaration;
+                const declared = harness.declaration();
 
                 const rolledBack = harness.restart(reader);
 
-                // Construction succeeds and the reader never reached a record of the set.
+                // The recovery carrier stayed at 1.0, so construction and fencing succeed;
+                // only operations refuse the future declaration before start can decode work.
+                expect(ActorRecoveryState.codec.version).toEqual({ major: 1, minor: 0 });
                 expect(harness.initializations()).toBe(1);
                 await expect(rolledBack.increment()).rejects.toMatchObject({ code });
                 await expect(
@@ -574,15 +614,15 @@ function actorStoreContract(name: string, create: HarnessFactory): void {
                 await expect(rolledBack.currentFence()).rejects.toMatchObject({ code });
                 await expect(rolledBack.rotateFence()).rejects.toMatchObject({ code });
 
-                // The set is untouched and still addressable: its rows and its declaration
-                // read exactly as stored, and draining the refusing incarnation still works.
+                // The future carrier bytes remain addressable and unchanged; closing still
+                // drains the refusing incarnation without writing a repair.
                 expect(harness.value()).toBe(1);
                 expect(declared?.equals(stored)).toBe(true);
-                expect(harness.recovery()?.declaration.equals(stored)).toBe(true);
+                expect(harness.declaration()?.equals(stored)).toBe(true);
                 await expect(rolledBack.close()).resolves.toBeUndefined();
 
-                // A reader that understands the declared version serves it with no repair.
-                const rolledForward = harness.restart(stored);
+                // A reader that understands the carrier serves it with no repair step.
+                const rolledForward = harness.restart(forwardReader);
 
                 expect(harness.initializations()).toBe(2);
                 await expect(rolledForward.increment()).resolves.toBe(2);
@@ -731,6 +771,77 @@ describe("MemoryActorStore isolation", () => {
                     })
             ).toSatisfy(throwsOperationalError("codec.invalid"));
             expect(store.snapshot().state.starts).toBe(0);
+        }
+    );
+
+    test(
+        "refuses a subclass that declares the stable recovery carrier itself",
+        { tags: "p0" },
+        () => {
+            const store = new MemoryActorStore<{ starts: number }>({ starts: 0 }, structuredClone);
+            const operations: CounterOperations<{ starts: number }> = {
+                initialize: (transaction) => {
+                    transaction.starts += 1;
+                },
+                increment: (transaction) => transaction.starts,
+                value: () => store.snapshot().state.starts,
+                initializations: () => store.snapshot().state.starts
+            };
+
+            expect(
+                () => new CounterActor({ actor: ACTOR_REF, store }, operations, ACTOR_CODECS)
+            ).toThrow("Actor subclasses must not declare the stable recovery carrier");
+            expect(store.snapshot()).toMatchObject({
+                actor: null,
+                recordSetDeclaration: null,
+                recoveryState: null,
+                state: { starts: 0 }
+            });
+        }
+    );
+
+    test(
+        "commits and rolls the record-set carrier back with the activation that wrote it",
+        { tags: "p0" },
+        () => {
+            const store = new MemoryActorStore<{ starts: number }>({ starts: 0 }, structuredClone);
+            const carrier = CodecDeclaration.encode(VERSIONED_CARRIER);
+
+            expect(
+                () =>
+                    new StartActor({ actor: ACTOR_REF, store }, (transaction) => {
+                        store.saveRecordSetDeclaration(transaction, ACTOR_REF, carrier);
+                        transaction.starts += 1;
+                        throw new TypeError("Injected start failure");
+                    })
+            ).toThrow("Injected start failure");
+            // The carrier is constituent Actor-store state, so the failed activation leaves
+            // no declaration behind and no second owner holding one.
+            expect(store.snapshot()).toMatchObject({
+                actor: null,
+                recordSetDeclaration: null,
+                recoveryState: null,
+                state: { starts: 0 }
+            });
+
+            const committed = new StartActor({ actor: ACTOR_REF, store }, (transaction) => {
+                transaction.starts += 1;
+            });
+            const snapshot = store.snapshot();
+            if (snapshot.recordSetDeclaration === null) {
+                throw new TypeError("Expected a committed record-set carrier");
+            }
+
+            expect(committed).toBeInstanceOf(StartActor);
+            expect(snapshot.state.starts).toBe(1);
+            // Raw canonical bytes by design: a reader reaches them without decoding any
+            // record of the set it is deciding compatibility for.
+            expect(
+                CodecDeclaration.decode(snapshot.recordSetDeclaration).equals(ACTOR_CODECS)
+            ).toBe(true);
+            expect(MemoryActorStore.restore(snapshot, structuredClone).snapshot()).toEqual(
+                snapshot
+            );
         }
     );
 
@@ -968,10 +1079,13 @@ describe("MemoryActorStore isolation", () => {
                 structuredClone
             );
 
+            // A pre-carrier snapshot restores and re-emits at the current version with the
+            // empty declaration, rather than being refused or preserved as a second shape.
             expect(restored.snapshot()).toEqual({
-                version: 1,
+                version: 2,
                 state: { value: 3 },
                 actor: null,
+                recordSetDeclaration: null,
                 recoveryState: null
             });
         }
@@ -2979,11 +3093,16 @@ function harness<TTransaction>(
         restart: createActor,
         declare: (declaration) =>
             store.transaction((transaction) => {
-                const state = store.loadRecoveryState(transaction, ACTOR_REF);
-                if (state === undefined) {
-                    throw new TypeError("The harness cannot declare before activation");
-                }
-                store.saveRecoveryState(transaction, state.declaring(declaration));
+                store.saveRecordSetDeclaration(
+                    transaction,
+                    ACTOR_REF,
+                    CodecDeclaration.encode(declaration)
+                );
+            }),
+        declaration: () =>
+            store.transaction((transaction) => {
+                const carrier = store.loadRecordSetDeclaration(transaction, ACTOR_REF);
+                return carrier === undefined ? undefined : CodecDeclaration.decode(carrier);
             }),
         value: operations.value,
         initializations: operations.initializations,
@@ -3001,7 +3120,7 @@ class StartActor<TTransaction> extends Actor<TTransaction> {
         context: ActorContext<TTransaction>,
         start: ActorStartOperation<TTransaction>
     ) {
-        super(context, CodecDeclaration.of([ActorRecoveryState.codec]), start);
+        super(context, CodecDeclaration.empty, start);
     }
 }
 
@@ -3098,6 +3217,21 @@ class FaultingActorStore<TTransaction> implements ActorActivationStore<TTransact
     public saveRecoveryState(transaction: TTransaction, state: ActorRecoveryState): void {
         this.store.saveRecoveryState(transaction, state);
     }
+
+    public loadRecordSetDeclaration(
+        transaction: TTransaction,
+        actor: ActorRef
+    ): Uint8Array | undefined {
+        return this.store.loadRecordSetDeclaration(transaction, actor);
+    }
+
+    public saveRecordSetDeclaration(
+        transaction: TTransaction,
+        actor: ActorRef,
+        declaration: Uint8Array
+    ): void {
+        this.store.saveRecordSetDeclaration(transaction, actor, declaration);
+    }
 }
 
 class RefusingActorStore<TTransaction> implements ActorActivationStore<TTransaction> {
@@ -3141,6 +3275,21 @@ class RefusingActorStore<TTransaction> implements ActorActivationStore<TTransact
     public saveRecoveryState(transaction: TTransaction, state: ActorRecoveryState): void {
         this.store.saveRecoveryState(transaction, state);
     }
+
+    public loadRecordSetDeclaration(
+        transaction: TTransaction,
+        actor: ActorRef
+    ): Uint8Array | undefined {
+        return this.store.loadRecordSetDeclaration(transaction, actor);
+    }
+
+    public saveRecordSetDeclaration(
+        transaction: TTransaction,
+        actor: ActorRef,
+        declaration: Uint8Array
+    ): void {
+        this.store.saveRecordSetDeclaration(transaction, actor, declaration);
+    }
 }
 
 class ForgedActivationActorStore<TTransaction extends object> implements ActorStore<TTransaction> {
@@ -3169,6 +3318,21 @@ class ForgedActivationActorStore<TTransaction extends object> implements ActorSt
     public saveRecoveryState(transaction: TTransaction, state: ActorRecoveryState): void {
         this.store.saveRecoveryState(transaction, state);
     }
+
+    public loadRecordSetDeclaration(
+        transaction: TTransaction,
+        actor: ActorRef
+    ): Uint8Array | undefined {
+        return this.store.loadRecordSetDeclaration(transaction, actor);
+    }
+
+    public saveRecordSetDeclaration(
+        transaction: TTransaction,
+        actor: ActorRef,
+        declaration: Uint8Array
+    ): void {
+        this.store.saveRecordSetDeclaration(transaction, actor, declaration);
+    }
 }
 
 class NonActivatingActorStore<TTransaction extends object> implements ActorStore<TTransaction> {
@@ -3194,6 +3358,21 @@ class NonActivatingActorStore<TTransaction extends object> implements ActorStore
 
     public saveRecoveryState(transaction: TTransaction, state: ActorRecoveryState): void {
         this.store.saveRecoveryState(transaction, state);
+    }
+
+    public loadRecordSetDeclaration(
+        transaction: TTransaction,
+        actor: ActorRef
+    ): Uint8Array | undefined {
+        return this.store.loadRecordSetDeclaration(transaction, actor);
+    }
+
+    public saveRecordSetDeclaration(
+        transaction: TTransaction,
+        actor: ActorRef,
+        declaration: Uint8Array
+    ): void {
+        this.store.saveRecordSetDeclaration(transaction, actor, declaration);
     }
 }
 

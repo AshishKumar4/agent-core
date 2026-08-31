@@ -64,6 +64,18 @@ export class MemoryTenantAuthorityPermitStore<State extends object>
         this.actors.saveRecoveryState(state, recovery);
     }
 
+    public loadRecordSetDeclaration(state: State, actor: ActorRef): Uint8Array | undefined {
+        return this.actors.loadRecordSetDeclaration(state, actor);
+    }
+
+    public saveRecordSetDeclaration(
+        state: State,
+        actor: ActorRef,
+        declaration: Uint8Array
+    ): void {
+        this.actors.saveRecordSetDeclaration(state, actor, declaration);
+    }
+
     public transaction<Result>(
         operation: TransactionOperation<State, Result>,
         ...guard: SynchronousResultGuard<Result>

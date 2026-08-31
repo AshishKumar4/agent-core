@@ -249,7 +249,7 @@ class ShareOfferRecordCodec extends RecordCodec<ShareOffer> {
                 TeamId
             ],
             "identity.share-offer",
-            { major: 1, minor: 0 }
+            { major: 2, minor: 0 }
         );
     }
 
@@ -262,6 +262,7 @@ class ShareOfferRecordCodec extends RecordCodec<ShareOffer> {
             redemptions: offer.redemptions.map((redemption) => redemption.toData()),
             revision: offer.revision.value,
             role: offer.role.value,
+            roleDigest: offer.roleDigest.value,
             scope: encodeScopeRef(offer.scope),
             secretDigest: offer.secretDigest.value,
             state: offer.state
@@ -280,6 +281,7 @@ class ShareOfferRecordCodec extends RecordCodec<ShareOffer> {
                 "redemptions",
                 "revision",
                 "role",
+                "roleDigest",
                 "scope",
                 "secretDigest",
                 "state"
@@ -290,6 +292,7 @@ class ShareOfferRecordCodec extends RecordCodec<ShareOffer> {
             new ShareOfferId(requireIdentityString(object["id"], "Share offer ID")),
             decodeScopeRef(object["scope"]),
             new RoleName(requireIdentityString(object["role"], "Share offer role")),
+            new Digest(requireIdentityString(object["roleDigest"], "Share offer Role digest")),
             new Digest(requireIdentityString(object["secretDigest"], "Share offer secret digest")),
             requireShareOfferDate(object["createdAt"], "Share offer creation time"),
             requireShareOfferDate(object["expiresAt"], "Share offer expiry"),
@@ -323,6 +326,7 @@ export class ShareOffer {
         public readonly id: ShareOfferId,
         public readonly scope: ScopeRef,
         public readonly role: RoleName,
+        public readonly roleDigest: Digest,
         public readonly secretDigest: Digest,
         createdAt: Date,
         expiresAt: Date,
@@ -331,6 +335,9 @@ export class ShareOffer {
         state: ShareOfferState,
         public readonly revision: Revision
     ) {
+        if (roleDigest.constructor !== Digest) {
+            throw new TypeError("Share offer requires an exact Role content Digest");
+        }
         if (secretDigest.constructor !== Digest) {
             throw new TypeError("Share offer requires an exact bearer secret Digest");
         }
@@ -458,16 +465,18 @@ export class ShareOffer {
     }
 
     /**
-     * What a store may accept over a stored offer. The offer's terms — Scope, Role, bearer
-     * secret digest, window and bound — are immutable, revision advances exactly once, a
-     * revoked offer is terminal, and recorded redemptions are append-only: dropping one
-     * would retract the Membership it minted, which §3.3 forbids.
+     * What a store may accept over a stored offer. The offer's terms — Scope, Role, exact
+     * Role content digest, bearer secret digest, window and bound — are immutable, revision
+     * advances exactly once, a revoked offer is terminal, and recorded redemptions are
+     * append-only and immutable: changing any prior redemption field would rewrite the
+     * evidence of the Membership it minted, which §3.3 forbids.
      */
     public assertCanReplace(next: ShareOffer): void {
         if (
             !this.id.equals(next.id) ||
             !this.scope.equals(next.scope) ||
             !this.role.equals(next.role) ||
+            !this.roleDigest.equals(next.roleDigest) ||
             !this.secretDigest.equals(next.secretDigest) ||
             this.#createdAt !== next.#createdAt ||
             this.#expiresAt !== next.#expiresAt ||
@@ -484,11 +493,10 @@ export class ShareOffer {
         }
         if (
             next.redemptions.length < this.redemptions.length ||
-            this.redemptions.some(
-                (recorded, index) =>
-                    next.redemptions[index]?.holderKey !== recorded.holderKey ||
-                    !next.redemptions[index]?.membership.equals(recorded.membership)
-            )
+            this.redemptions.some((recorded, index) => {
+                const successor = next.redemptions[index];
+                return successor === undefined || !sameRedemption(recorded, successor);
+            })
         ) {
             throw new AgentCoreError(
                 "protocol.invalid-state",
@@ -508,6 +516,7 @@ export class ShareOffer {
             this.id,
             this.scope,
             this.role,
+            this.roleDigest,
             this.secretDigest,
             this.createdAt,
             this.expiresAt,
@@ -517,6 +526,32 @@ export class ShareOffer {
             this.revision.next()
         );
     }
+}
+
+/**
+ * A holder key intentionally leaves a foreign holder's verification scheme out: it decides
+ * bearer idempotency, not evidence identity. A successor record must retain the complete
+ * redemption instead, including the scheme and the exact redemption instant.
+ */
+function sameRedemption(
+    left: ShareOfferRedemption,
+    right: ShareOfferRedemption
+): boolean {
+    if (
+        !left.membership.equals(right.membership) ||
+        left.redeemedAt.getTime() !== right.redeemedAt.getTime()
+    ) {
+        return false;
+    }
+    if (left.subject.kind !== right.subject.kind) return false;
+    if (left.subject.kind === "principal") {
+        return left.subject.principal.equals(right.subject.principal);
+    }
+    return (
+        left.subject.homeTenant.equals(right.subject.homeTenant) &&
+        left.subject.principalId.equals(right.subject.principalId) &&
+        left.subject.verifiedVia.equals(right.subject.verifiedVia)
+    );
 }
 
 function canonicalRedemptions(

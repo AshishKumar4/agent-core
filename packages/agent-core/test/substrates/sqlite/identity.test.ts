@@ -73,6 +73,7 @@ const shareOffer = new ShareOffer(
     shareOfferId,
     tenantScope,
     roleName,
+    Digest.sha256(Role.encode(role)),
     Digest.sha256(Uint8Array.of(5, 6, 7)),
     new Date(100),
     new Date(200),
@@ -228,6 +229,12 @@ const driftCases: readonly DriftCase[] = [
         load: (reader) => reader.loadShareOffer(shareOfferId)
     },
     {
+        title: "share offer Role digest drift",
+        corrupt: (database) =>
+            database.run("UPDATE tenant_share_offers SET role_digest = 'drifted-digest'", []),
+        load: (reader) => reader.loadShareOffer(shareOfferId)
+    },
+    {
         title: "share offer secret digest drift",
         corrupt: (database) =>
             database.run("UPDATE tenant_share_offers SET secret_digest = 'drifted-digest'", []),
@@ -315,6 +322,7 @@ describe("SQLite identity reader", () => {
         expect(storedOffer?.bound).toBe(2);
         expect(storedOffer?.expiresAt.getTime()).toBe(200);
         expect(storedOffer?.secretDigest.value).toBe(shareOffer.secretDigest.value);
+        expect(storedOffer?.roleDigest.value).toBe(shareOffer.roleDigest.value);
         expect(reader.shareOffers().map((item) => item.id.value)).toEqual(["offer-a"]);
         expect(reader.loadTenant(new TenantId("tenant-missing"))).toBeUndefined();
     });
@@ -537,13 +545,14 @@ function seed<Database extends TestSqlite>(database: Database): Database {
     );
     database.run(
         `INSERT INTO tenant_share_offers
-         (id, scope_key, role_name, secret_digest, state, created_at, expires_at,
+         (id, scope_key, role_name, role_digest, secret_digest, state, created_at, expires_at,
           redemption_bound, redemption_count, revision, record)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
             shareOffer.id.value,
             sqliteScopeKey(shareOffer.scope),
             shareOffer.role.value,
+            shareOffer.roleDigest.value,
             shareOffer.secretDigest.value,
             shareOffer.state,
             shareOffer.createdAt.getTime(),

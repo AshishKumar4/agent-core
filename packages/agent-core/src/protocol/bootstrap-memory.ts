@@ -184,9 +184,24 @@ function isRestoredActorSnapshot(
     value: MemoryTenantBootstrapSnapshot["opaque"]
 ): value is MemoryActorStoreSnapshot<MemoryTenantBootstrapState> {
     if (!isObjectRecord(value) || !isObjectRecord(value["state"])) return false;
+    const carrier = value["recordSetDeclaration"];
+    // A snapshot taken before the record-set declaration carrier existed names four keys at
+    // version 1 and reads as the empty declaration, exactly as MemoryActorStore.restore reads it.
+    const legacy =
+        hasExactKeys(value, ["actor", "recoveryState", "state", "version"]) &&
+        value["version"] === 1;
+    const current =
+        hasExactKeys(value, [
+            "actor",
+            "recordSetDeclaration",
+            "recoveryState",
+            "state",
+            "version"
+        ]) &&
+        value["version"] === 2 &&
+        (carrier === null || carrier instanceof Uint8Array);
     if (
-        !hasExactKeys(value, ["actor", "recoveryState", "state", "version"]) ||
-        value["version"] !== 1 ||
+        (!legacy && !current) ||
         !isSnapshotActor(value["actor"]) ||
         (value["recoveryState"] !== null && !(value["recoveryState"] instanceof Uint8Array))
     ) {

@@ -236,7 +236,7 @@ class UnsupportedVersion extends CodecCompatibility {
     }
 }
 
-const compatibleDeclaration: CodecCompatibility = new CompatibleDeclaration();
+const compatibleDeclaration: CodecCompatibility = Object.freeze(new CompatibleDeclaration());
 
 /**
  * The codec versions the records one Actor owns were written under (§8.3). It is
@@ -262,7 +262,31 @@ export class CodecDeclaration {
 
     public static fromData(value: JsonValue | undefined): CodecDeclaration {
         const declared = data.array(value, "Codec declaration");
-        return new CodecDeclaration(declared.map(declaredVersionFromData));
+        try {
+            return new CodecDeclaration(declared.map(declaredVersionFromData));
+        } catch (error) {
+            if (!(error instanceof TypeError)) throw error;
+            throw new AgentCoreError(
+                "codec.invalid",
+                `Invalid Codec declaration: ${error.message}`
+            );
+        }
+    }
+
+    /**
+     * The stable raw form an Actor store carries before it decodes the Actor's record set.
+     * It deliberately has no RecordCodec envelope: the carrier must remain readable while a
+     * future record codec is exactly what the reader is refusing to understand.
+     */
+    public static encode(declaration: CodecDeclaration): Uint8Array {
+        if (declaration.constructor !== CodecDeclaration) {
+            throw new TypeError("Codec declaration encoding requires an exact CodecDeclaration");
+        }
+        return encodeCanonicalJson(declaration.toData());
+    }
+
+    public static decode(bytes: Uint8Array): CodecDeclaration {
+        return CodecDeclaration.fromData(decodeCanonicalJson(bytes));
     }
 
     public toData(): readonly JsonObject[] {
