@@ -775,7 +775,7 @@ describe("MemoryActorStore isolation", () => {
     );
 
     test(
-        "refuses a subclass that declares the stable recovery carrier itself",
+        "[C13-CODEC-INCOMPATIBILITY-TOTAL] refuses a subclass that declares the stable recovery carrier itself",
         { tags: "p0" },
         () => {
             const store = new MemoryActorStore<{ starts: number }>({ starts: 0 }, structuredClone);
@@ -801,7 +801,7 @@ describe("MemoryActorStore isolation", () => {
     );
 
     test(
-        "commits and rolls the record-set carrier back with the activation that wrote it",
+        "[C13-CODEC-INCOMPATIBILITY-TOTAL] commits and rolls the record-set carrier back with the activation that wrote it",
         { tags: "p0" },
         () => {
             const store = new MemoryActorStore<{ starts: number }>({ starts: 0 }, structuredClone);

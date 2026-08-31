@@ -231,7 +231,7 @@ describe.each([
     });
 
     test(
-        "refuses a redeemed Membership that moved Scope in both full and incremental closure, while allowing its later Role revision",
+        "[C13-AUTH-SHARE-OFFER] refuses a redeemed Membership that moved Scope in both full and incremental closure, while allowing its later Role revision",
         { tags: "p0" },
         () => {
             const invalid = backing.open();

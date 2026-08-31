@@ -52,7 +52,7 @@ export abstract class Actor<TTransaction> {
     ) {
         this.#context = createActorContext(context.actor, context.store);
         const store = this.#context.store;
-        const completeDeclaration = declarationForActor(declaration);
+        const completeDeclaration = requireActorDeclaration(declaration);
         this.#fence = store.activateActor(context.actor, (transaction, activation) => {
             const carrier = store.loadRecordSetDeclaration(transaction, context.actor);
             let stored = CodecDeclaration.empty;
@@ -261,7 +261,12 @@ function isActorCommitUnknown(error: unknown): error is ActorCommitUnknownError 
     return isObjectRecord(error) && actorCommitUnknownErrors.has(error);
 }
 
-function declarationForActor(declaration: CodecDeclaration): CodecDeclaration {
+/**
+ * The Actor's complete declaration, from the one a subclass owns. A subclass declaring the
+ * stable recovery carrier is refused rather than merged, because Actor owns that carrier's
+ * version and a subclass choosing it is the one way the bootstrap could go unreadable.
+ */
+function requireActorDeclaration(declaration: CodecDeclaration): CodecDeclaration {
     if (declaration.versionOf(ActorRecoveryState.codec.kind) !== undefined) {
         throw new TypeError("Actor subclasses must not declare the stable recovery carrier");
     }

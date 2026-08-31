@@ -82,7 +82,7 @@
       "test/core/semver.test.ts#rejects a non-string parse input without coercion"
     ],
     "src/actors/actor.ts": [
-      "test/actors/actor.test.ts#refuses a subclass that declares the stable recovery carrier itself"
+      "test/actors/actor.test.ts#[C13-CODEC-INCOMPATIBILITY-TOTAL] refuses a subclass that declares the stable recovery carrier itself"
     ],
     "src/actors/context.ts": [
       "test/actors/actor.test.ts#validates and narrows generic Actor stores without casts"
@@ -148,10 +148,10 @@
   },
   "entries": [
     {
-      "id": "w1.actors.actor.declarationforactor.fbb230bdfd",
+      "id": "w1.actors.actor.requireactordeclaration.c449a84e85",
       "source": "src/actors/actor.ts",
       "sourceAnchor": {
-        "container": "declarationForActor",
+        "container": "requireActorDeclaration",
         "guard": "declaration.versionOf(ActorRecoveryState.codec.kind) !== undefined",
         "expression": "new TypeError(\"Actor subclasses must not declare the stable recovery carrier\")"
       },
@@ -580,18 +580,6 @@
       "testedBy": ["test/core/codec.test.ts"]
     },
     {
-      "id": "w1.core.codec.codecdeclaration-tobytes.d722c0075f",
-      "source": "src/core/codec.ts",
-      "sourceAnchor": {
-        "container": "CodecDeclaration.toBytes",
-        "guard": "declaration.constructor !== CodecDeclaration",
-        "expression": "new TypeError(\"Codec declaration encoding requires an exact CodecDeclaration\")"
-      },
-      "classification": "programmer-contract",
-      "rationale": "The raw bootstrap carrier must encode an exact CodecDeclaration; a lookalike is a caller wiring fault rather than stored input.",
-      "testedBy": ["test/core/codec.test.ts"]
-    },
-    {
       "id": "w1.core.codec.recordcodec-constructor.1f37e78208",
       "source": "src/core/codec.ts",
       "sourceAnchor": {
@@ -601,6 +589,18 @@
       },
       "classification": "constructor-shape",
       "rationale": "Rejects malformed immediate construction or value shape without consulting runtime state.",
+      "testedBy": ["test/core/codec.test.ts"]
+    },
+    {
+      "id": "w1.core.codec.requireexactdeclaration.c04bfe4431",
+      "source": "src/core/codec.ts",
+      "sourceAnchor": {
+        "container": "requireExactDeclaration",
+        "guard": "declaration.constructor !== CodecDeclaration",
+        "expression": "new TypeError(\"Codec declaration encoding requires an exact CodecDeclaration\")"
+      },
+      "classification": "programmer-contract",
+      "rationale": "The raw bootstrap carrier must encode an exact CodecDeclaration; a lookalike is a caller wiring fault rather than stored input.",
       "testedBy": ["test/core/codec.test.ts"]
     },
     {

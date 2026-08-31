@@ -281,10 +281,7 @@ export class CodecDeclaration {
      * `toData`/`fromData` on the same value.
      */
     public static toBytes(declaration: CodecDeclaration): Uint8Array {
-        if (declaration.constructor !== CodecDeclaration) {
-            throw new TypeError("Codec declaration encoding requires an exact CodecDeclaration");
-        }
-        return encodeCanonicalJson(declaration.toData());
+        return encodeCanonicalJson(requireExactDeclaration(declaration).toData());
     }
 
     public static fromBytes(bytes: Uint8Array): CodecDeclaration {
@@ -341,6 +338,14 @@ const emptyDeclaration = new CodecDeclaration([]);
 const data = jsonDataParser(
     (message) => new AgentCoreError("codec.invalid", `${message} in a codec declaration`)
 );
+
+/** The carrier writes only an exact CodecDeclaration; a lookalike is a caller wiring fault. */
+function requireExactDeclaration(declaration: CodecDeclaration): CodecDeclaration {
+    if (declaration.constructor !== CodecDeclaration) {
+        throw new TypeError("Codec declaration encoding requires an exact CodecDeclaration");
+    }
+    return declaration;
+}
 
 function canonicalDeclared(
     declared: readonly DeclaredCodecVersion[]
