@@ -275,17 +275,19 @@ export class CodecDeclaration {
 
     /**
      * The stable raw form an Actor store carries before it decodes the Actor's record set.
-     * It deliberately has no RecordCodec envelope: the carrier must remain readable while a
-     * future record codec is exactly what the reader is refusing to understand.
+     * It is deliberately NOT `encode`/`decode`: those names mean "through this record's own
+     * RecordCodec" everywhere else, and this carrier has no codec on purpose, because a
+     * future record codec is exactly what the reader is refusing to understand. Pairs with
+     * `toData`/`fromData` on the same value.
      */
-    public static encode(declaration: CodecDeclaration): Uint8Array {
+    public static toBytes(declaration: CodecDeclaration): Uint8Array {
         if (declaration.constructor !== CodecDeclaration) {
             throw new TypeError("Codec declaration encoding requires an exact CodecDeclaration");
         }
         return encodeCanonicalJson(declaration.toData());
     }
 
-    public static decode(bytes: Uint8Array): CodecDeclaration {
+    public static fromBytes(bytes: Uint8Array): CodecDeclaration {
         return CodecDeclaration.fromData(decodeCanonicalJson(bytes));
     }
 

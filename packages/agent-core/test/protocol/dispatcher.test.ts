@@ -2,12 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vitest";
-import {
-    ActorCommitUnknownError,
-    ActorId,
-    ActorRef,
-    MemoryActorStore
-} from "../../src/actors";
+import { ActorCommitUnknownError, ActorId, ActorRef, MemoryActorStore } from "../../src/actors";
 import {
     ContentRef,
     Digest,
@@ -76,76 +71,84 @@ test("protocol dependency errors retain stable defaults", { tags: "p1" }, () => 
     });
 });
 
-test("canonical unknown commit poisons direct and already queued dispatcher work", { tags: "p0" }, async () => {
-    const harness = new CounterHarness();
-    const raw = harness.envelope({ key: "direct-queued-unknown" });
-    const envelope = CommandEnvelopeCodec.decode(raw);
-    const authentication = await new CounterAuthenticator(harness.tenant).authenticate(
-        harness.caller,
-        envelope,
-        Digest.sha256(raw)
-    );
-    const admissions = await Promise.all([
-        harness.dispatcher.admit(raw, authentication),
-        harness.dispatcher.admit(raw, authentication)
-    ]);
-    const binding = new PayloadLeaseBinding(
-        harness.tenant,
-        harness.actor,
-        Digest.sha256(raw),
-        envelope.payload,
-        envelope.payloadDigest,
-        new Date(CounterHarness.now.getTime() + 60_000)
-    );
-    const leases = await Promise.all([
-        harness.content.acquire(binding),
-        harness.content.acquire(binding)
-    ]);
-    if (
-        admissions.some((admission) => admission.kind !== "prepare") ||
-        leases.some((lease) => lease === undefined)
-    ) {
-        throw new TypeError("Expected prepared direct dispatcher fixtures");
+test(
+    "canonical unknown commit poisons direct and already queued dispatcher work",
+    { tags: "p0" },
+    async () => {
+        const harness = new CounterHarness();
+        const raw = harness.envelope({ key: "direct-queued-unknown" });
+        const envelope = CommandEnvelopeCodec.decode(raw);
+        const authentication = await new CounterAuthenticator(harness.tenant).authenticate(
+            harness.caller,
+            envelope,
+            Digest.sha256(raw)
+        );
+        const admissions = await Promise.all([
+            harness.dispatcher.admit(raw, authentication),
+            harness.dispatcher.admit(raw, authentication)
+        ]);
+        const binding = new PayloadLeaseBinding(
+            harness.tenant,
+            harness.actor,
+            Digest.sha256(raw),
+            envelope.payload,
+            envelope.payloadDigest,
+            new Date(CounterHarness.now.getTime() + 60_000)
+        );
+        const leases = await Promise.all([
+            harness.content.acquire(binding),
+            harness.content.acquire(binding)
+        ]);
+        if (
+            admissions.some((admission) => admission.kind !== "prepare") ||
+            leases.some((lease) => lease === undefined)
+        ) {
+            throw new TypeError("Expected prepared direct dispatcher fixtures");
+        }
+        const prepared = leases.map((lease) => issueLeasedCommandPayload(lease!, binding));
+        harness.setFault("unknownAck");
+
+        const results = await Promise.allSettled([
+            admissions[0]!.kind === "prepare" && admissions[0]!.dispatch(prepared[0]!),
+            admissions[1]!.kind === "prepare" && admissions[1]!.dispatch(prepared[1]!)
+        ]);
+
+        expect(results[0]).toMatchObject({
+            status: "rejected",
+            reason: expect.any(CommandCommitUnknownError)
+        });
+        expect(results[1]).toMatchObject({
+            status: "rejected",
+            reason: expect.objectContaining({ code: "actor.closed" })
+        });
+        await expect(harness.dispatcher.admit(raw, authentication)).rejects.toMatchObject({
+            code: "actor.closed"
+        });
+        await Promise.all(leases.map((lease) => lease?.close()));
     }
-    const prepared = leases.map((lease) => issueLeasedCommandPayload(lease!, binding));
-    harness.setFault("unknownAck");
+);
 
-    const results = await Promise.allSettled([
-        admissions[0]!.kind === "prepare" && admissions[0]!.dispatch(prepared[0]!),
-        admissions[1]!.kind === "prepare" && admissions[1]!.dispatch(prepared[1]!)
-    ]);
+test(
+    "[C13-PROTOCOL-DUPLICATE] rejects a forged prepared payload without running command mutation",
+    { tags: "p0" },
+    async () => {
+        const harness = new CounterHarness();
+        const raw = harness.envelope({ key: "forged-prepared-payload" });
+        const envelope = CommandEnvelopeCodec.decode(raw);
+        const authentication = await new CounterAuthenticator(harness.tenant).authenticate(
+            harness.caller,
+            envelope,
+            Digest.sha256(raw)
+        );
+        const admission = await harness.dispatcher.admit(raw, authentication);
+        if (admission.kind !== "prepare") throw new TypeError("Expected command preparation");
 
-    expect(results[0]).toMatchObject({
-        status: "rejected",
-        reason: expect.any(CommandCommitUnknownError)
-    });
-    expect(results[1]).toMatchObject({
-        status: "rejected",
-        reason: expect.objectContaining({ code: "actor.closed" })
-    });
-    await expect(harness.dispatcher.admit(raw, authentication)).rejects.toMatchObject({
-        code: "actor.closed"
-    });
-    await Promise.all(leases.map((lease) => lease?.close()));
-});
+        const result = await admission.dispatch(forgedPreparedPayload({}));
 
-test("[C13-PROTOCOL-DUPLICATE] rejects a forged prepared payload without running command mutation", { tags: "p0" }, async () => {
-    const harness = new CounterHarness();
-    const raw = harness.envelope({ key: "forged-prepared-payload" });
-    const envelope = CommandEnvelopeCodec.decode(raw);
-    const authentication = await new CounterAuthenticator(harness.tenant).authenticate(
-        harness.caller,
-        envelope,
-        Digest.sha256(raw)
-    );
-    const admission = await harness.dispatcher.admit(raw, authentication);
-    if (admission.kind !== "prepare") throw new TypeError("Expected command preparation");
-
-    const result = await admission.dispatch(forgedPreparedPayload({}));
-
-    expect(result.outcome).toBe("rejectedMalformed");
-    expect(harness.snapshot()).toMatchObject({ value: 0, identityCount: 1 });
-});
+        expect(result.outcome).toBe("rejectedMalformed");
+        expect(harness.snapshot()).toMatchObject({ value: 0, identityCount: 1 });
+    }
+);
 
 test.each([
     ["empty", { commandName: "" }],
@@ -161,24 +164,28 @@ test.each([
     expect(() => new CounterHarness({ limits })).toThrow("positive safe integer");
 });
 
-test("supports the default clock and rolls back an invalid injected timestamp", { tags: "p1" }, async () => {
-    const defaultClock = new CounterHarness({ useDefaultNow: true });
-    expect(
-        (await defaultClock.dispatch(defaultClock.envelope({ key: "default-clock" }))).outcome
-    ).toBe("committed");
+test(
+    "supports the default clock and rolls back an invalid injected timestamp",
+    { tags: "p1" },
+    async () => {
+        const defaultClock = new CounterHarness({ useDefaultNow: true });
+        expect(
+            (await defaultClock.dispatch(defaultClock.envelope({ key: "default-clock" }))).outcome
+        ).toBe("committed");
 
-    const invalidClock = new CounterHarness({ now: () => new Date(NaN) });
-    const invalid = await invalidClock.accept(invalidClock.envelope({ key: "invalid-clock" }));
-    expect(invalid).toMatchObject({
-        kind: "preDispatchFailure",
-        phase: "dispatch",
-        commit: "rolledBack",
-        cause: expect.objectContaining({ message: "Command timestamp must be valid" })
-    });
-    if (invalid.kind === "preDispatchFailure") {
-        expectAgentCoreErrorValue(invalid.cause, "protocol.invalid-state");
+        const invalidClock = new CounterHarness({ now: () => new Date(NaN) });
+        const invalid = await invalidClock.accept(invalidClock.envelope({ key: "invalid-clock" }));
+        expect(invalid).toMatchObject({
+            kind: "preDispatchFailure",
+            phase: "dispatch",
+            commit: "rolledBack",
+            cause: expect.objectContaining({ message: "Command timestamp must be valid" })
+        });
+        if (invalid.kind === "preDispatchFailure") {
+            expectAgentCoreErrorValue(invalid.cause, "protocol.invalid-state");
+        }
     }
-});
+);
 
 test("fails closed when an appended invocation audit is unreadable", { tags: "p0" }, async () => {
     const harness = new CounterHarness();
@@ -197,113 +204,130 @@ test("fails closed when an appended invocation audit is unreadable", { tags: "p0
     expect(harness.snapshot()).toMatchObject({ value: 0, writes: [] });
 });
 
-test("[C13-PROTOCOL-OUTCOMES] [actor-local-store] [protocol-persistence] memory and SQLite Actor/protocol persistence compositions expose identical outcomes", { tags: "p1" }, async () => {
-    const memory = new CounterHarness();
-    const sqlite = new SqliteCounterHarness();
-    const memoryRaw = memory.envelope({ key: "parity", amount: 4 });
-    const sqliteRaw = sqlite.envelope({ key: "parity", amount: 4 });
-
-    const memoryCommitted = await memory.dispatch(memoryRaw);
-    const sqliteCommitted = await sqlite.dispatch(sqliteRaw);
-    const memoryDuplicate = await memory.dispatch(memoryRaw);
-    const sqliteDuplicate = await sqlite.dispatch(sqliteRaw);
-
-    expect(sqliteCommitted).toEqual(memoryCommitted);
-    expect(sqliteDuplicate).toEqual(memoryDuplicate);
-    expect(sqlite.snapshot()).toEqual(memory.snapshot());
-});
-
-test("SQLite restart fences a callback prepared by the prior dispatcher", { tags: "p0" }, async () => {
-    const original = new SqliteCounterHarness();
-    const raw = original.envelope({ key: "stale-prepared" });
-    const barrier = original.pauseNextPayloadGet();
-    const pending = original.accept(raw);
-    await barrier.started;
-    const restarted = original.restart();
-    await restarted.dispatch(Uint8Array.of(0xff));
-    barrier.release();
-
-    const stale = await pending;
-
-    expect(stale.kind).toBe("preDispatchFailure");
-    if (stale.kind !== "preDispatchFailure") throw new TypeError("Expected stale callback failure");
-    expect(stale).toMatchObject({ phase: "dispatch", commit: "rolledBack" });
-    expect(stale.cause).toMatchObject({ code: "actor.stale-callback" });
-});
-
-test("SQLite restart fences the prior dispatcher even when its first command rolls back", { tags: "p0" }, async () => {
-    const original = new SqliteCounterHarness();
-    await original.dispatch(original.envelope({ key: "before-restart" }));
-    original.setFault("writeRecord");
-    const restarted = original.restart();
-
-    const failed = await restarted.accept(restarted.envelope({ key: "failed-after-restart" }));
-    expect(failed).toMatchObject({
-        kind: "preDispatchFailure",
-        phase: "dispatch",
-        commit: "rolledBack"
-    });
-    restarted.setFault(undefined);
-    const stale = await original.accept(original.envelope({ key: "old-dispatcher" }));
-
-    expect(stale).toMatchObject({
-        kind: "preDispatchFailure",
-        phase: "admissionPreflight",
-        commit: "rolledBack"
-    });
-    if (stale.kind !== "preDispatchFailure") throw new TypeError("Expected stale dispatcher");
-    expect(stale.cause).toMatchObject({ code: "actor.stale-callback" });
-});
-
-test("file-backed SQLite reconciles unknown acknowledgement after full composition restart", { tags: "p0" }, async () => {
-    const directory = mkdtempSync(join(tmpdir(), "agent-core-dispatcher-restart-"));
-    const path = join(directory, "dispatcher.sqlite");
-    let database: FileSqlite | undefined;
-    try {
+test(
+    "[C13-PROTOCOL-OUTCOMES] [actor-local-store] [protocol-persistence] memory and SQLite Actor/protocol persistence compositions expose identical outcomes",
+    { tags: "p1" },
+    async () => {
         const memory = new CounterHarness();
-        const memoryRaw = memory.envelope({ key: "file-restart-unknown", amount: 2 });
-        memory.setFault("unknownAck");
-        const memoryUnknown = await memory.accept(memoryRaw);
-        expect(memoryUnknown).toMatchObject({
-            kind: "preDispatchFailure",
-            phase: "dispatch",
-            commit: "unknown",
-            retry: "retrySameKey"
-        });
-        const restartedMemory = memory.restart();
-        restartedMemory.setFault(undefined);
-        const memoryDuplicate = await restartedMemory.dispatch(memoryRaw);
+        const sqlite = new SqliteCounterHarness();
+        const memoryRaw = memory.envelope({ key: "parity", amount: 4 });
+        const sqliteRaw = sqlite.envelope({ key: "parity", amount: 4 });
 
-        database = new FileSqlite(path);
-        const sqlite = new SqliteCounterHarness({}, database);
-        const sqliteRaw = sqlite.envelope({ key: "file-restart-unknown", amount: 2 });
-        sqlite.setFault("unknownAck");
-        const sqliteUnknown = await sqlite.accept(sqliteRaw);
-        expect(sqliteUnknown).toMatchObject({
-            kind: "preDispatchFailure",
-            phase: "dispatch",
-            commit: "unknown",
-            retry: "retrySameKey"
-        });
-        database.close();
-        database = undefined;
-        database = new FileSqlite(path);
-        const restartedSqlite = new SqliteCounterHarness({}, database);
-        restartedSqlite.setFault(undefined);
-        const sqliteDuplicate = await restartedSqlite.dispatch(sqliteRaw);
+        const memoryCommitted = await memory.dispatch(memoryRaw);
+        const sqliteCommitted = await sqlite.dispatch(sqliteRaw);
+        const memoryDuplicate = await memory.dispatch(memoryRaw);
+        const sqliteDuplicate = await sqlite.dispatch(sqliteRaw);
 
+        expect(sqliteCommitted).toEqual(memoryCommitted);
         expect(sqliteDuplicate).toEqual(memoryDuplicate);
-        expect(restartedSqlite.snapshot()).toEqual(restartedMemory.snapshot());
-        expect(restartedSqlite.snapshot()).toMatchObject({ value: 2, identityCount: 1 });
-        expect(restartedSqlite.snapshot().writes.map((write) => write.outcome)).toEqual([
-            "committed",
-            "duplicate"
-        ]);
-    } finally {
-        database?.close();
-        rmSync(directory, { recursive: true, force: true });
+        expect(sqlite.snapshot()).toEqual(memory.snapshot());
     }
-});
+);
+
+test(
+    "SQLite restart fences a callback prepared by the prior dispatcher",
+    { tags: "p0" },
+    async () => {
+        const original = new SqliteCounterHarness();
+        const raw = original.envelope({ key: "stale-prepared" });
+        const barrier = original.pauseNextPayloadGet();
+        const pending = original.accept(raw);
+        await barrier.started;
+        const restarted = original.restart();
+        await restarted.dispatch(Uint8Array.of(0xff));
+        barrier.release();
+
+        const stale = await pending;
+
+        expect(stale.kind).toBe("preDispatchFailure");
+        if (stale.kind !== "preDispatchFailure")
+            throw new TypeError("Expected stale callback failure");
+        expect(stale).toMatchObject({ phase: "dispatch", commit: "rolledBack" });
+        expect(stale.cause).toMatchObject({ code: "actor.stale-callback" });
+    }
+);
+
+test(
+    "SQLite restart fences the prior dispatcher even when its first command rolls back",
+    { tags: "p0" },
+    async () => {
+        const original = new SqliteCounterHarness();
+        await original.dispatch(original.envelope({ key: "before-restart" }));
+        original.setFault("writeRecord");
+        const restarted = original.restart();
+
+        const failed = await restarted.accept(restarted.envelope({ key: "failed-after-restart" }));
+        expect(failed).toMatchObject({
+            kind: "preDispatchFailure",
+            phase: "dispatch",
+            commit: "rolledBack"
+        });
+        restarted.setFault(undefined);
+        const stale = await original.accept(original.envelope({ key: "old-dispatcher" }));
+
+        expect(stale).toMatchObject({
+            kind: "preDispatchFailure",
+            phase: "admissionPreflight",
+            commit: "rolledBack"
+        });
+        if (stale.kind !== "preDispatchFailure") throw new TypeError("Expected stale dispatcher");
+        expect(stale.cause).toMatchObject({ code: "actor.stale-callback" });
+    }
+);
+
+test(
+    "file-backed SQLite reconciles unknown acknowledgement after full composition restart",
+    { tags: "p0" },
+    async () => {
+        const directory = mkdtempSync(join(tmpdir(), "agent-core-dispatcher-restart-"));
+        const path = join(directory, "dispatcher.sqlite");
+        let database: FileSqlite | undefined;
+        try {
+            const memory = new CounterHarness();
+            const memoryRaw = memory.envelope({ key: "file-restart-unknown", amount: 2 });
+            memory.setFault("unknownAck");
+            const memoryUnknown = await memory.accept(memoryRaw);
+            expect(memoryUnknown).toMatchObject({
+                kind: "preDispatchFailure",
+                phase: "dispatch",
+                commit: "unknown",
+                retry: "retrySameKey"
+            });
+            const restartedMemory = memory.restart();
+            restartedMemory.setFault(undefined);
+            const memoryDuplicate = await restartedMemory.dispatch(memoryRaw);
+
+            database = new FileSqlite(path);
+            const sqlite = new SqliteCounterHarness({}, database);
+            const sqliteRaw = sqlite.envelope({ key: "file-restart-unknown", amount: 2 });
+            sqlite.setFault("unknownAck");
+            const sqliteUnknown = await sqlite.accept(sqliteRaw);
+            expect(sqliteUnknown).toMatchObject({
+                kind: "preDispatchFailure",
+                phase: "dispatch",
+                commit: "unknown",
+                retry: "retrySameKey"
+            });
+            database.close();
+            database = undefined;
+            database = new FileSqlite(path);
+            const restartedSqlite = new SqliteCounterHarness({}, database);
+            restartedSqlite.setFault(undefined);
+            const sqliteDuplicate = await restartedSqlite.dispatch(sqliteRaw);
+
+            expect(sqliteDuplicate).toEqual(memoryDuplicate);
+            expect(restartedSqlite.snapshot()).toEqual(restartedMemory.snapshot());
+            expect(restartedSqlite.snapshot()).toMatchObject({ value: 2, identityCount: 1 });
+            expect(restartedSqlite.snapshot().writes.map((write) => write.outcome)).toEqual([
+                "committed",
+                "duplicate"
+            ]);
+        } finally {
+            database?.close();
+            rmSync(directory, { recursive: true, force: true });
+        }
+    }
+);
 
 test.each([
     ["invalid padding", "A==="],
@@ -369,14 +393,18 @@ test("protocol dependency errors expose canonical own properties", { tags: "p1" 
     );
 });
 
-test("[C13-ADV-COMMAND-REJECTIONS] byte limit validation names the failing limit exactly", { tags: "p1" }, () => {
-    expect(() => new CounterHarness({ limits: { envelopeBytes: 0, payloadBytes: 1024 } })).toThrow(
-        "Command envelope byte limit must be a positive safe integer"
-    );
-    expect(
-        () => new CounterHarness({ limits: { envelopeBytes: 4096, payloadBytes: 1.5 } })
-    ).toThrow("Command payload byte limit must be a positive safe integer");
-});
+test(
+    "[C13-ADV-COMMAND-REJECTIONS] byte limit validation names the failing limit exactly",
+    { tags: "p1" },
+    () => {
+        expect(
+            () => new CounterHarness({ limits: { envelopeBytes: 0, payloadBytes: 1024 } })
+        ).toThrow("Command envelope byte limit must be a positive safe integer");
+        expect(
+            () => new CounterHarness({ limits: { envelopeBytes: 4096, payloadBytes: 1.5 } })
+        ).toThrow("Command payload byte limit must be a positive safe integer");
+    }
+);
 
 test("admit detaches the raw envelope before prepared dispatch", { tags: "p0" }, async () => {
     const harness = new CounterHarness();
@@ -447,9 +475,7 @@ test("caller causes attach to committed and duplicate writes", { tags: "p0" }, a
     const afterCommit = harness.snapshot();
     expect(committed.outcome).toBe("committed");
     expect(afterCommit.audits.size).toBe(2);
-    expect(afterCommit.audits.get(committed.write.audit.value)?.cause?.equals(cause.id)).toBe(
-        true
-    );
+    expect(afterCommit.audits.get(committed.write.audit.value)?.cause?.equals(cause.id)).toBe(true);
 
     const duplicate = await harness.dispatch(
         harness.envelope({ key: "direct-cause-key", callerCause: cause.id })
@@ -474,16 +500,20 @@ test("a write-kind caller cause is rejected before mutation", { tags: "p1" }, as
     expect(harness.snapshot().value).toBe(1);
 });
 
-test("[C13-ADV-COMMAND-REJECTIONS] rejects an envelope beyond the configured byte limit", { tags: "p0" }, async () => {
-    const harness = new CounterHarness({ limits: { envelopeBytes: 32, payloadBytes: 1024 } });
+test(
+    "[C13-ADV-COMMAND-REJECTIONS] rejects an envelope beyond the configured byte limit",
+    { tags: "p0" },
+    async () => {
+        const harness = new CounterHarness({ limits: { envelopeBytes: 32, payloadBytes: 1024 } });
 
-    const result = await harness.dispatch(harness.envelope({ key: "oversized-envelope" }));
+        const result = await harness.dispatch(harness.envelope({ key: "oversized-envelope" }));
 
-    expect(result.outcome).toBe("rejectedMalformed");
-    expect(result.write.command).toBeUndefined();
-    expect(result.write.caller).toBeUndefined();
-    expect(harness.snapshot().value).toBe(0);
-});
+        expect(result.outcome).toBe("rejectedMalformed");
+        expect(result.write.command).toBeUndefined();
+        expect(result.write.caller).toBeUndefined();
+        expect(harness.snapshot().value).toBe(0);
+    }
+);
 
 test("rejects a leased payload beyond the configured byte limit", { tags: "p0" }, async () => {
     const harness = new CounterHarness({ limits: { envelopeBytes: 4096, payloadBytes: 4 } });
@@ -494,77 +524,89 @@ test("rejects a leased payload beyond the configured byte limit", { tags: "p0" }
     expect(harness.snapshot()).toMatchObject({ value: 0, contentGets: 1 });
 });
 
-test("rejects leased payload bytes that do not hash to the envelope digest", { tags: "p0" }, async () => {
-    const harness = new CounterHarness();
-    const raw = harness.envelope({ key: "substituted-payload", amount: 2 });
-    harness.installPayload(
-        CommandEnvelopeCodec.decode(raw).payload.value,
-        harness.payloadBytes(9)
-    );
+test(
+    "rejects leased payload bytes that do not hash to the envelope digest",
+    { tags: "p0" },
+    async () => {
+        const harness = new CounterHarness();
+        const raw = harness.envelope({ key: "substituted-payload", amount: 2 });
+        harness.installPayload(
+            CommandEnvelopeCodec.decode(raw).payload.value,
+            harness.payloadBytes(9)
+        );
 
-    const result = await harness.dispatch(raw);
+        const result = await harness.dispatch(raw);
 
-    expect(result.outcome).toBe("rejectedMalformed");
-    expect(harness.snapshot().value).toBe(0);
-});
+        expect(result.outcome).toBe("rejectedMalformed");
+        expect(harness.snapshot().value).toBe(0);
+    }
+);
 
-test("rejects a payload reference that disagrees with the payload digest", { tags: "p0" }, async () => {
-    const harness = new CounterHarness();
-    const payload = harness.payloadBytes(3);
-    const payloadDigest = Digest.sha256(payload);
-    const reference = ContentRef.fromDigest(Digest.sha256(harness.payloadBytes(4)));
-    const raw = CommandEnvelopeCodec.encode(
-        new CommandEnvelope({
-            command: "counter.increment",
-            caller: harness.caller,
-            idempotencyKey: "reference-mismatch",
-            expectedRevision: harness.snapshot().revision,
-            payload: reference,
-            payloadDigest
-        })
-    );
-    harness.installPayload(reference.value, payload);
-    const authentication = await new CounterAuthenticator(harness.tenant).authenticate(
-        harness.caller,
-        CommandEnvelopeCodec.decode(raw),
-        Digest.sha256(raw)
-    );
-    const admission = await harness.dispatcher.admit(raw, authentication);
-    if (admission.kind !== "prepare") throw new TypeError("Expected command preparation");
-    const binding = new PayloadLeaseBinding(
-        harness.tenant,
-        harness.actor,
-        Digest.sha256(raw),
-        reference,
-        payloadDigest,
-        new Date(CounterHarness.now.getTime() + 60_000)
-    );
-    const lease = await harness.content.acquire(binding);
-    if (lease === undefined) throw new TypeError("Expected a payload lease");
+test(
+    "rejects a payload reference that disagrees with the payload digest",
+    { tags: "p0" },
+    async () => {
+        const harness = new CounterHarness();
+        const payload = harness.payloadBytes(3);
+        const payloadDigest = Digest.sha256(payload);
+        const reference = ContentRef.fromDigest(Digest.sha256(harness.payloadBytes(4)));
+        const raw = CommandEnvelopeCodec.encode(
+            new CommandEnvelope({
+                command: "counter.increment",
+                caller: harness.caller,
+                idempotencyKey: "reference-mismatch",
+                expectedRevision: harness.snapshot().revision,
+                payload: reference,
+                payloadDigest
+            })
+        );
+        harness.installPayload(reference.value, payload);
+        const authentication = await new CounterAuthenticator(harness.tenant).authenticate(
+            harness.caller,
+            CommandEnvelopeCodec.decode(raw),
+            Digest.sha256(raw)
+        );
+        const admission = await harness.dispatcher.admit(raw, authentication);
+        if (admission.kind !== "prepare") throw new TypeError("Expected command preparation");
+        const binding = new PayloadLeaseBinding(
+            harness.tenant,
+            harness.actor,
+            Digest.sha256(raw),
+            reference,
+            payloadDigest,
+            new Date(CounterHarness.now.getTime() + 60_000)
+        );
+        const lease = await harness.content.acquire(binding);
+        if (lease === undefined) throw new TypeError("Expected a payload lease");
 
-    const result = await admission.dispatch(issueLeasedCommandPayload(lease, binding));
+        const result = await admission.dispatch(issueLeasedCommandPayload(lease, binding));
 
-    expect(result.outcome).toBe("rejectedMalformed");
-    expect(harness.snapshot().value).toBe(0);
-    await lease.close();
-});
+        expect(result.outcome).toBe("rejectedMalformed");
+        expect(harness.snapshot().value).toBe(0);
+        await lease.close();
+    }
+);
 
-test("unregistered commands reserve their identity without a caller cause", { tags: "p0" }, async () => {
-    const harness = new CounterHarness({ commandName: "counter.other" });
-    const cause = harness.seedInvocationCause("unregistered-cause");
+test(
+    "unregistered commands reserve their identity without a caller cause",
+    { tags: "p0" },
+    async () => {
+        const harness = new CounterHarness({ commandName: "counter.other" });
+        const cause = harness.seedInvocationCause("unregistered-cause");
 
-    const rejected = await harness.dispatch(
-        harness.envelope({ key: "unregistered", callerCause: cause.id })
-    );
-    expect(rejected.outcome).toBe("rejectedMalformed");
-    expect(harness.snapshot().audits.get(rejected.write.audit.value)?.cause).toBeUndefined();
+        const rejected = await harness.dispatch(
+            harness.envelope({ key: "unregistered", callerCause: cause.id })
+        );
+        expect(rejected.outcome).toBe("rejectedMalformed");
+        expect(harness.snapshot().audits.get(rejected.write.audit.value)?.cause).toBeUndefined();
 
-    const replay = await harness.dispatch(
-        harness.envelope({ key: "unregistered", callerCause: cause.id })
-    );
-    expect(replay.outcome).toBe("duplicate");
-    expect(replay.write.duplicateOf?.equals(rejected.write.id)).toBe(true);
-});
+        const replay = await harness.dispatch(
+            harness.envelope({ key: "unregistered", callerCause: cause.id })
+        );
+        expect(replay.outcome).toBe("duplicate");
+        expect(replay.write.duplicateOf?.equals(rejected.write.id)).toBe(true);
+    }
+);
 
 test("malformed payloads keep exactly their own caller cause", { tags: "p0" }, async () => {
     const harness = new CounterHarness();
@@ -596,33 +638,39 @@ test("rejected outcomes reply with their canonical outcome document", { tags: "p
     expect(decodeCanonicalJson(result.write.reply)).toEqual({ outcome: "rejectedAuthority" });
 });
 
-test("typed executions attach caller causes with and without observations", { tags: "p0" }, async () => {
-    const observed = new CounterHarness({ typedExecution: true });
-    const observedCause = observed.seedInvocationCause("typed-observed-cause");
-    const withObservation = await observed.dispatch(
-        observed.envelope({ key: "typed-observed", callerCause: observedCause.id })
-    );
-    expect(withObservation.outcome).toBe("committed");
-    expect(withObservation.observation).toBeDefined();
-    expect(
-        observed.snapshot().audits.get(withObservation.write.audit.value)?.cause?.equals(
-            observedCause.id
-        )
-    ).toBe(true);
+test(
+    "typed executions attach caller causes with and without observations",
+    { tags: "p0" },
+    async () => {
+        const observed = new CounterHarness({ typedExecution: true });
+        const observedCause = observed.seedInvocationCause("typed-observed-cause");
+        const withObservation = await observed.dispatch(
+            observed.envelope({ key: "typed-observed", callerCause: observedCause.id })
+        );
+        expect(withObservation.outcome).toBe("committed");
+        expect(withObservation.observation).toBeDefined();
+        expect(
+            observed
+                .snapshot()
+                .audits.get(withObservation.write.audit.value)
+                ?.cause?.equals(observedCause.id)
+        ).toBe(true);
 
-    const plain = new CounterHarness({ typedExecution: true, typedObservation: false });
-    const plainCause = plain.seedInvocationCause("typed-plain-cause");
-    const withoutObservation = await plain.dispatch(
-        plain.envelope({ key: "typed-plain", callerCause: plainCause.id })
-    );
-    expect(withoutObservation.outcome).toBe("committed");
-    expect(withoutObservation.observation).toBeUndefined();
-    expect(
-        plain.snapshot().audits.get(withoutObservation.write.audit.value)?.cause?.equals(
-            plainCause.id
-        )
-    ).toBe(true);
-});
+        const plain = new CounterHarness({ typedExecution: true, typedObservation: false });
+        const plainCause = plain.seedInvocationCause("typed-plain-cause");
+        const withoutObservation = await plain.dispatch(
+            plain.envelope({ key: "typed-plain", callerCause: plainCause.id })
+        );
+        expect(withoutObservation.outcome).toBe("committed");
+        expect(withoutObservation.observation).toBeUndefined();
+        expect(
+            plain
+                .snapshot()
+                .audits.get(withoutObservation.write.audit.value)
+                ?.cause?.equals(plainCause.id)
+        ).toBe(true);
+    }
+);
 
 test("a cause-free rejected write audit cannot become a caller cause", { tags: "p0" }, async () => {
     const harness = new CounterHarness();
@@ -669,23 +717,27 @@ test("leases without a current holder, expiry, or record are fenced", { tags: "p
     ).toBe("rejectedLease");
 });
 
-test("forged commit uncertainty inside a transaction is refused exactly", { tags: "p0" }, async () => {
-    const harness = new CounterHarness();
-    harness.setFault("forgedUnknown");
+test(
+    "forged commit uncertainty inside a transaction is refused exactly",
+    { tags: "p0" },
+    async () => {
+        const harness = new CounterHarness();
+        harness.setFault("forgedUnknown");
 
-    const result = await harness.accept(harness.envelope({ key: "forged-unknown" }));
+        const result = await harness.accept(harness.envelope({ key: "forged-unknown" }));
 
-    expect(result).toMatchObject({
-        kind: "preDispatchFailure",
-        phase: "dispatch",
-        commit: "rolledBack"
-    });
-    if (result.kind !== "preDispatchFailure") throw new TypeError("Expected a forged failure");
-    expectAgentCoreErrorValue(result.cause, "protocol.invalid-state");
-    expect(result.cause).toMatchObject({
-        message: "Commit uncertainty cannot originate inside an Actor transaction"
-    });
-});
+        expect(result).toMatchObject({
+            kind: "preDispatchFailure",
+            phase: "dispatch",
+            commit: "rolledBack"
+        });
+        if (result.kind !== "preDispatchFailure") throw new TypeError("Expected a forged failure");
+        expectAgentCoreErrorValue(result.cause, "protocol.invalid-state");
+        expect(result.cause).toMatchObject({
+            message: "Commit uncertainty cannot originate inside an Actor transaction"
+        });
+    }
+);
 
 test("protocol persistence repair runs on Actor activation", { tags: "p0" }, async () => {
     const harness = new CounterHarness();
@@ -730,10 +782,7 @@ test("dispatchers require an Actor activation store exactly", { tags: "p0" }, ()
         expect(
             () =>
                 new CommandDispatcher(
-                    probeDispatcherInitOver(
-                        new MemoryProtocolRecords(),
-                        forgedActorStore(store)
-                    )
+                    probeDispatcherInitOver(new MemoryProtocolRecords(), forgedActorStore(store))
                 )
         ).toThrow(new TypeError("Command dispatcher requires an Actor activation store"));
     }
@@ -777,78 +826,86 @@ test("typed executions must be objects that carry a reply", { tags: "p1" }, asyn
         const lease = await content.acquire(binding);
         if (lease === undefined) throw new TypeError("Expected a payload lease");
 
-        await expect(
-            admission.dispatch(issueLeasedCommandPayload(lease, binding))
-        ).rejects.toThrow(new TypeError("Typed command execution requires a reply codec"));
+        await expect(admission.dispatch(issueLeasedCommandPayload(lease, binding))).rejects.toThrow(
+            new TypeError("Typed command execution requires a reply codec")
+        );
         await lease.close();
     }
 });
 
-test("caller revocation between admission and prepared dispatch rejects without replay", { tags: "p0" }, async () => {
-    const policy = new RevocableCallerPolicy();
-    const harness = new CounterHarness({ caller: policy });
-    const raw = harness.envelope({ key: "revoked-caller" });
-    const authentication = await new CounterAuthenticator(harness.tenant).authenticate(
-        harness.caller,
-        CommandEnvelopeCodec.decode(raw),
-        Digest.sha256(raw)
-    );
-    const admission = await harness.dispatcher.admit(raw, authentication);
-    if (admission.kind !== "prepare") throw new TypeError("Expected command preparation");
-    const committed = await harness.dispatch(raw);
-    expect(committed.outcome).toBe("committed");
-    policy.revoke();
+test(
+    "caller revocation between admission and prepared dispatch rejects without replay",
+    { tags: "p0" },
+    async () => {
+        const policy = new RevocableCallerPolicy();
+        const harness = new CounterHarness({ caller: policy });
+        const raw = harness.envelope({ key: "revoked-caller" });
+        const authentication = await new CounterAuthenticator(harness.tenant).authenticate(
+            harness.caller,
+            CommandEnvelopeCodec.decode(raw),
+            Digest.sha256(raw)
+        );
+        const admission = await harness.dispatcher.admit(raw, authentication);
+        if (admission.kind !== "prepare") throw new TypeError("Expected command preparation");
+        const committed = await harness.dispatch(raw);
+        expect(committed.outcome).toBe("committed");
+        policy.revoke();
 
-    const result = await admission.dispatch(issueMalformedCommandPayload("absent"));
+        const result = await admission.dispatch(issueMalformedCommandPayload("absent"));
 
-    expect(result.outcome).toBe("rejectedAuthentication");
-    expect(result.write.idempotencyKey).toBeUndefined();
-    expect(harness.snapshot().value).toBe(1);
-});
+        expect(result.outcome).toBe("rejectedAuthentication");
+        expect(result.write.idempotencyKey).toBeUndefined();
+        expect(harness.snapshot().value).toBe(1);
+    }
+);
 
-test("a supplied expected revision is fenced when no current revision exists", { tags: "p1" }, async () => {
-    const records = new MemoryProtocolRecords();
-    const dispatcher = new CommandDispatcher(
-        probeDispatcherInit({ records, command: new OptionalRevisionProbeCommand() })
-    );
-    const content = new CounterContentStore(() => undefined);
-    const payload = encodeCanonicalJson({ probe: true });
-    const payloadDigest = Digest.sha256(payload);
-    const reference = ContentRef.fromDigest(payloadDigest);
-    content.install(reference.value, payload);
-    const raw = CommandEnvelopeCodec.encode(
-        new CommandEnvelope({
-            command: "probe.command",
-            caller: probeCaller,
-            idempotencyKey: "probe-revisionless",
-            expectedRevision: Revision.initial(),
-            payload: reference,
-            payloadDigest
-        })
-    );
-    const authentication = await new ProbeAuthenticator().authenticate(
-        probeCaller,
-        CommandEnvelopeCodec.decode(raw),
-        Digest.sha256(raw)
-    );
-    const admission = await dispatcher.admit(raw, authentication);
-    if (admission.kind !== "prepare") throw new TypeError("Expected command preparation");
-    const binding = new PayloadLeaseBinding(
-        probeTenant,
-        probeActor,
-        Digest.sha256(raw),
-        reference,
-        payloadDigest,
-        new Date(CounterHarness.now.getTime() + 60_000)
-    );
-    const lease = await content.acquire(binding);
-    if (lease === undefined) throw new TypeError("Expected a payload lease");
+test(
+    "a supplied expected revision is fenced when no current revision exists",
+    { tags: "p1" },
+    async () => {
+        const records = new MemoryProtocolRecords();
+        const dispatcher = new CommandDispatcher(
+            probeDispatcherInit({ records, command: new OptionalRevisionProbeCommand() })
+        );
+        const content = new CounterContentStore(() => undefined);
+        const payload = encodeCanonicalJson({ probe: true });
+        const payloadDigest = Digest.sha256(payload);
+        const reference = ContentRef.fromDigest(payloadDigest);
+        content.install(reference.value, payload);
+        const raw = CommandEnvelopeCodec.encode(
+            new CommandEnvelope({
+                command: "probe.command",
+                caller: probeCaller,
+                idempotencyKey: "probe-revisionless",
+                expectedRevision: Revision.initial(),
+                payload: reference,
+                payloadDigest
+            })
+        );
+        const authentication = await new ProbeAuthenticator().authenticate(
+            probeCaller,
+            CommandEnvelopeCodec.decode(raw),
+            Digest.sha256(raw)
+        );
+        const admission = await dispatcher.admit(raw, authentication);
+        if (admission.kind !== "prepare") throw new TypeError("Expected command preparation");
+        const binding = new PayloadLeaseBinding(
+            probeTenant,
+            probeActor,
+            Digest.sha256(raw),
+            reference,
+            payloadDigest,
+            new Date(CounterHarness.now.getTime() + 60_000)
+        );
+        const lease = await content.acquire(binding);
+        if (lease === undefined) throw new TypeError("Expected a payload lease");
 
-    const result = await admission.dispatch(issueLeasedCommandPayload(lease, binding));
+        const result = await admission.dispatch(issueLeasedCommandPayload(lease, binding));
 
-    expect(result.outcome).toBe("rejectedRevision");
-    await lease.close();
-});
+        expect(result.outcome).toBe("rejectedRevision");
+        await lease.close();
+    }
+);
 
 test("committed replies detach from the command execution buffer", { tags: "p1" }, async () => {
     const execution = encodeCanonicalJson({ probe: "reply" });

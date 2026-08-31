@@ -805,7 +805,7 @@ describe("MemoryActorStore isolation", () => {
         { tags: "p0" },
         () => {
             const store = new MemoryActorStore<{ starts: number }>({ starts: 0 }, structuredClone);
-            const carrier = CodecDeclaration.encode(VERSIONED_CARRIER);
+            const carrier = CodecDeclaration.toBytes(VERSIONED_CARRIER);
 
             expect(
                 () =>
@@ -837,7 +837,7 @@ describe("MemoryActorStore isolation", () => {
             expect(snapshot.state.starts).toBe(1);
             // Raw canonical bytes by design: a reader reaches them without decoding any
             // record of the set it is deciding compatibility for.
-            expect(CodecDeclaration.decode(committedCarrier).equals(ACTOR_CODECS)).toBe(true);
+            expect(CodecDeclaration.fromBytes(committedCarrier).equals(ACTOR_CODECS)).toBe(true);
             expect(MemoryActorStore.restore(snapshot, structuredClone).snapshot()).toEqual(
                 snapshot
             );
@@ -3095,13 +3095,13 @@ function harness<TTransaction>(
                 store.saveRecordSetDeclaration(
                     transaction,
                     ACTOR_REF,
-                    CodecDeclaration.encode(declaration)
+                    CodecDeclaration.toBytes(declaration)
                 );
             }),
         declaration: () =>
             store.transaction((transaction) => {
                 const carrier = store.loadRecordSetDeclaration(transaction, ACTOR_REF);
-                return carrier === undefined ? undefined : CodecDeclaration.decode(carrier);
+                return carrier === undefined ? undefined : CodecDeclaration.fromBytes(carrier);
             }),
         value: operations.value,
         initializations: operations.initializations,

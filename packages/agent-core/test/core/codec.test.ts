@@ -1687,22 +1687,23 @@ describe("CodecDeclaration", () => {
         "[C13-CODEC-INCOMPATIBILITY-TOTAL] carries raw canonical bytes and refuses a declaration lookalike",
         { tags: "p0" },
         () => {
-            const carrier = CodecDeclaration.encode(reader);
+            const carrier = CodecDeclaration.toBytes(reader);
 
             // No RecordCodec envelope by design: this carrier stays readable while a future
-            // record codec is exactly what the reader refuses to understand.
+            // record codec is exactly what the reader refuses to understand, which is also why
+            // the pair is toBytes/fromBytes rather than the codec-bearing encode/decode.
             expect(decodeCanonicalJson(carrier)).toEqual(reader.toData());
-            expect(CodecDeclaration.decode(carrier).equals(reader)).toBe(true);
-            expect(CodecDeclaration.decode(CodecDeclaration.encode(CodecDeclaration.empty))).toEqual(
-                CodecDeclaration.empty
-            );
+            expect(CodecDeclaration.fromBytes(carrier).equals(reader)).toBe(true);
+            expect(
+                CodecDeclaration.fromBytes(CodecDeclaration.toBytes(CodecDeclaration.empty))
+            ).toEqual(CodecDeclaration.empty);
             expectTypeFailure(
                 () =>
                     // @ts-expect-error Runtime callers can supply a CodecDeclaration lookalike.
-                    CodecDeclaration.encode({ declared: reader.declared, toData: () => [] }),
+                    CodecDeclaration.toBytes({ declared: reader.declared, toData: () => [] }),
                 "Codec declaration encoding requires an exact CodecDeclaration"
             );
-            expect(() => CodecDeclaration.decode(new TextEncoder().encode("{"))).toThrow(
+            expect(() => CodecDeclaration.fromBytes(new TextEncoder().encode("{"))).toThrow(
                 AgentCoreError
             );
         }

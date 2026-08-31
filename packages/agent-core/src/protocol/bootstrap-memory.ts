@@ -214,11 +214,7 @@ function isSnapshotActor(
     value: MemoryTenantBootstrapSnapshot["opaque"]
 ): value is MemoryActorStoreSnapshot<MemoryTenantBootstrapState>["actor"] {
     if (value === null) return true;
-    if (
-        !isObjectRecord(value) ||
-        !hasExactKeys(value, ["id", "kind"]) ||
-        !isString(value["id"])
-    ) {
+    if (!isObjectRecord(value) || !hasExactKeys(value, ["id", "kind"]) || !isString(value["id"])) {
         return false;
     }
     const kind = value["kind"];

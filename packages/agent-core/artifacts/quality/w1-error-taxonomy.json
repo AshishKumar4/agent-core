@@ -580,10 +580,10 @@
       "testedBy": ["test/core/codec.test.ts"]
     },
     {
-      "id": "w1.core.codec.codecdeclaration-encode.e59aa7f302",
+      "id": "w1.core.codec.codecdeclaration-tobytes.d722c0075f",
       "source": "src/core/codec.ts",
       "sourceAnchor": {
-        "container": "CodecDeclaration.encode",
+        "container": "CodecDeclaration.toBytes",
         "guard": "declaration.constructor !== CodecDeclaration",
         "expression": "new TypeError(\"Codec declaration encoding requires an exact CodecDeclaration\")"
       },

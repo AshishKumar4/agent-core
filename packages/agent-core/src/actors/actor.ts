@@ -58,7 +58,7 @@ export abstract class Actor<TTransaction> {
             let stored = CodecDeclaration.empty;
             if (carrier !== undefined) {
                 try {
-                    stored = CodecDeclaration.decode(carrier);
+                    stored = CodecDeclaration.fromBytes(carrier);
                 } catch (error) {
                     if (!(error instanceof AgentCoreError)) throw error;
                     this.#bootstrapFailure = error;
@@ -71,7 +71,7 @@ export abstract class Actor<TTransaction> {
                     store.saveRecordSetDeclaration(
                         transaction,
                         context.actor,
-                        CodecDeclaration.encode(completeDeclaration)
+                        CodecDeclaration.toBytes(completeDeclaration)
                     );
                 }
                 requireSynchronousResult(start(transaction, activation));

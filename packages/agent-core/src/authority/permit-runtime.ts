@@ -68,11 +68,7 @@ export class MemoryTenantAuthorityPermitStore<State extends object>
         return this.actors.loadRecordSetDeclaration(state, actor);
     }
 
-    public saveRecordSetDeclaration(
-        state: State,
-        actor: ActorRef,
-        declaration: Uint8Array
-    ): void {
+    public saveRecordSetDeclaration(state: State, actor: ActorRef, declaration: Uint8Array): void {
         this.actors.saveRecordSetDeclaration(state, actor, declaration);
     }
 

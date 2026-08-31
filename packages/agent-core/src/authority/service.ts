@@ -753,7 +753,10 @@ function issuerSubjects(store: AuthorityMutationStore, issuer: SubjectRef): read
         "Share offer issuer Principal"
     );
     if (!principal.canAct) {
-        throw new AgentCoreError("authority.denied", "Disabled Principal cannot issue share offers");
+        throw new AgentCoreError(
+            "authority.denied",
+            "Disabled Principal cannot issue share offers"
+        );
     }
     return [
         issuer,

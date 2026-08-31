@@ -186,7 +186,6 @@ describe.each([
         }
     );
 
-
     it(
         "[C13-AUTH-SHARE-OFFER] refuses redemption after the issued Role content widens",
         { tags: "p0" },
@@ -247,7 +246,10 @@ describe.each([
             };
 
             expect(() =>
-                harness.service.issueShareOffer(offer("offer-cross-tenant-issuer"), foreignLocalIssuer)
+                harness.service.issueShareOffer(
+                    offer("offer-cross-tenant-issuer"),
+                    foreignLocalIssuer
+                )
             ).toThrow(
                 expect.objectContaining({
                     code: "authority.denied",
@@ -268,7 +270,9 @@ describe.each([
                 memberships: harness.store.memberships().map(Membership.encode),
                 offers: harness.store.shareOffers().map(ShareOffer.encode)
             };
-            const foreignLocalHolder = SubjectRef.principal(new PrincipalRef(otherTenant, holderId));
+            const foreignLocalHolder = SubjectRef.principal(
+                new PrincipalRef(otherTenant, holderId)
+            );
 
             expect(() =>
                 harness.service.redeemShareOffer(issued.id, {

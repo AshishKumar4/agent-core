@@ -1,10 +1,4 @@
-import {
-    RecordCodec,
-    hasExactJsonKeys,
-    isJsonObject,
-    type JsonValue,
-    TextId
-} from "../core";
+import { RecordCodec, hasExactJsonKeys, isJsonObject, type JsonValue, TextId } from "../core";
 import { AgentCoreError } from "../errors";
 import { ActorId } from "./id";
 import { ActorFence, ActorRef, type ActorKind } from "./types";

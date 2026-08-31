@@ -260,7 +260,10 @@ export class SqliteCounterHarness implements CounterFixture {
         const revised: CommandEnvelopeInit =
             init.omitRevision === true
                 ? required
-                : { ...required, expectedRevision: init.expectedRevision ?? this.currentRevision() };
+                : {
+                      ...required,
+                      expectedRevision: init.expectedRevision ?? this.currentRevision()
+                  };
         const leased: CommandEnvelopeInit =
             init.lease === undefined ? revised : { ...revised, lease: init.lease };
         const caused: CommandEnvelopeInit =

@@ -4,10 +4,7 @@ import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 import { TurnId } from "../../src/agents";
 import { ActorId, ActorRef, type MemoryActorStoreSnapshot } from "../../src/actors";
-import {
-    MemoryTenantControlStore,
-    type MemoryTenantControlSnapshot
-} from "../../src/authority";
+import { MemoryTenantControlStore, type MemoryTenantControlSnapshot } from "../../src/authority";
 import { ContentRef, Digest, Revision, encodeCanonicalJson, type JsonValue } from "../../src/core";
 import { AgentCoreError } from "../../src/errors";
 import { PrincipalId, PrincipalRef, RoleName, ScopeRef, TenantId } from "../../src/identity";
@@ -103,60 +100,69 @@ function createSqliteTenantBootstrap(
 }
 
 describe("tenant.bootstrap concrete compositions", () => {
-    test("[protocol.tenant-bootstrap-anchor] memory composition creates and restores the complete closure", { tags: "p1" }, async () => {
-        const content = new CounterContentStore(() => undefined);
-        const first = createMemoryTenantBootstrap({ actor, anchor, content });
-        const raw = envelope(content, { key: "memory-bootstrap" });
-
-        const committed = await first.dispatch(raw, ownerTransport);
-        const restarted = createMemoryTenantBootstrap({
-            actor,
-            anchor,
-            content: new CounterContentStore(() => undefined),
-            snapshot: first.snapshot()
-        });
-        const duplicate = await restarted.dispatch(raw, ownerTransport);
-
-        expect(committed.outcome).toBe("committed");
-        expect(duplicate.outcome).toBe("duplicate");
-        expect(duplicate.reply).toEqual(committed.reply);
-        expect(memoryClosure(restarted)).toEqual(completeClosure());
-        expect(memoryEvidence(restarted)).toEqual({ audits: 4, identities: 1, writes: 2 });
-    });
-
-    test("[protocol.tenant-bootstrap-anchor] [protocol.tenant-bootstrap-marker] file SQLite composition creates and restores the complete closure", { tags: "p1" }, async () => {
-        const directory = mkdtempSync(join(tmpdir(), "tenant-bootstrap-composition-"));
-        const path = join(directory, "tenant.sqlite");
-        let database: FileSqlite | undefined;
-        try {
-            database = new FileSqlite(path);
+    test(
+        "[protocol.tenant-bootstrap-anchor] memory composition creates and restores the complete closure",
+        { tags: "p1" },
+        async () => {
             const content = new CounterContentStore(() => undefined);
-            const first = createSqliteTenantBootstrap({ database, actor, anchor, content });
-            const raw = envelope(content, { key: "sqlite-bootstrap" });
-            const committed = await first.dispatch(raw, ownerTransport);
-            database.close();
-            database = undefined;
+            const first = createMemoryTenantBootstrap({ actor, anchor, content });
+            const raw = envelope(content, { key: "memory-bootstrap" });
 
-            database = new FileSqlite(path);
-            const restarted = createSqliteTenantBootstrap({
-                database,
+            const committed = await first.dispatch(raw, ownerTransport);
+            const restarted = createMemoryTenantBootstrap({
                 actor,
-                content: new CounterContentStore(() => undefined)
+                anchor,
+                content: new CounterContentStore(() => undefined),
+                snapshot: first.snapshot()
             });
             const duplicate = await restarted.dispatch(raw, ownerTransport);
 
             expect(committed.outcome).toBe("committed");
             expect(duplicate.outcome).toBe("duplicate");
-            expect(sqliteClosure(database)).toEqual(completeClosure());
-            expect(sqliteEvidence(database)).toEqual({ audits: 4, identities: 1, writes: 2 });
-        } finally {
-            database?.close();
-            rmSync(directory, { recursive: true, force: true });
+            expect(duplicate.reply).toEqual(committed.reply);
+            expect(memoryClosure(restarted)).toEqual(completeClosure());
+            expect(memoryEvidence(restarted)).toEqual({ audits: 4, identities: 1, writes: 2 });
         }
-    });
+    );
+
+    test(
+        "[protocol.tenant-bootstrap-anchor] [protocol.tenant-bootstrap-marker] file SQLite composition creates and restores the complete closure",
+        { tags: "p1" },
+        async () => {
+            const directory = mkdtempSync(join(tmpdir(), "tenant-bootstrap-composition-"));
+            const path = join(directory, "tenant.sqlite");
+            let database: FileSqlite | undefined;
+            try {
+                database = new FileSqlite(path);
+                const content = new CounterContentStore(() => undefined);
+                const first = createSqliteTenantBootstrap({ database, actor, anchor, content });
+                const raw = envelope(content, { key: "sqlite-bootstrap" });
+                const committed = await first.dispatch(raw, ownerTransport);
+                database.close();
+                database = undefined;
+
+                database = new FileSqlite(path);
+                const restarted = createSqliteTenantBootstrap({
+                    database,
+                    actor,
+                    content: new CounterContentStore(() => undefined)
+                });
+                const duplicate = await restarted.dispatch(raw, ownerTransport);
+
+                expect(committed.outcome).toBe("committed");
+                expect(duplicate.outcome).toBe("duplicate");
+                expect(sqliteClosure(database)).toEqual(completeClosure());
+                expect(sqliteEvidence(database)).toEqual({ audits: 4, identities: 1, writes: 2 });
+            } finally {
+                database?.close();
+                rmSync(directory, { recursive: true, force: true });
+            }
+        }
+    );
 
     test.each(["memory", "SQLite"] as const)(
-        "%s rejects forged caller, revision, lease, and payload records", { tags: "p0" },
+        "%s rejects forged caller, revision, lease, and payload records",
+        { tags: "p0" },
         async (kind) => {
             const content = new CounterContentStore(() => undefined);
             const composition =
@@ -230,7 +236,8 @@ describe("tenant.bootstrap concrete compositions", () => {
     );
 
     test.each(["memory", "SQLite"] as const)(
-        "%s rejects an unauthenticated bootstrap before creating Tenant state", { tags: "p0" },
+        "%s rejects an unauthenticated bootstrap before creating Tenant state",
+        { tags: "p0" },
         async (kind) => {
             const content = new CounterContentStore(() => undefined);
             const composition =
@@ -254,67 +261,76 @@ describe("tenant.bootstrap concrete compositions", () => {
         }
     );
 
-    test("SQLite composition rejects wrong Actor kind and corrupt protocol ID state", { tags: "p0" }, async () => {
-        const content = new CounterContentStore(() => undefined);
-        expect(() =>
-            createSqliteTenantBootstrap({
-                database: new TestSqlite(),
-                actor: new ActorRef("workspace", new ActorId("wrong-bootstrap-kind")),
-                anchor,
-                content
-            })
-        ).toThrow(AgentCoreError);
+    test(
+        "SQLite composition rejects wrong Actor kind and corrupt protocol ID state",
+        { tags: "p0" },
+        async () => {
+            const content = new CounterContentStore(() => undefined);
+            expect(() =>
+                createSqliteTenantBootstrap({
+                    database: new TestSqlite(),
+                    actor: new ActorRef("workspace", new ActorId("wrong-bootstrap-kind")),
+                    anchor,
+                    content
+                })
+            ).toThrow(AgentCoreError);
 
-        const database = new TestSqlite();
-        const composition = createSqliteTenantBootstrap({ database, actor, anchor, content });
-        database.run("DELETE FROM tenant_bootstrap_protocol_ids", []);
-        await expect(
-            composition.dispatch(
-                envelope(content, {
-                    key: "missing-protocol-id"
-                }),
-                ownerTransport
-            )
-        ).rejects.toThrow(/protocol ID state/);
-        database.run(
-            "INSERT INTO tenant_bootstrap_protocol_ids (singleton, next_id) VALUES (1, ?)",
-            [Number.MAX_SAFE_INTEGER + 1]
-        );
-        expect(() => createSqliteTenantBootstrap({ database, actor, content })).toThrow(
-            AgentCoreError
-        );
-    });
+            const database = new TestSqlite();
+            const composition = createSqliteTenantBootstrap({ database, actor, anchor, content });
+            database.run("DELETE FROM tenant_bootstrap_protocol_ids", []);
+            await expect(
+                composition.dispatch(
+                    envelope(content, {
+                        key: "missing-protocol-id"
+                    }),
+                    ownerTransport
+                )
+            ).rejects.toThrow(/protocol ID state/);
+            database.run(
+                "INSERT INTO tenant_bootstrap_protocol_ids (singleton, next_id) VALUES (1, ?)",
+                [Number.MAX_SAFE_INTEGER + 1]
+            );
+            expect(() => createSqliteTenantBootstrap({ database, actor, content })).toThrow(
+                AgentCoreError
+            );
+        }
+    );
 
-    test("SQLite composition rejects Actor drift and protocol ID exhaustion", { tags: "p0" }, async () => {
-        const content = new CounterContentStore(() => undefined);
-        const database = new TestSqlite();
-        const composition = createSqliteTenantBootstrap({ database, actor, anchor, content });
-        expect(() =>
-            createSqliteTenantBootstrap({
-                database,
-                actor: new ActorRef("tenant", new ActorId("different-bootstrap-actor")),
-                content
-            })
-        ).toThrow(AgentCoreError);
+    test(
+        "SQLite composition rejects Actor drift and protocol ID exhaustion",
+        { tags: "p0" },
+        async () => {
+            const content = new CounterContentStore(() => undefined);
+            const database = new TestSqlite();
+            const composition = createSqliteTenantBootstrap({ database, actor, anchor, content });
+            expect(() =>
+                createSqliteTenantBootstrap({
+                    database,
+                    actor: new ActorRef("tenant", new ActorId("different-bootstrap-actor")),
+                    content
+                })
+            ).toThrow(AgentCoreError);
 
-        database.run("UPDATE tenant_bootstrap_protocol_ids SET next_id = ? WHERE singleton = 1", [
-            Number.MAX_SAFE_INTEGER
-        ]);
-        await expect(
-            composition.dispatch(
-                envelope(content, {
-                    key: "exhausted-sqlite-id"
-                }),
-                ownerTransport
-            )
-        ).rejects.toMatchObject({ code: "protocol.invalid-state" });
-        expect(
-            database.all(
-                "SELECT next_id FROM tenant_bootstrap_protocol_ids WHERE singleton = 1",
-                []
-            )[0]?.["next_id"]
-        ).toBe(Number.MAX_SAFE_INTEGER);
-    });
+            database.run(
+                "UPDATE tenant_bootstrap_protocol_ids SET next_id = ? WHERE singleton = 1",
+                [Number.MAX_SAFE_INTEGER]
+            );
+            await expect(
+                composition.dispatch(
+                    envelope(content, {
+                        key: "exhausted-sqlite-id"
+                    }),
+                    ownerTransport
+                )
+            ).rejects.toMatchObject({ code: "protocol.invalid-state" });
+            expect(
+                database.all(
+                    "SELECT next_id FROM tenant_bootstrap_protocol_ids WHERE singleton = 1",
+                    []
+                )[0]?.["next_id"]
+            ).toBe(Number.MAX_SAFE_INTEGER);
+        }
+    );
 
     test("SQLite composition rejects negative persisted protocol IDs", { tags: "p1" }, () => {
         const content = new CounterContentStore(() => undefined);
@@ -331,7 +347,8 @@ describe("tenant.bootstrap concrete compositions", () => {
     });
 
     test.each(["raw-write", "typed-write", "typed-read", "lost-write"] as const)(
-        "SQLite composition translates %s protocol ID failures", { tags: "p1" },
+        "SQLite composition translates %s protocol ID failures",
+        { tags: "p1" },
         async (failure) => {
             const content = new CounterContentStore(() => undefined);
             const database = new FaultSqlite();
@@ -348,37 +365,41 @@ describe("tenant.bootstrap concrete compositions", () => {
         }
     );
 
-    test("SQLite bootstrap payload codec rejects non-object canonical payloads", { tags: "p1" }, async () => {
-        const content = new CounterContentStore(() => undefined);
-        const composition = createSqliteTenantBootstrap({
-            database: new TestSqlite(),
-            actor,
-            anchor,
-            content
-        });
-        expect(
-            (
-                await composition.dispatch(
-                    envelope(content, {
-                        key: "null-payload",
-                        payload: encodeCanonicalJson(null)
-                    }),
-                    ownerTransport
-                )
-            ).outcome
-        ).toBe("rejectedMalformed");
-        expect(
-            (
-                await composition.dispatch(
-                    envelope(content, {
-                        key: "array-payload",
-                        payload: encodeCanonicalJson([])
-                    }),
-                    ownerTransport
-                )
-            ).outcome
-        ).toBe("rejectedMalformed");
-    });
+    test(
+        "SQLite bootstrap payload codec rejects non-object canonical payloads",
+        { tags: "p1" },
+        async () => {
+            const content = new CounterContentStore(() => undefined);
+            const composition = createSqliteTenantBootstrap({
+                database: new TestSqlite(),
+                actor,
+                anchor,
+                content
+            });
+            expect(
+                (
+                    await composition.dispatch(
+                        envelope(content, {
+                            key: "null-payload",
+                            payload: encodeCanonicalJson(null)
+                        }),
+                        ownerTransport
+                    )
+                ).outcome
+            ).toBe("rejectedMalformed");
+            expect(
+                (
+                    await composition.dispatch(
+                        envelope(content, {
+                            key: "array-payload",
+                            payload: encodeCanonicalJson([])
+                        }),
+                        ownerTransport
+                    )
+                ).outcome
+            ).toBe("rejectedMalformed");
+        }
+    );
 
     test("memory bootstrap restart rejects changed durable anchor", { tags: "p0" }, () => {
         const content = new CounterContentStore(() => undefined);
@@ -393,222 +414,248 @@ describe("tenant.bootstrap concrete compositions", () => {
         ).toThrow(AgentCoreError);
     });
 
-    test("memory bootstrap rejects deep snapshot corruption and ID exhaustion", { tags: "p0" }, async () => {
-        const content = new CounterContentStore(() => undefined);
-        const composition = createMemoryTenantBootstrap({ actor, anchor, content });
-        const opaque = opaqueOf(composition.snapshot());
-        try {
-            createMemoryTenantBootstrap({
+    test(
+        "memory bootstrap rejects deep snapshot corruption and ID exhaustion",
+        { tags: "p0" },
+        async () => {
+            const content = new CounterContentStore(() => undefined);
+            const composition = createMemoryTenantBootstrap({ actor, anchor, content });
+            const opaque = opaqueOf(composition.snapshot());
+            try {
+                createMemoryTenantBootstrap({
+                    actor,
+                    anchor,
+                    content,
+                    snapshot: {
+                        version: 1,
+                        opaque: {
+                            ...opaque,
+                            state: { ...opaque.state, protocol: unclonableRecords() }
+                        }
+                    }
+                });
+                throw new Error("Expected corrupt snapshot rejection");
+            } catch (error) {
+                expect(error).toBeInstanceOf(AgentCoreError);
+                expect(error).toMatchObject({ code: "codec.invalid" });
+            }
+
+            const exhausted = createMemoryTenantBootstrap({
                 actor,
                 anchor,
                 content,
                 snapshot: {
                     version: 1,
-                    opaque: { ...opaque, state: { ...opaque.state, protocol: unclonableRecords() } }
-                }
-            });
-            throw new Error("Expected corrupt snapshot rejection");
-        } catch (error) {
-            expect(error).toBeInstanceOf(AgentCoreError);
-            expect(error).toMatchObject({ code: "codec.invalid" });
-        }
-
-        const exhausted = createMemoryTenantBootstrap({
-            actor,
-            anchor,
-            content,
-            snapshot: {
-                version: 1,
-                opaque: {
-                    ...opaque,
-                    state: { ...opaque.state, nextId: Number.MAX_SAFE_INTEGER }
-                }
-            }
-        });
-        await expect(
-            exhausted.dispatch(
-                envelope(content, {
-                    key: "exhausted-memory-id"
-                }),
-                ownerTransport
-            )
-        ).rejects.toMatchObject({ code: "protocol.invalid-state" });
-    });
-
-    test("memory bootstrap rejects malformed snapshot envelopes and Actor state", { tags: "p1" }, () => {
-        const content = new CounterContentStore(() => undefined);
-        const composition = createMemoryTenantBootstrap({ actor, anchor, content });
-        const snapshot = composition.snapshot();
-        const opaque = opaqueOf(snapshot);
-        const restore = (value: MemoryTenantBootstrapSnapshot) =>
-            createMemoryTenantBootstrap({ actor, anchor, content, snapshot: value });
-
-        expect(() => restore(forgedSnapshot(null))).toThrow(AgentCoreError);
-        expect(() =>
-            restore({
-                version: 1,
-                opaque: {
-                    ...opaque,
-                    state: {
-                        ...opaque.state,
-                        control: { ...opaque.state.control, version: 1 }
+                    opaque: {
+                        ...opaque,
+                        state: { ...opaque.state, nextId: Number.MAX_SAFE_INTEGER }
                     }
                 }
-            })
-        ).toThrow(AgentCoreError);
-        expect(() =>
-            restore({
-                version: 1,
-                opaque: { ...opaque, actor: null, recoveryState: Uint8Array.of(0) }
-            })
-        ).toThrow(AgentCoreError);
-        expect(() =>
-            restore({
-                version: 1,
-                opaque: {
-                    ...opaque,
-                    actor: { kind: "tenant", id: "x".repeat(257) },
-                    recoveryState: null
-                }
-            })
-        ).toThrow(AgentCoreError);
-        expect(() =>
-            restore({
-                version: 1,
-                opaque: { ...opaque, state: { ...opaque.state, nextId: -1 } }
-            })
-        ).toThrow(AgentCoreError);
-        expect(() =>
-            createMemoryTenantBootstrap({
-                actor: new ActorRef("tenant", new ActorId("different-bootstrap-actor")),
-                anchor,
-                content,
-                snapshot
-            })
-        ).toThrow(AgentCoreError);
-    });
-
-    test("anchor codec rejects malformed payloads and accepts every Tenant kind", { tags: "p1" }, () => {
-        expect(() => TenantBootstrapAnchorRecord.decode(anchorEnvelope(null))).toThrow(
-            AgentCoreError
-        );
-        expect(() => TenantBootstrapAnchorRecord.decode(anchorEnvelope({}))).toThrow(
-            AgentCoreError
-        );
-        expect(() =>
-            TenantBootstrapAnchorRecord.decode(
-                anchorEnvelope({
-                    actorId: 3,
-                    principalId: principalId.value,
-                    tenantId: tenantId.value,
-                    tenantKind: "organization",
-                    trustAnchor: "BAUG"
-                })
-            )
-        ).toThrow(AgentCoreError);
-        expect(() =>
-            new TenantBootstrapAnchorRecord({ ...anchor, actorId: forgedActorId("") })
-        ).toThrow(TypeError);
-
-        const service = TenantBootstrapAnchorRecord.decode(
-            anchorEnvelope({
-                actorId: actor.id.value,
-                principalId: principalId.value,
-                tenantId: tenantId.value,
-                tenantKind: "service",
-                trustAnchor: "BAUG"
-            })
-        );
-        expect(service.tenantKind).toBe("service");
-    });
-
-    test("typed bootstrap reply and observation codecs reject malformed wire values", { tags: "p1" }, () => {
-        let currentAnchor: TenantBootstrapAnchor | undefined = anchor;
-        const store: BootstrapProbeStore = {
-            anchor: () => currentAnchor,
-            anchorInTransaction: () => currentAnchor,
-            eligible: () => true,
-            currentRevision: () => Revision.initial(),
-            bootstrapTenant: () => undefined
-        };
-        const command = createTenantBootstrapCommand(store, { actor, tenantId });
-        const content = new CounterContentStore(() => undefined);
-        const commandEnvelope = CommandEnvelopeCodec.decode(
-            envelope(content, { key: "typed-bootstrap-codecs" })
-        );
-        const execution = command.execute(store, commandEnvelope, {}, new Date(1_000));
-        if (execution instanceof Uint8Array) throw new TypeError("Expected typed bootstrap reply");
-        const replyCodec = command.replyCodec!;
-        const observationCodec = command.observationCodec!;
-
-        expect(replyCodec.decode(replyCodec.encode(execution.reply))).toEqual(execution.reply);
-        expect(observationCodec.decode(observationCodec.encode(execution.observation!))).toEqual(
-            execution.observation
-        );
-        currentAnchor = undefined;
-        expect(command.currentRevision(store, commandEnvelope, {})).toBeUndefined();
-        expect(() => command.execute(store, commandEnvelope, {}, new Date(1_000))).toThrow(
-            /anchor disappeared/
-        );
-
-        for (const malformed of [
-            null,
-            {},
-            { owner: null, tenant: tenantId.value },
-            {
-                owner: { principal: principalId.value, tenant: tenantId.value, extra: true },
-                tenant: tenantId.value
-            },
-            {
-                owner: { principal: "", tenant: tenantId.value },
-                tenant: tenantId.value
-            }
-        ]) {
-            expect(() => replyCodec.decode(encodeCanonicalJson(malformed))).toThrow(
-                TypeError
-            );
-        }
-        for (const malformed of [
-            {},
-            { at: "not-a-date", reply: "AA==" },
-            { at: new Date(1_000).toISOString(), reply: "AA==", extra: true }
-        ]) {
-            expect(() => observationCodec.decode(encodeCanonicalJson(malformed))).toThrow();
-        }
-    });
-
-    test("memory bootstrap payload codec rejects non-object canonical payloads", { tags: "p1" }, async () => {
-        const content = new CounterContentStore(() => undefined);
-        const composition = createMemoryTenantBootstrap({ actor, anchor, content });
-        expect(
-            (
-                await composition.dispatch(
+            });
+            await expect(
+                exhausted.dispatch(
                     envelope(content, {
-                        key: "memory-null-payload",
-                        payload: encodeCanonicalJson(null)
+                        key: "exhausted-memory-id"
                     }),
                     ownerTransport
                 )
-            ).outcome
-        ).toBe("rejectedMalformed");
-    });
+            ).rejects.toMatchObject({ code: "protocol.invalid-state" });
+        }
+    );
 
-    test("exports no callback backend, plan, writer, or raw bootstrap command", { tags: "p2" }, () => {
-        for (const symbol of [
-            "TenantBootstrapBackend",
-            "TenantBootstrapCommand",
-            "TenantBootstrapPlan",
-            "TenantBootstrapStore",
-            "TenantBootstrapWriter",
-            "applyTenantBootstrapPlan",
-            "createMemoryTenantBootstrapCommand",
-            "createSqliteTenantBootstrapCommand",
-            "createTenantBootstrapCommand",
-            "createTenantBootstrapPlan"
-        ])
-            expect(protocol).not.toHaveProperty(symbol);
-        expect(protocol.createMemoryTenantBootstrap).toBeTypeOf("function");
-    });
+    test(
+        "memory bootstrap rejects malformed snapshot envelopes and Actor state",
+        { tags: "p1" },
+        () => {
+            const content = new CounterContentStore(() => undefined);
+            const composition = createMemoryTenantBootstrap({ actor, anchor, content });
+            const snapshot = composition.snapshot();
+            const opaque = opaqueOf(snapshot);
+            const restore = (value: MemoryTenantBootstrapSnapshot) =>
+                createMemoryTenantBootstrap({ actor, anchor, content, snapshot: value });
+
+            expect(() => restore(forgedSnapshot(null))).toThrow(AgentCoreError);
+            expect(() =>
+                restore({
+                    version: 1,
+                    opaque: {
+                        ...opaque,
+                        state: {
+                            ...opaque.state,
+                            control: { ...opaque.state.control, version: 1 }
+                        }
+                    }
+                })
+            ).toThrow(AgentCoreError);
+            expect(() =>
+                restore({
+                    version: 1,
+                    opaque: { ...opaque, actor: null, recoveryState: Uint8Array.of(0) }
+                })
+            ).toThrow(AgentCoreError);
+            expect(() =>
+                restore({
+                    version: 1,
+                    opaque: {
+                        ...opaque,
+                        actor: { kind: "tenant", id: "x".repeat(257) },
+                        recoveryState: null
+                    }
+                })
+            ).toThrow(AgentCoreError);
+            expect(() =>
+                restore({
+                    version: 1,
+                    opaque: { ...opaque, state: { ...opaque.state, nextId: -1 } }
+                })
+            ).toThrow(AgentCoreError);
+            expect(() =>
+                createMemoryTenantBootstrap({
+                    actor: new ActorRef("tenant", new ActorId("different-bootstrap-actor")),
+                    anchor,
+                    content,
+                    snapshot
+                })
+            ).toThrow(AgentCoreError);
+        }
+    );
+
+    test(
+        "anchor codec rejects malformed payloads and accepts every Tenant kind",
+        { tags: "p1" },
+        () => {
+            expect(() => TenantBootstrapAnchorRecord.decode(anchorEnvelope(null))).toThrow(
+                AgentCoreError
+            );
+            expect(() => TenantBootstrapAnchorRecord.decode(anchorEnvelope({}))).toThrow(
+                AgentCoreError
+            );
+            expect(() =>
+                TenantBootstrapAnchorRecord.decode(
+                    anchorEnvelope({
+                        actorId: 3,
+                        principalId: principalId.value,
+                        tenantId: tenantId.value,
+                        tenantKind: "organization",
+                        trustAnchor: "BAUG"
+                    })
+                )
+            ).toThrow(AgentCoreError);
+            expect(
+                () => new TenantBootstrapAnchorRecord({ ...anchor, actorId: forgedActorId("") })
+            ).toThrow(TypeError);
+
+            const service = TenantBootstrapAnchorRecord.decode(
+                anchorEnvelope({
+                    actorId: actor.id.value,
+                    principalId: principalId.value,
+                    tenantId: tenantId.value,
+                    tenantKind: "service",
+                    trustAnchor: "BAUG"
+                })
+            );
+            expect(service.tenantKind).toBe("service");
+        }
+    );
+
+    test(
+        "typed bootstrap reply and observation codecs reject malformed wire values",
+        { tags: "p1" },
+        () => {
+            let currentAnchor: TenantBootstrapAnchor | undefined = anchor;
+            const store: BootstrapProbeStore = {
+                anchor: () => currentAnchor,
+                anchorInTransaction: () => currentAnchor,
+                eligible: () => true,
+                currentRevision: () => Revision.initial(),
+                bootstrapTenant: () => undefined
+            };
+            const command = createTenantBootstrapCommand(store, { actor, tenantId });
+            const content = new CounterContentStore(() => undefined);
+            const commandEnvelope = CommandEnvelopeCodec.decode(
+                envelope(content, { key: "typed-bootstrap-codecs" })
+            );
+            const execution = command.execute(store, commandEnvelope, {}, new Date(1_000));
+            if (execution instanceof Uint8Array)
+                throw new TypeError("Expected typed bootstrap reply");
+            const replyCodec = command.replyCodec!;
+            const observationCodec = command.observationCodec!;
+
+            expect(replyCodec.decode(replyCodec.encode(execution.reply))).toEqual(execution.reply);
+            expect(
+                observationCodec.decode(observationCodec.encode(execution.observation!))
+            ).toEqual(execution.observation);
+            currentAnchor = undefined;
+            expect(command.currentRevision(store, commandEnvelope, {})).toBeUndefined();
+            expect(() => command.execute(store, commandEnvelope, {}, new Date(1_000))).toThrow(
+                /anchor disappeared/
+            );
+
+            for (const malformed of [
+                null,
+                {},
+                { owner: null, tenant: tenantId.value },
+                {
+                    owner: { principal: principalId.value, tenant: tenantId.value, extra: true },
+                    tenant: tenantId.value
+                },
+                {
+                    owner: { principal: "", tenant: tenantId.value },
+                    tenant: tenantId.value
+                }
+            ]) {
+                expect(() => replyCodec.decode(encodeCanonicalJson(malformed))).toThrow(TypeError);
+            }
+            for (const malformed of [
+                {},
+                { at: "not-a-date", reply: "AA==" },
+                { at: new Date(1_000).toISOString(), reply: "AA==", extra: true }
+            ]) {
+                expect(() => observationCodec.decode(encodeCanonicalJson(malformed))).toThrow();
+            }
+        }
+    );
+
+    test(
+        "memory bootstrap payload codec rejects non-object canonical payloads",
+        { tags: "p1" },
+        async () => {
+            const content = new CounterContentStore(() => undefined);
+            const composition = createMemoryTenantBootstrap({ actor, anchor, content });
+            expect(
+                (
+                    await composition.dispatch(
+                        envelope(content, {
+                            key: "memory-null-payload",
+                            payload: encodeCanonicalJson(null)
+                        }),
+                        ownerTransport
+                    )
+                ).outcome
+            ).toBe("rejectedMalformed");
+        }
+    );
+
+    test(
+        "exports no callback backend, plan, writer, or raw bootstrap command",
+        { tags: "p2" },
+        () => {
+            for (const symbol of [
+                "TenantBootstrapBackend",
+                "TenantBootstrapCommand",
+                "TenantBootstrapPlan",
+                "TenantBootstrapStore",
+                "TenantBootstrapWriter",
+                "applyTenantBootstrapPlan",
+                "createMemoryTenantBootstrapCommand",
+                "createSqliteTenantBootstrapCommand",
+                "createTenantBootstrapCommand",
+                "createTenantBootstrapPlan"
+            ])
+                expect(protocol).not.toHaveProperty(symbol);
+            expect(protocol.createMemoryTenantBootstrap).toBeTypeOf("function");
+        }
+    );
 
     test("fails closed on malformed anchor codec and non-Tenant Actors", { tags: "p0" }, () => {
         expect(() =>
@@ -818,10 +865,14 @@ test("bootstrap reply and observation codecs name malformed values exactly", { t
         )
     ).toThrow("Tenant bootstrap owner is malformed");
     expect(() =>
-        replyCodec.decode(encodeCanonicalJson({ owner: { principal: "p", tenant: "t" }, tenant: "" }))
+        replyCodec.decode(
+            encodeCanonicalJson({ owner: { principal: "p", tenant: "t" }, tenant: "" })
+        )
     ).toThrow("Tenant bootstrap Tenant must be a non-empty string");
     expect(() =>
-        replyCodec.decode(encodeCanonicalJson({ owner: { principal: "", tenant: "t" }, tenant: "x" }))
+        replyCodec.decode(
+            encodeCanonicalJson({ owner: { principal: "", tenant: "t" }, tenant: "x" })
+        )
     ).toThrow("Tenant bootstrap owner must be a non-empty string");
 
     expect(() => observationCodec.decode(encodeCanonicalJson(null))).toThrow(
@@ -888,29 +939,33 @@ test("memory bootstrap restart accepts identical anchors and rejects drift", { t
     ).not.toThrow();
 });
 
-test("memory bootstrap Actor snapshot faults surface the codec failure code", { tags: "p1" }, () => {
-    const content = new CounterContentStore(() => undefined);
-    const composition = createMemoryTenantBootstrap({ actor, anchor, content });
-    const snapshot = composition.snapshot();
+test(
+    "memory bootstrap Actor snapshot faults surface the codec failure code",
+    { tags: "p1" },
+    () => {
+        const content = new CounterContentStore(() => undefined);
+        const composition = createMemoryTenantBootstrap({ actor, anchor, content });
+        const snapshot = composition.snapshot();
 
-    expectAgentCoreError(
-        () =>
-            createMemoryTenantBootstrap({
-                actor,
-                anchor,
-                content,
-                snapshot: {
-                    version: 1,
-                    opaque: {
-                        ...opaqueOf(snapshot),
-                        actor: { kind: "tenant", id: "x".repeat(257) },
-                        recoveryState: null
+        expectAgentCoreError(
+            () =>
+                createMemoryTenantBootstrap({
+                    actor,
+                    anchor,
+                    content,
+                    snapshot: {
+                        version: 1,
+                        opaque: {
+                            ...opaqueOf(snapshot),
+                            actor: { kind: "tenant", id: "x".repeat(257) },
+                            recoveryState: null
+                        }
                     }
-                }
-            }),
-        "codec.invalid"
-    );
-});
+                }),
+            "codec.invalid"
+        );
+    }
+);
 
 test("memory bootstrap snapshot containers are validated exactly", { tags: "p1" }, () => {
     const content = new CounterContentStore(() => undefined);
@@ -1328,7 +1383,10 @@ function completeClosure() {
 class FaultSqlite extends TestSqlite {
     public failure: "raw-write" | "typed-write" | "typed-read" | "lost-write" | undefined;
 
-    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+    protected override query(
+        statement: string,
+        bindings: readonly SqliteValue[]
+    ): readonly SqliteRow[] {
         if (
             this.failure === "typed-read" &&
             statement.includes("SELECT next_id FROM tenant_bootstrap_protocol_ids")
