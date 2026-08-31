@@ -62,13 +62,16 @@ import {
     AuthorityAdmissionReference,
     ClaimWorkerId,
     InvocationPlacementPin,
+    MemoryDetachedEffectExecutionPersistence,
     MemoryInvocationMediationPersistence,
     MemoryInvocationPersistence,
     PreEffectReceipt,
     PreparedInvocation,
     Receipt,
+    cloneDetachedEffectExecutionMemoryState,
     cloneInvocationMediationMemoryState,
     cloneInvocationMemoryState,
+    createDetachedEffectExecutionMemoryState,
     createInvocationMediationMemoryState,
     createInvocationMemoryState,
     structuralCodec,
@@ -78,6 +81,7 @@ import {
     type CanonicalBatchAuthorityPermitPort,
     type CanonicalBatchFinalAdmissionPort,
     type CanonicalBatchFinalAdmissionResult,
+    type DetachedEffectExecutionMemoryState,
     type EffectAttemptId,
     type InvocationMediationMemoryState,
     type InvocationMemoryState,
@@ -85,6 +89,7 @@ import {
     type ItemClaim,
     type ReceiptId,
     type ReceiptObservation,
+    type ReconciliationSchedulePort,
     type StructuralCodec
 } from "../../src/invocations";
 import { OperationRequestKey } from "../../src/operations";
@@ -124,13 +129,16 @@ import {
     TurnAdmissionHandleCodec,
     TurnBoundOperation,
     TurnLease,
-    type LeaseToken
+    type LeaseToken,
+    type RunInvocationDelivery,
+    type TurnAdmissionHandle
 } from "../../src/agents";
 import { RunId, TurnId } from "../../src/execution-references";
 import { InvocationId } from "../../src/interaction-references";
 import { EnvironmentId } from "../../src/environments";
 import { AuthorityPermitIssuanceReply, AuthorityPermitIssuanceRequest } from "../../src/protocol";
 import {
+    SqliteDetachedEffectExecutionPersistence,
     SqliteTargetPermitMediationAggregate,
     SqliteTargetResolutionInvalidationPort,
     type TransactionalSqlite
@@ -154,7 +162,11 @@ const turnId = new TurnId("pipeline-turn");
 const token: LeaseToken = Object.freeze({ turn: turnId, holder: principal, epoch: 1 });
 const issuer = new ActorRef("tenant", new ActorId("pipeline-issuer"));
 
-type PipelineState = InvocationMemoryState & InvocationMediationMemoryState;
+type PipelineState = InvocationMemoryState &
+    InvocationMediationMemoryState &
+    DetachedEffectExecutionMemoryState;
+
+const DETACHED_INTERVAL_MS = 30_000;
 
 interface DemoAdmission {
     readonly invocation: string;
@@ -223,6 +235,7 @@ class RecallOperation extends Operation {
         this.observed.calls += 1;
         this.observed.signal = context.signal;
         this.observed.content = context.content;
+        await this.observed.hold?.(context.signal);
         this.observed.fail?.();
         return { attempt: context.attempt?.id.value ?? null };
     }
@@ -248,6 +261,11 @@ interface Observed {
     stops: number;
     /** Raises from the Operation body, so the host classifies an unconfirmed failure. */
     fail?: (() => void) | undefined;
+    /**
+     * Holds the Operation body open under its own cancellation signal, so a test can reach an
+     * attempt that is genuinely in flight rather than one that has already returned.
+     */
+    hold?: ((signal: AbortSignal) => Promise<void>) | undefined;
 }
 
 class MemoryFacet extends Facet {
@@ -285,7 +303,8 @@ class MemoryFacet extends Facet {
 class MemoryTransactions implements InvocationTransactionPort<PipelineState> {
     #state: PipelineState = {
         ...createInvocationMemoryState(),
-        ...createInvocationMediationMemoryState()
+        ...createInvocationMediationMemoryState(),
+        ...createDetachedEffectExecutionMemoryState()
     };
 
     public transact<Result>(operation: (transaction: PipelineState) => Result): Result {
@@ -293,7 +312,8 @@ class MemoryTransactions implements InvocationTransactionPort<PipelineState> {
         const result = operation(draft);
         this.#state = {
             ...cloneInvocationMemoryState(draft),
-            ...cloneInvocationMediationMemoryState(draft)
+            ...cloneInvocationMediationMemoryState(draft),
+            ...cloneDetachedEffectExecutionMemoryState(draft)
         };
         return result;
     }
@@ -305,8 +325,26 @@ class MemoryTransactions implements InvocationTransactionPort<PipelineState> {
     private clone(): PipelineState {
         return {
             ...cloneInvocationMemoryState(this.#state),
-            ...cloneInvocationMediationMemoryState(this.#state)
+            ...cloneInvocationMediationMemoryState(this.#state),
+            ...cloneDetachedEffectExecutionMemoryState(this.#state)
         };
+    }
+}
+
+/** The detached driver's durable schedule row, held in memory for the suite. */
+class MemorySchedule implements ReconciliationSchedulePort {
+    #at: Date | undefined;
+
+    public scheduled(): Date | undefined {
+        return this.#at;
+    }
+
+    public schedule(at: Date): void {
+        this.#at = at;
+    }
+
+    public clear(): void {
+        this.#at = undefined;
     }
 }
 
@@ -604,18 +642,39 @@ function spawnOperation(): TurnBoundOperation {
 interface Harness {
     readonly pipeline: MediatedOperationPipeline<PipelineState, DemoAdmission, undefined>;
     readonly transactions: MemoryTransactions;
+    readonly persistence: MediationPersistence<PipelineState, DemoAdmission>;
+    readonly evidence: MemoryInvocationMediationPersistence;
+    readonly detachedExecutions: MemoryDetachedEffectExecutionPersistence;
+    readonly schedule: MemorySchedule;
     readonly authority: DemoAuthorityState;
     readonly observed: Observed;
     readonly observations: ReceiptObservation[];
     readonly content: ContentStore;
 }
 
-async function harness(
-    persistence: MediationPersistence<PipelineState, DemoAdmission> = new MemoryInvocationPersistence(
-        mediationInvocationCodecs(admissionCodec)
-    )
-): Promise<Harness> {
-    const transactions = new MemoryTransactions();
+interface HarnessOptions {
+    readonly persistence?: MediationPersistence<PipelineState, DemoAdmission>;
+    /**
+     * A previous harness whose durable state this one is rebuilt over, which is what a host
+     * restart looks like from here: the records, the content, and the detached schedule
+     * survive, while every live resource — the Facet runtime and the per-attempt controllers
+     * its target owned — is new.
+     */
+    readonly restarts?: Harness;
+}
+
+async function harness(options: HarnessOptions = {}): Promise<Harness> {
+    const previous = options.restarts;
+    const transactions = previous?.transactions ?? new MemoryTransactions();
+    const persistence: MediationPersistence<PipelineState, DemoAdmission> =
+        options.persistence ??
+        previous?.persistence ??
+        new MemoryInvocationPersistence(mediationInvocationCodecs(admissionCodec));
+    const evidence = previous?.evidence ?? new MemoryInvocationMediationPersistence();
+    const detachedExecutions =
+        previous?.detachedExecutions ?? new MemoryDetachedEffectExecutionPersistence();
+    const schedule = previous?.schedule ?? new MemorySchedule();
+    const content = previous?.content ?? new MemoryContentStore();
     const authority = new DemoAuthorityState();
     const observed: Observed = {
         signal: undefined,
@@ -623,7 +682,6 @@ async function harness(
         calls: 0,
         stops: 0
     };
-    const content = new MemoryContentStore();
     const observations: ReceiptObservation[] = [];
     const pipeline = await MediatedOperationPipeline.activate<
         PipelineState,
@@ -636,7 +694,10 @@ async function harness(
         worker: new ClaimWorkerId("worker-1"),
         transactions,
         persistence,
-        evidence: new MemoryInvocationMediationPersistence(),
+        detachedExecutions,
+        detachedSchedule: schedule,
+        detachedIntervalMilliseconds: DETACHED_INTERVAL_MS,
+        evidence,
         authority,
         manifests: [manifest()],
         roots: [new MemoryFacet(observed)],
@@ -659,7 +720,18 @@ async function harness(
         claimLifetimeMilliseconds: 60_000,
         now: () => new Date(2_000)
     });
-    return { pipeline, transactions, authority, observed, observations, content };
+    return {
+        pipeline,
+        transactions,
+        persistence,
+        evidence,
+        detachedExecutions,
+        schedule,
+        authority,
+        observed,
+        observations,
+        content
+    };
 }
 
 /**
@@ -976,6 +1048,9 @@ describe("the published mediation composition root", () => {
                 aggregate,
                 scope: "sqlite-target-permit",
                 worker: new ClaimWorkerId("sqlite-target-worker"),
+                detachedExecutions: new SqliteDetachedEffectExecutionPersistence(database),
+                detachedSchedule: new MemorySchedule(),
+                detachedIntervalMilliseconds: DETACHED_INTERVAL_MS,
                 authority: new DemoAuthorityState(),
                 manifests: [manifest()],
                 roots: [new MemoryFacet(observed)],
@@ -1114,15 +1189,20 @@ describe("the published mediation composition root", () => {
             const handle = result.admission;
             expect(handle.invocation.equals(invocation.header.id)).toBe(true);
             expect(handle.attempt.equals(attempt.id)).toBe(true);
-            expect(handle.receipt.equals(receipt.id)).toBe(true);
             expect(handle.itemIndex).toBe(attempt.itemIndex);
             expect(handle.itemKey).toBe(attempt.idempotencyKey);
             expect(handle.turn.equals(turnId)).toBe(true);
             expect(handle.run.equals(runId)).toBe(true);
             expect(handle.issuedEpoch).toBe(token.epoch);
-            expect(handle.result.equals(receipt.result!.digest)).toBe(true);
             expect(handle.toolPosition()).toEqual({ invocation: invocation.header.id.value });
             expect(handle.identity.childRun).toBeUndefined();
+            // An Invocation identity commits at admission, so it names the admitted item and
+            // never this Receipt: the outcome lives on the Receipt the pipeline already wrote.
+            expect(handle.identity.toData()).toEqual({
+                kind: "invocation",
+                reference: invocation.header.id.value
+            });
+            expect(receipt.result?.digest).toBeDefined();
 
             // The handle survives its process as bytes and decodes to the same identity.
             expect(
@@ -1157,6 +1237,14 @@ describe("the published mediation composition root", () => {
             expect(result.admission.identity.childRun?.equals(childRunId)).toBe(true);
             expect(result.admission.toolPosition()).toEqual({ run: childRunId.value });
             expect(result.admission.address).toBe(`run:${childRunId.value}`);
+            // The child RunRef could not exist before this Receipt carried it, so the Receipt
+            // and the digest of the bytes that carried it are the identity's own evidence.
+            expect(result.admission.identity.toData()).toEqual({
+                kind: "childRun",
+                receipt: receipt.id.value,
+                reference: childRunId.value,
+                result: receipt.result?.digest.value
+            });
             await value.pipeline.dispose();
         }
     );
@@ -1298,6 +1386,9 @@ describe("the published mediation composition root", () => {
                 persistence: new MemoryInvocationPersistence(
                     mediationInvocationCodecs(admissionCodec)
                 ),
+                detachedExecutions: new MemoryDetachedEffectExecutionPersistence(),
+                detachedSchedule: new MemorySchedule(),
+                detachedIntervalMilliseconds: DETACHED_INTERVAL_MS,
                 evidence: new MemoryInvocationMediationPersistence(),
                 authority: new DemoAuthorityState(),
                 manifests: [manifest()],
@@ -1392,10 +1483,7 @@ describe("the published mediation composition root", () => {
                                 "denied before any effect"
                             ))
                 ],
-                [
-                    "which is not stored",
-                    (records) => (records.hideAttempt = true)
-                ],
+                ["which is not stored", (records) => (records.hideAttempt = true)],
                 [
                     "did not succeed: indeterminate",
                     (records) =>
@@ -1428,7 +1516,7 @@ describe("the published mediation composition root", () => {
             for (const [refusal, tamper] of refusals) {
                 ordinal += 1;
                 const records = new ProjectedRecords(mediationInvocationCodecs(admissionCodec));
-                const value = await harness(records);
+                const value = await harness({ persistence: records });
                 tamper(records);
                 await expect(
                     value.pipeline.invocations.invoke(
@@ -1437,6 +1525,226 @@ describe("the published mediation composition root", () => {
                 ).rejects.toThrow(refusal);
                 await value.pipeline.dispose();
             }
+        }
+    );
+});
+
+/** The Receipt one exact EffectAttempt carries, so a suite with two items names each one. */
+function receiptFor(value: Harness, attempt: EffectAttemptId): AttemptReceipt {
+    const receipts = [...value.transactions.read().receipts.values()]
+        .map((bytes) => Receipt.decode(bytes))
+        .filter((receipt): receipt is AttemptReceipt => receipt instanceof AttemptReceipt)
+        .filter((receipt) => receipt.attempt.equals(attempt));
+    const receipt = receipts[0];
+    if (receipts.length !== 1 || receipt === undefined) {
+        throw new TypeError("expected exactly one attempt Receipt for this EffectAttempt");
+    }
+    return receipt;
+}
+
+/** A promise a test resolves from the Operation body, to act while an attempt is in flight. */
+function inFlight(): { readonly promise: Promise<void>; readonly reached: () => void } {
+    let signal: (() => void) | undefined;
+    const promise = new Promise<void>((resolve) => {
+        signal = resolve;
+    });
+    if (signal === undefined) throw new TypeError("Promise executor did not run");
+    return Object.freeze({ promise, reached: signal });
+}
+
+/** The admitted handle one detached Turn call produced, refusing a pre-effect refusal. */
+async function detached(value: Harness, key: string): Promise<TurnAdmissionHandle> {
+    const admission = await value.pipeline.admitDetached(invocationRequest(undefined, key));
+    if (admission.kind !== "admitted") {
+        throw new TypeError("expected the detached item to be admitted");
+    }
+    return admission.handle;
+}
+
+/** The Run's admission message for a published handle, which is what releases the item. */
+function releaseOf(handle: TurnAdmissionHandle): RunInvocationDelivery {
+    const delivery = handle.admissionDelivery();
+    if (delivery === undefined) throw new TypeError("expected an admission delivery");
+    return delivery;
+}
+
+/** The Run's cancellation message for a published handle, named by its own terminal commit. */
+function cancellationOf(handle: TurnAdmissionHandle, commit: string): RunInvocationDelivery {
+    const delivery = handle.cancellationDelivery(handle.owner, new RunCommitId(commit));
+    if (delivery === undefined) throw new TypeError("expected a cancellation delivery");
+    return delivery;
+}
+
+describe("the detached execution plane the composition root owns", () => {
+    it(
+        "[C13-TURN-HANDLE-DETACHMENT] admits durable item facts with no Receipt and runs nothing",
+        { tags: "p0" },
+        async () => {
+            const value = await harness();
+            const handle = await detached(value, "detached-admission");
+
+            const state = value.transactions.read();
+            const codecs = mediationInvocationCodecs(admissionCodec);
+            const attempts = [...state.attempts.values()].map((bytes) =>
+                codecs.attempt.decode(bytes)
+            );
+            const attempt = attempts[0];
+            if (attempt === undefined) throw new TypeError("expected one EffectAttempt");
+
+            // Admission is the commit point: the EffectAttempt is durable, and no Receipt
+            // exists because nothing has run. That pairing is what no Receipt can state.
+            expect([state.prepared.size, attempts.length, state.receipts.size]).toEqual([1, 1, 0]);
+            expect(value.observed.calls).toBe(0);
+            expect(handle.attempt.equals(attempt.id)).toBe(true);
+            expect(handle.itemIndex).toBe(attempt.itemIndex);
+            expect(handle.itemKey).toBe(attempt.idempotencyKey);
+            expect(handle.toolPosition()).toEqual({ invocation: attempt.invocation.value });
+            expect(handle.obligation()).toEqual({
+                kind: "invocationItem",
+                invocation: attempt.invocation,
+                itemIndex: attempt.itemIndex,
+                itemKey: attempt.idempotencyKey
+            });
+            expect(value.detachedExecutions.detachedExecution(state, attempt.id)?.state.kind).toBe(
+                "awaitingPublication"
+            );
+            await value.pipeline.dispose();
+        }
+    );
+
+    it(
+        "[C13-TURN-HANDLE-DETACHMENT] starts no execution before the Run's admission message arrives",
+        { tags: "p0" },
+        async () => {
+            const value = await harness();
+            await detached(value, "detached-unpublished");
+
+            // §5.6 detaches the item into the Run at publication, so an admitted item the Run
+            // has not taken on is not a driver's work: the sweep queries nothing.
+            const report = await value.pipeline.sweepDetachedEffects();
+
+            expect(report).toEqual({ queried: 0, executed: 0, remaining: false });
+            expect(value.observed.calls).toBe(0);
+            expect(value.transactions.read().receipts.size).toBe(0);
+            expect(value.schedule.scheduled()).toBeUndefined();
+            await value.pipeline.dispose();
+        }
+    );
+
+    it(
+        "[C13-TURN-HANDLE-DETACHMENT] executes the released item and answers it with its own Receipt",
+        { tags: "p0" },
+        async () => {
+            const value = await harness();
+            const handle = await detached(value, "detached-released");
+
+            await value.pipeline.accept(releaseOf(handle));
+            expect(value.schedule.scheduled()).toEqual(new Date(2_000 + DETACHED_INTERVAL_MS));
+
+            const report = await value.pipeline.sweepDetachedEffects();
+
+            expect(report).toEqual({ queried: 1, executed: 1, remaining: false });
+            expect(value.observed.calls).toBe(1);
+            const receipt = receiptFor(value, handle.attempt);
+            expect(receipt.outcome).toBe("succeeded");
+            expect(receipt.attempt.equals(handle.attempt)).toBe(true);
+            // The schedule settles once nothing released is unfinished, so a driver that
+            // executed the work does not keep firing on it.
+            expect(value.schedule.scheduled()).toBeUndefined();
+            await value.pipeline.dispose();
+        }
+    );
+
+    it(
+        "[C13-TURN-HANDLE-DETACHMENT] aborts the exact live attempt and records aborted from what the target observed",
+        { tags: "p0" },
+        async () => {
+            const value = await harness();
+            const cancelled = await detached(value, "detached-cancelled");
+            await value.pipeline.accept(releaseOf(cancelled));
+
+            const running = inFlight();
+            value.observed.hold = (signal) =>
+                new Promise<void>((_resolve, reject) => {
+                    running.reached();
+                    signal.addEventListener(
+                        "abort",
+                        () => reject(new TypeError("recall ended under its own signal")),
+                        { once: true }
+                    );
+                });
+            const sweeping = value.pipeline.sweepDetachedEffects();
+            await running.promise;
+
+            await value.pipeline.accept(cancellationOf(cancelled, "detached-cancel-commit"));
+            await sweeping;
+
+            // §7.4 builds `aborted` from cancellation that reached the attempt. The Run asked;
+            // the target aborted its own live controller; the attempt classified itself from
+            // the signal it was running under.
+            const receipt = receiptFor(value, cancelled.attempt);
+            expect(receipt.outcome).toBe("failed");
+            expect(receipt.failure?.kind).toBe("aborted");
+            expect(value.observed.signal?.aborted).toBe(true);
+
+            // Only that attempt. A second detached item admitted afterwards runs to its own
+            // succeeded Receipt under a signal the cancellation never touched.
+            value.observed.hold = undefined;
+            const survivor = await detached(value, "detached-survivor");
+            await value.pipeline.accept(releaseOf(survivor));
+            await value.pipeline.sweepDetachedEffects();
+
+            expect(receiptFor(value, survivor.attempt).outcome).toBe("succeeded");
+            expect(value.observed.signal?.aborted).toBe(false);
+            await value.pipeline.dispose();
+        }
+    );
+
+    it(
+        "[C13-TURN-HANDLE-DETACHMENT] a rebuilt pipeline drives a released record the restart interrupted",
+        { tags: "p0" },
+        async () => {
+            const first = await harness();
+            const handle = await detached(first, "detached-restart");
+            await first.pipeline.accept(releaseOf(handle));
+            await first.pipeline.dispose();
+            expect(first.observed.calls).toBe(0);
+
+            // Nothing of the first process survives except its records, and they are enough:
+            // the target rebuilds the live request from the PreparedInvocation alone.
+            const restarted = await harness({ restarts: first });
+            expect(restarted.pipeline.resumeDetachedEffects()).toBeInstanceOf(Date);
+
+            const report = await restarted.pipeline.sweepDetachedEffects();
+
+            expect(report).toEqual({ queried: 1, executed: 1, remaining: false });
+            expect(restarted.observed.calls).toBe(1);
+            expect(receiptFor(restarted, handle.attempt).outcome).toBe("succeeded");
+            await restarted.pipeline.dispose();
+        }
+    );
+
+    it(
+        "[C13-TURN-HANDLE-DETACHMENT] a cancellation with no live controller writes no terminal failed Receipt",
+        { tags: "p0" },
+        async () => {
+            const first = await harness();
+            const handle = await detached(first, "detached-absent");
+            await first.pipeline.accept(releaseOf(handle));
+            await first.pipeline.dispose();
+
+            // The per-attempt controllers died with the process, so there is no live effect to
+            // abort. §7.4 leaves an admitted attempt nobody observed `indeterminate` for
+            // reconciliation; manufacturing `aborted` would claim a fact about a controller
+            // that no longer exists.
+            const restarted = await harness({ restarts: first });
+            await restarted.pipeline.accept(cancellationOf(handle, "detached-absent-commit"));
+
+            const receipt = receiptFor(restarted, handle.attempt);
+            expect(receipt.outcome).toBe("indeterminate");
+            expect(receipt.failure).toBeUndefined();
+            expect(restarted.observed.calls).toBe(0);
+            await restarted.pipeline.dispose();
         }
     );
 });

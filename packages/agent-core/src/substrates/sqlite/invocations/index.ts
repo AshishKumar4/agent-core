@@ -1,3 +1,4 @@
+export { SqliteDetachedEffectExecutionPersistence } from "./detached-execution";
 export { SqliteInvocationPersistence } from "./persistence";
 export { SqliteInvocationMediationPersistence } from "./mediation";
 export type {

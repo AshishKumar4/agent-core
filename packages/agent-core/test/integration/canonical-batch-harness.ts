@@ -8,10 +8,14 @@ import {
     OperationDescriptor,
     OperationName,
     OperationRef,
-    isFacetData
+    isFacetData,
+    type FacetData,
+    type OperationContext
 } from "../../src/facets";
 import { TenantId } from "../../src/identity";
 import {
+    AdmittedInvocationItem,
+    AlarmDetachedEffectDriver,
     AttemptCompletion,
     AttemptReceipt,
     AuditRecord,
@@ -21,15 +25,21 @@ import {
     type CanonicalBatchAuthorityAuthenticationPort,
     type CanonicalBatchAuthorityPermitPort,
     type CanonicalBatchFinalAdmissionPort,
+    type CanonicalBatchFinalAdmissionResult,
     CanonicalBatchInvocationPort,
     type CanonicalBatchInvocationRequest,
     type CanonicalBatchRecordPort,
     ClaimWorkerId,
+    cloneDetachedEffectExecutionMemoryState,
     cloneInvocationMediationMemoryState,
     cloneInvocationMemoryState,
     CorrelationId,
+    createDetachedEffectExecutionMemoryState,
     createInvocationMediationMemoryState,
     createInvocationMemoryState,
+    DetachedEffectDeliveryPort,
+    type DetachedEffectExecutionMemoryState,
+    type DetachedEffectExecutionSource,
     EffectAttempt,
     EffectAttemptId,
     InvocationId,
@@ -40,13 +50,18 @@ import {
     type InvocationTransactionPort,
     ItemClaim,
     ItemClaimId,
+    MemoryDetachedEffectExecutionPersistence,
+    MemoryDetachedEffectTarget,
+    type MemoryDetachedEffectTargetInit,
     MemoryInvocationMediationPersistence,
     MemoryInvocationPersistence,
     OperationPin,
     PreEffectReceipt,
+    type PreEffectReceiptOutcome,
     PreparedInvocation,
     type Receipt,
-    ReceiptId
+    ReceiptId,
+    type ReconciliationSchedulePort
 } from "../../src/invocations";
 import {
     admissionFor,
@@ -55,7 +70,9 @@ import {
     preparedReferenceCodecs
 } from "../invocations/fixture";
 
-export type CanonicalBatchHarnessState = InvocationMemoryState & InvocationMediationMemoryState;
+export type CanonicalBatchHarnessState = InvocationMemoryState &
+    InvocationMediationMemoryState &
+    DetachedEffectExecutionMemoryState;
 
 export const canonicalBatchFacet = new FacetRef("workspace:target");
 export const canonicalBatchDescriptor = new OperationDescriptor(
@@ -400,14 +417,15 @@ class Records implements CanonicalBatchRecordPort<string, string, string, string
     public preEffectReceipt(
         invocation: ReturnType<CanonicalBatchPreparation<unknown>["create"]>,
         claim: ItemClaim<string>,
+        outcome: PreEffectReceiptOutcome,
         recordedAt: Date,
         reason: string
     ): PreEffectReceipt {
         return new PreEffectReceipt(
-            new ReceiptId(`receipt:${invocation.header.id.value}:${claim.itemIndex}:denied`),
+            new ReceiptId(`receipt:${invocation.header.id.value}:${claim.itemIndex}:${outcome}`),
             invocation.header.id,
             claim.itemIndex,
-            "deniedPreEffect",
+            outcome,
             recordedAt,
             reason
         );
@@ -490,23 +508,21 @@ class Records implements CanonicalBatchRecordPort<string, string, string, string
 
 class FinalAdmissions {
     public calls = 0;
-    public result:
-        | { readonly kind: "admitted"; readonly evidence?: unknown }
-        | { readonly kind: "denied"; readonly reason: string } = { kind: "admitted" };
+    public result: CanonicalBatchFinalAdmissionResult = { kind: "admitted" };
     public decide:
         | ((
               request: CanonicalBatchInvocationRequest<unknown>,
               context: {
                   readonly invocation: ReturnType<CanonicalBatchPreparation<unknown>["create"]>;
               }
-          ) => typeof this.result)
+          ) => CanonicalBatchFinalAdmissionResult)
         | undefined;
 
     public admit(
         _transaction: CanonicalBatchHarnessState,
         request: CanonicalBatchInvocationRequest<unknown>,
         context: { readonly invocation: ReturnType<CanonicalBatchPreparation<unknown>["create"]> }
-    ) {
+    ): CanonicalBatchFinalAdmissionResult {
         this.calls += 1;
         return this.decide?.(request, context) ?? this.result;
     }
@@ -515,6 +531,7 @@ class FinalAdmissions {
 export class CanonicalBatchHarness<Authorization = string> {
     public readonly transactions = new CanonicalBatchMemoryTransactions();
     public readonly persistence = new MemoryInvocationPersistence(invocationCodecs);
+    public readonly detachedExecutions = new MemoryDetachedEffectExecutionPersistence();
     public readonly evidence = new MemoryInvocationMediationPersistence();
     public readonly ledger: InvocationLedger<
         CanonicalBatchHarnessState,
@@ -542,6 +559,33 @@ export class CanonicalBatchHarness<Authorization = string> {
     public attemptDeadline: Date | undefined = undefined;
     public domainAnswering = true;
     public readonly cancellation = new AbortController();
+    /**
+     * The detached plane. The target owns one live controller per attempt, so a suite can abort
+     * the exact attempt a cancellation names and can drop every controller the way a restart
+     * does; `detachedExecution` supplies the handler a rebuilt execution runs, which a suite
+     * sets to the same behavior it invoked with.
+     *
+     * It receives the target's own item index and OperationContext rather than making its own.
+     * The context carries the controller's signal, so a handler that fabricated one would run
+     * outside the cancellation the target fires and no abort would ever reach it.
+     */
+    public detachedExecution:
+        | ((
+              item: AdmittedInvocationItem,
+              itemIndex: number,
+              context: OperationContext
+          ) => Promise<FacetData> | FacetData)
+        | undefined;
+    public target: MemoryDetachedEffectTarget;
+    public deliveries: DetachedEffectDeliveryPort<
+        CanonicalBatchHarnessState,
+        string,
+        string,
+        string,
+        string,
+        string,
+        undefined
+    >;
     public readonly now = (): Date => new Date(this.#time++);
     public port: CanonicalBatchInvocationPort<
         Authorization,
@@ -583,12 +627,119 @@ export class CanonicalBatchHarness<Authorization = string> {
         this.#finalAdmission = finalAdmission ?? this.finalAdmissions;
         this.authentication = new PermitAuthentication(this.transactions);
         this.port = this.createRuntime();
+        this.target = this.createTarget();
+        this.deliveries = this.createDeliveries();
     }
 
+    /**
+     * Drops every live in-process resource and rebuilds the runtime from the durable state a
+     * substrate would have kept. Live controllers go with it, which is exactly the state a
+     * cancellation after a restart has to answer for.
+     */
     public restartRuntime(): void {
         this.transactions.restart();
         this.authentication = new PermitAuthentication(this.transactions);
         this.port = this.createRuntime();
+        this.target.restart();
+        this.target = this.createTarget();
+        this.deliveries = this.createDeliveries();
+    }
+
+    /** A driver over this harness's released items, with the schedule a suite supplies. */
+    public createDriver(
+        schedule: ReconciliationSchedulePort,
+        intervalMs: number,
+        batchLimit?: number
+    ): AlarmDetachedEffectDriver {
+        return new AlarmDetachedEffectDriver(
+            this.deliveries,
+            this.releasedItems(),
+            schedule,
+            intervalMs,
+            this.now,
+            batchLimit
+        );
+    }
+
+    /**
+     * The host query the driver sweeps: released detachment records whose item still has no
+     * current Receipt. Both halves are read from durable state, so a rebuilt driver finds the
+     * same work a restart left behind.
+     */
+    public releasedItems(): DetachedEffectExecutionSource {
+        return {
+            released: (limit) =>
+                this.transactions.transact((transaction) =>
+                    this.detachedExecutions
+                        .releasedDetachedExecutions(transaction, limit)
+                        .flatMap((record) => {
+                            const prepared = this.persistence.prepared(
+                                transaction,
+                                record.invocation
+                            );
+                            const attempt = this.persistence.attempt(transaction, record.attempt);
+                            if (prepared === undefined || attempt === undefined) return [];
+                            const receipt = this.ledger.currentReceipt(
+                                transaction,
+                                record.invocation,
+                                record.itemIndex
+                            );
+                            return receipt === undefined
+                                ? [AdmittedInvocationItem.derive(prepared, attempt)]
+                                : [];
+                        })
+                )
+        };
+    }
+
+    private createTarget(): MemoryDetachedEffectTarget {
+        const init: MemoryDetachedEffectTargetInit = {
+            descriptor: canonicalBatchDescriptor,
+            execute: (item, itemIndex, context) => {
+                const rebuild = this.detachedExecution;
+                if (rebuild === undefined) {
+                    throw new TypeError("No detached execution was registered for this item");
+                }
+                return rebuild(item, itemIndex, context);
+            },
+            content: this.content,
+            target: { answering: (): boolean => this.domainAnswering }
+        };
+        // `deadline` is optional and the project forbids an explicitly undefined optional, so
+        // an absent bound omits the key rather than carrying one that reads as unset.
+        return new MemoryDetachedEffectTarget(
+            this.attemptDeadline === undefined ? init : { ...init, deadline: this.attemptDeadline }
+        );
+    }
+
+    private createDeliveries(): DetachedEffectDeliveryPort<
+        CanonicalBatchHarnessState,
+        string,
+        string,
+        string,
+        string,
+        string,
+        undefined
+    > {
+        return new DetachedEffectDeliveryPort<
+            CanonicalBatchHarnessState,
+            string,
+            string,
+            string,
+            string,
+            string,
+            undefined
+        >(
+            this.transactions,
+            this.persistence,
+            this.detachedExecutions,
+            this.ledger,
+            this.records,
+            this.evidence,
+            this.target,
+            this.port,
+            this.now
+        );
     }
 
     private createRuntime(): CanonicalBatchInvocationPort<
@@ -615,6 +766,7 @@ export class CanonicalBatchHarness<Authorization = string> {
         >(
             this.transactions,
             this.persistence,
+            this.detachedExecutions,
             this.ledger,
             this.preparation,
             this.permits,
@@ -646,13 +798,18 @@ export class CanonicalBatchHarness<Authorization = string> {
 }
 
 function createState(): CanonicalBatchHarnessState {
-    return { ...createInvocationMemoryState(), ...createInvocationMediationMemoryState() };
+    return {
+        ...createInvocationMemoryState(),
+        ...createInvocationMediationMemoryState(),
+        ...createDetachedEffectExecutionMemoryState()
+    };
 }
 
 function cloneState(state: CanonicalBatchHarnessState): CanonicalBatchHarnessState {
     return {
         ...cloneInvocationMemoryState(state),
-        ...cloneInvocationMediationMemoryState(state)
+        ...cloneInvocationMediationMemoryState(state),
+        ...cloneDetachedEffectExecutionMemoryState(state)
     };
 }
 

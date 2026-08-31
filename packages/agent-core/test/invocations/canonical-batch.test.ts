@@ -1282,6 +1282,7 @@ describe("CanonicalBatchInvocationPort", () => {
             >(
                 harness.transactions,
                 harness.persistence,
+                harness.detachedExecutions,
                 harness.ledger,
                 harness.preparation,
                 harness.permits,

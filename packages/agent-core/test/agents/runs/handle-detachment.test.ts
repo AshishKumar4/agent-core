@@ -19,6 +19,11 @@ import {
     type ResourceLimits
 } from "../../../src/agents/runs/ceiling";
 import { RunCommit } from "../../../src/agents/runs/commit";
+import { requireObject } from "../../../src/agents/record-data";
+import {
+    RunInvocationDelivery,
+    RunInvocationDeliveryCause
+} from "../../../src/agents/runs/invocation-delivery";
 import {
     TurnAdmissionHandle,
     TurnAdmissionPublisher,
@@ -43,7 +48,9 @@ import {
     configuration,
     content,
     digest,
+    harness,
     ids,
+    mutableData,
     pins,
     seedRunningTurn,
     settlementAuditKey,
@@ -183,6 +190,21 @@ function publish(
     const reservation = publisher(value).publish(handle, token, PUBLISHED_AT);
     value.evidence.publishedHandles.set(runObligationKey(handle.obligation()), handle);
     return reservation;
+}
+
+/** The messages a Run still owes its published items' Invocation owners. */
+function pendingDeliveries(value: Seeded, run: RunId = ids.run) {
+    return value.runtime.pendingInvocationDeliveries(run);
+}
+
+/** Only the cancellation messages, which is what a Run's own end owes. */
+function cancellationDeliveries(value: Seeded, run: RunId = ids.run) {
+    return pendingDeliveries(value, run).filter((entry) => entry.cause.kind === "cancellation");
+}
+
+/** Every key a delivery's canonical bytes carry, so a new field cannot arrive unnoticed. */
+function deliveryKeys(value: RunInvocationDelivery): readonly string[] {
+    return Object.keys(requireObject(value.toData(), "delivery")).sort();
 }
 
 /** Runs an admission that must be refused and hands back the typed refusal. */
@@ -463,9 +485,9 @@ describe("admission as the handle's commit point", () => {
             // Nothing detached, so the Run never owed the item and Settled never waits on it.
             expect(frontier(before, ids.run)).toEqual([]);
 
-            // After admission the same item is frozen. Its intent is the Invocation, item key,
-            // EffectAttempt and result digest the handle names; its placement and Package pin
-            // are the Turn's, and the cancellation moves none of them.
+            // After admission the same item is frozen. Its intent is the Invocation, item key
+            // and EffectAttempt the handle names; its placement and Package pin are the
+            // Turn's, and the cancellation moves none of them.
             const admitted = new ItemRecords();
             await admitted.succeed(ITEM, OUTPUT);
             const handle = await new TurnAdmissionVerifier(admitted).verify(
@@ -484,7 +506,6 @@ describe("admission as the handle's commit point", () => {
                 ITEM.itemKey
             ]);
             expect(handle.attempt.equals(ITEM.attempt)).toBe(true);
-            expect(handle.result.equals(Digest.sha256(encodeCanonicalJson(OUTPUT)))).toBe(true);
             expect(requirePlacement(after, ids.turn).equals(placement)).toBe(true);
             expect(requireTurn(after, ids.turn).pins.equals(packagePins)).toBe(true);
             // The item's Receipt is still owed to the Run, so the cancellation revoked no
@@ -513,26 +534,41 @@ describe("the issuing Turn's cancellation and a published handle", () => {
             expect(cancelled.status.kind).toBe("cancelled");
             expect(cancelled.lease.holder).toBeUndefined();
 
-            // The failure kind is the discriminating observation: a host that propagated the
-            // Turn's cancellation records `aborted` on an item this rule requires to settle on
-            // its own terms.
-            const cancellation = new AbortController();
-            cancellation.abort();
-            expect(handle.cancelledBy(cancelled.id, cancellation.signal)).toBeUndefined();
+            // The message is the discriminating observation: a host that propagated the
+            // Turn's cancellation would owe the Invocation owner a message for an item this
+            // rule requires to settle on its own terms.
+            const terminalCommit = new RunCommitId("detachment-prohibition-commit");
+            expect(handle.cancellationDelivery(cancelled.id, terminalCommit)).toBeUndefined();
 
-            // The same call over the item's own owner does record `aborted`, so the refusal
-            // above is this rule rather than a method that answers nothing.
+            // The same call over the item's own owner does owe one, so the refusal above is
+            // this rule rather than a method that answers nothing.
             expect(handle.owner.equals(ids.run)).toBe(true);
-            expect(handle.cancelledBy(handle.owner, cancellation.signal)?.kind).toBe("aborted");
+            const owed = handle.cancellationDelivery(handle.owner, terminalCommit);
+            expect(owed?.cause.kind).toBe("cancellation");
+            expect(owed?.attempt.equals(handle.attempt)).toBe(true);
 
-            // Naming the owner proves nothing on its own. §7.4 builds `aborted` only from
-            // cancellation that reached the attempt, so an owner nothing cancelled is refused.
-            const uncancelled = thrownBy(
-                AgentCoreError,
-                () => handle.cancelledBy(handle.owner, new AbortController().signal),
-                "aborted without cancellation"
-            );
-            expect(uncancelled.code).toBe("invocation.invalid");
+            // The Run owes a request and never a verdict. §7.4 builds `aborted` only from
+            // cancellation the target observed reaching the attempt, so there is no field
+            // here a failure kind could travel in.
+            expect(deliveryKeys(owed!)).toEqual([
+                "attempt",
+                "cause",
+                "id",
+                "invocation",
+                "itemIndex",
+                "itemKey",
+                "run"
+            ]);
+            expect(Object.keys(requireObject(owed!.cause.toData(), "cause")).sort()).toEqual([
+                "kind",
+                "terminalCommit"
+            ]);
+
+            // Publication owes the owner its admission message, and the issuing Turn's
+            // cancellation leaves that message exactly as it was.
+            expect(pendingDeliveries(seeded).map((entry) => entry.cause.kind)).toEqual([
+                "admission"
+            ]);
 
             // The item settles on its own terms: the Run still owes its Receipt and still
             // admits the reservation publication made.
@@ -596,13 +632,15 @@ describe("the two owners a published handle detaches to", () => {
             expect(terminal.snapshot.outcome).toBe("cancelled");
 
             // The cancellation path itself answers, which is the discriminating observation: a
-            // host that cascaded would report the child's item here too.
-            expect(terminal.cancelled.map((item) => [item.itemKey, item.failure.kind])).toEqual([
-                [ITEM.itemKey, "aborted"]
-            ]);
-            expect(terminal.cancelled.some((item) => item.itemKey === DELEGATE.itemKey)).toBe(
-                false
-            );
+            // host that cascaded would owe the child's item a message too.
+            const owed = cancellationDeliveries(seeded);
+            expect(owed.map((entry) => entry.itemKey)).toEqual([ITEM.itemKey]);
+            expect(
+                owed.every((entry) =>
+                    entry.cause.terminalCommit?.equals(terminal.snapshot.terminalCommit)
+                )
+            ).toBe(true);
+            expect(owed.some((entry) => entry.itemKey === DELEGATE.itemKey)).toBe(false);
             expect(requireRun(seeded, child.run).lifecycle.kind).toBe("active");
             expect(requireTurn(seeded, child.token.turn).status.kind).toBe("running");
 
@@ -715,7 +753,7 @@ describe("the cancellation a published item answers to", () => {
             // owed and no path recorded one for it.
             expect(frontier(seeded, ids.run)).toEqual([handle.obligation()]);
 
-            const terminal = cancelRun(seeded, {
+            cancelRun(seeded, {
                 run: ids.run,
                 branch: ids.branch,
                 turn: finishing.token.turn,
@@ -724,10 +762,12 @@ describe("the cancellation a published item answers to", () => {
             });
             // The Run's cancellation reaches the same item, and reaches it once. A host that
             // let the Turn's cancellation propagate would have aborted it already.
-            expect(
-                terminal.cancelled.map((item) => [item.invocation.value, item.failure.kind])
-            ).toEqual([[ITEM.invocation.value, "aborted"]]);
-            expect(terminal.cancelled[0]?.itemKey).toBe(ITEM.itemKey);
+            const owed = cancellationDeliveries(seeded);
+            expect(owed.map((entry) => [entry.invocation.value, entry.cause.kind])).toEqual([
+                [ITEM.invocation.value, "cancellation"]
+            ]);
+            expect(owed[0]?.itemKey).toBe(ITEM.itemKey);
+            expect(owed[0]?.attempt.equals(ITEM.attempt)).toBe(true);
         }
     );
 
@@ -756,14 +796,16 @@ describe("the cancellation a published item answers to", () => {
 
             // Neither item has a terminal Receipt, so nothing separates them but the owner the
             // handle names. A host reading the obligation rather than the handle reports both.
-            const terminal = cancelRun(seeded, {
+            cancelRun(seeded, {
                 run: ids.run,
                 branch: ids.branch,
                 turn: ids.turn,
                 token: seeded.token,
                 name: "scope-child-cancel"
             });
-            expect(terminal.cancelled.map((item) => item.itemKey)).toEqual([ITEM.itemKey]);
+            expect(cancellationDeliveries(seeded).map((entry) => entry.itemKey)).toEqual([
+                ITEM.itemKey
+            ]);
             expect(delegated.owner.equals(child.run)).toBe(true);
             expect(requireRun(seeded, child.run).lifecycle.kind).toBe("active");
             expect(requireTurn(seeded, child.token.turn).status.kind).toBe("running");
@@ -792,7 +834,7 @@ describe("the cancellation a published item answers to", () => {
                 token: seeded.token,
                 name: "scope-terminal-item"
             });
-            expect(terminal.cancelled).toEqual([]);
+            expect(cancellationDeliveries(seeded)).toEqual([]);
             expect(terminal.snapshot.obligation.obligations).toEqual([handle.obligation()]);
             expect(seeded.runtime.settled(ids.run)).toBe(true);
         }
@@ -832,14 +874,16 @@ describe("the cancellation a published item answers to", () => {
 
             // The exact class reaches the item, so the refusal above is the identity rule and
             // not a Run this harness never cancelled.
-            const terminal = cancelRun(seeded, {
+            cancelRun(seeded, {
                 run: ids.run,
                 branch: ids.branch,
                 turn: ids.turn,
                 token: seeded.token,
                 name: "scope-exact-run"
             });
-            expect(terminal.cancelled.map((item) => item.failure.kind)).toEqual(["aborted"]);
+            expect(cancellationDeliveries(seeded).map((entry) => entry.cause.kind)).toEqual([
+                "cancellation"
+            ]);
         }
     );
 
@@ -916,15 +960,16 @@ describe("the cancellation a published item answers to", () => {
 
             // The reached cancellation lands, so the refusal above is the rule and not a
             // request this harness could never have terminalized.
-            expect(
-                cancelRun(seeded, {
-                    run: ids.run,
-                    branch: ids.branch,
-                    turn: ids.turn,
-                    token: seeded.token,
-                    name: "scope-reached-signal"
-                }).cancelled.map((item) => item.failure.kind)
-            ).toEqual(["aborted"]);
+            cancelRun(seeded, {
+                run: ids.run,
+                branch: ids.branch,
+                turn: ids.turn,
+                token: seeded.token,
+                name: "scope-reached-signal"
+            });
+            expect(cancellationDeliveries(seeded).map((entry) => entry.cause.kind)).toEqual([
+                "cancellation"
+            ]);
         }
     );
 
@@ -952,7 +997,7 @@ describe("the cancellation a published item answers to", () => {
                 name: "scope-awaited"
             });
             expect(terminal.snapshot.obligation.obligations).toEqual([awaited]);
-            expect(terminal.cancelled).toEqual([]);
+            expect(cancellationDeliveries(seeded)).toEqual([]);
         }
     );
 });
@@ -1048,6 +1093,191 @@ describe("the derived ceiling that crosses the boundary", () => {
             expect(requireRun(seeded, grandchild.run).lifecycle.exhausted).toBe("depth");
             // The ancestor that declared the bound is untouched by the child ending itself.
             expect(requireRun(seeded, child.run).lifecycle.kind).toBe("active");
+        }
+    );
+});
+
+describe("the durable outbox a lost response replays from", () => {
+    it(
+        "[C13-TURN-HANDLE-DETACHMENT] replays the same cancellation message after a lost response and a restart, and discharges it exactly once",
+        { tags: "p0" },
+        async () => {
+            const seeded = seedRunningTurn();
+            const records = new ItemRecords();
+            await records.succeed(ITEM, OUTPUT);
+            const handle = await new TurnAdmissionVerifier(records).verify(
+                admissionRequest(seeded, ITEM)
+            );
+            publish(seeded, handle, seeded.token);
+
+            // The response is dropped on purpose: that is the failure this record exists for.
+            // A terminal Run admits no second terminalization, so nothing could produce the
+            // message again if it lived only in what terminalization returned.
+            cancelRun(seeded, {
+                run: ids.run,
+                branch: ids.branch,
+                turn: ids.turn,
+                token: seeded.token,
+                name: "outbox-response-loss"
+            });
+
+            const restarted = harness(seeded.storage.snapshot());
+            const replayed = restarted.runtime.pendingInvocationDeliveries(ids.run);
+            const cancellation = replayed.find((entry) => entry.cause.kind === "cancellation");
+            expect(cancellation).toBeDefined();
+            expect([
+                cancellation?.run.value,
+                cancellation?.invocation.value,
+                cancellation?.itemIndex,
+                cancellation?.itemKey,
+                cancellation?.attempt.value
+            ]).toEqual([
+                ids.run.value,
+                ITEM.invocation.value,
+                ITEM.itemIndex,
+                ITEM.itemKey,
+                ITEM.attempt.value
+            ]);
+            expect(
+                cancellation?.cause.terminalCommit?.equals(
+                    new RunCommitId("commit-outbox-response-loss")
+                )
+            ).toBe(true);
+
+            // The owner acknowledges after its own transaction, its response is lost too, and
+            // it retries with the same message. At-least-once makes that the ordinary case, so
+            // the second acknowledgement discharges nothing and refuses nothing.
+            // A restarted harness holds no seeded Turn, so the Run is read through its own
+            // repository rather than through the seeded reader.
+            const restartedRevision = (): Revision =>
+                restarted.repository.transaction((transaction) => {
+                    const stored = restarted.repository.loadRun(transaction, ids.run);
+                    if (stored === undefined) throw new TypeError("Expected a stored Run");
+                    return stored.revision;
+                });
+            restarted.runtime.acknowledgeInvocationDelivery(cancellation!);
+            const afterFirst = restartedRevision();
+            restarted.runtime.acknowledgeInvocationDelivery(cancellation!);
+            expect(restartedRevision().value).toBe(afterFirst.value);
+
+            const reopened = harness(restarted.storage.snapshot());
+            expect(
+                reopened.runtime
+                    .pendingInvocationDeliveries(ids.run)
+                    .some((entry) => entry.cause.kind === "cancellation")
+            ).toBe(false);
+        }
+    );
+
+    it(
+        "[C13-TURN-HANDLE-DETACHMENT] owes one admission message per published handle, and refuses a message of another Run",
+        { tags: "p0" },
+        async () => {
+            const seeded = seedRunningTurn();
+            const records = new ItemRecords();
+            await records.succeed(ITEM, OUTPUT);
+            const handle = await new TurnAdmissionVerifier(records).verify(
+                admissionRequest(seeded, ITEM)
+            );
+            publish(seeded, handle, seeded.token);
+            const first = requireRun(seeded, ids.run).revision;
+
+            // Publishing the same handle is the same message. A host that appended again would
+            // owe the owner two commands for one admitted item.
+            publish(seeded, handle, seeded.token);
+            expect(pendingDeliveries(seeded).map((entry) => entry.cause.kind)).toEqual([
+                "admission"
+            ]);
+            expect(requireRun(seeded, ids.run).revision.value).toBe(first.value);
+
+            // A message naming another Run is a caller addressing state it does not hold, so it
+            // is refused rather than treated as a discharged duplicate.
+            const foreign = new RunInvocationDelivery({
+                run: new RunId("outbox-foreign-run"),
+                invocation: ITEM.invocation,
+                itemIndex: ITEM.itemIndex,
+                itemKey: ITEM.itemKey,
+                attempt: ITEM.attempt,
+                cause: RunInvocationDeliveryCause.admission
+            });
+            // A message naming another Run is refused where it would be applied, and the
+            // runtime path cannot even reach a Run that does not exist.
+            const refused = thrownBy(
+                AgentCoreError,
+                () => {
+                    requireRun(seeded, ids.run).acknowledgeDelivery(foreign);
+                },
+                "foreign delivery"
+            );
+            expect(refused.code).toBe("run.invalid-state");
+            expect(refused.message).toMatch(/belongs to another Run/);
+            const missing = thrownBy(
+                AgentCoreError,
+                () => {
+                    seeded.runtime.acknowledgeInvocationDelivery(foreign);
+                },
+                "missing Run"
+            );
+            expect(missing.message).toMatch(/does not exist/);
+            expect(pendingDeliveries(seeded)).toHaveLength(1);
+        }
+    );
+
+    it(
+        "[C13-TURN-HANDLE-DETACHMENT] [run.invocation-delivery] round-trips its own bytes and refuses every other shape",
+        { tags: "p0" },
+        () => {
+            const admission = new RunInvocationDelivery({
+                run: ids.run,
+                invocation: ITEM.invocation,
+                itemIndex: ITEM.itemIndex,
+                itemKey: ITEM.itemKey,
+                attempt: ITEM.attempt,
+                cause: RunInvocationDeliveryCause.admission
+            });
+            const encoded = RunInvocationDelivery.codec.encode(admission);
+            expect(RunInvocationDelivery.codec.decode(encoded).equals(admission)).toBe(true);
+
+            // A cause carries exactly the fields its own case has, so a terminal commit on an
+            // admission and a cancellation without one are both shapes that do not exist.
+            expect(() =>
+                RunInvocationDeliveryCause.fromData({
+                    kind: "admission",
+                    terminalCommit: "commit-outbox"
+                })
+            ).toThrow(TypeError);
+            expect(() => RunInvocationDeliveryCause.fromData({ kind: "cancellation" })).toThrow(
+                TypeError
+            );
+            expect(() => RunInvocationDeliveryCause.fromData({ kind: "aborted" })).toThrow(
+                TypeError
+            );
+
+            // The refusal that keeps the Run out of §7.4's business: a failure kind is not a
+            // field this record has, so a maintainer adding one turns this red.
+            const data = mutableData(admission.toData());
+            data["failure"] = "aborted";
+            expect(() => RunInvocationDelivery.fromData(data)).toThrow(TypeError);
+
+            // The identity covers every field, so a forged id cannot discharge another message.
+            const forged = mutableData(admission.toData());
+            forged["itemKey"] = "outbox-other-item";
+            expect(() => RunInvocationDelivery.fromData(forged)).toThrow(TypeError);
+
+            // One message twice is not an outbox a Run can hold.
+            const stored = requireRun(seedRunningTurn(), ids.run);
+            expect(
+                () =>
+                    new Run({
+                        id: stored.id,
+                        agent: stored.agent,
+                        configuration: stored.configuration,
+                        root: stored.root,
+                        initialBranch: stored.initialBranch,
+                        deliveries: [admission, admission],
+                        revision: stored.revision
+                    })
+            ).toThrow(TypeError);
         }
     );
 });

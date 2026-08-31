@@ -37,6 +37,7 @@ export {
 } from "./gateway";
 export type {
     AuthorityResolution,
+    DetachedInvocationAdmissionPort,
     MediatedInvocationPreflight,
     MediatedInvocationPreparation,
     MediatedInvocationRequest,

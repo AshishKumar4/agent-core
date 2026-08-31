@@ -120,9 +120,15 @@ export type TurnInvocationResult =
           readonly evidence: FacetData;
           /**
            * The verified admission identity of this call, which an executor MAY hand the
-           * model in place of the output (SPEC §5.6). It is built from the Invocation,
-           * EffectAttempt and Receipt this dispatch already produced, so offering it changes
-           * nothing about admission.
+           * model in place of the output (SPEC §5.6). It is read off the records this
+           * dispatch already produced, so offering it changes nothing about admission.
+           *
+           * This is the awaited shape: the dispatch ran, so the Receipt that names its
+           * EffectAttempt exists and is what the identity is verified over. A `delegate`
+           * spawn commits its child RunRef at that Receipt and can commit nowhere earlier.
+           * The detached shape is the other commit point — admission — and it is reached
+           * through the Invocation plane's own detached entry rather than through a
+           * dispatch that has already run.
            */
           readonly admission: TurnAdmissionHandle;
       };
@@ -2062,9 +2068,10 @@ function canonicalInvocationResult(result: TurnInvocationResult): TurnInvocation
 }
 
 /**
- * The Invocation and item Receipts a mediated dispatch's evidence names (§7.4). A handle is
- * built from the records these identify, so the seam reads the identity out of the evidence
- * rather than being told it.
+ * The Invocation and item Receipts a mediated dispatch's evidence names (§7.4). An awaited
+ * dispatch's handle is verified over the records these identify, so the seam reads the
+ * identity out of the evidence rather than being told it. A detached admission names no
+ * Receipt at all and never reaches here: its handle is built from the admitted item.
  */
 function admittedIdentity(evidence: FacetData): {
     readonly invocation: InvocationId;

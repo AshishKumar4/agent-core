@@ -24,7 +24,12 @@ import type {
 } from "./ports";
 import type { PreparedInvocation } from "./prepared";
 import type { InvocationPublicationOutbox } from "./publication";
-import { AttemptReceipt, PreEffectReceipt, type Receipt } from "./receipt";
+import {
+    AttemptReceipt,
+    PreEffectReceipt,
+    type PreEffectReceiptOutcome,
+    type Receipt
+} from "./receipt";
 
 export interface ReceiptSupersessionEvidence {
     readonly finalReceiptAudit: AuditRecord;
@@ -238,11 +243,31 @@ export class InvocationLedger<
                       previous.invocation,
                       previous.itemIndex
                   );
+        // A claim under a Receipt is history, not schedulable work. The one exception is the
+        // retry claim a final `failed` Receipt opens: its ordinal is exactly one past that
+        // attempt's, and recovering it keeps the same ordinal (C13-CLAIM-RECOVERY-SAME-ORDINAL).
+        // Any other Receipt over the item makes recovery a second scheduling life for an item
+        // that already ended.
+        const receipt =
+            previous === undefined
+                ? undefined
+                : this.currentReceipt(transaction, previous.invocation, previous.itemIndex);
+        const failedAttempt =
+            receipt instanceof AttemptReceipt && receipt.outcome === "failed"
+                ? this.persistence.attempt(transaction, receipt.attempt)
+                : undefined;
+        const followsFailedAttempt =
+            previous !== undefined &&
+            failedAttempt !== undefined &&
+            failedAttempt.ordinal + 1 === previous.attemptOrdinal &&
+            failedAttempt.invocation.equals(previous.invocation) &&
+            failedAttempt.itemIndex === previous.itemIndex;
         if (
             previous === undefined ||
             current === undefined ||
             !current.id.equals(previous.id) ||
-            this.persistence.attemptForClaim(transaction, previous.id) !== undefined
+            this.persistence.attemptForClaim(transaction, previous.id) !== undefined ||
+            (receipt !== undefined && !followsFailedAttempt)
         ) {
             throw invalid("Only the exact current no-attempt claim may be recovered");
         }
@@ -461,6 +486,58 @@ export class InvocationLedger<
         publication: InvocationPublicationOutbox,
         evidence: InvocationEvidencePersistence<Transaction>
     ): void {
+        this.recordClaimedPreEffectWithAudit(
+            transaction,
+            claim,
+            receipt,
+            audit,
+            publication,
+            evidence,
+            "deniedPreEffect",
+            "Authority denial"
+        );
+    }
+
+    /**
+     * The other pre-effect outcome a claimed item can reach. §7.4 fixes an expiry,
+     * cancellation, or loss of the required Turn before the effect as `cancelledPreEffect`
+     * over an item with no EffectAttempt, and §5.6 puts that boundary exactly at admission.
+     *
+     * It is its own entry point rather than an outcome argument because the two are different
+     * facts with different batch outcomes (§7.5), and a caller that could pass either could
+     * pass the wrong one. The item's owner supplies the fact; the Receipt, its audit edge, and
+     * its publication stay owned here.
+     */
+    public recordClaimedCancellationWithAudit(
+        transaction: Transaction,
+        claim: ItemClaim<Lease>,
+        receipt: PreEffectReceipt,
+        audit: AuditRecord,
+        publication: InvocationPublicationOutbox,
+        evidence: InvocationEvidencePersistence<Transaction>
+    ): void {
+        this.recordClaimedPreEffectWithAudit(
+            transaction,
+            claim,
+            receipt,
+            audit,
+            publication,
+            evidence,
+            "cancelledPreEffect",
+            "Pre-effect cancellation"
+        );
+    }
+
+    private recordClaimedPreEffectWithAudit(
+        transaction: Transaction,
+        claim: ItemClaim<Lease>,
+        receipt: PreEffectReceipt,
+        audit: AuditRecord,
+        publication: InvocationPublicationOutbox,
+        evidence: InvocationEvidencePersistence<Transaction>,
+        outcome: PreEffectReceiptOutcome,
+        subject: string
+    ): void {
         this.requireItem(transaction, claim.invocation, claim.itemIndex);
         const currentClaim = this.currentUnattemptedClaim(
             transaction,
@@ -472,7 +549,7 @@ export class InvocationLedger<
             !currentClaim.id.equals(claim.id) ||
             this.persistence.attemptForClaim(transaction, claim.id) !== undefined ||
             this.currentReceipt(transaction, claim.invocation, claim.itemIndex) !== undefined ||
-            receipt.outcome !== "deniedPreEffect" ||
+            receipt.outcome !== outcome ||
             !receipt.invocation.equals(claim.invocation) ||
             receipt.itemIndex !== claim.itemIndex ||
             publication.state.kind !== "pending" ||
@@ -480,7 +557,7 @@ export class InvocationLedger<
             !publication.observation.receipt.equals(receipt.id) ||
             !publication.observation.audit.equals(audit.id)
         ) {
-            throw invalid("Authority denial evidence does not bind the current claimed item");
+            throw invalid(`${subject} evidence does not bind the current claimed item`);
         }
         this.persistence.appendReceipt(transaction, receipt);
         evidence.appendAudit(transaction, audit, {

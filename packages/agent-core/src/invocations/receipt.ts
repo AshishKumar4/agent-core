@@ -161,9 +161,7 @@ export abstract class AttemptFailureKind {
      * than a gap: an unexplained end is not a kind, because naming one would convert "I
      * cannot tell" into "I know why".
      */
-    public static classify(
-        observation: AttemptFailureObservation
-    ): AttemptFailureKind | undefined {
+    public static classify(observation: AttemptFailureObservation): AttemptFailureKind | undefined {
         if (observation.confirmed) return AttemptFailureKind.raised;
         if (!observation.target.answering()) {
             return AttemptFailureKind.domainLost(observation.target);
@@ -435,6 +433,15 @@ class ReceiptCodecV2 extends RecordCodec<Receipt> {
 
     protected encodePayload(record: Receipt): JsonValue {
         if (record instanceof PreEffectReceipt) {
+            // Refused rather than omitted. Encoding is the seam every store writes through, so
+            // dropping the field here would persist bytes that disagree with the live record a
+            // caller still holds, while §7.4 answers "was an effect attempted" from the variant
+            // alone. A kind on this variant is a claim the record is not entitled to make, and
+            // failing closed is the difference between a store that cannot hold one and a store
+            // whose reads merely happen to hide one.
+            if ("failure" in record) {
+                throw new TypeError("A pre-effect Receipt cannot carry an attempt failure kind");
+            }
             return {
                 id: record.id.value,
                 invocation: record.invocation.value,

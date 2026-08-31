@@ -64,7 +64,6 @@ import {
 } from "../../../src/operations";
 import {
     content,
-    digest,
     harness,
     ids,
     refs,
@@ -86,7 +85,9 @@ class HostedExecutor extends TurnExecutor {
             kind: "content",
             bytes: new TextEncoder().encode("ephemeral")
         });
-        const response = await turn.model.call(await promptDraft(turn, turn.prompt, turn.operations));
+        const response = await turn.model.call(
+            await promptDraft(turn, turn.prompt, turn.operations)
+        );
         return turn.outcome.succeed(
             new RunCommit({
                 id: new RunCommitId("executor-result"),
@@ -506,7 +507,10 @@ describe("TurnExecutor seam", () => {
             const seeded = seedRunningTurn(undefined, {}, [memoryPlacement()]);
             const firstTool = boundTool("read", "memory.read", "observe", "Read memory.");
             const deniedTool = boundTool("write", "memory.write", "mutate", "Write memory.");
-            const boundaries = await TestBoundaries.create(seeded.repository.content, [firstTool, deniedTool]);
+            const boundaries = await TestBoundaries.create(seeded.repository.content, [
+                firstTool,
+                deniedTool
+            ]);
             const first = new TestResolvedFacet(firstTool, { kind: "direct", output: {} });
             const denied = new TestResolvedFacet(
                 deniedTool,
@@ -820,7 +824,9 @@ describe("TurnExecutor seam", () => {
                 const calls = [
                     () => context.content.get(boundaries.prompt),
                     async () => {
-                        const call = context.model.call(await promptDraft(context, boundaries.prompt));
+                        const call = context.model.call(
+                            await promptDraft(context, boundaries.prompt)
+                        );
                         modelSignal = boundaries.lastModelSignal;
                         return call;
                     },
@@ -1537,9 +1543,9 @@ describe("TurnExecutor seam", () => {
             );
         });
 
-        await expect(boundaries.host(seeded, executor).execute(seeded.token)).resolves.toMatchObject(
-            { kind: "succeeded", result: boundaries.output }
-        );
+        await expect(
+            boundaries.host(seeded, executor).execute(seeded.token)
+        ).resolves.toMatchObject({ kind: "succeeded", result: boundaries.output });
     });
 
     it("accepts only the exact immutable bound-tool object for mediated invocation", async () => {
@@ -1601,7 +1607,9 @@ describe("TurnExecutor seam", () => {
                     usage: { inputTokens: -1, outputTokens: 0 }
                 })
             ).rejects.toBeInstanceOf(TypeError);
-            const exchange = await context.model.call(await promptDraft(context, boundaries.prompt));
+            const exchange = await context.model.call(
+                await promptDraft(context, boundaries.prompt)
+            );
             expect(exchange.output).toEqual(boundaries.output);
             expect(exchange.usage).toEqual({ inputTokens: 1, outputTokens: 1 });
             return context.outcome.succeed(
@@ -1934,7 +1942,9 @@ describe("TurnExecutor seam", () => {
             const executor = new FunctionExecutor(async (context) => {
                 await context.model.call(await promptDraft(context, boundaries.prompt));
                 expect(tokens()).toBe(4);
-                const second = await context.model.call(await promptDraft(context, boundaries.prompt));
+                const second = await context.model.call(
+                    await promptDraft(context, boundaries.prompt)
+                );
                 expect(tokens()).toBe(8);
                 return context.outcome.succeed(
                     resultCommit(context, "token-total", boundaries.output, second.input)
@@ -2396,8 +2406,6 @@ function testAdmission(): TurnAdmissionHandle {
         itemIndex: 0,
         itemKey: `item:${refs.receipt.value}`,
         attempt: new EffectAttemptId("attempt-1"),
-        receipt: refs.receipt,
-        result: digest("1"),
         identity: TurnAdmissionIdentity.invocation(refs.invocation)
     });
 }

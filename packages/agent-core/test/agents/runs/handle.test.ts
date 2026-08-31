@@ -5,11 +5,13 @@ import { AgentCoreError } from "../../../src/errors";
 import { TurnId } from "../../../src/execution-references";
 import { InvocationId } from "../../../src/interaction-references";
 import { EffectAttemptId, ReceiptId } from "../../../src/invocation-references";
+import { AdmittedInvocationItem } from "../../../src/invocations";
 import {
     ResourceCeiling,
     SpawnAttenuation,
     widensResourceCeiling
 } from "../../../src/agents/runs/ceiling";
+import { requireObject } from "../../../src/agents/record-data";
 import { RunCommit } from "../../../src/agents/runs/commit";
 import {
     TurnAdmissionHandle,
@@ -140,11 +142,14 @@ function handleInit(overrides: Partial<TurnAdmissionHandleInit> = {}): TurnAdmis
         itemIndex: 0,
         itemKey: ITEM_KEY,
         attempt: ATTEMPT,
-        receipt: refs.receipt,
-        result: digest("1"),
         identity: TurnAdmissionIdentity.invocation(refs.invocation),
         ...overrides
     };
+}
+
+/** The child RunRef identity a delegate spawn's Receipt admits, with that Receipt's evidence. */
+function childIdentity(run: RunId = CHILD_RUN): TurnAdmissionIdentity {
+    return TurnAdmissionIdentity.childRun(run, refs.receipt, digest("1"));
 }
 
 /** The publisher writes the Event payloads its inbox rows own, so it holds the Run's store. */
@@ -269,13 +274,13 @@ describe("Turn admission handle records", () => {
         ["a fractional lease epoch", { issuedEpoch: 1.5 }],
         ["a negative item index", { itemIndex: -1 }],
         ["an empty item key", { itemKey: "" }],
-        ["a child Run equal to its own Run", { identity: TurnAdmissionIdentity.childRun(ids.run) }]
+        ["a child Run equal to its own Run", { identity: childIdentity(ids.run) }]
     ] as const)("refuses %s", { tags: "p1" }, (_label, overrides) => {
         expect(() => new TurnAdmissionHandle(handleInit(overrides))).toThrow(TypeError);
     });
 
     it("renders each identity kind's own tool position and address", { tags: "p1" }, () => {
-        const child = TurnAdmissionIdentity.childRun(CHILD_RUN);
+        const child = childIdentity();
         const invocation = TurnAdmissionIdentity.invocation(refs.invocation);
 
         expect(child.toolPosition()).toEqual({ run: CHILD_RUN.value });
@@ -289,9 +294,133 @@ describe("Turn admission handle records", () => {
             TypeError
         );
     });
+
+    it(
+        "[C13-TURN-HANDLE-DETACHMENT] keeps the spawn Receipt on the one identity that has one",
+        { tags: "p0" },
+        () => {
+            const child = childIdentity();
+            const invocation = TurnAdmissionIdentity.invocation(refs.invocation);
+
+            // The child RunRef commits at the spawn Receipt, so it carries that Receipt and
+            // the digest of its result. The Invocation identity commits at admission, where no
+            // Receipt exists, so there is no field on it for one to hide in.
+            expect(child.toData()).toEqual({
+                kind: "childRun",
+                receipt: refs.receipt.value,
+                reference: CHILD_RUN.value,
+                result: digest("1").value
+            });
+            expect(invocation.toData()).toEqual({
+                kind: "invocation",
+                reference: refs.invocation.value
+            });
+
+            // Each case decodes exactly its own fields, so neither shape can borrow the
+            // other's: an Invocation identity carrying a Receipt is refused outright.
+            expect(() =>
+                TurnAdmissionIdentity.fromData({
+                    kind: "invocation",
+                    reference: refs.invocation.value,
+                    receipt: refs.receipt.value,
+                    result: digest("1").value
+                })
+            ).toThrow(TypeError);
+            const missing = mutableData({ record: child.toData() });
+            delete missing["result"];
+            expect(() => TurnAdmissionIdentity.fromData(missing)).toThrow(TypeError);
+
+            // Two child identities over the same Run but different spawn Receipts are not the
+            // same identity, so the evidence is part of what the handle's bytes commit.
+            expect(
+                child.equals(
+                    TurnAdmissionIdentity.childRun(
+                        CHILD_RUN,
+                        new ReceiptId("handle-other-receipt"),
+                        digest("1")
+                    )
+                )
+            ).toBe(false);
+        }
+    );
 });
 
 describe("verified admission identities", () => {
+    it(
+        "[C13-TURN-HANDLE-DETACHMENT] builds an Invocation handle from an admitted item and reads no Receipt",
+        { tags: "p0" },
+        () => {
+            const seeded = seedRunningTurn();
+            // §5.6 commits an Invocation identity at admission, which is a durable
+            // EffectAttempt that no Receipt names yet. A records seam that answers nothing
+            // proves the path never asks it: a handle still comes back.
+            const refusing = new TurnAdmissionVerifier(new StubRecords({ missing: true }));
+            const item = new AdmittedInvocationItem({
+                invocation: refs.invocation,
+                itemIndex: 2,
+                itemKey: ITEM_KEY,
+                attempt: ATTEMPT
+            });
+
+            const handle = refusing.admit(
+                { run: seeded.running.run, turn: seeded.running.id, token: seeded.token },
+                item
+            );
+
+            expect(handle.toolPosition()).toEqual({ invocation: refs.invocation.value });
+            expect(handle.identity.childRun).toBeUndefined();
+            expect([handle.invocation.value, handle.itemIndex, handle.itemKey]).toEqual([
+                refs.invocation.value,
+                2,
+                ITEM_KEY
+            ]);
+            expect(handle.attempt.equals(ATTEMPT)).toBe(true);
+            expect(handle.issuedEpoch).toBe(seeded.token.epoch);
+            expect(handle.obligation()).toEqual({
+                kind: "invocationItem",
+                invocation: refs.invocation,
+                itemIndex: 2,
+                itemKey: ITEM_KEY
+            });
+            // The same bytes survive a process, which is what a detached item needs.
+            expect(
+                TurnAdmissionHandleCodec.decode(TurnAdmissionHandleCodec.encode(handle)).equals(
+                    handle
+                )
+            ).toBe(true);
+        }
+    );
+
+    it(
+        "[C13-TURN-EXACT-LEASE] refuses an admitted item presented under another Turn's lease",
+        { tags: "p0" },
+        () => {
+            const seeded = seedRunningTurn();
+            const item = new AdmittedInvocationItem({
+                invocation: refs.invocation,
+                itemIndex: 0,
+                itemKey: ITEM_KEY,
+                attempt: ATTEMPT
+            });
+
+            expect(
+                thrownBy(
+                    AgentCoreError,
+                    () =>
+                        verifier().admit(
+                            {
+                                run: seeded.running.run,
+                                turn: seeded.running.id,
+                                token: { ...seeded.token, turn: new TurnId("other-turn") }
+                            },
+                            item
+                        ),
+                    "admitted item under a foreign lease"
+                ).code
+            ).toBe("lease.invalid");
+        }
+    );
+
     it(
         "[C13-TURN-ADMISSION-HANDLE] names the mediated Invocation and the exact evidence it was built from",
         { tags: "p0" },
@@ -304,13 +433,21 @@ describe("verified admission identities", () => {
             expect(handle.toolPosition()).toEqual({ invocation: refs.invocation.value });
             expect(handle.invocation.equals(refs.invocation)).toBe(true);
             expect(handle.attempt.equals(ATTEMPT)).toBe(true);
-            expect(handle.receipt.equals(refs.receipt)).toBe(true);
             expect(handle.itemKey).toBe(`${ITEM_KEY}:${refs.receipt.value}`);
-            expect(handle.result.equals(Digest.sha256(encodeCanonicalJson({ value: 1 })))).toBe(
-                true
-            );
             expect(handle.turn.equals(seeded.running.id)).toBe(true);
             expect(handle.issuedEpoch).toBe(seeded.token.epoch);
+            // An Invocation identity names the admitted item and no outcome, so no Receipt or
+            // result rides along on the record a later process decodes.
+            expect(Object.keys(requireObject(handle.toData(), "admission handle"))).toEqual([
+                "attempt",
+                "identity",
+                "invocation",
+                "issuedEpoch",
+                "itemIndex",
+                "itemKey",
+                "run",
+                "turn"
+            ]);
         }
     );
 
@@ -326,6 +463,14 @@ describe("verified admission identities", () => {
             expect(handle.toolPosition()).toEqual({ run: CHILD_RUN.value });
             expect(handle.identity.childRun?.equals(CHILD_RUN)).toBe(true);
             expect(handle.address).toBe(`run:${CHILD_RUN.value}`);
+            // The Receipt that carried the child RunRef, and the digest of the bytes it
+            // carried it in, ride on the identity that could not exist without them.
+            expect(handle.identity.toData()).toEqual({
+                kind: "childRun",
+                receipt: refs.receipt.value,
+                reference: CHILD_RUN.value,
+                result: Digest.sha256(encodeCanonicalJson({ run: CHILD_RUN.value })).value
+            });
         }
     );
 
@@ -829,7 +974,7 @@ describe("child admission and the parent ceiling", () => {
                 handleInit({
                     run: parent.run,
                     turn: parent.token.turn,
-                    identity: TurnAdmissionIdentity.childRun(new RunId("run-handle-wider"))
+                    identity: childIdentity(new RunId("run-handle-wider"))
                 })
             );
             expect(

@@ -44,6 +44,7 @@ export { createClosedCommandDispatcher } from "./dispatcher";
 export type { ClosedCommandFamilies, ClosedDispatcherInit } from "./dispatcher";
 export { DeviceConsentFinalAdmissionPort } from "./device-consent";
 export { InvocationComposition } from "./invocation";
+export { DetachedMediationTarget } from "./detached-target";
 export type { InvocationCompositionInit } from "./invocation";
 export { DetachedJsonPatchEngine } from "./json-patch";
 export { PackageFacetRuntime, ProvenanceFacetSlotBackend } from "./package-runtime";
@@ -142,6 +143,10 @@ export { CanonicalMediationRecords } from "./mediation-records";
 export type { MediationRecordIdentity } from "./mediation-records";
 export { MediationClaimOwnerAdmission } from "./mediation-records";
 export { MediatedOperationPipeline } from "./mediation";
-export type { MediatedOperationPipelineInit, MediatedTurnCaller } from "./mediation";
+export type {
+    MediatedOperationPipelineInit,
+    MediatedTurnCaller,
+    TurnDetachedAdmission
+} from "./mediation";
 export { TargetPermitMediationAggregate, activateTargetPermitMediation } from "./permit-mediation";
 export type { TargetPermitMediationPipelineInit } from "./permit-mediation";

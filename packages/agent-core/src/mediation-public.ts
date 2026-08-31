@@ -34,5 +34,6 @@ export type {
     OperationResolutionEvidence,
     OperationResolutionState,
     TargetLeaseEvidenceAttestation,
-    TargetPermitMediationPipelineInit
+    TargetPermitMediationPipelineInit,
+    TurnDetachedAdmission
 } from "./composition";

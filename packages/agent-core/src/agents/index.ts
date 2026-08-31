@@ -79,13 +79,20 @@ export {
     TurnModelInput,
     TurnModelInputCodec
 } from "./runs";
+export {
+    RunInvocationDelivery,
+    RunInvocationDeliveryCause,
+    RunInvocationDeliveryCodec
+} from "./runs";
 export type {
     TurnAdmissionAttemptFacts,
     TurnAdmissionDelivery,
     TurnAdmissionHandleInit,
     TurnAdmissionRequest,
+    TurnAdmissionScope,
     TurnGatewayScope,
-    TurnInvocationPort
+    TurnInvocationPort,
+    TurnInvocationRequest
 } from "./runs";
 export type { RunTransaction } from "./runs";
 export { RunPins } from "./runs/pins";
@@ -110,7 +117,7 @@ export type {
     ForcedTurnCancellationInit,
     MemoryRunStorageSnapshot,
     ReceiptCommitEvidence,
-    RunCancelledItem,
+    RunInvocationDeliveryInit,
     RunGenesis,
     RunTerminalization,
     RunAdmissionRegistryInit,

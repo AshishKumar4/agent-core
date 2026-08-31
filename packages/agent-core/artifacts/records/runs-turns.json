@@ -36,9 +36,7 @@
       "durability": "value",
       "ownerActor": null,
       "contentRetention": {
-        "fields": [
-          "content"
-        ],
+        "fields": ["content"],
         "retentionOwner": null
       },
       "source": "src/agents/source.ts#AgentPolicyRevisionRecord",
@@ -54,9 +52,7 @@
       "durability": "value",
       "ownerActor": null,
       "contentRetention": {
-        "fields": [
-          "content"
-        ],
+        "fields": ["content"],
         "retentionOwner": null
       },
       "source": "src/agents/source.ts#AgentRevisionRecord",
@@ -86,9 +82,7 @@
       "durability": "value",
       "ownerActor": null,
       "contentRetention": {
-        "fields": [
-          "content"
-        ],
+        "fields": ["content"],
         "retentionOwner": null
       },
       "source": "src/agents/source.ts#ModelPolicyRevisionRecord",
@@ -140,10 +134,7 @@
       "durability": "durable",
       "ownerActor": "run",
       "contentRetention": {
-        "fields": [
-          "state",
-          "tree"
-        ],
+        "fields": ["state", "tree"],
         "retentionOwner": "run"
       },
       "source": "src/agents/runs/turn.ts#RunCheckpoint",
@@ -159,11 +150,7 @@
       "durability": "durable",
       "ownerActor": "run",
       "contentRetention": {
-        "fields": [
-          "content",
-          "treeCheckpoint",
-          "treeResolution.base"
-        ],
+        "fields": ["content", "treeCheckpoint", "treeResolution.base"],
         "retentionOwner": "run"
       },
       "source": "src/agents/runs/commit.ts#RunCommit",
@@ -183,6 +170,18 @@
       "store": "src/agents/runs/store.ts#RunRepository",
       "tests": [
         "test/agents/runs/record-contract.test.ts#uniform durable record contract [run.pins] [run.configuration-snapshot] [run.commit] [run.record] [run.branch] [turn.record] [turn.placement-snapshot] [run.checkpoint] [turn.inbox-entry] [run.admission-registry] [run.settlement-obligation] [run.terminal-snapshot] [run.spawn-reservation] provides the same contract for every Run-owned record"
+      ]
+    },
+    {
+      "symbol": "RunInvocationDelivery",
+      "kind": "run.invocation-delivery",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/agents/runs/invocation-delivery.ts#RunInvocationDelivery",
+      "codec": "src/agents/runs/invocation-delivery.ts#RunInvocationDelivery.codec",
+      "store": null,
+      "tests": [
+        "test/agents/runs/handle-detachment.test.ts#the durable outbox a lost response replays from [C13-TURN-HANDLE-DETACHMENT] [run.invocation-delivery] round-trips its own bytes and refuses every other shape"
       ]
     },
     {
@@ -227,9 +226,7 @@
       "durability": "durable",
       "ownerActor": "run",
       "contentRetention": {
-        "fields": [
-          "rootContent"
-        ],
+        "fields": ["rootContent"],
         "retentionOwner": "run"
       },
       "source": "src/agents/runs/spawn.ts#SpawnReservation",
@@ -237,6 +234,18 @@
       "store": "src/agents/runs/store.ts#RunRepository",
       "tests": [
         "test/agents/runs/record-contract.test.ts#uniform durable record contract [run.pins] [run.configuration-snapshot] [run.commit] [run.record] [run.branch] [turn.record] [turn.placement-snapshot] [run.checkpoint] [turn.inbox-entry] [run.admission-registry] [run.settlement-obligation] [run.terminal-snapshot] [run.spawn-reservation] provides the same contract for every Run-owned record"
+      ]
+    },
+    {
+      "symbol": "TargetLeaseEvidenceRecord",
+      "kind": "runs.target-lease-evidence",
+      "durability": "durable",
+      "ownerActor": "run",
+      "source": "src/agents/runs/store.ts#TargetLeaseEvidenceRecord",
+      "codec": "src/agents/runs/store.ts#targetLeaseEvidenceRecordCodec",
+      "store": "src/agents/runs/store.ts#RunRepository",
+      "tests": [
+        "test/authority/target-lease-evidence.test.ts#TargetLeaseEvidence [authority.target-lease-evidence] [runs.target-lease-evidence] records one exact source-owned immutable attestation across restart"
       ]
     },
     {
@@ -257,10 +266,7 @@
       "durability": "durable",
       "ownerActor": "run",
       "contentRetention": {
-        "fields": [
-          "input",
-          "result"
-        ],
+        "fields": ["input", "result"],
         "retentionOwner": "run"
       },
       "source": "src/agents/runs/turn.ts#Turn",
@@ -271,14 +277,24 @@
       ]
     },
     {
+      "symbol": "TurnAdmissionHandle",
+      "kind": "turn.admission-handle",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/agents/runs/handle.ts#TurnAdmissionHandle",
+      "codec": "src/agents/runs/handle.ts#TurnAdmissionHandle.codec",
+      "store": null,
+      "tests": [
+        "test/agents/runs/handle.test.ts#Turn admission handle records [turn.admission-handle] round-trips one canonical addressable admission identity"
+      ]
+    },
+    {
       "symbol": "TurnInboxEntry",
       "kind": "turn.inbox-entry",
       "durability": "durable",
       "ownerActor": "run",
       "contentRetention": {
-        "fields": [
-          "payload"
-        ],
+        "fields": ["payload"],
         "retentionOwner": "run"
       },
       "source": "src/agents/runs/turn.ts#TurnInboxEntry",
@@ -306,10 +322,7 @@
       "durability": "value",
       "ownerActor": null,
       "contentRetention": {
-        "fields": [
-          "admitted[].content",
-          "sections[].shown.ref"
-        ],
+        "fields": ["admitted[].content", "sections[].shown.ref"],
         "retentionOwner": null
       },
       "source": "src/agents/runs/executor.ts#TurnModelInput",
@@ -329,30 +342,6 @@
       "store": "src/agents/runs/store.ts#RunRepository",
       "tests": [
         "test/agents/runs/record-contract.test.ts#uniform durable record contract [run.pins] [run.configuration-snapshot] [run.commit] [run.record] [run.branch] [turn.record] [turn.placement-snapshot] [run.checkpoint] [turn.inbox-entry] [run.admission-registry] [run.settlement-obligation] [run.terminal-snapshot] [run.spawn-reservation] provides the same contract for every Run-owned record"
-      ]
-    },
-    {
-      "symbol": "TurnAdmissionHandle",
-      "kind": "turn.admission-handle",
-      "durability": "value",
-      "ownerActor": null,
-      "source": "src/agents/runs/handle.ts#TurnAdmissionHandle",
-      "codec": "src/agents/runs/handle.ts#TurnAdmissionHandle.codec",
-      "store": null,
-      "tests": [
-        "test/agents/runs/handle.test.ts#Turn admission handle records [turn.admission-handle] round-trips one canonical addressable admission identity"
-      ]
-    },
-    {
-      "symbol": "TargetLeaseEvidenceRecord",
-      "kind": "runs.target-lease-evidence",
-      "durability": "durable",
-      "ownerActor": "run",
-      "source": "src/agents/runs/store.ts#TargetLeaseEvidenceRecord",
-      "codec": "src/agents/runs/store.ts#targetLeaseEvidenceRecordCodec",
-      "store": "src/agents/runs/store.ts#RunRepository",
-      "tests": [
-        "test/authority/target-lease-evidence.test.ts#TargetLeaseEvidence [authority.target-lease-evidence] [runs.target-lease-evidence] records one exact source-owned immutable attestation across restart"
       ]
     }
   ]

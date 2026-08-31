@@ -719,20 +719,26 @@ describe("Run realized cost", () => {
             // a zero that reads as a measured total.
             expect(Run.codec.decode(Run.codec.encode(run)).costConsumed).toBeUndefined();
 
-            // The record moved to a new major with the total on it, and the previous major
-            // has no reader: a stored Run written before the cost total existed is refused
-            // rather than read as a Run that spent nothing.
-            expect(() =>
-                Run.codec.decode(
-                    encodeCanonicalJson({
-                        kind: "run.record",
-                        version: { major: 2, minor: 0 },
-                        payload: twice.toData()
-                    })
-                )
-            ).toThrow(
-                new AgentCoreError("codec.unknown-major", "Unsupported run.record codec major 2")
-            );
+            // Every major the Run record has left behind has no reader: a stored Run written
+            // before the cost total existed, or before the Run carried the messages it owes
+            // its published items' Invocation owners, is refused rather than read as a Run
+            // that spent nothing or owes nothing.
+            for (const major of [2, 3]) {
+                expect(() =>
+                    Run.codec.decode(
+                        encodeCanonicalJson({
+                            kind: "run.record",
+                            version: { major, minor: 0 },
+                            payload: twice.toData()
+                        })
+                    )
+                ).toThrow(
+                    new AgentCoreError(
+                        "codec.unknown-major",
+                        `Unsupported run.record codec major ${major}`
+                    )
+                );
+            }
         }
     );
 

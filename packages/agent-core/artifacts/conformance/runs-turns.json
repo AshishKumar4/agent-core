@@ -970,7 +970,10 @@
         "test/composition/mediation-pipeline.test.ts#the published mediation composition root [C13-TURN-ADMISSION-HANDLE] carries the child RunRef for a delegate spawn and never the child's result"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
-      "remainingEvidence": []
+      "remainingEvidence": [],
+      "bounds": [
+        "This rule does not claim that `turn.admission-handle` major 1 is byte-stable across the removal of the top-level `receipt` and `result` fields. The codec stays at major 1 because the record has no store: `artifacts/records/runs-turns.json` classifies `store: null` and the registry gate enforces it, so no encoded handle is ever read back from anywhere. Its bytes cross the command plane only, as a tool position a model reads and an address a delivery keys on, and every consumer decodes the version this build emits. A persisted handle would require a major bump and a tolerant read instead, and this bound is where that obligation lands if a store ever appears."
+      ]
     },
     {
       "id": "C13-TURN-CANCEL-INBOX",
@@ -1069,8 +1072,10 @@
         "src/agents/runs/handle.ts#TurnAdmissionIdentity",
         "src/agents/runs/handle.ts#TurnAdmissionPublisher",
         "src/agents/runs/handle.ts#TurnAdmissionVerifier",
-        "src/agents/runs/runtime.ts#RunRuntime.terminalizeRunInTransaction",
-        "src/agents/runs/evidence.ts#RunEvidencePort"
+        "src/agents/runs/invocation-delivery.ts#RunInvocationDelivery",
+        "src/agents/runs/invocation-delivery.ts#RunInvocationDeliveryCause",
+        "src/agents/runs/run.ts#Run",
+        "src/agents/runs/runtime.ts#RunRuntime"
       ],
       "testSelectors": [
         "test/agents/runs/handle-detachment.test.ts#admission as the handle's commit point [C13-TURN-HANDLE-DETACHMENT] issues no handle before admission and freezes the admitted item after it",
@@ -1083,13 +1088,28 @@
         "test/agents/runs/handle-detachment.test.ts#the cancellation a published item answers to [C13-TURN-HANDLE-DETACHMENT] reports nothing for a published item whose Receipt is already terminal",
         "test/agents/runs/handle-detachment.test.ts#the cancellation a published item answers to [C13-TURN-HANDLE-DETACHMENT] [C13-TURN-EXACT-LEASE] refuses a TurnId presented where the cancelled Run is required",
         "test/agents/runs/handle-detachment.test.ts#the cancellation a published item answers to [C13-TURN-HANDLE-DETACHMENT] refuses a cancelled Run that names no cancellation, or one nothing aborted",
-        "test/agents/runs/handle-detachment.test.ts#the cancellation a published item answers to [C13-TURN-HANDLE-DETACHMENT] names no failure kind for an item the Turn is still awaiting"
+        "test/agents/runs/handle-detachment.test.ts#the cancellation a published item answers to [C13-TURN-HANDLE-DETACHMENT] names no failure kind for an item the Turn is still awaiting",
+        "test/agents/runs/handle-detachment.test.ts#the durable outbox a lost response replays from [C13-TURN-HANDLE-DETACHMENT] replays the same cancellation message after a lost response and a restart, and discharges it exactly once",
+        "test/agents/runs/handle-detachment.test.ts#the durable outbox a lost response replays from [C13-TURN-HANDLE-DETACHMENT] owes one admission message per published handle, and refuses a message of another Run",
+        "test/agents/runs/handle-detachment.test.ts#the durable outbox a lost response replays from [C13-TURN-HANDLE-DETACHMENT] round-trips its own bytes and refuses every other shape",
+        "test/agents/runs/handle.test.ts#verified admission identities [C13-TURN-HANDLE-DETACHMENT] builds an Invocation handle from an admitted item and reads no Receipt",
+        "test/agents/runs/handle.test.ts#Turn admission handle records [C13-TURN-HANDLE-DETACHMENT] keeps the spawn Receipt on the one identity that has one",
+        "test/composition/mediation-pipeline.test.ts#the detached execution plane the composition root owns [C13-TURN-HANDLE-DETACHMENT] admits durable item facts with no Receipt and runs nothing",
+        "test/composition/mediation-pipeline.test.ts#the detached execution plane the composition root owns [C13-TURN-HANDLE-DETACHMENT] starts no execution before the Run's admission message arrives",
+        "test/composition/mediation-pipeline.test.ts#the detached execution plane the composition root owns [C13-TURN-HANDLE-DETACHMENT] executes the released item and answers it with its own Receipt",
+        "test/composition/mediation-pipeline.test.ts#the detached execution plane the composition root owns [C13-TURN-HANDLE-DETACHMENT] aborts the exact live attempt and records aborted from what the target observed",
+        "test/composition/mediation-pipeline.test.ts#the detached execution plane the composition root owns [C13-TURN-HANDLE-DETACHMENT] a rebuilt pipeline drives a released record the restart interrupted",
+        "test/composition/mediation-pipeline.test.ts#the detached execution plane the composition root owns [C13-TURN-HANDLE-DETACHMENT] a cancellation with no live controller writes no terminal failed Receipt"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": [
-        "Every clause this row named has an executed test, and the disjunction §7.4 leaves open is now resolved by a mechanism with a production caller rather than by an unused decision procedure. TurnAdmissionIdentity.owner names the Run for an InvocationId handle and the child Run for a RunRef handle; TurnAdmissionHandle.cancelledBy yields an aborted failure kind only for that owner; and RunRuntime.terminalizeRunInTransaction calls it for every item a cancelled Run still owes a Receipt, returning the failure kind each Receipt must carry. The runs layer appends no Receipt, so it yields the kind and stops, which keeps §7.4's plane with W6.",
-        "The prohibition holds structurally rather than by convention: TextId compares its constructor, so a published item's owner, always a RunId, never equals a cancelled TurnId, and requireActiveRun refuses a TurnId presented where a RunId is required. An item no Turn published is reached by neither scope, which is C13-FACET-CANCELLATION-REACH's rule and not this one's.",
-        "What is still owed is recorded discrimination, which is not this row's to write. artifacts/quality/discrimination/ is W0-owned and the cited test file post-dates the last mutation run, so a verified status would add a DISC-STALE issue. Promotion needs a W0 run recording a kill inside TurnAdmissionIdentity.owner, TurnAdmissionHandle.cancelledBy and RunRuntime's cancelled-item enumeration. Measured by hand meanwhile: resolving the owner from the handle instead of the cancelled Run, and inverting the terminality filter, reds 5 of the cited tests including the child-RunRef and already-terminal cases."
+        "Publication is now the commit point in the durable sense as well as the logical one, and the two commit points §5.6 describes are two construction paths rather than one. TurnAdmissionVerifier.admit builds an Invocation-identity handle over an AdmittedInvocationItem — invocation, item index, item key and the exact EffectAttempt — and reads no Receipt at all, which is what a detached admission leaves behind. A child RunRef handle keeps the Receipt-based path, because a child reference exists only once the delegate Receipt carries it; the spawn Receipt and its result digest moved onto that identity case, so an Invocation identity has no field they could occupy.",
+        "TurnAdmissionPublisher.publish reserves the Run obligation and appends the Invocation owner's admission message in one Run transaction, and RunRuntime.terminalizeRunInTransaction appends one cancellation message per still-owed published item in the same transition that terminalizes the Run. A response lost after that transaction commits loses no command: RunRuntime.pendingInvocationDeliveries replays each message after a restart, and RunRuntime.acknowledgeInvocationDelivery discharges it idempotently with no caller-supplied revision, because an owner whose acknowledgement response was lost knows no current revision.",
+        "The Run ships no §7.4 verdict, and has no field for one. TurnAdmissionHandle.cancelledBy and RunTerminalization.cancelled are deleted rather than deprecated: the Run observed its own end, not whether cancellation reached a live target controller, and after a restart there is no controller left to reach. What the Run owes is a request naming the exact attempt; the Invocation owner's target aborts the controller keyed by that attempt and the existing AttemptFailureKind.classify path derives `aborted` from what the target observed, while an absent controller leaves the outcome indeterminate for reconciliation.",
+        "The prohibition on the issuing Turn's cancellation reaching a published item holds by identity: TextId compares its constructor, so a published item's owner, always a RunId, never equals a cancelled TurnId. An item no Turn published is reached by neither scope, which is C13-FACET-CANCELLATION-REACH's rule and not this one's.",
+        "Which handles a Run cancellation can address is decided by the item's Receipt state, not by the method that built the handle, and the distinction matters for anyone reading this row. cancellationDeliveriesInTransaction skips an item whose current Receipt is terminal before it resolves the handle at all. TurnAdmissionVerifier.verify returns only on the succeeded evidence shape, and a succeeded AttemptReceipt is terminal, so a verify-built handle is never addressed in a truthful state; §7.4 admits supersession only of `indeterminate`, which that path never accepts, so the gate cannot open. An admit-built handle names an attempt no Receipt names yet, so it is addressed until its own Receipt lands.",
+        "That argument rests on one host-supplied premise, stated here rather than hidden: invocationItemTerminal is a predicate on the abstract SettlementEvidencePort, and the runtime trusts it. A host that answered it untruthfully would address an item that already has a Receipt. Even then no second Receipt is written, because the Invocation owner's cancellation path re-reads its own state and reports the item settled before it asks the target.",
+        "Recorded discrimination is owed and is not this row's to write. artifacts/quality/discrimination/ is W0-owned and every cited file post-dates the last mutation run, so a verified status would add a DISC-STALE issue. Promotion needs a W0 run recording a kill inside TurnAdmissionVerifier.admit, TurnAdmissionIdentity.owner, Run.acknowledgeDelivery and RunRuntime's cancellation-message enumeration."
       ]
     },
     {

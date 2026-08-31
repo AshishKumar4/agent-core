@@ -7,7 +7,11 @@ export { SqliteIdentityReader } from "./identity";
 export { SqlitePackageStore } from "./package";
 export { SqliteProtocolPersistence } from "./protocol";
 export { SqliteWorkspaceRecords } from "./workspace-records";
-export { SqliteInvocationMediationPersistence, SqliteInvocationPersistence } from "./invocations";
+export {
+    SqliteDetachedEffectExecutionPersistence,
+    SqliteInvocationMediationPersistence,
+    SqliteInvocationPersistence
+} from "./invocations";
 export type {
     ApprovalProjection,
     AttemptProjection,

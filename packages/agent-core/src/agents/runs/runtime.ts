@@ -5,7 +5,6 @@ import type { PrincipalRef } from "../../identity";
 import type { RunCommitId, TurnId } from "../../execution-references";
 import type { ReceiptId } from "../../invocation-references";
 import type { AuditRecordId, EventId, InvocationId } from "../../interaction-references";
-import type { AttemptFailureKind } from "../../invocations";
 import { TurnCutPointPort, type TurnRewriteRule } from "../../operations";
 import type { RunSourceRevisionPort } from "../source";
 import { bytesEqual, requireExactFields, requireObject, requireString } from "../record-data";
@@ -28,6 +27,8 @@ import type { Currency, RealizedCost } from "./cost";
 import type { MergeFoldStep, RunEvidencePort, RunMergePort } from "./evidence";
 import { ForcedTurnCancellation } from "./forced-cancellation";
 import { RunId, type AcceptanceId, type RunBranchId } from "./id";
+import type { TurnAdmissionHandle } from "./handle";
+import { RunInvocationDelivery } from "./invocation-delivery";
 import { leaseTokensEqual, type LeaseToken } from "./lease";
 import { RunConfigurationSnapshot, RunPins, type RunPinDivergence } from "./pins";
 import { TurnPlacementSnapshot } from "./placement";
@@ -115,25 +116,16 @@ export interface SiblingCancellationEvidence {
 }
 
 /**
- * One published item a Run's cancellation reached, with the §7.4 failure kind its still-owed
- * Receipt must carry (SPEC §5.6). The runs layer appends no Receipt — §7.4 owns that record —
- * so cancellation reports the kind and the invocation plane records it.
- */
-export interface RunCancelledItem {
-    readonly invocation: InvocationId;
-    readonly itemIndex: number;
-    readonly itemKey: string;
-    readonly failure: AttemptFailureKind;
-}
-
-/**
- * What one Run terminalization produced: the durable snapshot, and where a cancellation landed
- * on the items its Turns published (SPEC §5.2, §5.6). A Run that ended any other way reached
- * no published item and reports none.
+ * What one Run terminalization produced (SPEC §5.2).
+ *
+ * The cancellation messages its published items are owed are NOT here. They are durable
+ * records on the Run, because a message that existed only in this response would be lost by
+ * a lost response, and a terminal Run admits no second terminalization to produce it again.
+ * A caller reads them back through `pendingInvocationDeliveries` and discharges each one
+ * through `acknowledgeInvocationDelivery`.
  */
 export interface RunTerminalization {
     readonly snapshot: TerminalSnapshot;
-    readonly cancelled: readonly RunCancelledItem[];
 }
 
 export class RunRuntime<Transaction> {
@@ -1161,22 +1153,30 @@ export class RunRuntime<Transaction> {
             request.now,
             request.exhausted
         );
+        const cancellations =
+            cancellation === undefined
+                ? []
+                : this.cancellationDeliveriesInTransaction(
+                      tx,
+                      run.id,
+                      obligation,
+                      request.commit.id
+                  );
         const currentRun = requireValue(
             this.repository.loadRun(tx, run.id),
             "Run disappeared during terminalization"
         );
-        this.repository.replaceRun(tx, currentRun.revision, currentRun.terminalize(snapshot));
-        return Object.freeze({
-            snapshot,
-            cancelled:
-                cancellation === undefined
-                    ? Object.freeze([])
-                    : this.cancelledItemsInTransaction(tx, run.id, obligation, cancellation)
-        });
+        this.repository.replaceRun(
+            tx,
+            currentRun.revision,
+            currentRun.terminalize(snapshot, cancellations)
+        );
+        return Object.freeze({ snapshot });
     }
 
     /**
-     * Where cancelling this Run lands on the items its Turns published (SPEC §5.6).
+     * The messages cancelling this Run owes the Invocation owners of the items its Turns
+     * published (SPEC §5.6).
      *
      * Publication is what detaches an item from the Turn that issued it, and it detaches the
      * item to a Run: the issuing Run for an `InvocationId` handle, the child Run for a
@@ -1185,22 +1185,26 @@ export class RunRuntime<Transaction> {
      * there — a child Run is its own settlement unit — and cancelling a Turn reaches none of
      * them, because a published item's owner is a RunId and a TurnId never equals one.
      *
-     * Only an item still owed a Receipt is reached. An item whose current Receipt is already
-     * terminal was finished before the cancellation arrived, and §7.4 admits no second
-     * Receipt over it, so naming a kind for it would name one for work already recorded.
+     * Only an item still owed a Receipt is addressed. An item whose current Receipt is
+     * already terminal was finished before the cancellation arrived, and §7.4 admits no
+     * second Receipt over it, so addressing it would ask for a record that already exists.
      *
      * An item no Turn published is reached by neither: it is still awaited, so the Turn owns
      * it and `C13-FACET-CANCELLATION-REACH` is the rule that ends it. That is why an
      * unresolved handle is silence here rather than a refusal — §5.6 draws exactly this line
      * between an awaited item and a published one.
+     *
+     * Every message is a request naming the exact attempt, never a failure kind. The Run
+     * knows that it ended; only the Invocation owner's own target can observe whether
+     * cancellation reached the attempt, which is what §7.4 builds `aborted` from.
      */
-    private cancelledItemsInTransaction(
+    private cancellationDeliveriesInTransaction(
         tx: Transaction,
         run: RunId,
         obligation: SettlementObligation,
-        cancellation: AbortSignal
-    ): readonly RunCancelledItem[] {
-        const reached: RunCancelledItem[] = [];
+        terminalCommit: RunCommitId
+    ): readonly RunInvocationDelivery[] {
+        const addressed: RunInvocationDelivery[] = [];
         for (const captured of obligation.obligations) {
             if (captured.kind !== "invocationItem") continue;
             const terminal = requireSynchronousResult(
@@ -1220,18 +1224,77 @@ export class RunRuntime<Transaction> {
                     captured.itemKey
                 )
             );
-            const failure = handle?.cancelledBy(run, cancellation);
-            if (failure === undefined) continue;
-            reached.push(
-                Object.freeze({
-                    invocation: captured.invocation,
-                    itemIndex: captured.itemIndex,
-                    itemKey: captured.itemKey,
-                    failure
-                })
-            );
+            const delivery = handle?.cancellationDelivery(run, terminalCommit);
+            if (delivery === undefined) continue;
+            addressed.push(delivery);
         }
-        return Object.freeze(reached);
+        return Object.freeze(addressed);
+    }
+
+    /**
+     * Reserves the Run obligation a published handle detaches its item into and takes on the
+     * message its Invocation owner is owed, in one transaction (SPEC §5.2, §5.6). An item
+     * detached to a child Run reserves the obligation and owes this Run's owner nothing.
+     */
+    public publishAdmissionInTransaction(
+        tx: Transaction,
+        handle: TurnAdmissionHandle
+    ): RunAdmissionReservation {
+        const reservation = this.reserveRunObligationInTransaction(
+            tx,
+            handle.run,
+            handle.obligation()
+        );
+        const delivery = handle.admissionDelivery();
+        if (delivery !== undefined) {
+            const run = this.requireActiveRun(tx, handle.run);
+            const owed = run.publishDelivery(delivery);
+            // Republishing the same handle is the same message, so the Run is untouched and
+            // its revision does not move. Writing it again would advance the revision and
+            // make one admitted item look like two commands to its owner.
+            if (owed !== run) this.repository.replaceRun(tx, run.revision, owed);
+        }
+        return reservation;
+    }
+
+    /** The messages this Run still owes Invocation owners, in canonical order (SPEC §5.6). */
+    public pendingInvocationDeliveries(run: RunId): readonly RunInvocationDelivery[] {
+        return this.repository.transaction((tx) =>
+            this.pendingInvocationDeliveriesInTransaction(tx, run)
+        );
+    }
+
+    public pendingInvocationDeliveriesInTransaction(
+        tx: Transaction,
+        run: RunId
+    ): readonly RunInvocationDelivery[] {
+        return requireValue(this.repository.loadRun(tx, run), "Run does not exist").deliveries;
+    }
+
+    /**
+     * Discharges one message its Invocation owner has acknowledged (SPEC §5.6, §6.1).
+     *
+     * The caller presents the message rather than an expected Run revision, and that is the
+     * point: delivery is at-least-once, so the ordinary retry is an owner whose
+     * acknowledgement response was lost and which therefore knows no current revision. The
+     * transaction reads the Run itself, so the compare-and-set is against the state the
+     * discharge actually applies to. A message of another Run is refused; a message already
+     * discharged changes nothing and is not an error.
+     */
+    public acknowledgeInvocationDelivery(delivery: RunInvocationDelivery): void {
+        this.repository.transaction((tx) =>
+            this.acknowledgeInvocationDeliveryInTransaction(tx, delivery)
+        );
+    }
+
+    public acknowledgeInvocationDeliveryInTransaction(
+        tx: Transaction,
+        delivery: RunInvocationDelivery
+    ): void {
+        const run = requireValue(this.repository.loadRun(tx, delivery.run), "Run does not exist");
+        const discharged = run.acknowledgeDelivery(delivery);
+        if (discharged === run) return;
+        this.repository.replaceRun(tx, run.revision, discharged);
     }
 
     /**

@@ -14,6 +14,7 @@ import {
     type CanonicalBatchRecordPort,
     type InvocationClaimOwnerPort,
     type ItemClaimOwner,
+    type PreEffectReceiptOutcome,
     type Receipt
 } from "../invocations";
 import type { DerivedMediationIdentities } from "./mediation-identity";
@@ -184,21 +185,24 @@ export class CanonicalMediationRecords<Admission> implements CanonicalBatchRecor
         );
     }
 
+    /**
+     * §7.4 gives the pre-effect variant two outcomes and they are different facts: a denial
+     * before the effect and a cancellation before the effect derive different batch outcomes
+     * (§7.5) and carry different Receipt ids. Only the admission point knows which one it
+     * observed, so it states the outcome instead of leaving this factory to choose one.
+     */
     public preEffectReceipt(
         invocation: MediationPreparedInvocation,
         claim: ItemClaim<MediationLeaseReference>,
+        outcome: PreEffectReceiptOutcome,
         recordedAt: Date,
         reason: string
     ): PreEffectReceipt {
         return new PreEffectReceipt(
-            this.identities.preEffectReceipt(
-                invocation.header.id,
-                claim.itemIndex,
-                "deniedPreEffect"
-            ),
+            this.identities.preEffectReceipt(invocation.header.id, claim.itemIndex, outcome),
             invocation.header.id,
             claim.itemIndex,
-            "deniedPreEffect",
+            outcome,
             recordedAt,
             reason
         );

@@ -317,7 +317,12 @@ describe("mediation records carry the evidence their chain needs", () => {
         const leased = invocation("leased");
         const claim = records().claim(leased, 0, undefined, now);
         const attempt = attemptFor(claim, leased);
-        const indeterminate = records().attemptReceipt(attempt, AttemptCompletion.indeterminate, now, undefined);
+        const indeterminate = records().attemptReceipt(
+            attempt,
+            AttemptCompletion.indeterminate,
+            now,
+            undefined
+        );
         const result = new ContentRef(`sha256:${"a".repeat(64)}`);
         const reconciled = records().reconciledReceipt(
             attempt,
@@ -359,13 +364,18 @@ describe("mediation records carry the evidence their chain needs", () => {
         const attemptAudit = records().attemptAudit(leased, attempt);
         expect(attemptAudit.cause?.equals(invocationAudit.id)).toBe(true);
 
-        const receipt = records().attemptReceipt(attempt, AttemptCompletion.indeterminate, now, undefined);
+        const receipt = records().attemptReceipt(
+            attempt,
+            AttemptCompletion.indeterminate,
+            now,
+            undefined
+        );
         const receiptAudit = records().receiptAudit(leased, attemptAudit, receipt);
         expect(receiptAudit.cause?.equals(attemptAudit.id)).toBe(true);
 
         // A pre-effect denial has no attempt, so its Receipt record roots at the
         // Invocation directly rather than dangling.
-        const denial = records().preEffectReceipt(leased, claim, now, "denied");
+        const denial = records().preEffectReceipt(leased, claim, "deniedPreEffect", now, "denied");
         expect(denial.outcome).toBe("deniedPreEffect");
         expect(
             records()

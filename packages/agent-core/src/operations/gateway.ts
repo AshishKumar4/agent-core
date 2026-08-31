@@ -163,6 +163,23 @@ export interface OperationInvocationPort<DirectAuthorization, MediatedAuthorizat
     ): Promise<readonly FacetData[]>;
 }
 
+/**
+ * The Invocation plane's detached admission (SPEC §5.6, C13-TURN-HANDLE-DETACHMENT).
+ *
+ * A detached admission commits the item's effect evidence and stops there: the effect runs
+ * later, under the plane that owns the item, and never under the dispatching Turn's live
+ * resources. So this seam takes the request the one dispatch assembly composed and returns
+ * whatever the Invocation plane says the item became. `Admission` stays opaque here because
+ * the answer is that plane's own record shape, and the operations context composes the steps
+ * before an effect rather than interpreting the evidence after one.
+ */
+export interface DetachedInvocationAdmissionPort<MediatedAuthorization, Admission> {
+    admitDetached(
+        request: MediatedInvocationRequest<MediatedAuthorization>,
+        itemIndex: number
+    ): Promise<Admission>;
+}
+
 export abstract class OperationGateway {
     public abstract resolve(binding: BindingName): Promise<ResolvedFacet>;
 }
@@ -202,6 +219,46 @@ export class OperationGatewayHost<
     }
 
     public async resolve(binding: BindingName): Promise<ResolvedFacet> {
+        return this.resolveProtected(binding);
+    }
+
+    /**
+     * Admits one item of a mediated dispatch and detaches its execution (SPEC §5.6).
+     *
+     * It reaches the item through exactly the assembly `dispatch` reaches an effect through —
+     * one authority resolution, one tier decision, one interceptor pass, one preflight — and
+     * differs only in the last step: the Invocation plane records the item's admission and
+     * runs nothing. The admission is returned rather than handed to a callback, because the
+     * caller publishes it and a handle nobody received is an admitted item no Run ever holds.
+     *
+     * The resolution is released here rather than by the caller: a detached admission is one
+     * shot with no dispatch to follow, so nothing outlives this call to dispose.
+     */
+    public async admitDetached<Admission>(
+        binding: BindingName,
+        request: OperationRequest,
+        itemIndex: number,
+        admissions: DetachedInvocationAdmissionPort<MediatedAuthorization, Admission>
+    ): Promise<Admission> {
+        const resolved = await this.resolveProtected(binding);
+        try {
+            return await resolved.admitDetached(request, itemIndex, admissions);
+        } finally {
+            resolved[Symbol.dispose]();
+        }
+    }
+
+    /**
+     * The one resolution both entries are built from. `resolve` widens it to the contract a
+     * caller holds, while the detached admission needs the concrete facet: its entry is not on
+     * `ResolvedFacet`, because that contract cannot name this host's authorization type and a
+     * seam that erased it would admit a port belonging to another authority plane.
+     */
+    private async resolveProtected(
+        binding: BindingName
+    ): Promise<
+        ProtectedResolvedFacet<Caller, Resolution, DirectAuthorization, MediatedAuthorization>
+    > {
         const resolved = await this.authority.resolve(this.caller, binding);
         const facet = this.host.facet(resolved.facet);
         if (facet === undefined) {
@@ -261,12 +318,41 @@ class ProtectedResolvedFacet<
     }
 
     public async dispatch(request: OperationRequest): Promise<OperationDispatchResult> {
+        return this.underLease(() => this.dispatchWithLease(request));
+    }
+
+    /**
+     * Admits one item of this dispatch and leaves its execution to the Invocation plane
+     * (SPEC §5.6, C13-TURN-HANDLE-DETACHMENT).
+     *
+     * The steps before the effect are not repeated here: this is the same composition
+     * `dispatch` runs, stopped one step earlier. Only the last step differs, and the
+     * difference is the whole point — the item's admission becomes durable while the effect
+     * has not happened, which is the fact a §5.6 handle names and the one a Receipt cannot
+     * state.
+     */
+    public async admitDetached<Admission>(
+        request: OperationRequest,
+        itemIndex: number,
+        admissions: DetachedInvocationAdmissionPort<MediatedAuthorization, Admission>
+    ): Promise<Admission> {
+        return this.underLease(() =>
+            this.dispatchWithLease(request, Object.freeze({ itemIndex, admissions }))
+        );
+    }
+
+    /**
+     * Holds the Facet runtime for the duration of one call, so a withdrawal drains rather
+     * than cutting an in-flight dispatch, and releases the authority resolution once the last
+     * in-flight call of a disposed facet has returned (§4.1, C13-FACET-DISPOSAL).
+     */
+    private async underLease<Result>(work: () => Promise<Result>): Promise<Result> {
         this.requireActive();
         const lease = this.host.acquire(this.runtime.ref, this.runtime);
         if (lease === undefined) throw inactive("Resolved Facet is no longer active");
         this.#inFlight += 1;
         try {
-            return await this.dispatchWithLease(request);
+            return await work();
         } finally {
             lease.release();
             this.#inFlight -= 1;
@@ -274,7 +360,15 @@ class ProtectedResolvedFacet<
         }
     }
 
-    private async dispatchWithLease(request: OperationRequest): Promise<OperationDispatchResult> {
+    private async dispatchWithLease(request: OperationRequest): Promise<OperationDispatchResult>;
+    private async dispatchWithLease<Admission>(
+        request: OperationRequest,
+        detachment: DetachedDispatch<MediatedAuthorization, Admission>
+    ): Promise<Admission>;
+    private async dispatchWithLease<Admission>(
+        request: OperationRequest,
+        detachment?: DetachedDispatch<MediatedAuthorization, Admission>
+    ): Promise<OperationDispatchResult | Admission> {
         const operation = this.declaredOperation(request.operation);
         if (operation === undefined) {
             throw new AgentCoreError(
@@ -289,6 +383,13 @@ class ProtectedResolvedFacet<
             operation.descriptor,
             this.interceptors.hasApplicable(this.resolution, this.runtime, operation)
         );
+        if (detachment !== undefined) {
+            // Refused before the direct branch runs, not after: a direct call creates no
+            // Invocation, EffectAttempt, or Receipt (§7.2), so there is no admitted item to
+            // detach and no evidence a Run could ever hold. Refusing after the effect had run
+            // would report that nothing was admitted while the effect had already happened.
+            requireDetachableItem(detachment.itemIndex, payload, selected);
+        }
         if (selected === "direct") {
             const prepared = inputs.map((item, itemIndex) =>
                 this.prepare(operation, item, itemIndex)
@@ -366,10 +467,17 @@ class ProtectedResolvedFacet<
                 });
             }
         );
-        if (preflight.kind === "replay")
+        if (preflight.kind === "replay") {
+            if (detachment !== undefined) {
+                throw new AgentCoreError(
+                    "invocation.invalid",
+                    "A detached admission names an OperationRequestKey whose Invocation completed"
+                );
+            }
             return canonicalReplay(preflight.result, payload.cardinality);
+        }
         const prepared = preflight.preparation;
-        const result = await this.invocations.invoke({
+        const mediated: MediatedInvocationRequest<MediatedAuthorization> = {
             requestKey: request.requestKey,
             facet: this.runtime.ref,
             descriptor: operation.descriptor,
@@ -388,7 +496,11 @@ class ProtectedResolvedFacet<
                 }
                 return executeOperation(operation, context, item);
             }
-        });
+        };
+        if (detachment !== undefined) {
+            return detachment.admissions.admitDetached(mediated, detachment.itemIndex);
+        }
+        const result = await this.invocations.invoke(mediated);
         if (result.outputs.length !== prepared.inputs.length) {
             throw new AgentCoreError(
                 "invocation.invalid",
@@ -512,6 +624,43 @@ export class ConfirmedOperationFailure extends AgentCoreError {
 interface DispatchedPayload {
     readonly cardinality: OperationPayloadCardinality;
     readonly items: readonly FacetData[];
+}
+
+/**
+ * What one dispatch detaches: which item, and the Invocation plane that admits it. It is
+ * module-private because the seam a consumer supplies is the port; a caller that could name
+ * this pair could assemble a dispatch whose composition differs from the one §7 describes.
+ */
+interface DetachedDispatch<MediatedAuthorization, Admission> {
+    readonly itemIndex: number;
+    readonly admissions: DetachedInvocationAdmissionPort<MediatedAuthorization, Admission>;
+}
+
+/**
+ * Refuses a detached admission the dispatch cannot answer for, before any effect runs.
+ *
+ * The mediated tier is a precondition rather than a preference: §5.6 detaches an item whose
+ * admission it can name, and only the mediated tier records one. The item index is checked
+ * against this dispatch's own payload, so a caller cannot detach an item the request never
+ * carried and receive an admission derived from a different item's arguments.
+ */
+function requireDetachableItem(
+    itemIndex: number,
+    payload: DispatchedPayload,
+    tier: "direct" | "mediated"
+): void {
+    if (tier !== "mediated") {
+        throw new AgentCoreError(
+            "invocation.invalid",
+            "A detached admission requires the mediated tier, which alone admits an item"
+        );
+    }
+    if (!Number.isSafeInteger(itemIndex) || itemIndex < 0 || itemIndex >= payload.items.length) {
+        throw new AgentCoreError(
+            "invocation.invalid",
+            "A detached admission names an item outside this dispatch's payload"
+        );
+    }
 }
 
 function operationPayload(payload: OperationPayload): DispatchedPayload {

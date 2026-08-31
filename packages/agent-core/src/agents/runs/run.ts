@@ -20,6 +20,13 @@ import { AcceptanceId, RunBranchId, RunId } from "./id";
 import { SettlementObligation, TerminalSnapshot } from "./settlement";
 import type { ResourceDimension } from "./ceiling";
 import { Currency, RealizedCost } from "./cost";
+import {
+    AdmissionCause,
+    CancellationCause,
+    RunInvocationDelivery,
+    RunInvocationDeliveryCause,
+    canonicalDeliveries
+} from "./invocation-delivery";
 import { Digest } from "../../core";
 
 export abstract class RunLifecycle {
@@ -59,6 +66,7 @@ export interface RunInit {
     readonly terminal?: TerminalSnapshot | undefined;
     readonly tokensConsumed?: number;
     readonly costConsumed?: RealizedCost | undefined;
+    readonly deliveries?: readonly RunInvocationDelivery[];
     readonly revision: Revision;
 }
 
@@ -80,6 +88,10 @@ export class Run extends CodecRecord {
     // stay derived. The cost total holds its currency, so one Run cannot hold two.
     public readonly tokensConsumed: number;
     public readonly costConsumed: RealizedCost | undefined;
+    // SPEC §5.6: the durable messages this Run still owes the Invocation owners of the
+    // items its Turns published. There is no cross-Actor transaction, so the Run keeps
+    // each message until its owner acknowledges it.
+    public readonly deliveries: readonly RunInvocationDelivery[];
     public readonly revision: Revision;
 
     public constructor(init: RunInit) {
@@ -111,6 +123,12 @@ export class Run extends CodecRecord {
             throw new TypeError("Run cost total must use the exact context class");
         }
         this.costConsumed = init.costConsumed;
+        this.deliveries = canonicalDeliveries(init.deliveries ?? []);
+        for (const delivery of this.deliveries) {
+            if (!delivery.run.equals(init.id)) {
+                throw new TypeError("Run invocation delivery belongs to a different Run");
+            }
+        }
         // A Run is terminal exactly when it holds its terminal snapshot. Storing the
         // state beside the evidence would only create two ways to answer one question.
         this.lifecycle =
@@ -124,7 +142,17 @@ export class Run extends CodecRecord {
         Object.freeze(this);
     }
 
-    public terminalize(snapshot: TerminalSnapshot): Run {
+    /**
+     * Terminalizes the Run and, in the same transition, takes on the cancellation messages
+     * its still-owed published items are owed (SPEC §5.2, §5.6). The messages arrive here
+     * rather than through a later call because a terminal Run admits no second
+     * terminalization: a message appended afterwards could be lost by exactly the response
+     * loss it exists to survive.
+     */
+    public terminalize(
+        snapshot: TerminalSnapshot,
+        cancellations: readonly RunInvocationDelivery[] = []
+    ): Run {
         if (!snapshot.run.equals(this.id)) {
             throw new AgentCoreError(
                 "run.invalid-state",
@@ -134,7 +162,72 @@ export class Run extends CodecRecord {
         if (this.lifecycle.kind !== "active") {
             throw new AgentCoreError("run.invalid-state", "Terminal Runs cannot transition");
         }
-        return this.transition(snapshot);
+        for (const delivery of cancellations) {
+            if (
+                delivery.cause.kind !== "cancellation" ||
+                delivery.cause.terminalCommit?.equals(snapshot.terminalCommit) !== true
+            ) {
+                throw new AgentCoreError(
+                    "run.invalid-state",
+                    "A Run cancellation message names the exact terminal commit it ended on"
+                );
+            }
+        }
+        return this.transition({
+            terminal: snapshot,
+            deliveries: [...this.deliveries, ...cancellations]
+        });
+    }
+
+    /**
+     * Takes on the message a published item's Invocation owner is owed once the Run holds
+     * that item as its own obligation (SPEC §5.6). Publishing the same handle again is the
+     * same message, so it changes nothing rather than owing the owner a second one.
+     */
+    public publishDelivery(delivery: RunInvocationDelivery): Run {
+        if (this.lifecycle.kind !== "active") {
+            throw new AgentCoreError(
+                "run.invalid-state",
+                "Terminal Runs publish no further admission"
+            );
+        }
+        if (!delivery.run.equals(this.id)) {
+            throw new AgentCoreError(
+                "run.invalid-state",
+                "Run invocation delivery belongs to another Run"
+            );
+        }
+        if (delivery.cause.kind !== "admission") {
+            throw new AgentCoreError(
+                "run.invalid-state",
+                "Publishing a handle owes its owner an admission message"
+            );
+        }
+        if (this.deliveries.some((pending) => pending.id.equals(delivery.id))) return this;
+        return this.transition({ deliveries: [...this.deliveries, delivery] });
+    }
+
+    /**
+     * Discharges one message its Invocation owner has acknowledged (SPEC §5.6, §6.1).
+     *
+     * Delivery is at-least-once, so a repeated acknowledgement is the ordinary case rather
+     * than an error: the first one removed the message, and a second finds nothing to
+     * remove and says so by changing nothing. A message of another Run is refused, because
+     * that is a caller addressing state it does not hold rather than a duplicate.
+     *
+     * A terminal Run accepts this. A discharged message changes no lifecycle, and a
+     * cancellation message exists only on a Run that has already ended.
+     */
+    public acknowledgeDelivery(delivery: RunInvocationDelivery): Run {
+        if (!delivery.run.equals(this.id)) {
+            throw new AgentCoreError(
+                "run.invalid-state",
+                "Run invocation delivery belongs to another Run"
+            );
+        }
+        const remaining = this.deliveries.filter((pending) => !pending.id.equals(delivery.id));
+        if (remaining.length === this.deliveries.length) return this;
+        return this.transition({ deliveries: remaining });
     }
 
     public revise(): Run {
@@ -144,7 +237,7 @@ export class Run extends CodecRecord {
                 "Terminal Runs reject ordinary mutations"
             );
         }
-        return this.transition(this.terminal);
+        return this.transition();
     }
 
     public recordEvidence(): Run {
@@ -154,7 +247,7 @@ export class Run extends CodecRecord {
                 "Only terminal Runs record captured evidence"
             );
         }
-        return this.transition(this.terminal);
+        return this.transition();
     }
 
     /**
@@ -186,7 +279,7 @@ export class Run extends CodecRecord {
         }
         const consumed = this.tokensConsumed + requireTokenUsage(tokens);
         if (cost === undefined) {
-            return this.transition(this.terminal, this.configurations, consumed);
+            return this.transition({ tokensConsumed: consumed });
         }
         const held =
             this.costConsumed === undefined
@@ -208,12 +301,13 @@ export class Run extends CodecRecord {
                 `Run lineage records cost in ${divergent.join(", ")}, not ${cost.currency.value}`
             );
         }
-        return this.transition(
-            this.terminal,
-            this.configurations,
-            consumed,
-            new RealizedCost((this.costConsumed?.micros ?? 0) + cost.micros, cost.currency)
-        );
+        return this.transition({
+            tokensConsumed: consumed,
+            costConsumed: new RealizedCost(
+                (this.costConsumed?.micros ?? 0) + cost.micros,
+                cost.currency
+            )
+        });
     }
 
     public recordConfiguration(configuration: Digest): Run {
@@ -224,7 +318,7 @@ export class Run extends CodecRecord {
             );
         }
         if (this.configurations.some((value) => value.equals(configuration))) return this;
-        return this.transition(this.terminal, [...this.configurations, configuration]);
+        return this.transition({ configurations: [...this.configurations, configuration] });
     }
 
     public toData(): JsonValue {
@@ -237,6 +331,7 @@ export class Run extends CodecRecord {
             parent: this.parent?.value ?? null,
             revision: revisionData(this.revision),
             root: this.root.value,
+            deliveries: this.deliveries.map((delivery) => delivery.toData()),
             terminal: this.terminal === undefined ? null : this.terminal.toData(),
             costConsumed: this.costConsumed === undefined ? null : this.costConsumed.toData(),
             tokensConsumed: this.tokensConsumed
@@ -252,6 +347,7 @@ export class Run extends CodecRecord {
                 "configuration",
                 "configurations",
                 "costConsumed",
+                "deliveries",
                 "id",
                 "initialBranch",
                 "parent",
@@ -280,6 +376,9 @@ export class Run extends CodecRecord {
                 object["terminal"] === null
                     ? undefined
                     : TerminalSnapshot.fromData(object["terminal"]),
+            deliveries: requireArray(object["deliveries"], "Run invocation deliveries").map(
+                (entry) => RunInvocationDelivery.fromData(entry)
+            ),
             tokensConsumed: requireInteger(object["tokensConsumed"], "Run token total"),
             costConsumed:
                 object["costConsumed"] === null
@@ -289,26 +388,35 @@ export class Run extends CodecRecord {
         });
     }
 
-    private transition(
-        terminal: TerminalSnapshot | undefined,
-        configurations: readonly Digest[] = this.configurations,
-        tokensConsumed: number = this.tokensConsumed,
-        costConsumed: RealizedCost | undefined = this.costConsumed
-    ): Run {
+    private transition(changes: RunChanges = {}): Run {
         return new Run({
             id: this.id,
             agent: this.agent,
             configuration: this.configuration,
-            configurations,
+            configurations: changes.configurations ?? this.configurations,
             root: this.root,
             initialBranch: this.initialBranch,
             parent: this.parent,
-            terminal,
-            tokensConsumed,
-            costConsumed,
+            terminal: changes.terminal ?? this.terminal,
+            tokensConsumed: changes.tokensConsumed ?? this.tokensConsumed,
+            costConsumed: changes.costConsumed ?? this.costConsumed,
+            deliveries: changes.deliveries ?? this.deliveries,
             revision: nextRunRevision(this.revision)
         });
     }
+}
+
+/**
+ * What one Run transition changes. Every field a transition leaves alone stays exactly what
+ * the Run already held, so a new field cannot be dropped by a transition that predates it.
+ * `terminal` is never cleared, which is why absence here means "keep" rather than "none".
+ */
+interface RunChanges {
+    readonly terminal?: TerminalSnapshot;
+    readonly configurations?: readonly Digest[];
+    readonly tokensConsumed?: number;
+    readonly costConsumed?: RealizedCost;
+    readonly deliveries?: readonly RunInvocationDelivery[];
 }
 
 class RunRecordCodec extends RecordCodec<Run> {
@@ -327,6 +435,10 @@ class RunRecordCodec extends RecordCodec<Run> {
                 RunCommitId,
                 TurnId,
                 RunBranchId,
+                RunInvocationDelivery,
+                RunInvocationDeliveryCause,
+                AdmissionCause,
+                CancellationCause,
                 CodecRecord,
                 TerminalRun,
                 ApprovalId,
@@ -339,7 +451,7 @@ class RunRecordCodec extends RecordCodec<Run> {
             ],
             "run.record",
             {
-                major: 3,
+                major: 4,
                 minor: 0
             }
         );

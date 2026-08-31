@@ -1,3 +1,5 @@
+export { AdmittedInvocationItem } from "./admitted-item";
+export type { AdmittedInvocationItemInit } from "./admitted-item";
 export { Approval, ApprovalCodec } from "./approval";
 export type { ApprovalState } from "./approval";
 export { InvocationContinuation, InvocationContinuationCodec } from "./continuation";
@@ -31,6 +33,35 @@ export type {
 } from "./audit";
 export { ItemClaim, ItemClaimCodec } from "./claim";
 export type { ItemClaimOwner } from "./claim";
+export {
+    DetachedEffectAdmissionOutcome,
+    DetachedEffectCancellationOutcome,
+    DetachedEffectDeliveryPort
+} from "./detached-delivery";
+export { AlarmDetachedEffectDriver } from "./detached-driver";
+export type { DetachedEffectExecutionSource, DetachedEffectSweepReport } from "./detached-driver";
+export {
+    DetachedEffectExecution,
+    DetachedEffectExecutionCodec,
+    DetachedEffectExecutionState
+} from "./detached-execution";
+export type {
+    DetachedEffectExecutionInit,
+    DetachedEffectExecutionPersistence,
+    DetachedEffectExecutionStateKind
+} from "./detached-execution";
+export {
+    MemoryDetachedEffectExecutionPersistence,
+    cloneDetachedEffectExecutionMemoryState,
+    createDetachedEffectExecutionMemoryState
+} from "./detached-memory";
+export type { DetachedEffectExecutionMemoryState } from "./detached-memory";
+export {
+    AttemptCancellationObservation,
+    DetachedEffectTarget,
+    MemoryDetachedEffectTarget
+} from "./detached-target";
+export type { MemoryDetachedEffectTargetInit } from "./detached-target";
 export {
     requireArray,
     requireCanonicalText,
@@ -103,10 +134,13 @@ export type {
     CanonicalBatchInvocationRequest,
     CanonicalBatchInvocationResult,
     CanonicalBatchInvoker,
+    CanonicalBatchItemAdmission,
+    CanonicalBatchItemExecution,
     CanonicalBatchItemResult,
     CanonicalBatchPreparationPort,
     CanonicalBatchRecordPort,
-    CanonicalBatchResourcesPort
+    CanonicalBatchResourcesPort,
+    CanonicalBatchTargetAdmission
 } from "./canonical-batch";
 export { ReplayOperationInvocationPort } from "./operation-mediation";
 export type {

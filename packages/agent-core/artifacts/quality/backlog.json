@@ -307,22 +307,6 @@
       }
     },
     {
-      "id": "T-EVIDENCE:C13-ADV-MEDIATED-STALE",
-      "type": "T-EVIDENCE",
-      "source": { "kind": "conformance", "id": "C13-ADV-MEDIATED-STALE" },
-      "owner": "W2",
-      "priority": 5,
-      "summary": "Advance C13-ADV-MEDIATED-STALE from implemented with exact evidence",
-      "notes": [
-        "Names mediated stale observation. Its only tests assert that a failed denial append propagates and leaves no partial denial evidence, which is append atomicity, not a stale mediated read."
-      ],
-      "oracle": {
-        "kind": "conformance-status",
-        "requirementId": "C13-ADV-MEDIATED-STALE",
-        "expected": "verified"
-      }
-    },
-    {
       "id": "T-EVIDENCE:C13-AUTH-ISOLATE-NAMESPACE-CLOSED",
       "type": "T-EVIDENCE",
       "source": { "kind": "conformance", "id": "C13-AUTH-ISOLATE-NAMESPACE-CLOSED" },
@@ -333,7 +317,7 @@
         "W3 holds the isolate channel: src/operations/authored-code.ts#AuthoredCodeCapabilitySet keys the namespace by a Map and GatewayAuthoredCodeInvocationPort checks passed-set membership before resolving, with test/operations/authored-code.test.ts covering an unpassed language-supplied name, a passed one, and the fixed set, so a W2 row cannot cite them under the evidence-ownership rule",
         "Closure is unproven for the Slate-backend and agent-authored-facet consumers: only the programmatic-tool-call channel has a covered namespace",
         "No checker forbids a host from assembling a capability namespace as a prototype-bearing structure, so the Map keying is a convention rather than an enforced one",
-        "The no-renaming half is unproven: no test asserts a host refuses rather than normalizes a passed capability whose name is inadmissible"
+        "The no-renaming half is now proven in test/authority/isolate-namespace-refusal.test.ts, which is why this row stays planned only on the three items above: for every repair a host might apply — trim, case-fold, NFKC, combining-mark strip, truncate to the 256-character limit — the file first proves the repaired spelling is admissible and already bound, then proves the inadmissible spelling is refused at the BindingName, at the Binding record, and at Binding.fromData, leaving exactly the one Binding that was written. An empty name is refused with no substituted default, and the longest canonical name is admitted while the next character is refused rather than truncated. A mutation making Binding.fromData normalize the decoded name instead of refusing it turns that file red."
       ],
       "oracle": {
         "kind": "conformance-status",
@@ -349,7 +333,7 @@
       "priority": 5,
       "summary": "Advance C13-AUTH-MEDIATED-STALE from implemented with exact evidence",
       "notes": [
-        "Authenticated Tenant denial joins target watermark state, but the full target-local Receipt and Audit transaction remains to be verified end to end"
+        "One clause remains, and it is no longer the order. No production ActorAuthorityHost exists in the tree: src/composition/authority-state.ts#ActorAuthorityHost is implemented only by test harnesses, so the Receipt and AuditRecord CONTENT a deployment would write is still host-supplied rather than derived by shipped code. That file is W9's and this stream may not add the production host, so the clause is owed by whoever lands it"
       ],
       "oracle": {
         "kind": "conformance-status",
@@ -365,11 +349,11 @@
       "priority": 5,
       "summary": "Advance C13-AUTH-SCOPE-DIRECTION from planned with exact evidence",
       "notes": [
-        "The downward half needs discrimination rather than construction for authority and has no evidence at all for policy: src/authority/runtime.ts#TenantAuthorityRuntime and src/composition/authority.ts already resolve along the ordered Tenant-to-target path under C13-AUTH-DENY-PRECEDENCE and C13-AUTH-PATH-ORDER, while nothing asserts that declared PolicySet material — enforcement tiers, quotas, retention — resolves along that same path, so a host resolving policy per-Workspace only would satisfy every current test",
+        "The authority half of the downward direction is now discriminated and stays uncited only because a planned row may carry no selectors: test/authority/scope-direction.test.ts proves against src/identity/scope.ts#scopePath and src/authority/runtime.ts#TenantAuthorityRuntime that the resolution path is the exact ordered ancestry and names no sibling or descendant; that a live allow Grant held at the Tenant or the Project reaches a Workspace beneath it at both validateBinding and check; that the same deny held at a sibling Workspace reaches nothing while one held at the Project does; that a Binding backed by a sibling's Grant is refused at src/authority/service.ts#requireBindingAuthority, at validateBinding, and by the closure src/authority/closure.ts asserts on every commit; and that an attenuation from a descendant is refused by Grant.canAttenuate, by createGrant, and by that same closure. The POLICY half is still absent: nothing asserts that declared PolicySet material — enforcement tiers, quotas, retention — resolves along the same path, and src/definition/policy.ts is W4, so a host resolving policy per-Workspace only would satisfy every current test",
         "The composition conjunct is true by construction and unasserted, which is the direction a regression arrives from: src/facets/slot-store.ts#WorkspaceSlotCatalog reads a WorkspaceSlotStore and can only return the queried Workspace's own entries, so an ancestor's install cannot compose into a descendant today because no ancestor-scoped slot store exists. Closure needs the adversarial case — a Facet installed at the Tenant, a slot query at a Workspace beneath it, no entry returned — so the confinement survives the day a Tenant-scoped store is added",
         "The Event conjunct cannot be proved by the matcher and has to be proved at the store that supplies candidate Subscriptions: src/workspaces/policy.ts#eventMatches compares kind, source and accepted trust only, so a Subscription (src/workspaces/subscription.ts#Subscription) whose pattern matches an Event accepted by a sibling or ancestor Actor exactly must still be shown never to receive it, and a mutation widening the candidate set past the accepting Actor must break a cited test",
         "The positive cross-Scope path is untested as a Scope statement: a Tenant reacting to a Workspace Event must be shown to require a declared Subscription whose delivery authority is checked under C13-SUBSCRIPTION-AUTHORITY, and the same reaction must be impossible without that Subscription and its Grant, which is what separates a declared route from inherited visibility",
-        "Nothing keeps the two directions from being conflated, so the rule needs two mutations of its own: a Grant that stops at the Scope holding it instead of reaching descendants, and a slot entry or an Event that traverses the chain the way a Grant does, each killing a distinct test — a host doing either would violate this rule while satisfying every atom it cites"
+        "The first of the two mutations this rule needs is now proven and the second is not. Narrowing the resolver's reach set in src/authority/runtime.ts#TenantAuthorityRuntime from the target's ancestry to the Scope holding the Grant turns the two positive reach tests red, and narrowing scopeReaches in the same file to an equality turns the validateBinding half red; both were applied, observed red, reverted, and observed green. The companion mutation — a slot entry or an Event that traverses the chain the way a Grant does — cannot be authored by W2: it needs src/facets/slot-store.ts (W3) and src/workspaces/{policy,subscription}.ts (W7)"
       ],
       "oracle": {
         "kind": "conformance-status",
@@ -402,9 +386,7 @@
       "priority": 5,
       "summary": "Advance C13-AUTH-SHARE-OFFER from implemented with exact evidence",
       "notes": [
-        "The record and its redemption semantics are complete and adversarially evidenced: grants-nothing-before-redemption, secret-before-state check order, per-holder idempotency keyed without a guest's verifiedVia, revocation before redemption, the exact expiry boundary, the exhausted bound, the Team-holder refusal, the mandatory expiry and positive bound, and revocation never retracting a minted Membership",
-        "No AuthorityService operation issues, revokes, or redeems a ShareOffer yet, so the guarded Tenant-Actor transaction that must linearize a redemption against Grant and path-epoch mutation is unevidenced, as is the administer-impact authorization of issuance and the requirement that a minted Membership be bounded by what the issuer could have assigned directly",
-        "Durability is evidenced through the Memory identity store only. The SQLite substrate has no share-offer table, writer, or authority-closure change bucket, so store parity and restart-replay behaviour for an offer revoked between deliveries are unevidenced"
+        "The status is held at implemented rather than verified because this repair's evidence is written but not executed. The role pin is a wire change — identity.share-offer moves to codec major 2 and the SQLite projection gains a role_digest column — and the run that would execute the new memory and SQLite cases is reserved for integration under the parent's resource rule, so no measured pass exists in this worktree yet. Promotion needs that run and nothing else: the mechanism, the substrate projection and the hostile cases are all present"
       ],
       "oracle": {
         "kind": "conformance-status",
@@ -471,6 +453,22 @@
       }
     },
     {
+      "id": "T-EVIDENCE:C13-CLOUDFLARE-ALARM-CLAIMS",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-CLOUDFLARE-ALARM-CLAIMS" },
+      "owner": "W8",
+      "priority": 5,
+      "summary": "Advance C13-CLOUDFLARE-ALARM-CLAIMS from implemented with exact evidence",
+      "notes": [
+        "This row is held below verified because its live evidence cannot resolve. The committed manifest at artifacts/conformance/live-evidence/run.json fingerprints cloudflare/src/durable-object.ts and cloudflare/src/reconciliation.ts, both changed by the W8 platform-behaviour work in this change, so validateLiveEvidence fails closed with 'Live evidence is stale' and every cloudflare/test/live selector this row cited stops resolving. The source symbols and the hermetic selectors are unchanged and still pass; what is gone is the deployed observation, and a verified claim that rests on a deployed observation may not outlive it. The single prerequisite is one operator re-run of `pnpm --filter @agent-core/cloudflare live:evidence` against the account, which regenerates run.json and the four phase reports at the current commit and restores this row to verified with its citations untouched. No fingerprint was re-pinned by hand, because re-pinning ratifies a deployment that did not happen."
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-CLOUDFLARE-ALARM-CLAIMS",
+        "expected": "verified"
+      }
+    },
+    {
       "id": "T-EVIDENCE:C13-CLOUDFLARE-ALARM-DURABILITY",
       "type": "T-EVIDENCE",
       "source": { "kind": "conformance", "id": "C13-CLOUDFLARE-ALARM-DURABILITY" },
@@ -479,9 +477,10 @@
       "summary": "Advance C13-CLOUDFLARE-ALARM-DURABILITY from implemented with exact evidence",
       "notes": [
         "The corrected §10.4 rule bounds platform re-firing and requires the Actor to rebuild the alarm from the outbox on start. createCloudflareDurableObjectClass arms that rebuild under blockConcurrencyWhile, but no test named here exercises a start that recovers an alarm the platform stopped re-firing, and the live lane owes that scenario under ACQ-LIVE.",
-        "The platform exposes alarmInfo.retryCount and alarmInfo.isRetry (https://developers.cloudflare.com/durable-objects/api/alarms/#alarm) and the adapter reads neither: durable-object.ts#alarm takes no parameter, so the object cannot tell how close the platform is to abandoning a schedule and cannot record it. Owed as evidence for the bounded-re-firing clause.",
-        "blockConcurrencyWhile is a documented whole-object stall that resets the object at thirty seconds and on any throw (https://developers.cloudflare.com/durable-objects/api/state/#blockconcurrencywhile), and setAlarm inside a constructor is a documented hazard because the constructor runs before the alarm handler on wake (https://developers.cloudflare.com/durable-objects/api/alarms/#setalarm). durable-object.ts calls a host-supplied repairAlarm inside blockConcurrencyWhile, which is both at once. It converges because the repair is derived from the outbox rather than an unconditional setAlarm, but nothing in the package bounds the host callback or records why the constructor may touch the alarm at all.",
-        "The fifteen-minute alarm wall-time cap (https://developers.cloudflare.com/durable-objects/platform/limits/#wall-time-limits-by-invocation-type) and the CPU budget between network events (same page, footnote 4) are unmodelled: a sweep killed at either boundary is not a throw, so it reaches neither AlarmOutboxReconciler's retry path nor its floored re-arm. The resumption journal bounds the loss to one uncommitted step but nothing bounds the sweep itself."
+        "The platform's own alarmInfo is now read. AlarmInvocation carries retryCount and isRetry from the handler argument and reports retriable against the documented six-retry ceiling, so a sweep can see the re-firing budget running out and knows when its own start-time rebuild is the only recovery left. A missing or malformed alarmInfo reads as a first delivery, which neither suppresses work nor asserts a retry budget the platform never reported.",
+        "The host callback inside blockConcurrencyWhile is now bounded. The startup alarm repair has a ten-second budget, well inside the documented thirty-second whole-object stall, and exceeding it rejects into the object's existing single captured refusal rather than hanging the object with no diagnosis; the timer is always cleared so a settled repair leaves nothing holding the object alive. Why construction may touch the alarm at all is now recorded at the call site: the repair derives the wakeup from the claim table rather than calling setAlarm unconditionally, so an armed schedule survives being rebuilt from the state it was armed out of.",
+        "The fifteen-minute alarm wall-time cap is now modelled. A sweep stops inside a ten-minute budget and floors its re-arm one retry delay out, exactly as an interrupted sweep does, leaving every unreached entry due at its own schedule and reporting exhausted on the result, so being killed at the platform boundary is no longer the only outcome. The CPU budget between network events is still unmodelled and is not measurable from inside the isolate.",
+        "The committed live evidence at artifacts/conformance/live-evidence/run.json is now stale for this row's sources: it fingerprints cloudflare/src/durable-object.ts and cloudflare/src/reconciliation.ts, and both changed here, so validateLiveEvidence fails closed with 'Live evidence is stale'. The single prerequisite is one operator re-run of `pnpm --filter @agent-core/cloudflare live:evidence` against the real account, which regenerates run.json and the four phase reports at the current commit. No fingerprint was re-pinned by hand, because re-pinning ratifies a deployment that did not happen."
       ],
       "oracle": {
         "kind": "conformance-status",
@@ -495,11 +494,12 @@
       "source": { "kind": "conformance", "id": "C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING" },
       "owner": "W8",
       "priority": 5,
-      "summary": "Advance C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING from planned with exact evidence",
+      "summary": "Advance C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING from implemented with exact evidence",
       "notes": [
-        "A trusted profile bootstrap must mint an unforgeable target-bound RPC capability before the Tenant accepts a permit command; direct Durable Object RPC does not authenticate the calling Actor",
-        "The target capability must carry the exact immutable request through the Tenant command dispatcher, preserve duplicate and response-loss semantics, and authenticate every issued or denied reply in a real isolate",
-        "Deployed evidence must bind the exact Tenant and target source hashes without replacing the target capability with caller-supplied identity"
+        "The unforgeable target-bound capability now exists. TargetBoundTenantAuthority is minted by the Tenant for one exact caller ActorRef, takes no caller argument on any method, and stamps that identity on every forwarded call, so a holder cannot answer for another Actor by editing a payload. The payload itself stays opaque in this profile: SPEC section 10.3 places the issuance decision in the Tenant, so the capability carries bytes and authenticates who sent them and decides nothing about them.",
+        "Duplicate and response-loss semantics are held rather than emulated. A repeat of one idempotency key with byte-identical content is forwarded again, because the Tenant's own permit record is the single source of truth for whether it already issued and answering in transit would be a second durable copy of an authority decision; a repeat with different bytes is refused before the Tenant sees it, because it would ask one nonce to bind two requests. The guard retains one canonical digest per key rather than the payload, because both the key and the payload are attacker-supplied and a guard that grows with what a holder sends is memory exhaustion inside a 128 MB isolate rather than a safety check. Three bounds hold it, each declared once and each tested at the exact value it admits and the first value it refuses: MAXIMUM_KEYED_CALLS distinct keys per capability, MAXIMUM_IDEMPOTENCY_KEY_LENGTH characters per key, and SQL_BLOB_LIMIT_BYTES per payload. Every refusal is proven to occur before the sink, by a recording sink whose call count does not move, and an over-limit payload is proven not to consume a distinct-key slot either. A lost response is exercised end to end: the Tenant issues, the target admits nothing, the retry replays that exact issuance, and the admission happens once.",
+        "The seven approved core boundary symbols are now public on the authority and protocol subpaths and remain forbidden on the root package. The packed consumer verifies those exact surfaces, and the real-workerd permit lane exercises the composed path without re-implementing any authority decision in this profile.",
+        "Deployed evidence is still owed for the third clause. On workerd 1.20260708.1 the Tenant capability's RpcTarget disposer runs after the client execution context ends, so final release cannot be observed inside this hermetic lane. The lane proves that releasing the original handle does not sever its duplicate. The structural capability test proves refusal after the final local release, and the Tenant exposes a release count for a live lane that outlives one request."
       ],
       "oracle": {
         "kind": "conformance-status",
@@ -513,11 +513,12 @@
       "source": { "kind": "conformance", "id": "C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION" },
       "owner": "W8",
       "priority": 5,
-      "summary": "Advance C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION from planned with exact evidence",
+      "summary": "Advance C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION from implemented with exact evidence",
       "notes": [
-        "The complete target mediation aggregate must be hosted in one Durable Object transaction and consume only an issued permit authenticated through the target-bound capability path",
-        "Real-isolate adversaries must cover request retention, exact claim and reservation admission, single use, expiry, rollback, restart, authenticated Tenant denial, response loss, and post-issuance watermark movement",
-        "Deployed cross-Actor evidence remains required after the local real-isolate vertical is complete"
+        "The target-side aggregate is hosted with no adapter of its own: CloudflareSqlite extends the core TransactionalSqlite, so SqliteAuthorityPermitStore and StoredAuthorityPermitAdmissionPort run directly over Durable Object storage and the consumption is one synchronous transactionSync span with no intervening await. This profile adds the authenticated channel and nothing else, which is why no second permit store exists here.",
+        "Real-isolate adversaries measured green in workerd: wrong target Actor, authenticated Tenant denial, single use on redelivery, expiry at the admission instant, expectation mismatch on target fence, path epoch, item key and argument digest, retention of the immutable request beside the consumption across instance loss, and no consumption row written when the admission is refused. The wrong-Tenant lookup is refused by CapabilityAuthorityPermitRecords before the stub is reached, so a target cannot authenticate against a Tenant its capability does not name.",
+        "The seven approved core boundary symbols are now public on the authority and protocol subpaths and remain forbidden on the root package. The packed consumer verifies those exact surfaces, and the real-workerd consumption lane exercises the composed path without duplicating the core permit store or admission policy.",
+        "Deployed cross-Actor evidence remains owed after the local real-isolate vertical: rollback under a real rollout, and a post-issuance watermark movement that must not cancel an admitted permit, are both account-level scenarios no local lane reaches."
       ],
       "oracle": {
         "kind": "conformance-status",
@@ -535,7 +536,8 @@
       "notes": [
         "Its prerequisite C13-CLOUDFLARE-ALARM-DURABILITY carries an open obligation, so continuity cannot rest on it yet.",
         "The rollback direction is now stated in §10.4 and implemented: createCloudflareDurableObjectClass constructs an object whose applied schema this release cannot read and refuses each operation with schema.unreadable, leaving the durable state untouched. cloudflare/test/deployment-rollback.test.ts covers N to N+1 to N and back to N+1 on real SQLite, which closes the structural half of the obligation this atom carried.",
-        "Continuity across a rollout is not only schema continuity. Cloudflare documents that a request can reach a new Worker version and call a Durable Object still running the previous version for seconds to minutes (https://developers.cloudflare.com/durable-objects/platform/known-issues/#code-updates), that many exceptions leave a stub permanently broken, that errors carry .retryable and .overloaded properties, and that a retryable error should be retried with backoff on a freshly created stub while an overloaded one must not be retried at all (https://developers.cloudflare.com/durable-objects/best-practices/error-handling/). The adapter classifies none of this: grep for retryable and overloaded across cloudflare/src returns nothing, namespace.ts and placement.ts hand back raw stubs, and neither property is declared in the generated worker-configuration.d.ts, so reading them needs an explicit narrowing at the boundary that does not exist. The documented stub-lookup rate limit and the thousand-request-per-second soft limit reach the caller the same unclassified way. This is the most production-proven gap in the corpus and it has no §10 clause; the clause is owed before the code."
+        "Continuity across a rollout is now classified. CloudflareStubFailure reads the platform's own retryable and overloaded dispositions, decides overload first so a failure carrying both is never retried, and throughFreshStub resolves a NEW stub per attempt because Cloudflare documents a thrown-on stub as permanently broken. Minting sits outside the attempt's try, so a namespace lookup that fails is not misreported as a refusal by a callee that was never reached. The backoff is exponential and deterministic: this policy governs one caller retrying one keyed call, not a fleet converging on one object, so a reproducible schedule costs nothing.",
+        "The committed live evidence at artifacts/conformance/live-evidence/run.json is now stale for this row's sources: it fingerprints cloudflare/src/durable-object.ts and cloudflare/src/reconciliation.ts, and both changed here, so validateLiveEvidence fails closed with 'Live evidence is stale'. The single prerequisite is one operator re-run of `pnpm --filter @agent-core/cloudflare live:evidence` against the real account, which regenerates run.json and the four phase reports at the current commit. No fingerprint was re-pinned by hand, because re-pinning ratifies a deployment that did not happen."
       ],
       "oracle": {
         "kind": "conformance-status",
@@ -634,6 +636,70 @@
       }
     },
     {
+      "id": "T-EVIDENCE:C13-CLOUDFLARE-QUEUE-DISPOSITION",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-CLOUDFLARE-QUEUE-DISPOSITION" },
+      "owner": "W8",
+      "priority": 5,
+      "summary": "Advance C13-CLOUDFLARE-QUEUE-DISPOSITION from implemented with exact evidence",
+      "notes": [
+        "This row is held below verified because its live evidence cannot resolve. The committed manifest at artifacts/conformance/live-evidence/run.json fingerprints cloudflare/src/durable-object.ts and cloudflare/src/reconciliation.ts, both changed by the W8 platform-behaviour work in this change, so validateLiveEvidence fails closed with 'Live evidence is stale' and every cloudflare/test/live selector this row cited stops resolving. The source symbols and the hermetic selectors are unchanged and still pass; what is gone is the deployed observation, and a verified claim that rests on a deployed observation may not outlive it. The single prerequisite is one operator re-run of `pnpm --filter @agent-core/cloudflare live:evidence` against the account, which regenerates run.json and the four phase reports at the current commit and restores this row to verified with its citations untouched. No fingerprint was re-pinned by hand, because re-pinning ratifies a deployment that did not happen."
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-CLOUDFLARE-QUEUE-DISPOSITION",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-CLOUDFLARE-RECONCILIATION-DRIVER",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-CLOUDFLARE-RECONCILIATION-DRIVER" },
+      "owner": "W8",
+      "priority": 5,
+      "summary": "Advance C13-CLOUDFLARE-RECONCILIATION-DRIVER from implemented with exact evidence",
+      "notes": [
+        "This row is held below verified because its live evidence cannot resolve. The committed manifest at artifacts/conformance/live-evidence/run.json fingerprints cloudflare/src/durable-object.ts and cloudflare/src/reconciliation.ts, both changed by the W8 platform-behaviour work in this change, so validateLiveEvidence fails closed with 'Live evidence is stale' and every cloudflare/test/live selector this row cited stops resolving. The source symbols and the hermetic selectors are unchanged and still pass; what is gone is the deployed observation, and a verified claim that rests on a deployed observation may not outlive it. The single prerequisite is one operator re-run of `pnpm --filter @agent-core/cloudflare live:evidence` against the account, which regenerates run.json and the four phase reports at the current commit and restores this row to verified with its citations untouched. No fingerprint was re-pinned by hand, because re-pinning ratifies a deployment that did not happen."
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-CLOUDFLARE-RECONCILIATION-DRIVER",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-CLOUDFLARE-RECONCILIATION-FENCE",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-CLOUDFLARE-RECONCILIATION-FENCE" },
+      "owner": "W8",
+      "priority": 5,
+      "summary": "Advance C13-CLOUDFLARE-RECONCILIATION-FENCE from implemented with exact evidence",
+      "notes": [
+        "This row is held below verified because its live evidence cannot resolve. The committed manifest at artifacts/conformance/live-evidence/run.json fingerprints cloudflare/src/durable-object.ts and cloudflare/src/reconciliation.ts, both changed by the W8 platform-behaviour work in this change, so validateLiveEvidence fails closed with 'Live evidence is stale' and every cloudflare/test/live selector this row cited stops resolving. The source symbols and the hermetic selectors are unchanged and still pass; what is gone is the deployed observation, and a verified claim that rests on a deployed observation may not outlive it. The single prerequisite is one operator re-run of `pnpm --filter @agent-core/cloudflare live:evidence` against the account, which regenerates run.json and the four phase reports at the current commit and restores this row to verified with its citations untouched. No fingerprint was re-pinned by hand, because re-pinning ratifies a deployment that did not happen."
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-CLOUDFLARE-RECONCILIATION-FENCE",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-CLOUDFLARE-RECONCILIATION-RETRY",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-CLOUDFLARE-RECONCILIATION-RETRY" },
+      "owner": "W8",
+      "priority": 5,
+      "summary": "Advance C13-CLOUDFLARE-RECONCILIATION-RETRY from implemented with exact evidence",
+      "notes": [
+        "This row is held below verified because its live evidence cannot resolve. The committed manifest at artifacts/conformance/live-evidence/run.json fingerprints cloudflare/src/durable-object.ts and cloudflare/src/reconciliation.ts, both changed by the W8 platform-behaviour work in this change, so validateLiveEvidence fails closed with 'Live evidence is stale' and every cloudflare/test/live selector this row cited stops resolving. The source symbols and the hermetic selectors are unchanged and still pass; what is gone is the deployed observation, and a verified claim that rests on a deployed observation may not outlive it. The single prerequisite is one operator re-run of `pnpm --filter @agent-core/cloudflare live:evidence` against the account, which regenerates run.json and the four phase reports at the current commit and restores this row to verified with its citations untouched. No fingerprint was re-pinned by hand, because re-pinning ratifies a deployment that did not happen."
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-CLOUDFLARE-RECONCILIATION-RETRY",
+        "expected": "verified"
+      }
+    },
+    {
       "id": "T-EVIDENCE:C13-CLOUDFLARE-ROLLBACK-WINDOW",
       "type": "T-EVIDENCE",
       "source": { "kind": "conformance", "id": "C13-CLOUDFLARE-ROLLBACK-WINDOW" },
@@ -660,14 +726,31 @@
       "summary": "Advance C13-CLOUDFLARE-STORAGE-LIMIT from implemented with exact evidence",
       "notes": [
         "The named live case claims it stores a row at the declared limit, and its own comment says the seam is only correct if production accepts a row that large with overhead included, but it wrote SQL_BLOB_LIMIT_BYTES - 1_000 and exercised neither boundary. It now writes at the limit and owes a live run. The documented bound covers a string, BLOB or row while requireStorableBlob measures only the payload, so at-limit acceptance rests on workerd's undocumented SQLITE_LIMIT_LENGTH headroom rather than on anything Cloudflare promises.",
-        "SQLITE_FULL is documented as the failure a Durable Object at its ten-gigabyte storage limit returns for every write while reads and DELETEs keep working, and a storage operation that exceeds the platform's internal timeout is documented to reset the object (https://developers.cloudflare.com/durable-objects/platform/limits/#what-happens-when-a-durable-object-exceeds-its-storage-limit, https://developers.cloudflare.com/durable-objects/observability/troubleshooting/). Neither is classified: CloudflareSqlite maps both to a generic protocol.invalid-state, so a full object is indistinguishable from a malformed statement and the documented drain-to-recover path cannot be taken.",
-        "Two further documented SQL bounds are unenforced: the hundred-kilobyte statement length and the hundred-bound-parameter cap (https://developers.cloudflare.com/durable-objects/platform/limits/#sql-storage-limits). Nothing in the package approaches either today, and nothing prevents a host from doing so.",
-        "The two size seams in this package measure bytes the platform does not. requireStorableBlob measures the payload against a bound the documentation applies to the whole row, and the WebSocket attachment guard measures UTF-8 JSON bytes against a bound the platform applies to the structured clone (https://developers.cloudflare.com/durable-objects/best-practices/websockets/#websocketserializeattachment). Both approximations are stated in comments; neither is derived. A payload the storage seam accepts is also not bounded against the transport that has to carry it: a near-limit ViewDelta becomes roughly 2.7 MB of base64 in one frame, and the outbound frame ceiling is undocumented, so the delta can be unsendable to its own subscribers as an opaque socket failure.",
-        "The R2 content path buffers whole objects inside a 128 MB isolate — content-object.ts copies the payload on put and reads the entire body on get — with no size, key-length or metadata guard against R2's documented 1,024-byte key and 8,192-byte metadata bounds (https://developers.cloudflare.com/r2/platform/limits/, https://developers.cloudflare.com/workers/platform/limits/#memory). §10.1 routes the ContentStore to R2 expressly for large content, so this is the one path where the memory limit rather than the storage limit is the binding constraint."
+        "SQLITE_FULL and the storage-timeout reset are now classified rather than flattened. CloudflareStorageFailure reads the platform's documented marker and reports drainable and transient separately, so a full object is distinguishable from a reset one and from a refused statement, and the raised AgentCoreError names the classification while the thrown platform value survives as its cause. The code stays protocol.invalid-state because the closed AgentCoreErrorCode union has no storage-exhaustion member and inventing one is W0's call, not this profile's.",
+        "The hundred-kilobyte statement length and the hundred-bound-parameter cap are enforced. requireExecutableStatement refuses both as operation.invalid-input before the statement reaches the platform, and it measures UTF-8 bytes only when a statement's code-unit count could possibly exceed a third of the bound, so no real statement in this package pays an encoding pass.",
+        "Two size approximations remain and are stated rather than derived, because neither quantity is measurable in-isolate. requireStorableBlob measures the payload against a bound the documentation applies to the whole row, and the WebSocket attachment guard measures UTF-8 JSON bytes against a bound the platform applies to the structured clone. A near-limit ViewDelta is also not bounded against the outbound frame that has to carry it, and the outbound ceiling is undocumented.",
+        "The R2 content path is now bounded where memory rather than storage binds it: a content object over 32 MiB is refused as operation.invalid-input on write, and on read the refusal happens against R2's reported size before the body is fetched, so an oversized object never enters the 128 MB isolate. R2's 1,024-byte key and 8,192-byte metadata bounds are satisfied by construction rather than by a guard, since a key is the fixed prefix plus two fixed-width digests and the metadata is three fixed-width entries; the measured constants are exported so a future key change is caught.",
+        "The committed live evidence at artifacts/conformance/live-evidence/run.json is now stale for this row's sources: it fingerprints cloudflare/src/durable-object.ts and cloudflare/src/reconciliation.ts, and both changed here, so validateLiveEvidence fails closed with 'Live evidence is stale'. The single prerequisite is one operator re-run of `pnpm --filter @agent-core/cloudflare live:evidence` against the real account, which regenerates run.json and the four phase reports at the current commit. No fingerprint was re-pinned by hand, because re-pinning ratifies a deployment that did not happen."
       ],
       "oracle": {
         "kind": "conformance-status",
         "requirementId": "C13-CLOUDFLARE-STORAGE-LIMIT",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-CLOUDFLARE-VIEW-ATTACHMENT",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-CLOUDFLARE-VIEW-ATTACHMENT" },
+      "owner": "W8",
+      "priority": 5,
+      "summary": "Advance C13-CLOUDFLARE-VIEW-ATTACHMENT from implemented with exact evidence",
+      "notes": [
+        "This row is held below verified because its live evidence cannot resolve. The committed manifest at artifacts/conformance/live-evidence/run.json fingerprints cloudflare/src/durable-object.ts and cloudflare/src/reconciliation.ts, both changed by the W8 platform-behaviour work in this change, so validateLiveEvidence fails closed with 'Live evidence is stale' and every cloudflare/test/live selector this row cited stops resolving. The source symbols and the hermetic selectors are unchanged and still pass; what is gone is the deployed observation, and a verified claim that rests on a deployed observation may not outlive it. The single prerequisite is one operator re-run of `pnpm --filter @agent-core/cloudflare live:evidence` against the account, which regenerates run.json and the four phase reports at the current commit and restores this row to verified with its citations untouched. No fingerprint was re-pinned by hand, because re-pinning ratifies a deployment that did not happen."
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-CLOUDFLARE-VIEW-ATTACHMENT",
         "expected": "verified"
       }
     },
@@ -677,13 +760,11 @@
       "source": { "kind": "conformance", "id": "C13-CODEC-INCOMPATIBILITY-TOTAL" },
       "owner": "W1",
       "priority": 5,
-      "summary": "Advance C13-CODEC-INCOMPATIBILITY-TOTAL from planned with exact evidence",
+      "summary": "Advance C13-CODEC-INCOMPATIBILITY-TOTAL from implemented with exact evidence",
       "notes": [
-        "Neither half exists. src/core/codec.ts#RecordCodec stamps `{ kind, version: { major, minor }, payload }` on every encode and decides compatibility inside decode, one record at a time, so incompatibility is discovered by reading rather than from a declaration a reader reaches before any read. There is no record-set-level declaration to check and nowhere to check one: the codec is a per-record object held by each record class — RunCommit.codec, Environment.codec, PortExposure.codec and the rest — and no Actor declares the codec version of the records it owns",
-        "The totality half changes behaviour rather than only timing, and its conformance cases are the derivations this document already builds over whole record sets. A store whose incompatible rows are the ones a caller has not reached serves normally today, so reserved-minus-completed under C13-RUN-FRONTIER-COMPLETE, an ancestry walk under C13-RUN-ANCESTRY, and the settlement test under C13-RUN-SETTLED-DERIVED can each answer from the subset that decodes and return a wrong answer where a rejection would have returned none. Each of the three is owed as a case that rejects rather than answering short. Cross-wave ownership answered, since naming a foreign atom is not the same as owing its evidence: C13-RUN-FRONTIER-COMPLETE, C13-RUN-ANCESTRY and C13-RUN-SETTLED-DERIVED are W5 atoms over W5 records, and this row is W1. requireEvidenceOwner admits sourceSymbols only under the owning wave or W9, so a W1 row can never cite src/agents/runs symbols and must not try. The three derivation cases are therefore W5's to evidence under W5 rows once the record-set-level declaration exists — not this row's to cite and not this row's to block on. What this row owes is the substrate-neutral declaration and its total refusal at the W1 seam; what those three owe is that each rejects rather than answering short over a partially decodable set. Stated so a promoter reads three named atoms as the scope of the behaviour change rather than as evidence this row must produce",
-        "The recovery half needs both directions asserted, because a reader that refused by failing to construct would satisfy a rejection-only test. An incompatible declaration leaves every operation failing with the codec's typed error while the set stays addressable for inspection and export, the durable bytes are unchanged afterwards, and a reader that understands the declared version then serves the same set with no repair step",
-        "The Cloudflare profile already implements this rule for its own schema markers and is the working reference rather than a second mechanism: packages/agent-core-cloudflare/src/migration.ts raises the stable `schema.unreadable` code for an undeclared, corrupt, or duplicated marker, and the Durable Object class captures that one refusal at construction and raises it from fetch, alarm, and every socket entry point under C13-CLOUDFLARE-ROLLBACK-WINDOW. What is owed here is the substrate-level obligation that profile specialises, so a non-Cloudflare substrate owes the same property. Ownership answered, because this path was enumerated as a structural-ownership-blocker candidate: packages/agent-core-cloudflare/src/migration.ts is W8 while this row is W1, and it is named here as a working PRECEDENT and never as a required citation. This row's discriminating evidence must come from the substrate-neutral W1 seam — src/core/codec.ts plus whatever record-set-level declaration is eventually built — so no promoter should ever move a W8 path into this row's sourceSymbols, where requireEvidenceOwner would reject it. The row is planned and therefore carries no symbols at all today; this sentence exists so the clause is not misread as pointing at where the evidence has to live",
-        "testSelectors is empty because scripts/quality/ledger.mjs#validateStatus rejects a planned requirement that carries source symbols, test selectors, or checker invariants, so what follows is named as prose rather than cited. One half of the rule — that the decision is total, admitting no third unknown answer and leaving no input undecided — is now measured by test/core/codec.test.ts#Canonical codecs decides every version pair in its domain with no third answer, which enumerates the decision's domain instead of sampling it as the C13-CODEC-VERSIONING cases above do. The version domain is bounded to non-negative safe integers because isEnvelope refuses every other JSON number; over that domain the outcome is measured to factor through the sign of the major difference and the sign of the minor difference by requiring exactly one outcome per class across components that reach both ends of the domain, which is what makes nine classes exhaust an infinite domain rather than merely sample it widely; all nine classes are populated; and every out-of-domain version and malformed envelope is required to answer codec.invalid specifically, never codec.unknown-major, which is reserved for a well-formed envelope whose major differs. What that does not establish is the set-level half: the decision it exhausts is still per record and still reached by decoding, so the four obligations above stand unchanged and the status stays planned. Promoting this row on the strength of the totality test alone would claim a record-set-level declaration that does not exist"
+        "A dispatcher declares only the record kinds it owns itself, so a command family's own records sit inside the set the gate protects but outside the declaration it compares. src/protocol/dispatcher.ts#CommandDispatcher declares the write record and the audit record, and src/actors/actor.ts#Actor adds the recovery carrier; a Run commit, a slot entry and a materialization plan are none of those. Closing it needs a declaration member on src/protocol/registration.ts#ProtocolCommand, which is W1's file, and a value on every registered command, which is not: src/protocol/run-commands.ts is W5's, src/protocol/facet-commands.ts is W3's and src/protocol/materialization-commands.ts is W4's. The member is left absent rather than added empty, because a command that declares nothing would read as a command that owns no records",
+        "That gap is not hypothetical and now has a dated instance. W4's treeMerge cutover moved five definition codec majors in one change — definition.blueprint 2 to 3, definition.managed-state 2 to 3, definition.actor-plan 1 to 2, definition.materialization-plan 1 to 2 and definition.materialization-rollout 1 to 2 — and src/protocol/dispatcher.ts#CommandDispatcher names none of the five, so a store written before that cutover would be refused by each row's own codec on the way past rather than by the declaration a reader reaches first. That is exactly the discovery-by-decoding this rule exists to replace, and it is the case the ProtocolCommand declaration member above would have caught",
+        "The three derivations §8.3 names as the reason totality matters are each owed as a case that rejects rather than answering short, and each belongs to the wave that owns the derivation: reserved-minus-completed under C13-RUN-FRONTIER-COMPLETE, an ancestry walk under C13-RUN-ANCESTRY and the settlement test under C13-RUN-SETTLED-DERIVED are all W5 rows in runs-turns.json. Naming a foreign atom is not owing its evidence. The mechanism those cases would exercise is the src/actors/actor.ts#Actor gate this row already evidences on both substrates, so each is a citation W5 adds rather than a mechanism anyone still has to build"
       ],
       "oracle": {
         "kind": "conformance-status",
@@ -716,11 +797,13 @@
       "source": { "kind": "conformance", "id": "C13-CONTENT-CUSTODY" },
       "owner": "W1",
       "priority": 5,
-      "summary": "Advance C13-CONTENT-CUSTODY from planned with exact evidence",
+      "summary": "Advance C13-CONTENT-CUSTODY from implemented with exact evidence",
       "notes": [
-        "The §8.4 ownership map now declares ContentRef-bearing fields and their retention owner in its existing artifacts/records/*.json rows. The records checker derives the live denominator from the registered TypeScript record shapes, including nested fields and concrete subclasses of abstract registered records, and rejects missing, stale, wrong, duplicate, or mis-owned declarations. The current registry has 30 ContentRef-bearing kinds: 24 durable records and 6 value records; value records name fields but correctly claim no independent durable retainer",
-        "This prerequisite does not implement custody. Every write path for the 24 declared durable kinds must register its exact referenced content in the owning Actor's transaction, every defined removal path must release it in that transaction, append-only records must retain it for their full durable lifetime, and collection must exclude content held by every declared owner",
-        "Closure still requires memory and SQLite behavior tests covering create, replace, rollback, restart, release, collection, nested definition and Environment references, inherited AttemptReceipt.result, and concurrent collection attempts. AC-CONTENT-001 remains limited to retention safety after an ownership edge exists and does not prove registration-on-naming"
+        "Registration and release remain owed for 17 of the 24 declared durable kinds, none of them in a file W1 may write. Closed here: src/content/retention.ts#ContentRetention is the seam, src/content/memory.ts#MemoryContentRetention and src/substrates/sqlite/content-retention.ts#SqliteContentRetention are its two implementations, and one parameterised body in test/content/retention-contract.ts runs create, replace, rollback, restart, release, append-only retention, collection exclusion with two owner keys on one ContentRef, repeated and concurrent collection passes, and the transient lease hold against both. Closed by W5 with nothing further owed: src/agents/runs/store.ts projects run.commit, turn.record, run.checkpoint, turn.inbox-entry and run.spawn-reservation onto ContentOwnerEdge values, reconciles them through reconcileContentCustody inside the same insert or replace transaction, and re-verifies the exact owner namespace on activation through verifyContentCustody. The registry now declares 31 ContentRef-bearing kinds rather than 30: 24 durable records and 7 value records, the value records naming fields while correctly claiming no independent durable retainer",
+        "W7 owes registration and release for four kinds and holds the only rival mechanism: workspace.event (src/workspaces/event.ts#Event), workspace.route-reservation and workspace.route-projection (src/workspaces/route.ts) and workspace.content-retention-reference (src/workspaces/retention.ts). src/workspaces/retention.ts#ContentRetentionPort declares verify, release and discard but no retain, and no file under src implements it, so no W7 write path registers content today and no W7 removal path releases it into a ContentRetention",
+        "W8 owes registration and release for ten kinds, and no file under src/slates or src/environments references ContentOwnerEdge or ContentRetention today: slate (src/slates/slate.ts), slate.version (src/slates/version.ts), slate.preview (src/slates/preview.ts), slate.resource (src/slates/resource.ts), slate.publication (src/slates/publication.ts), slate.deployment (src/slates/deployment.ts), slate.resource-reservation and slate.deployment-reservation (src/slates/store.ts), environment.revision (src/environments/environment.ts) and environment.snapshot (src/environments/snapshot.ts)",
+        "W4 owes registration and release for definition.package-release and definition.metadata-snapshot (src/definition/package.ts), whose declared retention owner is the Tenant, and W6 owes registration for invocation.receipt (src/invocations/receipt.ts), which this document declares append-only, so W6 owes retention on write and never a release. Neither src/definition nor src/invocations references ContentOwnerEdge or ContentRetention today",
+        "The nested definition and Environment references and the inherited AttemptReceipt.result case this row named before belong to W4, W8 and W6 together with those kinds. A W1 slice cannot write them, because the retaining record and its write path are in those waves' files, and §8.4 rule 1 gives each of those record types exactly one owning Actor outside W1"
       ],
       "oracle": {
         "kind": "conformance-status",
@@ -1359,9 +1442,13 @@
       "priority": 5,
       "summary": "Advance C13-TURN-HANDLE-DETACHMENT from implemented with exact evidence",
       "notes": [
-        "Every clause this row named has an executed test, and the disjunction §7.4 leaves open is now resolved by a mechanism with a production caller rather than by an unused decision procedure. TurnAdmissionIdentity.owner names the Run for an InvocationId handle and the child Run for a RunRef handle; TurnAdmissionHandle.cancelledBy yields an aborted failure kind only for that owner; and RunRuntime.terminalizeRunInTransaction calls it for every item a cancelled Run still owes a Receipt, returning the failure kind each Receipt must carry. The runs layer appends no Receipt, so it yields the kind and stops, which keeps §7.4's plane with W6.",
-        "The prohibition holds structurally rather than by convention: TextId compares its constructor, so a published item's owner, always a RunId, never equals a cancelled TurnId, and requireActiveRun refuses a TurnId presented where a RunId is required. An item no Turn published is reached by neither scope, which is C13-FACET-CANCELLATION-REACH's rule and not this one's.",
-        "What is still owed is recorded discrimination, which is not this row's to write. artifacts/quality/discrimination/ is W0-owned and the cited test file post-dates the last mutation run, so a verified status would add a DISC-STALE issue. Promotion needs a W0 run recording a kill inside TurnAdmissionIdentity.owner, TurnAdmissionHandle.cancelledBy and RunRuntime's cancelled-item enumeration. Measured by hand meanwhile: resolving the owner from the handle instead of the cancelled Run, and inverting the terminality filter, reds 5 of the cited tests including the child-RunRef and already-terminal cases."
+        "Publication is now the commit point in the durable sense as well as the logical one, and the two commit points §5.6 describes are two construction paths rather than one. TurnAdmissionVerifier.admit builds an Invocation-identity handle over an AdmittedInvocationItem — invocation, item index, item key and the exact EffectAttempt — and reads no Receipt at all, which is what a detached admission leaves behind. A child RunRef handle keeps the Receipt-based path, because a child reference exists only once the delegate Receipt carries it; the spawn Receipt and its result digest moved onto that identity case, so an Invocation identity has no field they could occupy.",
+        "TurnAdmissionPublisher.publish reserves the Run obligation and appends the Invocation owner's admission message in one Run transaction, and RunRuntime.terminalizeRunInTransaction appends one cancellation message per still-owed published item in the same transition that terminalizes the Run. A response lost after that transaction commits loses no command: RunRuntime.pendingInvocationDeliveries replays each message after a restart, and RunRuntime.acknowledgeInvocationDelivery discharges it idempotently with no caller-supplied revision, because an owner whose acknowledgement response was lost knows no current revision.",
+        "The Run ships no §7.4 verdict, and has no field for one. TurnAdmissionHandle.cancelledBy and RunTerminalization.cancelled are deleted rather than deprecated: the Run observed its own end, not whether cancellation reached a live target controller, and after a restart there is no controller left to reach. What the Run owes is a request naming the exact attempt; the Invocation owner's target aborts the controller keyed by that attempt and the existing AttemptFailureKind.classify path derives `aborted` from what the target observed, while an absent controller leaves the outcome indeterminate for reconciliation.",
+        "The prohibition on the issuing Turn's cancellation reaching a published item holds by identity: TextId compares its constructor, so a published item's owner, always a RunId, never equals a cancelled TurnId. An item no Turn published is reached by neither scope, which is C13-FACET-CANCELLATION-REACH's rule and not this one's.",
+        "Which handles a Run cancellation can address is decided by the item's Receipt state, not by the method that built the handle, and the distinction matters for anyone reading this row. cancellationDeliveriesInTransaction skips an item whose current Receipt is terminal before it resolves the handle at all. TurnAdmissionVerifier.verify returns only on the succeeded evidence shape, and a succeeded AttemptReceipt is terminal, so a verify-built handle is never addressed in a truthful state; §7.4 admits supersession only of `indeterminate`, which that path never accepts, so the gate cannot open. An admit-built handle names an attempt no Receipt names yet, so it is addressed until its own Receipt lands.",
+        "That argument rests on one host-supplied premise, stated here rather than hidden: invocationItemTerminal is a predicate on the abstract SettlementEvidencePort, and the runtime trusts it. A host that answered it untruthfully would address an item that already has a Receipt. Even then no second Receipt is written, because the Invocation owner's cancellation path re-reads its own state and reports the item settled before it asks the target.",
+        "Recorded discrimination is owed and is not this row's to write. artifacts/quality/discrimination/ is W0-owned and every cited file post-dates the last mutation run, so a verified status would add a DISC-STALE issue. Promotion needs a W0 run recording a kill inside TurnAdmissionVerifier.admit, TurnAdmissionIdentity.owner, Run.acknowledgeDelivery and RunRuntime's cancellation-message enumeration."
       ],
       "oracle": {
         "kind": "conformance-status",
@@ -1481,6 +1568,22 @@
       }
     },
     {
+      "id": "T-EVIDENCE:P11-ENVIRONMENT-EPHEMERAL-DURABILITY",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "P11-ENVIRONMENT-EPHEMERAL-DURABILITY" },
+      "owner": "W8",
+      "priority": 5,
+      "summary": "Advance P11-ENVIRONMENT-EPHEMERAL-DURABILITY from implemented with exact evidence",
+      "notes": [
+        "This row is held below verified because its live evidence cannot resolve. The committed manifest at artifacts/conformance/live-evidence/run.json fingerprints cloudflare/src/durable-object.ts and cloudflare/src/reconciliation.ts, both changed by the W8 platform-behaviour work in this change, so validateLiveEvidence fails closed with 'Live evidence is stale' and every cloudflare/test/live selector this row cited stops resolving. The source symbols and the hermetic selectors are unchanged and still pass; what is gone is the deployed observation, and a verified claim that rests on a deployed observation may not outlive it. The single prerequisite is one operator re-run of `pnpm --filter @agent-core/cloudflare live:evidence` against the account, which regenerates run.json and the four phase reports at the current commit and restores this row to verified with its citations untouched. No fingerprint was re-pinned by hand, because re-pinning ratifies a deployment that did not happen."
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "P11-ENVIRONMENT-EPHEMERAL-DURABILITY",
+        "expected": "verified"
+      }
+    },
+    {
       "id": "T-EVIDENCE:P11-ENVIRONMENT-NO-AMBIENT-EGRESS",
       "type": "T-EVIDENCE",
       "source": { "kind": "conformance", "id": "P11-ENVIRONMENT-NO-AMBIENT-EGRESS" },
@@ -1495,6 +1598,38 @@
       "oracle": {
         "kind": "conformance-status",
         "requirementId": "P11-ENVIRONMENT-NO-AMBIENT-EGRESS",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:P11-ENVIRONMENT-PREVIEW",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "P11-ENVIRONMENT-PREVIEW" },
+      "owner": "W8",
+      "priority": 5,
+      "summary": "Advance P11-ENVIRONMENT-PREVIEW from implemented with exact evidence",
+      "notes": [
+        "This row is held below verified because its live evidence cannot resolve. The committed manifest at artifacts/conformance/live-evidence/run.json fingerprints cloudflare/src/durable-object.ts and cloudflare/src/reconciliation.ts, both changed by the W8 platform-behaviour work in this change, so validateLiveEvidence fails closed with 'Live evidence is stale' and every cloudflare/test/live selector this row cited stops resolving. The source symbols and the hermetic selectors are unchanged and still pass; what is gone is the deployed observation, and a verified claim that rests on a deployed observation may not outlive it. The single prerequisite is one operator re-run of `pnpm --filter @agent-core/cloudflare live:evidence` against the account, which regenerates run.json and the four phase reports at the current commit and restores this row to verified with its citations untouched. No fingerprint was re-pinned by hand, because re-pinning ratifies a deployment that did not happen."
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "P11-ENVIRONMENT-PREVIEW",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:P11-ENVIRONMENT-SNAPSHOT",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "P11-ENVIRONMENT-SNAPSHOT" },
+      "owner": "W8",
+      "priority": 5,
+      "summary": "Advance P11-ENVIRONMENT-SNAPSHOT from implemented with exact evidence",
+      "notes": [
+        "This row is held below verified because its live evidence cannot resolve. The committed manifest at artifacts/conformance/live-evidence/run.json fingerprints cloudflare/src/durable-object.ts and cloudflare/src/reconciliation.ts, both changed by the W8 platform-behaviour work in this change, so validateLiveEvidence fails closed with 'Live evidence is stale' and every cloudflare/test/live selector this row cited stops resolving. The source symbols and the hermetic selectors are unchanged and still pass; what is gone is the deployed observation, and a verified claim that rests on a deployed observation may not outlive it. The single prerequisite is one operator re-run of `pnpm --filter @agent-core/cloudflare live:evidence` against the account, which regenerates run.json and the four phase reports at the current commit and restores this row to verified with its citations untouched. No fingerprint was re-pinned by hand, because re-pinning ratifies a deployment that did not happen."
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "P11-ENVIRONMENT-SNAPSHOT",
         "expected": "verified"
       }
     },
@@ -1572,6 +1707,38 @@
       "oracle": {
         "kind": "conformance-status",
         "requirementId": "P11-FILESYSTEM-WRITE-UNOBSERVED",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:P11-SLATE-DEPLOY",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "P11-SLATE-DEPLOY" },
+      "owner": "W8",
+      "priority": 5,
+      "summary": "Advance P11-SLATE-DEPLOY from implemented with exact evidence",
+      "notes": [
+        "This row is held below verified because its live evidence cannot resolve. The committed manifest at artifacts/conformance/live-evidence/run.json fingerprints cloudflare/src/durable-object.ts and cloudflare/src/reconciliation.ts, both changed by the W8 platform-behaviour work in this change, so validateLiveEvidence fails closed with 'Live evidence is stale' and every cloudflare/test/live selector this row cited stops resolving. The source symbols and the hermetic selectors are unchanged and still pass; what is gone is the deployed observation, and a verified claim that rests on a deployed observation may not outlive it. The single prerequisite is one operator re-run of `pnpm --filter @agent-core/cloudflare live:evidence` against the account, which regenerates run.json and the four phase reports at the current commit and restores this row to verified with its citations untouched. No fingerprint was re-pinned by hand, because re-pinning ratifies a deployment that did not happen."
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "P11-SLATE-DEPLOY",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:P11-SLATE-MEDIATED-DEPLOY",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "P11-SLATE-MEDIATED-DEPLOY" },
+      "owner": "W8",
+      "priority": 5,
+      "summary": "Advance P11-SLATE-MEDIATED-DEPLOY from implemented with exact evidence",
+      "notes": [
+        "This row is held below verified because its live evidence cannot resolve. The committed manifest at artifacts/conformance/live-evidence/run.json fingerprints cloudflare/src/durable-object.ts and cloudflare/src/reconciliation.ts, both changed by the W8 platform-behaviour work in this change, so validateLiveEvidence fails closed with 'Live evidence is stale' and every cloudflare/test/live selector this row cited stops resolving. The source symbols and the hermetic selectors are unchanged and still pass; what is gone is the deployed observation, and a verified claim that rests on a deployed observation may not outlive it. The single prerequisite is one operator re-run of `pnpm --filter @agent-core/cloudflare live:evidence` against the account, which regenerates run.json and the four phase reports at the current commit and restores this row to verified with its citations untouched. No fingerprint was re-pinned by hand, because re-pinning ratifies a deployment that did not happen."
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "P11-SLATE-MEDIATED-DEPLOY",
         "expected": "verified"
       }
     },

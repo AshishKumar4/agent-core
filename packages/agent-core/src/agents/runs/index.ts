@@ -55,6 +55,12 @@ export type { RunPinDivergence, RunPinsInit, SourcePin } from "./pins";
 export { PlacementPin, TurnPlacementSnapshot } from "./placement";
 export type { PlacementPinInit } from "./placement";
 export { Run, RunBranch } from "./run";
+export {
+    RunInvocationDelivery,
+    RunInvocationDeliveryCause,
+    RunInvocationDeliveryCodec
+} from "./invocation-delivery";
+export type { RunInvocationDeliveryInit } from "./invocation-delivery";
 export { MemoryRunStorage } from "./memory";
 export type { MemoryRunStorageSnapshot } from "./memory";
 export {
@@ -87,7 +93,6 @@ export type { ForcedTurnCancellationInit } from "./forced-cancellation";
 export { RunRuntime } from "./runtime";
 export type {
     ForcedCancellationControl,
-    RunCancelledItem,
     RunGenesis,
     RunTerminalization,
     SiblingCancellationEvidence,
@@ -117,7 +122,8 @@ export type {
     TurnAdmissionAttemptFacts,
     TurnAdmissionDelivery,
     TurnAdmissionHandleInit,
-    TurnAdmissionRequest
+    TurnAdmissionRequest,
+    TurnAdmissionScope
 } from "./handle";
 export {
     GatewayTurnInvocationPort,
