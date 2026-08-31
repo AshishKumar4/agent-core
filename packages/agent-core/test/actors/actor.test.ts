@@ -828,7 +828,8 @@ describe("MemoryActorStore isolation", () => {
                 transaction.starts += 1;
             });
             const snapshot = store.snapshot();
-            if (snapshot.recordSetDeclaration === null) {
+            const carrier = snapshot.recordSetDeclaration;
+            if (carrier === null || carrier === undefined) {
                 throw new TypeError("Expected a committed record-set carrier");
             }
 
@@ -836,9 +837,7 @@ describe("MemoryActorStore isolation", () => {
             expect(snapshot.state.starts).toBe(1);
             // Raw canonical bytes by design: a reader reaches them without decoding any
             // record of the set it is deciding compatibility for.
-            expect(
-                CodecDeclaration.decode(snapshot.recordSetDeclaration).equals(ACTOR_CODECS)
-            ).toBe(true);
+            expect(CodecDeclaration.decode(carrier).equals(ACTOR_CODECS)).toBe(true);
             expect(MemoryActorStore.restore(snapshot, structuredClone).snapshot()).toEqual(
                 snapshot
             );

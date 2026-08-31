@@ -59,6 +59,7 @@ export interface MaterializationHarnessState extends MemoryManagedResourceState 
     readonly generations: Map<string, MaterializationGeneration>;
     readonly managedState: Map<string, ManagedStateRecord>;
     readonly pointers: Map<string, MaterializationGenerationPointer>;
+    nextId: number;
     applyCount: number;
     applyAt: Date | undefined;
     fault: boolean;

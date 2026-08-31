@@ -128,6 +128,7 @@ function driftedTerms(source: ShareOffer): readonly (readonly [string, ShareOffe
         successor("expiresAt", { expiresAt: new Date(2_100_000) }),
         successor("bound", { bound: source.bound + 1 }),
         successor("revision", { revision: source.revision.next().next() })
+    ];
 }
 
 describe("share offers", () => {

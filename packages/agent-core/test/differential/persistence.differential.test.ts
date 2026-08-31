@@ -3,6 +3,7 @@ import {
     Actor,
     ActorFence,
     ActorId,
+    ActorRecoveryState,
     ActorRef,
     MemoryActorStore,
     type ActorContext,

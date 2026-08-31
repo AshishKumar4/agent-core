@@ -533,24 +533,23 @@ export class ShareOffer {
  * bearer idempotency, not evidence identity. A successor record must retain the complete
  * redemption instead, including the scheme and the exact redemption instant.
  */
-function sameRedemption(
-    left: ShareOfferRedemption,
-    right: ShareOfferRedemption
-): boolean {
+function sameRedemption(left: ShareOfferRedemption, right: ShareOfferRedemption): boolean {
     if (
         !left.membership.equals(right.membership) ||
         left.redeemedAt.getTime() !== right.redeemedAt.getTime()
     ) {
         return false;
     }
-    if (left.subject.kind !== right.subject.kind) return false;
-    if (left.subject.kind === "principal") {
-        return left.subject.principal.equals(right.subject.principal);
+    const recorded = left.subject;
+    const successor = right.subject;
+    if (recorded.kind === "principal") {
+        return successor.kind === "principal" && recorded.principal.equals(successor.principal);
     }
     return (
-        left.subject.homeTenant.equals(right.subject.homeTenant) &&
-        left.subject.principalId.equals(right.subject.principalId) &&
-        left.subject.verifiedVia.equals(right.subject.verifiedVia)
+        successor.kind === "foreign" &&
+        recorded.homeTenant.equals(successor.homeTenant) &&
+        recorded.principalId.equals(successor.principalId) &&
+        recorded.verifiedVia.equals(successor.verifiedVia)
     );
 }
 
