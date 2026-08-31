@@ -828,8 +828,8 @@ describe("MemoryActorStore isolation", () => {
                 transaction.starts += 1;
             });
             const snapshot = store.snapshot();
-            const carrier = snapshot.recordSetDeclaration;
-            if (carrier === null || carrier === undefined) {
+            const committedCarrier = snapshot.recordSetDeclaration;
+            if (committedCarrier === null || committedCarrier === undefined) {
                 throw new TypeError("Expected a committed record-set carrier");
             }
 
@@ -837,7 +837,7 @@ describe("MemoryActorStore isolation", () => {
             expect(snapshot.state.starts).toBe(1);
             // Raw canonical bytes by design: a reader reaches them without decoding any
             // record of the set it is deciding compatibility for.
-            expect(CodecDeclaration.decode(carrier).equals(ACTOR_CODECS)).toBe(true);
+            expect(CodecDeclaration.decode(committedCarrier).equals(ACTOR_CODECS)).toBe(true);
             expect(MemoryActorStore.restore(snapshot, structuredClone).snapshot()).toEqual(
                 snapshot
             );
@@ -2439,7 +2439,7 @@ describe("MemoryActorStore snapshot and transaction guards", () => {
                     structuredClone
                 ),
             "codec.invalid",
-            "Unbound Actor snapshots cannot contain recovery state"
+            "Unbound Actor snapshots cannot contain bootstrap state"
         );
         expectOperationalFailure(
             () =>

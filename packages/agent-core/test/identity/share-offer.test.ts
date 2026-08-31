@@ -151,6 +151,7 @@ describe("share offers", () => {
                 "redemptions",
                 "revision",
                 "role",
+                "roleDigest",
                 "scope",
                 "secretDigest"
             ]);
