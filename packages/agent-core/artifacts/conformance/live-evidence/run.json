@@ -1,6 +1,6 @@
 {
     "edition": "1.0.0",
-    "commit": "7a780e87b5e14a0dddc786b9ea2c3d1dd722138b",
+    "commit": "38649dcd64e4384fd84ecd2bdde96178b7295063",
     "dirtySources": false,
     "accountId": "f44999d1ddda7012e9a87729eba250f1",
     "worker": "agent-core-live-harness",
@@ -10,34 +10,34 @@
         {
             "url": "https://agent-core-live-harness.ashishkmr472.workers.dev",
             "release": "base",
-            "versionId": "f676dacc-e40e-493f-bbb9-a22a708a870b",
-            "at": "2026-08-17T22:37:28.467Z"
+            "versionId": "c2647aab-c554-4bcc-b989-c2e9aa8f5d54",
+            "at": "2026-09-01T16:03:22.157Z"
         },
         {
             "url": "https://agent-core-live-harness.ashishkmr472.workers.dev",
             "release": "next",
-            "versionId": "3d5625d8-509a-4121-ab75-12f4879e65fc",
-            "at": "2026-08-17T22:39:33.497Z"
+            "versionId": "5cd05d36-2650-4549-9f4a-b892c1e107d6",
+            "at": "2026-09-01T16:05:21.752Z"
         },
         {
             "url": "https://agent-core-live-harness.ashishkmr472.workers.dev",
             "release": "base",
-            "versionId": "7529a702-d12e-49d2-8612-04b1e5f57906",
-            "at": "2026-08-17T22:39:52.758Z"
+            "versionId": "c32c2c83-c6d2-4ff7-909f-8e690c973ddd",
+            "at": "2026-09-01T16:05:36.060Z"
         },
         {
             "url": "https://agent-core-live-harness.ashishkmr472.workers.dev",
             "release": "next",
-            "versionId": "cb588708-325a-4fca-bcb5-69f4d938194a",
-            "at": "2026-08-17T22:40:08.280Z"
+            "versionId": "7175979e-8eda-4aef-800b-22d576ddd42e",
+            "at": "2026-09-01T16:05:50.129Z"
         }
     ],
     "sourceFingerprints": {
-        "packages/agent-core-cloudflare/src/alarm-claims.ts": "785e50f78860d7d3d6f2ac9cc7a3661e0d05845b867d4dc5d1e839767765c304",
-        "packages/agent-core-cloudflare/src/durable-object.ts": "bd94dd58d6671b66d169ffc6c8d3e28e980f1eb2f32765d0361eec59491f9afd",
-        "packages/agent-core-cloudflare/src/environment-provider.ts": "990e5880059d6d48b44ef03d0422d0abce0511d7e47b1494407cf4b8390debbc",
+        "packages/agent-core-cloudflare/src/alarm-claims.ts": "47bea7069c5f3cb00cc0aa75101db9a173a1bad34572cab073b430c15a2ae264",
+        "packages/agent-core-cloudflare/src/durable-object.ts": "918d775d3b0b086bc2c7b902f124b86ccfdcb84bc1b8fb09336fd3e546e2d38d",
+        "packages/agent-core-cloudflare/src/environment-provider.ts": "8ff09e8e35d73d52f1c6ea126e462d6165a3cd96f595be7b418b0a63f76d3924",
         "packages/agent-core-cloudflare/src/queue.ts": "8dec882e8a56cea4b38935184ec2cbfa01e7e9be490b84cc2a49dee9356014dc",
-        "packages/agent-core-cloudflare/src/reconciliation.ts": "a4f4d2ba8db74079c06a0c31444c484face37bd6092e02c971de6fc59f96523e",
+        "packages/agent-core-cloudflare/src/reconciliation.ts": "b4181bc1a2aaaa28747799cc8a06a1b5261e181309a0df8da510e6d218d34cab",
         "packages/agent-core-cloudflare/src/revision-log.ts": "448b747f2a1f6919fe12db272dc0b29ab3e851033e6736e599ff54ed29fbd64d",
         "packages/agent-core-cloudflare/src/slate-provider.ts": "1383abc1d92fecbb9ee66a689fae236d366ea07c981d9d1ddcb29444db9e053a",
         "packages/agent-core-cloudflare/src/websocket.ts": "a04409ed3605069491b36ef4b2ee633017639cc70c8f50d1318e07c77e886b05",
@@ -52,9 +52,9 @@
         "packages/agent-core-cloudflare/test/live/phase-4.test.ts": "cd3a08a262ff9404193bcbd07bbfe52c1520a65c306e07059c94aee149a51383"
     },
     "reports": {
-        "phase-1.vitest.json": "b937b3920492c5886fd29f7ff44eed20ba6e7353cfd54c96d4eaf36211e417d1",
-        "phase-2.vitest.json": "fb362d093e4283c608d0fa12a94a50faa5ed00ad70001208ad229fd1182da447",
-        "phase-3.vitest.json": "9229eb49b7fc67ef65c45a0f46007ef552091a210ea293bd3e07118b657f3b8a",
-        "phase-4.vitest.json": "20477a2c452bb9571e9991e115b09a93bf1e77585734a5ad23b642661d1cda0b"
+        "phase-1.vitest.json": "986cc6d573e2c14a484a30220d670f129969df03f54463acc04ac28da2c518e3",
+        "phase-2.vitest.json": "de92cf9f91c31712cac3ed051b2c3c3f7fbe6b6e0ff81ffc71ba562a778f8ca8",
+        "phase-3.vitest.json": "532f33ef7cfd21075a481910dd5ad8be24593c92b3d8f14f6523543ccac36e25",
+        "phase-4.vitest.json": "b7461f49dbb9be0f6b70bb1c1850ec00a9640d08c2f316a1006227d28dd9188a"
     }
 }

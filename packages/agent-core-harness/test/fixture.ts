@@ -11,7 +11,7 @@ import {
     OperationRef
 } from "@agent-core/core/facets";
 import { PrincipalId, PrincipalRef, TenantId } from "@agent-core/core/identity";
-import { EffectAttemptId, InvocationId, ReceiptId } from "@agent-core/core/invocations";
+import { EffectAttemptId, InvocationId } from "@agent-core/core/invocations";
 import { TurnCutPointPort, type TurnInterceptionResult } from "@agent-core/core/operations";
 import {
     AgentId,
@@ -321,8 +321,6 @@ export function admissionHandle(sequence: number): TurnAdmissionHandle {
         itemIndex: 0,
         itemKey: `${ids.turn.value}:${sequence}`,
         attempt: new EffectAttemptId(`attempt-${sequence}`),
-        receipt: new ReceiptId(`receipt-${sequence}`),
-        result: digest("a"),
         identity: TurnAdmissionIdentity.invocation(invocation)
     });
 }

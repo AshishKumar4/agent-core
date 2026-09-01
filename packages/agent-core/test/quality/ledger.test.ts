@@ -150,9 +150,35 @@ describe("atomic SPEC ledger", subprocessTestOptions, () => {
     test("keeps a drifted live archive pending for waiting rows and fatal for a verified one", async () => {
         const root = await ledgerFixture(true);
         const evidence = resolve(root, "conformance/live-evidence");
-        // The tree's own state: sources the archived lane fingerprinted have changed
-        // since that deployment, and every row citing it has retreated below verified,
-        // so the drift is the operator re-run this tree is waiting for.
+        // Construct the drift regime: alter one recorded fingerprint so the archive no
+        // longer matches its deployed sources, and retreat every live row below verified,
+        // which is exactly the state a fingerprinted-source edit leaves the tree in.
+        const manifestPath = resolve(evidence, "run.json");
+        const manifest = await readFixtureJson<{
+            sourceFingerprints: Record<string, string>;
+        }>(manifestPath);
+        const fingerprinted = Object.keys(manifest.sourceFingerprints);
+        expect(fingerprinted.length).toBeGreaterThan(0);
+        const drifted = fingerprinted[0]!;
+        manifest.sourceFingerprints[drifted] = manifest.sourceFingerprints[drifted]!.replace(
+            /[0-9a-f]$/u,
+            (last) => (last === "0" ? "1" : "0")
+        );
+        await writeFile(manifestPath, `${JSON.stringify(manifest, null, 4)}\n`, "utf8");
+        const fragmentPath = resolve(root, "conformance/profiles-cloudflare.json");
+        const fragment = await readFixtureJson<ConformanceFragment>(fragmentPath);
+        for (const requirement of fragment.requirements) {
+            if (
+                requirement.checkerInvariants.includes("ACQ-LIVE") &&
+                requirement.status === "verified"
+            ) {
+                requirement.status = "implemented";
+                requirement.remainingEvidence = [
+                    "The archived live run no longer matches this tree; one operator re-run of the consented lane restores it."
+                ];
+            }
+        }
+        await writeFile(fragmentPath, `${JSON.stringify(fragment, null, 4)}\n`, "utf8");
         const waiting = validateLiveEvidence(evidence);
         expect(waiting.selectors.size).toBeGreaterThan(0);
         expect(waiting.pending.sources.length).toBeGreaterThan(0);
@@ -160,8 +186,6 @@ describe("atomic SPEC ledger", subprocessTestOptions, () => {
         // Promote one waiting row back to verified without re-running the lane. Nothing
         // about the archive changed; what changed is that a claim now rests on it, and
         // the same drift that was pending is a false claim and fails closed.
-        const fragmentPath = resolve(root, "conformance/profiles-cloudflare.json");
-        const fragment = await readFixtureJson<ConformanceFragment>(fragmentPath);
         const promoted = fragment.requirements.find(
             (requirement) =>
                 requirement.checkerInvariants.includes("ACQ-LIVE") &&
@@ -189,9 +213,10 @@ describe("atomic SPEC ledger", subprocessTestOptions, () => {
 
         expect(building.status, building.stderr).toBe(0);
         expect(building.stderr).toBe("");
-        expect(building.stdout).toContain(
-            `${Object.values(externalRequirementsByConsentGate).flat().length} external gated`
+        const index = await readFixtureJson<{ externalGates: string[] }>(
+            resolve(fixture, "conformance/index.json")
         );
+        expect(building.stdout).toContain(`${index.externalGates.length} external gated`);
     });
 
     test("extracts a unique owner and digest for every §13 atom and §11 profile", async () => {

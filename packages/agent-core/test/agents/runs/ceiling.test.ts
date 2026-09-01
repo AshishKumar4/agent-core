@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Revision, encodeCanonicalJson } from "../../../src/core";
+import { Revision, TextId, encodeCanonicalJson } from "../../../src/core";
 import { AgentCoreError } from "../../../src/errors";
 import { RunCommitId, TurnId } from "../../../src/execution-references";
 import {
@@ -801,6 +801,27 @@ describe("Run realized cost", () => {
                     new RealizedCost(7, usd)
                 )
             ).toBe(true);
+
+            // The amount names its own currency, and the class is the name: a cost a host
+            // built over some other text-bearing identifier is a cost this record cannot
+            // total, because Currency's equality is by type and value and a lookalike
+            // compares false rather than throwing.
+            expect(new RealizedCost(7, new Currency("USD")).equals(new RealizedCost(7, usd))).toBe(
+                true
+            );
+            expect(new RealizedCost(7, usd).equals(new RealizedCost(8, usd))).toBe(false);
+            expect(new RealizedCost(7, usd).equals(new RealizedCost(7, eur))).toBe(false);
+            class LookalikeCurrency extends TextId {
+                public constructor() {
+                    super("USD", "LookalikeCurrency");
+                }
+            }
+            // SAFETY: RealizedCost's constructor pins `currency` to Currency, so only a
+            // forged value of another TextId class can reach the instance check that the
+            // amount names its own currency rather than trusting the declared type.
+            expect(() => new RealizedCost(7, new LookalikeCurrency() as never)).toThrow(
+                "Realized cost must name its currency"
+            );
 
             // A terminal Run incurs nothing further, so a late report cannot move a total
             // the Run's terminal snapshot was derived against.

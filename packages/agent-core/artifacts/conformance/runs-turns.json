@@ -1091,7 +1091,7 @@
         "test/agents/runs/handle-detachment.test.ts#the cancellation a published item answers to [C13-TURN-HANDLE-DETACHMENT] names no failure kind for an item the Turn is still awaiting",
         "test/agents/runs/handle-detachment.test.ts#the durable outbox a lost response replays from [C13-TURN-HANDLE-DETACHMENT] replays the same cancellation message after a lost response and a restart, and discharges it exactly once",
         "test/agents/runs/handle-detachment.test.ts#the durable outbox a lost response replays from [C13-TURN-HANDLE-DETACHMENT] owes one admission message per published handle, and refuses a message of another Run",
-        "test/agents/runs/handle-detachment.test.ts#the durable outbox a lost response replays from [C13-TURN-HANDLE-DETACHMENT] round-trips its own bytes and refuses every other shape",
+        "test/agents/runs/handle-detachment.test.ts#the durable outbox a lost response replays from [C13-TURN-HANDLE-DETACHMENT] [run.invocation-delivery] round-trips its own bytes and refuses every other shape",
         "test/agents/runs/handle.test.ts#verified admission identities [C13-TURN-HANDLE-DETACHMENT] builds an Invocation handle from an admitted item and reads no Receipt",
         "test/agents/runs/handle.test.ts#Turn admission handle records [C13-TURN-HANDLE-DETACHMENT] keeps the spawn Receipt on the one identity that has one",
         "test/composition/mediation-pipeline.test.ts#the detached execution plane the composition root owns [C13-TURN-HANDLE-DETACHMENT] admits durable item facts with no Receipt and runs nothing",

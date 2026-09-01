@@ -22,7 +22,8 @@ import { RunCommit } from "../../../src/agents/runs/commit";
 import { requireObject } from "../../../src/agents/record-data";
 import {
     RunInvocationDelivery,
-    RunInvocationDeliveryCause
+    RunInvocationDeliveryCause,
+    type RunInvocationDeliveryInit
 } from "../../../src/agents/runs/invocation-delivery";
 import {
     TurnAdmissionHandle,
@@ -55,7 +56,8 @@ import {
     seedRunningTurn,
     settlementAuditKey,
     thrownBy,
-    type Assembled
+    type Assembled,
+    type MutableRecordData
 } from "./fixture";
 
 const ADMITTED_AT = new Date(1_400);
@@ -205,6 +207,34 @@ function cancellationDeliveries(value: Seeded, run: RunId = ids.run) {
 /** Every key a delivery's canonical bytes carry, so a new field cannot arrive unnoticed. */
 function deliveryKeys(value: RunInvocationDelivery): readonly string[] {
     return Object.keys(requireObject(value.toData(), "delivery")).sort();
+}
+
+/** One admission message for the shared mediated item, addressed to this Run's outbox. */
+function admissionMessage(): RunInvocationDelivery {
+    return new RunInvocationDelivery({
+        run: ids.run,
+        invocation: ITEM.invocation,
+        itemIndex: ITEM.itemIndex,
+        itemKey: ITEM.itemKey,
+        attempt: ITEM.attempt,
+        cause: RunInvocationDeliveryCause.admission
+    });
+}
+
+/**
+ * One message's own envelope with named fields rewritten, in the canonical form a reader
+ * receives it in. The rewrite runs over parsed bytes rather than a hand-built object, so a
+ * refusal below is the field the test changed and never an envelope this codec never wrote.
+ */
+function envelopeWith(
+    message: RunInvocationDelivery,
+    rewrite: (envelope: MutableRecordData) => void
+): Uint8Array {
+    const envelope = mutableData(
+        JSON.parse(new TextDecoder().decode(RunInvocationDelivery.codec.encode(message)))
+    );
+    rewrite(envelope);
+    return encodeCanonicalJson(envelope);
 }
 
 /** Runs an admission that must be refused and hands back the typed refusal. */
@@ -1278,6 +1308,291 @@ describe("the durable outbox a lost response replays from", () => {
                         revision: stored.revision
                     })
             ).toThrow(TypeError);
+        }
+    );
+
+    it(
+        "[C13-TURN-HANDLE-DETACHMENT] replays an empty outbox and discharges nothing for a message it never owed",
+        { tags: "p1" },
+        () => {
+            const seeded = seedRunningTurn();
+            // A Run that published nothing owes nothing, and owing nothing is a replayable
+            // state rather than a missing one: the owner reading after a lost response finds
+            // an empty outbox across a restart instead of a refusal.
+            expect(pendingDeliveries(seeded)).toEqual([]);
+            const restarted = harness(seeded.storage.snapshot());
+            expect(restarted.runtime.pendingInvocationDeliveries(ids.run)).toEqual([]);
+
+            // At-least-once delivery leaves an owner unable to tell a lost append from a
+            // lost response, so an acknowledgement for a key this Run never wrote is
+            // neither a refusal nor a discharge. A host that wrote a revision here would
+            // let any caller advance a Run by acknowledging messages it invented.
+            const before = requireRun(seeded, ids.run).revision;
+            seeded.runtime.acknowledgeInvocationDelivery(admissionMessage());
+            expect(requireRun(seeded, ids.run).revision.value).toBe(before.value);
+            expect(pendingDeliveries(seeded)).toEqual([]);
+        }
+    );
+
+    it(
+        "[C13-TURN-HANDLE-DETACHMENT] compares one cause with another by kind and exact terminal commit, and with a lookalike by neither",
+        { tags: "p1" },
+        () => {
+            const admission = RunInvocationDeliveryCause.admission;
+            const ended = RunInvocationDeliveryCause.cancellation(
+                new RunCommitId("commit-outbox-cause")
+            );
+            const elsewhere = RunInvocationDeliveryCause.cancellation(
+                new RunCommitId("commit-outbox-other-cause")
+            );
+
+            // An admission names nothing else, so every admission is the same cause and no
+            // cancellation is one, whichever side the comparison starts from.
+            expect(admission.equals(RunInvocationDeliveryCause.admission)).toBe(true);
+            expect(admission.equals(ended)).toBe(false);
+            expect(ended.equals(admission)).toBe(false);
+
+            // A cancellation is the exact commit it names, because that commit is what the
+            // owner re-reads its own state against: an equal commit is one message and a
+            // different commit is another message rather than a duplicate of this one.
+            expect(
+                ended.equals(
+                    RunInvocationDeliveryCause.cancellation(new RunCommitId("commit-outbox-cause"))
+                )
+            ).toBe(true);
+            expect(ended.equals(elsewhere)).toBe(false);
+
+            // SAFETY: `equals` declares the cause class, so only a value that never came
+            // from it can prove the comparison reads the class before any field. A host's
+            // lookalike answers false rather than throwing, because comparing is what the
+            // outbox does with messages it holds and never a place to refuse a caller.
+            expect(admission.equals({ kind: "admission" } as never)).toBe(false);
+            // SAFETY: as above, for a lookalike that renders the cancellation case: a value
+            // outside the class is unequal by class, before the commit it claims is read.
+            expect(ended.equals({ kind: "cancellation", terminalCommit: ended } as never)).toBe(
+                false
+            );
+
+            // Both cases survive their own data, so a message decoded after a restart
+            // compares equal to the one the Run wrote rather than merely rendering alike.
+            expect(RunInvocationDeliveryCause.fromData(admission.toData()).equals(admission)).toBe(
+                true
+            );
+            expect(RunInvocationDeliveryCause.fromData(ended.toData()).equals(ended)).toBe(true);
+            expect(RunInvocationDeliveryCause.fromData(ended.toData()).equals(elsewhere)).toBe(
+                false
+            );
+        }
+    );
+
+    it(
+        "[C13-TURN-HANDLE-DETACHMENT] [run.invocation-delivery] builds no message from a shape a publication could not have produced",
+        { tags: "p1" },
+        () => {
+            // A derived identifier is the shape that reaches these checks: it satisfies the
+            // declared type and is still not the exact class the identity digests, so the
+            // message a host addressed with one is refused where it is built rather than
+            // decoded later as a message naming an Invocation nobody can find.
+            class DerivedRunId extends RunId {}
+            class DerivedInvocationId extends InvocationId {}
+            class DerivedEffectAttemptId extends EffectAttemptId {}
+            class DerivedRunCommitId extends RunCommitId {}
+            const base: RunInvocationDeliveryInit = {
+                run: ids.run,
+                invocation: ITEM.invocation,
+                itemIndex: ITEM.itemIndex,
+                itemKey: ITEM.itemKey,
+                attempt: ITEM.attempt,
+                cause: RunInvocationDeliveryCause.admission
+            };
+            const built =
+                (mutate: (init: Assembled<RunInvocationDeliveryInit>) => void) => (): void => {
+                    const init: Assembled<RunInvocationDeliveryInit> = { ...base };
+                    mutate(init);
+                    new RunInvocationDelivery(init);
+                };
+            const identifiers = "Run invocation delivery identifiers use exact context classes";
+            for (const [label, mutate, message] of [
+                [
+                    "derived Run",
+                    (init: Assembled<RunInvocationDeliveryInit>) => {
+                        init.run = new DerivedRunId("outbox-derived-run");
+                    },
+                    identifiers
+                ],
+                [
+                    "derived Invocation",
+                    (init: Assembled<RunInvocationDeliveryInit>) => {
+                        init.invocation = new DerivedInvocationId("outbox-derived-invocation");
+                    },
+                    identifiers
+                ],
+                [
+                    "derived EffectAttempt",
+                    (init: Assembled<RunInvocationDeliveryInit>) => {
+                        init.attempt = new DerivedEffectAttemptId("outbox-derived-attempt");
+                    },
+                    identifiers
+                ],
+                [
+                    "negative item index",
+                    (init: Assembled<RunInvocationDeliveryInit>) => {
+                        init.itemIndex = -1;
+                    },
+                    "Run invocation delivery item index is invalid"
+                ],
+                [
+                    "fractional item index",
+                    (init: Assembled<RunInvocationDeliveryInit>) => {
+                        init.itemIndex = 1.5;
+                    },
+                    "Run invocation delivery item index is invalid"
+                ],
+                [
+                    "empty item key",
+                    (init: Assembled<RunInvocationDeliveryInit>) => {
+                        init.itemKey = "";
+                    },
+                    "Run invocation delivery item key must be canonical"
+                ],
+                [
+                    "padded item key",
+                    (init: Assembled<RunInvocationDeliveryInit>) => {
+                        init.itemKey = ` ${ITEM.itemKey} `;
+                    },
+                    "Run invocation delivery item key must be canonical"
+                ],
+                [
+                    "cause that is no cause",
+                    (init: Assembled<RunInvocationDeliveryInit>) => {
+                        // SAFETY: the init declares the cause class, so only a rendered
+                        // lookalike reaches the check that the message carries a real cause.
+                        init.cause = { kind: "admission" } as never;
+                    },
+                    "Run invocation delivery requires its exact cause"
+                ]
+            ] as const) {
+                const refused = thrownBy(TypeError, built(mutate), label);
+                expect([label, refused.message]).toEqual([label, message]);
+            }
+
+            // The item index and key the Run does publish are the boundary the refusals sit
+            // against: index zero is the first published item, and a key is canonical text.
+            expect(
+                new RunInvocationDelivery({ ...base, itemIndex: 0 }).equals(admissionMessage())
+            ).toBe(true);
+
+            // A cancellation names the exact commit its Run ended on, so a derived commit is
+            // refused where the cause is built rather than where the message is compared.
+            expect(() =>
+                RunInvocationDeliveryCause.cancellation(
+                    new DerivedRunCommitId("outbox-derived-commit")
+                )
+            ).toThrow("Run invocation cancellation names its exact terminal commit");
+
+            // A stored message whose cause is null carries no cause at all. The field is
+            // present, so the exact-field check passes it through, and the cause reader
+            // refuses the null rather than reading it as the admission that would discharge
+            // an item the Run never took on.
+            const nulled = mutableData(admissionMessage().toData());
+            nulled["cause"] = null;
+            expect(() => RunInvocationDelivery.fromData(nulled)).toThrow(
+                "Run invocation delivery cause must be an object"
+            );
+        }
+    );
+
+    it(
+        "[C13-TURN-HANDLE-DETACHMENT] [run.invocation-delivery] refuses every envelope it did not write, naming the version it cannot read",
+        { tags: "p2" },
+        () => {
+            const message = admissionMessage();
+            // The envelope this codec writes reads back as the same message, so each
+            // refusal below is the field the case rewrote and never the rewriting itself.
+            expect(
+                RunInvocationDelivery.codec.decode(envelopeWith(message, () => {})).equals(message)
+            ).toBe(true);
+
+            // A major this reader has never known and a minor from ahead of it inside a
+            // major it does know are different refusals, and the outbox needs both named:
+            // one message is unreadable forever, the other only by this reader.
+            for (const [version, code, detail] of [
+                [
+                    { major: 2, minor: 0 },
+                    "codec.unknown-major",
+                    "Unsupported run.invocation-delivery codec major 2"
+                ],
+                [
+                    { major: 0, minor: 3 },
+                    "codec.unknown-major",
+                    "Unsupported run.invocation-delivery codec major 0"
+                ],
+                [
+                    { major: 1, minor: 1 },
+                    "codec.invalid",
+                    "Unsupported run.invocation-delivery codec minor 1"
+                ]
+            ] as const) {
+                const refused = thrownBy(
+                    AgentCoreError,
+                    () => {
+                        RunInvocationDelivery.codec.decode(
+                            envelopeWith(message, (envelope) => {
+                                envelope["version"] = { ...version };
+                            })
+                        );
+                    },
+                    detail
+                );
+                expect([detail, refused.code, refused.message]).toEqual([detail, code, detail]);
+            }
+
+            // A kind this codec never wrote is a reader pointed at the wrong record, not a
+            // version it might one day support, so it is refused as an invalid envelope.
+            const foreign = thrownBy(
+                AgentCoreError,
+                () => {
+                    RunInvocationDelivery.codec.decode(
+                        envelopeWith(message, (envelope) => {
+                            envelope["kind"] = "run.record";
+                        })
+                    );
+                },
+                "foreign kind"
+            );
+            expect([foreign.code, foreign.message]).toEqual([
+                "codec.invalid",
+                "Expected record kind run.invocation-delivery"
+            ]);
+
+            // A payload of the right kind and version that is not this record is named as
+            // an invalid record of this kind, so an operator reads which record refused.
+            const corrupt = thrownBy(
+                AgentCoreError,
+                () => {
+                    RunInvocationDelivery.codec.decode(
+                        envelopeWith(message, (envelope) => {
+                            envelope["payload"] = { itemKey: ITEM.itemKey };
+                        })
+                    );
+                },
+                "corrupt payload"
+            );
+            expect(corrupt.code).toBe("codec.invalid");
+            expect(corrupt.message).toMatch(/^Invalid run\.invocation-delivery record: /);
+
+            // Bytes that carry no envelope at all are refused before any field is read.
+            const malformed = thrownBy(
+                AgentCoreError,
+                () => {
+                    RunInvocationDelivery.codec.decode(new TextEncoder().encode("{}"));
+                },
+                "malformed envelope"
+            );
+            expect([malformed.code, malformed.message]).toEqual([
+                "codec.invalid",
+                "Record envelope is malformed"
+            ]);
         }
     );
 });

@@ -12,3 +12,4 @@ packages/agent-core/formal/
 packages/agent-core/src/facets/generated/
 pnpm-lock.yaml
 reports/
+packages/agent-core/artifacts/conformance/live-evidence/

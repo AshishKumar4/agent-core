@@ -453,22 +453,6 @@
       }
     },
     {
-      "id": "T-EVIDENCE:C13-CLOUDFLARE-ALARM-CLAIMS",
-      "type": "T-EVIDENCE",
-      "source": { "kind": "conformance", "id": "C13-CLOUDFLARE-ALARM-CLAIMS" },
-      "owner": "W8",
-      "priority": 5,
-      "summary": "Advance C13-CLOUDFLARE-ALARM-CLAIMS from implemented with exact evidence",
-      "notes": [
-        "This row is held below verified because its live evidence cannot resolve. The committed manifest at artifacts/conformance/live-evidence/run.json fingerprints cloudflare/src/durable-object.ts and cloudflare/src/reconciliation.ts, both changed by the W8 platform-behaviour work in this change, so validateLiveEvidence fails closed with 'Live evidence is stale' and every cloudflare/test/live selector this row cited stops resolving. The source symbols and the hermetic selectors are unchanged and still pass; what is gone is the deployed observation, and a verified claim that rests on a deployed observation may not outlive it. The single prerequisite is one operator re-run of `pnpm --filter @agent-core/cloudflare live:evidence` against the account, which regenerates run.json and the four phase reports at the current commit and restores this row to verified with its citations untouched. No fingerprint was re-pinned by hand, because re-pinning ratifies a deployment that did not happen."
-      ],
-      "oracle": {
-        "kind": "conformance-status",
-        "requirementId": "C13-CLOUDFLARE-ALARM-CLAIMS",
-        "expected": "verified"
-      }
-    },
-    {
       "id": "T-EVIDENCE:C13-CLOUDFLARE-ALARM-DURABILITY",
       "type": "T-EVIDENCE",
       "source": { "kind": "conformance", "id": "C13-CLOUDFLARE-ALARM-DURABILITY" },
@@ -476,11 +460,7 @@
       "priority": 5,
       "summary": "Advance C13-CLOUDFLARE-ALARM-DURABILITY from implemented with exact evidence",
       "notes": [
-        "The corrected §10.4 rule bounds platform re-firing and requires the Actor to rebuild the alarm from the outbox on start. createCloudflareDurableObjectClass arms that rebuild under blockConcurrencyWhile, but no test named here exercises a start that recovers an alarm the platform stopped re-firing, and the live lane owes that scenario under ACQ-LIVE.",
-        "The platform's own alarmInfo is now read. AlarmInvocation carries retryCount and isRetry from the handler argument and reports retriable against the documented six-retry ceiling, so a sweep can see the re-firing budget running out and knows when its own start-time rebuild is the only recovery left. A missing or malformed alarmInfo reads as a first delivery, which neither suppresses work nor asserts a retry budget the platform never reported.",
-        "The host callback inside blockConcurrencyWhile is now bounded. The startup alarm repair has a ten-second budget, well inside the documented thirty-second whole-object stall, and exceeding it rejects into the object's existing single captured refusal rather than hanging the object with no diagnosis; the timer is always cleared so a settled repair leaves nothing holding the object alive. Why construction may touch the alarm at all is now recorded at the call site: the repair derives the wakeup from the claim table rather than calling setAlarm unconditionally, so an armed schedule survives being rebuilt from the state it was armed out of.",
-        "The fifteen-minute alarm wall-time cap is now modelled. A sweep stops inside a ten-minute budget and floors its re-arm one retry delay out, exactly as an interrupted sweep does, leaving every unreached entry due at its own schedule and reporting exhausted on the result, so being killed at the platform boundary is no longer the only outcome. The CPU budget between network events is still unmodelled and is not measurable from inside the isolate.",
-        "The committed live evidence at artifacts/conformance/live-evidence/run.json is now stale for this row's sources: it fingerprints cloudflare/src/durable-object.ts and cloudflare/src/reconciliation.ts, and both changed here, so validateLiveEvidence fails closed with 'Live evidence is stale'. The single prerequisite is one operator re-run of `pnpm --filter @agent-core/cloudflare live:evidence` against the real account, which regenerates run.json and the four phase reports at the current commit. No fingerprint was re-pinned by hand, because re-pinning ratifies a deployment that did not happen."
+        "The corrected §10.4 rule bounds platform re-firing and requires the Actor to rebuild the alarm from the outbox on start. createCloudflareDurableObjectClass arms that rebuild under blockConcurrencyWhile, but no test named here exercises a start that recovers an alarm the platform stopped re-firing, and the live lane owes that scenario under ACQ-LIVE."
       ],
       "oracle": {
         "kind": "conformance-status",
@@ -534,10 +514,7 @@
       "priority": 5,
       "summary": "Advance C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY from implemented with exact evidence",
       "notes": [
-        "Its prerequisite C13-CLOUDFLARE-ALARM-DURABILITY carries an open obligation, so continuity cannot rest on it yet.",
-        "The rollback direction is now stated in §10.4 and implemented: createCloudflareDurableObjectClass constructs an object whose applied schema this release cannot read and refuses each operation with schema.unreadable, leaving the durable state untouched. cloudflare/test/deployment-rollback.test.ts covers N to N+1 to N and back to N+1 on real SQLite, which closes the structural half of the obligation this atom carried.",
-        "Continuity across a rollout is now classified. CloudflareStubFailure reads the platform's own retryable and overloaded dispositions, decides overload first so a failure carrying both is never retried, and throughFreshStub resolves a NEW stub per attempt because Cloudflare documents a thrown-on stub as permanently broken. Minting sits outside the attempt's try, so a namespace lookup that fails is not misreported as a refusal by a callee that was never reached. The backoff is exponential and deterministic: this policy governs one caller retrying one keyed call, not a fleet converging on one object, so a reproducible schedule costs nothing.",
-        "The committed live evidence at artifacts/conformance/live-evidence/run.json is now stale for this row's sources: it fingerprints cloudflare/src/durable-object.ts and cloudflare/src/reconciliation.ts, and both changed here, so validateLiveEvidence fails closed with 'Live evidence is stale'. The single prerequisite is one operator re-run of `pnpm --filter @agent-core/cloudflare live:evidence` against the real account, which regenerates run.json and the four phase reports at the current commit. No fingerprint was re-pinned by hand, because re-pinning ratifies a deployment that did not happen."
+        "Its prerequisite C13-CLOUDFLARE-ALARM-DURABILITY carries an open obligation, so continuity cannot rest on it yet."
       ],
       "oracle": {
         "kind": "conformance-status",
@@ -636,70 +613,6 @@
       }
     },
     {
-      "id": "T-EVIDENCE:C13-CLOUDFLARE-QUEUE-DISPOSITION",
-      "type": "T-EVIDENCE",
-      "source": { "kind": "conformance", "id": "C13-CLOUDFLARE-QUEUE-DISPOSITION" },
-      "owner": "W8",
-      "priority": 5,
-      "summary": "Advance C13-CLOUDFLARE-QUEUE-DISPOSITION from implemented with exact evidence",
-      "notes": [
-        "This row is held below verified because its live evidence cannot resolve. The committed manifest at artifacts/conformance/live-evidence/run.json fingerprints cloudflare/src/durable-object.ts and cloudflare/src/reconciliation.ts, both changed by the W8 platform-behaviour work in this change, so validateLiveEvidence fails closed with 'Live evidence is stale' and every cloudflare/test/live selector this row cited stops resolving. The source symbols and the hermetic selectors are unchanged and still pass; what is gone is the deployed observation, and a verified claim that rests on a deployed observation may not outlive it. The single prerequisite is one operator re-run of `pnpm --filter @agent-core/cloudflare live:evidence` against the account, which regenerates run.json and the four phase reports at the current commit and restores this row to verified with its citations untouched. No fingerprint was re-pinned by hand, because re-pinning ratifies a deployment that did not happen."
-      ],
-      "oracle": {
-        "kind": "conformance-status",
-        "requirementId": "C13-CLOUDFLARE-QUEUE-DISPOSITION",
-        "expected": "verified"
-      }
-    },
-    {
-      "id": "T-EVIDENCE:C13-CLOUDFLARE-RECONCILIATION-DRIVER",
-      "type": "T-EVIDENCE",
-      "source": { "kind": "conformance", "id": "C13-CLOUDFLARE-RECONCILIATION-DRIVER" },
-      "owner": "W8",
-      "priority": 5,
-      "summary": "Advance C13-CLOUDFLARE-RECONCILIATION-DRIVER from implemented with exact evidence",
-      "notes": [
-        "This row is held below verified because its live evidence cannot resolve. The committed manifest at artifacts/conformance/live-evidence/run.json fingerprints cloudflare/src/durable-object.ts and cloudflare/src/reconciliation.ts, both changed by the W8 platform-behaviour work in this change, so validateLiveEvidence fails closed with 'Live evidence is stale' and every cloudflare/test/live selector this row cited stops resolving. The source symbols and the hermetic selectors are unchanged and still pass; what is gone is the deployed observation, and a verified claim that rests on a deployed observation may not outlive it. The single prerequisite is one operator re-run of `pnpm --filter @agent-core/cloudflare live:evidence` against the account, which regenerates run.json and the four phase reports at the current commit and restores this row to verified with its citations untouched. No fingerprint was re-pinned by hand, because re-pinning ratifies a deployment that did not happen."
-      ],
-      "oracle": {
-        "kind": "conformance-status",
-        "requirementId": "C13-CLOUDFLARE-RECONCILIATION-DRIVER",
-        "expected": "verified"
-      }
-    },
-    {
-      "id": "T-EVIDENCE:C13-CLOUDFLARE-RECONCILIATION-FENCE",
-      "type": "T-EVIDENCE",
-      "source": { "kind": "conformance", "id": "C13-CLOUDFLARE-RECONCILIATION-FENCE" },
-      "owner": "W8",
-      "priority": 5,
-      "summary": "Advance C13-CLOUDFLARE-RECONCILIATION-FENCE from implemented with exact evidence",
-      "notes": [
-        "This row is held below verified because its live evidence cannot resolve. The committed manifest at artifacts/conformance/live-evidence/run.json fingerprints cloudflare/src/durable-object.ts and cloudflare/src/reconciliation.ts, both changed by the W8 platform-behaviour work in this change, so validateLiveEvidence fails closed with 'Live evidence is stale' and every cloudflare/test/live selector this row cited stops resolving. The source symbols and the hermetic selectors are unchanged and still pass; what is gone is the deployed observation, and a verified claim that rests on a deployed observation may not outlive it. The single prerequisite is one operator re-run of `pnpm --filter @agent-core/cloudflare live:evidence` against the account, which regenerates run.json and the four phase reports at the current commit and restores this row to verified with its citations untouched. No fingerprint was re-pinned by hand, because re-pinning ratifies a deployment that did not happen."
-      ],
-      "oracle": {
-        "kind": "conformance-status",
-        "requirementId": "C13-CLOUDFLARE-RECONCILIATION-FENCE",
-        "expected": "verified"
-      }
-    },
-    {
-      "id": "T-EVIDENCE:C13-CLOUDFLARE-RECONCILIATION-RETRY",
-      "type": "T-EVIDENCE",
-      "source": { "kind": "conformance", "id": "C13-CLOUDFLARE-RECONCILIATION-RETRY" },
-      "owner": "W8",
-      "priority": 5,
-      "summary": "Advance C13-CLOUDFLARE-RECONCILIATION-RETRY from implemented with exact evidence",
-      "notes": [
-        "This row is held below verified because its live evidence cannot resolve. The committed manifest at artifacts/conformance/live-evidence/run.json fingerprints cloudflare/src/durable-object.ts and cloudflare/src/reconciliation.ts, both changed by the W8 platform-behaviour work in this change, so validateLiveEvidence fails closed with 'Live evidence is stale' and every cloudflare/test/live selector this row cited stops resolving. The source symbols and the hermetic selectors are unchanged and still pass; what is gone is the deployed observation, and a verified claim that rests on a deployed observation may not outlive it. The single prerequisite is one operator re-run of `pnpm --filter @agent-core/cloudflare live:evidence` against the account, which regenerates run.json and the four phase reports at the current commit and restores this row to verified with its citations untouched. No fingerprint was re-pinned by hand, because re-pinning ratifies a deployment that did not happen."
-      ],
-      "oracle": {
-        "kind": "conformance-status",
-        "requirementId": "C13-CLOUDFLARE-RECONCILIATION-RETRY",
-        "expected": "verified"
-      }
-    },
-    {
       "id": "T-EVIDENCE:C13-CLOUDFLARE-ROLLBACK-WINDOW",
       "type": "T-EVIDENCE",
       "source": { "kind": "conformance", "id": "C13-CLOUDFLARE-ROLLBACK-WINDOW" },
@@ -714,43 +627,6 @@
       "oracle": {
         "kind": "conformance-status",
         "requirementId": "C13-CLOUDFLARE-ROLLBACK-WINDOW",
-        "expected": "verified"
-      }
-    },
-    {
-      "id": "T-EVIDENCE:C13-CLOUDFLARE-STORAGE-LIMIT",
-      "type": "T-EVIDENCE",
-      "source": { "kind": "conformance", "id": "C13-CLOUDFLARE-STORAGE-LIMIT" },
-      "owner": "W8",
-      "priority": 5,
-      "summary": "Advance C13-CLOUDFLARE-STORAGE-LIMIT from implemented with exact evidence",
-      "notes": [
-        "The named live case claims it stores a row at the declared limit, and its own comment says the seam is only correct if production accepts a row that large with overhead included, but it wrote SQL_BLOB_LIMIT_BYTES - 1_000 and exercised neither boundary. It now writes at the limit and owes a live run. The documented bound covers a string, BLOB or row while requireStorableBlob measures only the payload, so at-limit acceptance rests on workerd's undocumented SQLITE_LIMIT_LENGTH headroom rather than on anything Cloudflare promises.",
-        "SQLITE_FULL and the storage-timeout reset are now classified rather than flattened. CloudflareStorageFailure reads the platform's documented marker and reports drainable and transient separately, so a full object is distinguishable from a reset one and from a refused statement, and the raised AgentCoreError names the classification while the thrown platform value survives as its cause. The code stays protocol.invalid-state because the closed AgentCoreErrorCode union has no storage-exhaustion member and inventing one is W0's call, not this profile's.",
-        "The hundred-kilobyte statement length and the hundred-bound-parameter cap are enforced. requireExecutableStatement refuses both as operation.invalid-input before the statement reaches the platform, and it measures UTF-8 bytes only when a statement's code-unit count could possibly exceed a third of the bound, so no real statement in this package pays an encoding pass.",
-        "Two size approximations remain and are stated rather than derived, because neither quantity is measurable in-isolate. requireStorableBlob measures the payload against a bound the documentation applies to the whole row, and the WebSocket attachment guard measures UTF-8 JSON bytes against a bound the platform applies to the structured clone. A near-limit ViewDelta is also not bounded against the outbound frame that has to carry it, and the outbound ceiling is undocumented.",
-        "The R2 content path is now bounded where memory rather than storage binds it: a content object over 32 MiB is refused as operation.invalid-input on write, and on read the refusal happens against R2's reported size before the body is fetched, so an oversized object never enters the 128 MB isolate. R2's 1,024-byte key and 8,192-byte metadata bounds are satisfied by construction rather than by a guard, since a key is the fixed prefix plus two fixed-width digests and the metadata is three fixed-width entries; the measured constants are exported so a future key change is caught.",
-        "The committed live evidence at artifacts/conformance/live-evidence/run.json is now stale for this row's sources: it fingerprints cloudflare/src/durable-object.ts and cloudflare/src/reconciliation.ts, and both changed here, so validateLiveEvidence fails closed with 'Live evidence is stale'. The single prerequisite is one operator re-run of `pnpm --filter @agent-core/cloudflare live:evidence` against the real account, which regenerates run.json and the four phase reports at the current commit. No fingerprint was re-pinned by hand, because re-pinning ratifies a deployment that did not happen."
-      ],
-      "oracle": {
-        "kind": "conformance-status",
-        "requirementId": "C13-CLOUDFLARE-STORAGE-LIMIT",
-        "expected": "verified"
-      }
-    },
-    {
-      "id": "T-EVIDENCE:C13-CLOUDFLARE-VIEW-ATTACHMENT",
-      "type": "T-EVIDENCE",
-      "source": { "kind": "conformance", "id": "C13-CLOUDFLARE-VIEW-ATTACHMENT" },
-      "owner": "W8",
-      "priority": 5,
-      "summary": "Advance C13-CLOUDFLARE-VIEW-ATTACHMENT from implemented with exact evidence",
-      "notes": [
-        "This row is held below verified because its live evidence cannot resolve. The committed manifest at artifacts/conformance/live-evidence/run.json fingerprints cloudflare/src/durable-object.ts and cloudflare/src/reconciliation.ts, both changed by the W8 platform-behaviour work in this change, so validateLiveEvidence fails closed with 'Live evidence is stale' and every cloudflare/test/live selector this row cited stops resolving. The source symbols and the hermetic selectors are unchanged and still pass; what is gone is the deployed observation, and a verified claim that rests on a deployed observation may not outlive it. The single prerequisite is one operator re-run of `pnpm --filter @agent-core/cloudflare live:evidence` against the account, which regenerates run.json and the four phase reports at the current commit and restores this row to verified with its citations untouched. No fingerprint was re-pinned by hand, because re-pinning ratifies a deployment that did not happen."
-      ],
-      "oracle": {
-        "kind": "conformance-status",
-        "requirementId": "C13-CLOUDFLARE-VIEW-ATTACHMENT",
         "expected": "verified"
       }
     },
@@ -1550,22 +1426,6 @@
       }
     },
     {
-      "id": "T-EVIDENCE:P11-ENVIRONMENT-EPHEMERAL-DURABILITY",
-      "type": "T-EVIDENCE",
-      "source": { "kind": "conformance", "id": "P11-ENVIRONMENT-EPHEMERAL-DURABILITY" },
-      "owner": "W8",
-      "priority": 5,
-      "summary": "Advance P11-ENVIRONMENT-EPHEMERAL-DURABILITY from external-gated with exact evidence",
-      "notes": [
-        "This row is held below verified because the archived live run no longer matches this tree, and its only resolving lane is the consent-declared W8-REMOTE-SANDBOX gate the user authorized in artifacts/integration/user-authorization-requests.json. The manifest at artifacts/conformance/live-evidence/run.json fingerprints cloudflare/src/alarm-claims.ts, cloudflare/src/durable-object.ts, cloudflare/src/environment-provider.ts and cloudflare/src/reconciliation.ts, and all four changed after the deployment it records, so the deployed observation this row cited is gone while its source symbols and hermetic selectors are unchanged and still pass. A verified claim that rests on a deployed observation may not outlive it, so this row is external-gated rather than verified, the archive is retained as the record of the last consented run, and no fingerprint is re-pinned by hand because re-pinning ratifies a deployment that did not happen. The single prerequisite is one operator re-run of `pnpm --filter @agent-core/cloudflare live:evidence` against the real account, which regenerates run.json and the four phase reports at the current commit."
-      ],
-      "oracle": {
-        "kind": "conformance-status",
-        "requirementId": "P11-ENVIRONMENT-EPHEMERAL-DURABILITY",
-        "expected": "verified"
-      }
-    },
-    {
       "id": "T-EVIDENCE:P11-ENVIRONMENT-NO-AMBIENT-EGRESS",
       "type": "T-EVIDENCE",
       "source": { "kind": "conformance", "id": "P11-ENVIRONMENT-NO-AMBIENT-EGRESS" },
@@ -1580,38 +1440,6 @@
       "oracle": {
         "kind": "conformance-status",
         "requirementId": "P11-ENVIRONMENT-NO-AMBIENT-EGRESS",
-        "expected": "verified"
-      }
-    },
-    {
-      "id": "T-EVIDENCE:P11-ENVIRONMENT-PREVIEW",
-      "type": "T-EVIDENCE",
-      "source": { "kind": "conformance", "id": "P11-ENVIRONMENT-PREVIEW" },
-      "owner": "W8",
-      "priority": 5,
-      "summary": "Advance P11-ENVIRONMENT-PREVIEW from external-gated with exact evidence",
-      "notes": [
-        "This row is held below verified because the archived live run no longer matches this tree, and its only resolving lane is the consent-declared W8-REMOTE-SANDBOX gate the user authorized in artifacts/integration/user-authorization-requests.json. The manifest at artifacts/conformance/live-evidence/run.json fingerprints cloudflare/src/alarm-claims.ts, cloudflare/src/durable-object.ts, cloudflare/src/environment-provider.ts and cloudflare/src/reconciliation.ts, and all four changed after the deployment it records, so the deployed observation this row cited is gone while its source symbols and hermetic selectors are unchanged and still pass. A verified claim that rests on a deployed observation may not outlive it, so this row is external-gated rather than verified, the archive is retained as the record of the last consented run, and no fingerprint is re-pinned by hand because re-pinning ratifies a deployment that did not happen. The single prerequisite is one operator re-run of `pnpm --filter @agent-core/cloudflare live:evidence` against the real account, which regenerates run.json and the four phase reports at the current commit."
-      ],
-      "oracle": {
-        "kind": "conformance-status",
-        "requirementId": "P11-ENVIRONMENT-PREVIEW",
-        "expected": "verified"
-      }
-    },
-    {
-      "id": "T-EVIDENCE:P11-ENVIRONMENT-SNAPSHOT",
-      "type": "T-EVIDENCE",
-      "source": { "kind": "conformance", "id": "P11-ENVIRONMENT-SNAPSHOT" },
-      "owner": "W8",
-      "priority": 5,
-      "summary": "Advance P11-ENVIRONMENT-SNAPSHOT from external-gated with exact evidence",
-      "notes": [
-        "This row is held below verified because the archived live run no longer matches this tree, and its only resolving lane is the consent-declared W8-REMOTE-SANDBOX gate the user authorized in artifacts/integration/user-authorization-requests.json. The manifest at artifacts/conformance/live-evidence/run.json fingerprints cloudflare/src/alarm-claims.ts, cloudflare/src/durable-object.ts, cloudflare/src/environment-provider.ts and cloudflare/src/reconciliation.ts, and all four changed after the deployment it records, so the deployed observation this row cited is gone while its source symbols and hermetic selectors are unchanged and still pass. A verified claim that rests on a deployed observation may not outlive it, so this row is external-gated rather than verified, the archive is retained as the record of the last consented run, and no fingerprint is re-pinned by hand because re-pinning ratifies a deployment that did not happen. The single prerequisite is one operator re-run of `pnpm --filter @agent-core/cloudflare live:evidence` against the real account, which regenerates run.json and the four phase reports at the current commit."
-      ],
-      "oracle": {
-        "kind": "conformance-status",
-        "requirementId": "P11-ENVIRONMENT-SNAPSHOT",
         "expected": "verified"
       }
     },
@@ -1689,38 +1517,6 @@
       "oracle": {
         "kind": "conformance-status",
         "requirementId": "P11-FILESYSTEM-WRITE-UNOBSERVED",
-        "expected": "verified"
-      }
-    },
-    {
-      "id": "T-EVIDENCE:P11-SLATE-DEPLOY",
-      "type": "T-EVIDENCE",
-      "source": { "kind": "conformance", "id": "P11-SLATE-DEPLOY" },
-      "owner": "W8",
-      "priority": 5,
-      "summary": "Advance P11-SLATE-DEPLOY from external-gated with exact evidence",
-      "notes": [
-        "This row is held below verified because the archived live run no longer matches this tree, and its only resolving lane is the consent-declared W8-REMOTE-WORKERS-FOR-PLATFORMS gate the user authorized in artifacts/integration/user-authorization-requests.json. The manifest at artifacts/conformance/live-evidence/run.json fingerprints cloudflare/src/alarm-claims.ts, cloudflare/src/durable-object.ts, cloudflare/src/environment-provider.ts and cloudflare/src/reconciliation.ts, and all four changed after the deployment it records, so the deployed observation this row cited is gone while its source symbols and hermetic selectors are unchanged and still pass. A verified claim that rests on a deployed observation may not outlive it, so this row is external-gated rather than verified, the archive is retained as the record of the last consented run, and no fingerprint is re-pinned by hand because re-pinning ratifies a deployment that did not happen. The single prerequisite is one operator re-run of `pnpm --filter @agent-core/cloudflare live:evidence` against the real account, which regenerates run.json and the four phase reports at the current commit."
-      ],
-      "oracle": {
-        "kind": "conformance-status",
-        "requirementId": "P11-SLATE-DEPLOY",
-        "expected": "verified"
-      }
-    },
-    {
-      "id": "T-EVIDENCE:P11-SLATE-MEDIATED-DEPLOY",
-      "type": "T-EVIDENCE",
-      "source": { "kind": "conformance", "id": "P11-SLATE-MEDIATED-DEPLOY" },
-      "owner": "W8",
-      "priority": 5,
-      "summary": "Advance P11-SLATE-MEDIATED-DEPLOY from external-gated with exact evidence",
-      "notes": [
-        "This row is held below verified because the archived live run no longer matches this tree, and its only resolving lane is the consent-declared W8-REMOTE-WORKERS-FOR-PLATFORMS gate the user authorized in artifacts/integration/user-authorization-requests.json. The manifest at artifacts/conformance/live-evidence/run.json fingerprints cloudflare/src/alarm-claims.ts, cloudflare/src/durable-object.ts, cloudflare/src/environment-provider.ts and cloudflare/src/reconciliation.ts, and all four changed after the deployment it records, so the deployed observation this row cited is gone while its source symbols and hermetic selectors are unchanged and still pass. A verified claim that rests on a deployed observation may not outlive it, so this row is external-gated rather than verified, the archive is retained as the record of the last consented run, and no fingerprint is re-pinned by hand because re-pinning ratifies a deployment that did not happen. The single prerequisite is one operator re-run of `pnpm --filter @agent-core/cloudflare live:evidence` against the real account, which regenerates run.json and the four phase reports at the current commit."
-      ],
-      "oracle": {
-        "kind": "conformance-status",
-        "requirementId": "P11-SLATE-MEDIATED-DEPLOY",
         "expected": "verified"
       }
     },

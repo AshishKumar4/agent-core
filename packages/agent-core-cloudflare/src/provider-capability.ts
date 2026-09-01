@@ -188,7 +188,9 @@ export class ProviderCapability extends RpcTarget implements Disposable {
         // refusal takes the whole session with it rather than only this call.
         const release = await this.session.enter(operation, input);
         try {
-            const output: unknown = await handle.invoke(operation, input);
+            // The stub's declared return type is a remote claim, not proof, so the wire
+            // value is still validated at this one seam before it crosses inward.
+            const output = await handle.invoke(operation, input);
             if (!isFacetData(output)) {
                 operationalFailure(
                     this.errors,

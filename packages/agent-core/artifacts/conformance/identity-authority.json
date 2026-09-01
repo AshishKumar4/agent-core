@@ -649,8 +649,8 @@
         "test/authority/share-offer-service.test.ts#share offer authority in the sqlite Tenant control store [C13-AUTH-SHARE-OFFER] refuses redemption after the issued Role content widens",
         "test/authority/share-offer-service.test.ts#share offer authority in the sqlite Tenant control store [C13-AUTH-SHARE-OFFER] maps cross-Tenant local issuers and holders to authority denial without writes",
         "test/identity/share-offer.test.ts#share offers [C13-AUTH-SHARE-OFFER] [identity.share-offer] preserves prior redemption time and foreign verification evidence exactly",
-        "test/authority/record-closure.test.ts#Tenant authority record closure: memory [authority-mutation-store] [C13-AUTH-SHARE-OFFER] refuses a redeemed Membership that moved Scope in both full and incremental closure, while allowing its later Role revision",
-        "test/authority/record-closure.test.ts#Tenant authority record closure: SQLite [authority-mutation-store] [C13-AUTH-SHARE-OFFER] refuses a redeemed Membership that moved Scope in both full and incremental closure, while allowing its later Role revision"
+        "test/authority/record-closure.test.ts#Tenant authority record closure: 'memory' [authority-mutation-store] [C13-AUTH-SHARE-OFFER] refuses a redeemed Membership that moved Scope in both full and incremental closure, while allowing its later Role revision",
+        "test/authority/record-closure.test.ts#Tenant authority record closure: 'SQLite' [authority-mutation-store] [C13-AUTH-SHARE-OFFER] refuses a redeemed Membership that moved Scope in both full and incremental closure, while allowing its later Role revision"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": [

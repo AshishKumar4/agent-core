@@ -39,9 +39,12 @@ import {
     ClaimWorkerId,
     InvocationPlacementPin,
     MemoryInvocationMediationPersistence,
+    MemoryDetachedEffectExecutionPersistence,
     MemoryInvocationPersistence,
     cloneInvocationMediationMemoryState,
     cloneInvocationMemoryState,
+    cloneDetachedEffectExecutionMemoryState,
+    createDetachedEffectExecutionMemoryState,
     createInvocationMediationMemoryState,
     createInvocationMemoryState,
     structuralCodec,
@@ -55,7 +58,9 @@ import {
     type InvocationMemoryState,
     type InvocationTransactionPort,
     type ItemClaim,
+    type DetachedEffectExecutionMemoryState,
     type ReceiptObservation,
+    type ReconciliationSchedulePort,
     type StructuralCodec
 } from "@agent-core/core/invocations";
 import {
@@ -75,7 +80,9 @@ import {
 import { TurnLease, type LeaseToken } from "@agent-core/core/agents/runs";
 import { ids } from "./fixture.js";
 
-export type MediationState = InvocationMemoryState & InvocationMediationMemoryState;
+export type MediationState = InvocationMemoryState &
+    InvocationMediationMemoryState &
+    DetachedEffectExecutionMemoryState;
 
 /**
  * The one permit shape this demonstration issues. The Tenant authority permit plane is
@@ -168,7 +175,8 @@ export class MemoryFacet extends Facet {
 export class MemoryMediationTransactions implements InvocationTransactionPort<MediationState> {
     #state: MediationState = {
         ...createInvocationMemoryState(),
-        ...createInvocationMediationMemoryState()
+        ...createInvocationMediationMemoryState(),
+        ...createDetachedEffectExecutionMemoryState()
     };
 
     public transact<Result>(operation: (transaction: MediationState) => Result): Result {
@@ -176,7 +184,8 @@ export class MemoryMediationTransactions implements InvocationTransactionPort<Me
         const result = operation(draft);
         this.#state = {
             ...cloneInvocationMemoryState(draft),
-            ...cloneInvocationMediationMemoryState(draft)
+            ...cloneInvocationMediationMemoryState(draft),
+            ...cloneDetachedEffectExecutionMemoryState(draft)
         };
         return result;
     }
@@ -189,7 +198,8 @@ export class MemoryMediationTransactions implements InvocationTransactionPort<Me
     private clone(): MediationState {
         return {
             ...cloneInvocationMemoryState(this.#state),
-            ...cloneInvocationMediationMemoryState(this.#state)
+            ...cloneInvocationMediationMemoryState(this.#state),
+            ...cloneDetachedEffectExecutionMemoryState(this.#state)
         };
     }
 }
@@ -455,6 +465,23 @@ export interface MediationHarness {
     readonly observations: ReceiptObservation[];
 }
 
+/** The detached driver's durable schedule row, held in memory for the harness. */
+class MemorySchedule implements ReconciliationSchedulePort {
+    #at: Date | undefined;
+
+    public scheduled(): Date | undefined {
+        return this.#at;
+    }
+
+    public schedule(at: Date): void {
+        this.#at = at;
+    }
+
+    public clear(): void {
+        this.#at = undefined;
+    }
+}
+
 export async function mediationHarness(
     token: LeaseToken,
     content: ContentStore,
@@ -480,6 +507,9 @@ export async function mediationHarness(
         transactions,
         persistence,
         evidence,
+        detachedExecutions: new MemoryDetachedEffectExecutionPersistence(),
+        detachedSchedule: new MemorySchedule(),
+        detachedIntervalMilliseconds: 30_000,
         authority,
         manifests: [memoryManifest()],
         roots: [new MemoryFacet(answers)],

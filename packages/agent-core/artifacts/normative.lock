@@ -20,6 +20,8 @@
     "AgentCore.Environments",
     "AgentCore.Events",
     "AgentCore.Examples",
+    "AgentCore.Facets",
+    "AgentCore.Facets.Enforcement",
     "AgentCore.Interceptors",
     "AgentCore.Keys",
     "AgentCore.Lease",
