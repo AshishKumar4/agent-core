@@ -44,7 +44,7 @@ describe("SQLite application durability", () => {
         expect(statements.join("\n")).not.toMatch(/receipt|authority|grant/i);
     });
 
-    test("rejects invalid migration declarations and mismatched durable markers", () => {
+    test("[C13-CLOUDFLARE-ROLLBACK-WINDOW] rejects invalid migration declarations and mismatched durable markers", () => {
         const database = new FakeRuntimeSqlite();
         expect(
             () =>

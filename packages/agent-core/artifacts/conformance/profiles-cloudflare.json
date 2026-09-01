@@ -7,15 +7,29 @@
       "owner": "W8",
       "specAnchor": "C13-CLOUDFLARE-ADDITIVE-MIGRATION",
       "specTextSha256": "sha256:980bd9e8fed4fe1ab4f1f968cf9a9ae963d77d3d0b3c410621591367f3443548",
-      "status": "planned",
+      "status": "implemented",
       "prerequisites": ["C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY"],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
+      "sourceSymbols": [
+        "cloudflare/scripts/check-additive-migrations.mjs#additiveViolations",
+        "cloudflare/scripts/check-additive-migrations.mjs#writesOwnedByEarlierRelease",
+        "cloudflare/src/environment-provider.ts#environmentProviderMigration",
+        "cloudflare/src/migration.ts#cloudflareRuntimeMigrations",
+        "cloudflare/src/placement.ts#placementRegistryMigration",
+        "cloudflare/src/run.ts#runHostingMigration",
+        "cloudflare/src/slate-provider.ts#slateProviderMigration"
+      ],
+      "testSelectors": [
+        "cloudflare/test/additive-migrations.test.ts#additive-only migration gate [C13-CLOUDFLARE-ADDITIVE-MIGRATION] accepts the migrations this package declares",
+        "cloudflare/test/additive-migrations.test.ts#additive-only migration gate [C13-CLOUDFLARE-ADDITIVE-MIGRATION] accepts additions that leave the previous release readable",
+        "cloudflare/test/additive-migrations.test.ts#additive-only migration gate [C13-CLOUDFLARE-ADDITIVE-MIGRATION] rejects every way a release can stop being readable by its predecessor",
+        "cloudflare/test/live/phase-4.test.ts#live Cloudflare substrate evidence after rolling forward again [C13-CLOUDFLARE-ADDITIVE-MIGRATION] applies this release's own migration to an object the previous release created"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-LIVE", "ACQ-TEST"],
       "remainingEvidence": [
-        "The mechanical gate exists at cloudflare/scripts/check-additive-migrations.mjs, wired as the package's check:migrations script: it applies every declared migration to the schema its predecessors produced in real SQLite, compares the schema object by object and column by column, and reads each statement's compiled SQLite program to reject one that writes rows an earlier release owns. Promotion to implemented owes the checker a registered invariant id in artifacts/quality/rules.json, which W0 owns.",
-        "cloudflare/test/additive-migrations.test.ts drives the gate through thirteen non-additive families (dropped table, dropped index, dropped column, renamed table, renamed column, deleted rows, rewritten rows, inserted rows, added uniqueness, non-omissible column, declared trigger, a second statement hidden in one entry, and a rebuilt table) and confirms the declared set passes. That set is now seven migrations and sixteen statements: the runtime set gained cloudflare-runtime-resumable-operations, two new tables that carry a resumable operation's progress, and the gate accepts it because a table no earlier release reads takes nothing away and narrows nothing. Those selectors can be cited once this atom leaves planned.",
-        "The two-release protocol for a destructive change is stated but unexercised: no test walks an expand, backfill, dual-read, contract sequence across two releases, and the live lane owes that scenario under ACQ-LIVE."
+        "The mechanical check §10.4 demands exists and runs: cloudflare/scripts/check-additive-migrations.mjs applies every declared migration to the schema its predecessors produced in real SQLite, compares the result object by object and column by column, and reads each statement's compiled SQLite program to reject one that writes rows an earlier release owns. It currently verifies eight declared migrations over seventeen statements — the four-entry runtime set plus the four facet factories the gate enumerates out of the built package by export name — and cloudflare/test/additive-migrations.test.ts drives it through thirteen non-additive families: dropped table, dropped index, dropped column, renamed table, renamed column, deleted rows, rewritten rows, inserted rows, added uniqueness, a non-omissible column, a declared trigger, a second statement hidden in one entry, and a rebuilt table.",
+        "What the gate still lacks is a registered invariant id, and registering one is not a rules.json edit. artifacts/quality/rules.json binds a rule to a checker node, and every registered rule must additionally name a node the graph states inside the invariants dependency closure, carry an artifacts/quality/agents-compliance.json entry whose cited tests pass in the core reports agents.mjs reads (reports/quality/tests/vitest.json, quality.json and governance.json, which never contain the cloudflare lanes), and carry an artifacts/quality/gate-corpus.json mutation whose input gate-integrity.mjs substitutes under packages/agent-core and whose pinned diagnostic appears in that node's harness sources. This gate reads the adjunct package's built dist or a module argument and no committed core-relative file, so no corpus mutation of it is expressible and only the debt list, empty today and forbidden at the final stage, would take it. Registration waits on W0 either giving the gate a committed core-side input or extending the corpus harness to adjunct packages; a rule id registered without that wiring turns the invariants, agents and gate-integrity nodes red, so this row cites none.",
+        "The two-release protocol for a destructive change is stated in §10.4 and unexercised: no test walks an expand, backfill, dual-read, contract sequence across two releases. The live scenario cited here is the forward half only — phase 3 creates an object under the rolled-back release and phase 4 applies this release's own migration to that existing durable state — so what was measured is a later release's migration landing on an earlier release's object, not a destructive change staged over two of them.",
+        "Verified is unreachable through the prerequisite rather than through this atom's citations: C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY is implemented because C13-CLOUDFLARE-ALARM-DURABILITY still owes a start that recovers an alarm the platform stopped re-firing, and the ledger refuses a verified row whose prerequisite is not verified."
       ]
     },
     {
@@ -325,15 +339,26 @@
       "owner": "W8",
       "specAnchor": "C13-CLOUDFLARE-ROLLBACK-WINDOW",
       "specTextSha256": "sha256:d873b5b85633d2b367bdb333ff3004deb55e9271f4cadc38f0ff54380136511d",
-      "status": "planned",
+      "status": "implemented",
       "prerequisites": ["C13-CLOUDFLARE-ADDITIVE-MIGRATION"],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
+      "sourceSymbols": [
+        "cloudflare/src/durable-object.ts#createCloudflareDurableObjectClass",
+        "cloudflare/src/migration.ts#SqliteApplicationMigrator",
+        "cloudflare/src/migration.ts#UNREADABLE_SCHEMA"
+      ],
+      "testSelectors": [
+        "cloudflare/test/deployment-rollback.test.ts#Cloudflare release rollback [C13-CLOUDFLARE-ROLLBACK-WINDOW] refuses a two-release rollback the same way and recovers by rolling forward",
+        "cloudflare/test/deployment-rollback.test.ts#Cloudflare release rollback [C13-CLOUDFLARE-ROLLBACK-WINDOW] admits a release that declares every applied marker",
+        "cloudflare/test/live/phase-3.test.ts#live Cloudflare substrate evidence after a one-release rollback [C13-CLOUDFLARE-ROLLBACK-WINDOW] refuses every operation on an object whose applied schema this release does not declare",
+        "cloudflare/test/live/phase-3.test.ts#live Cloudflare substrate evidence after a one-release rollback [C13-CLOUDFLARE-ROLLBACK-WINDOW] keeps serving an object whose applied schema this release does declare",
+        "cloudflare/test/live/phase-4.test.ts#live Cloudflare substrate evidence after rolling forward again [C13-CLOUDFLARE-ROLLBACK-WINDOW] serves the refused object again with no repair step",
+        "cloudflare/test/migration.test.ts#SQLite application durability [C13-CLOUDFLARE-ROLLBACK-WINDOW] rejects invalid migration declarations and mismatched durable markers"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-LIVE", "ACQ-TEST"],
       "remainingEvidence": [
-        "createCloudflareDurableObjectClass captures an unreadable-schema refusal at construction and raises it from fetch, alarm, webSocketMessage, webSocketClose, and webSocketError, and SqliteApplicationMigrator raises the stable schema.unreadable code for an undeclared, corrupt, or duplicated marker. Promotion to implemented needs those symbols cited here once the atom leaves planned.",
-        "cloudflare/test/deployment-rollback.test.ts proves construction succeeds, every entry point refuses with schema.unreadable, the durable state is untouched, a two-release rollback fails closed the same way, and a release that declares every applied marker still serves. cloudflare/test/migration.test.ts covers the migrator's own refusals.",
-        "The live half has now run and passed. At commit 7a780e87 the lane walked base, next, base, next across four deployments, each recorded with its release in artifacts/conformance/live-evidence/run.json, and phase 3 is 2/2 with phase 4 4/4. The refusal scenario asserts the deployed release is base before asserting anything else, and collects all four operations before asserting any: blob-read, outbox, alarms and events each refuse with schema.unreadable naming live-harness-rollout. That settles a question this row could not previously answer, because revisions.replay reads Durable Object SQLite without inspecting a schema marker itself and it does meet the refusal. Promotion beyond planned needs the symbols and selectors named above cited here, which is a judgement this row's owner has not yet made."
+        "The live half has run and passed against the archive this tree commits. At commit 38649dcd the lane walked base, next, base, next across four deployments, each recorded with its release in artifacts/conformance/live-evidence/run.json, and phase 3 is 2/2 with phase 4 4/4. The refusal scenario asserts the deployed release is base before asserting anything else and collects all four operations before asserting any, so blob-read, outbox, alarms and events each refuse with schema.unreadable naming live-harness-rollout; phase 3 also serves an object this release did migrate itself, and phase 4 drives the refused object through an enqueue, a fired alarm and a drained outbox with no repair step in between. That settles the question this row could not answer from the structural lane alone, because revisions.replay reads Durable Object SQLite without inspecting a schema marker itself and it does meet the refusal.",
+        "The entry-point breadth is proven by evidence this row does not own. cloudflare/test/deployment-rollback.test.ts proves that construction succeeds and that fetch, alarm, webSocketMessage, webSocketClose and webSocketError each refuse with schema.unreadable while the armed alarm survives untouched, but that case is titled for C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY and is cited under that atom rather than duplicated here; the two cases titled for this atom carry the two-release rollback and the release that declares every applied marker. The live refusal reaches four RPC operations — blob-read, outbox, alarms and events — and no WebSocket entry point, and that gap is the scenario's rather than the harness's: the live harness does accept and hibernate sockets, as phase 1 exercises, so nothing prevented the rolled-back phase from waking one and it did not. A case titled for this atom that walks every entry point, or a live scenario that refuses a hibernating socket delivery on a rolled-back object, is what would let this row stand on its own citations.",
+        "Verified is unreachable through the prerequisite chain rather than through this atom's citations: C13-CLOUDFLARE-ADDITIVE-MIGRATION is implemented while its gate has no registered invariant id and the two-release destructive protocol is unexercised, C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY behind it is implemented on C13-CLOUDFLARE-ALARM-DURABILITY's open obligation, and the ledger refuses a verified row whose prerequisite is not verified."
       ]
     },
     {

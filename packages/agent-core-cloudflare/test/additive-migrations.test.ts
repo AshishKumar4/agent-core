@@ -52,7 +52,7 @@ async function runGate(
 }
 
 describe("additive-only migration gate", () => {
-    test("accepts the migrations this package declares", async () => {
+    test("[C13-CLOUDFLARE-ADDITIVE-MIGRATION] accepts the migrations this package declares", async () => {
         const declared = [
             ...cloudflareRuntimeMigrations,
             environmentProviderMigration(cloudflareRuntimeMigrations.length + 1),
@@ -78,7 +78,7 @@ describe("additive-only migration gate", () => {
         expect(status).toBe(0);
     });
 
-    test("accepts additions that leave the previous release readable", async () => {
+    test("[C13-CLOUDFLARE-ADDITIVE-MIGRATION] accepts additions that leave the previous release readable", async () => {
         const { status, output } = await runGate([
             base,
             next(
@@ -95,7 +95,7 @@ describe("additive-only migration gate", () => {
     });
 
     test(
-        "rejects every way a release can stop being readable by its predecessor",
+        "[C13-CLOUDFLARE-ADDITIVE-MIGRATION] rejects every way a release can stop being readable by its predecessor",
         { tags: "p0" },
         async () => {
             const cases: readonly (readonly [SqliteApplicationMigration, string])[] = [
