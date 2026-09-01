@@ -34,6 +34,17 @@
       ],
       "memoryReference": "src/invocations/mediation-memory.ts#MemoryInvocationMediationPersistence",
       "contractTest": "test/substrates/sqlite/invocations/mediation.test.ts#SqliteInvocationMediationPersistence [C13-PREPARED-SHARED-HEADER] [invocation-replay-persistence] [invocation-evidence-persistence] memory and SQLite satisfy one shared mediation contract"
+    },
+    {
+      "id": "detached-effect-execution-persistence",
+      "disposition": "verified",
+      "contract": "src/invocations/detached-execution.ts#DetachedEffectExecutionPersistence",
+      "implementations": [
+        "src/invocations/detached-memory.ts#MemoryDetachedEffectExecutionPersistence",
+        "src/substrates/sqlite/invocations/detached-execution.ts#SqliteDetachedEffectExecutionPersistence"
+      ],
+      "memoryReference": "src/invocations/detached-memory.ts#MemoryDetachedEffectExecutionPersistence",
+      "contractTest": "test/substrates/sqlite/invocations/detached-execution.test.ts#SqliteDetachedEffectExecutionPersistence [C13-OWNERSHIP-SINGLE-OWNER] [detached-effect-execution-persistence] [invocation.detached-effect-execution] memory and SQLite satisfy one detached execution contract"
     }
   ]
 }

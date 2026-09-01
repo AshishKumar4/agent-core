@@ -3,6 +3,7 @@ import {
     ContentRef,
     Digest,
     JsonSchema,
+    decodeCanonicalJson,
     encodeCanonicalJson,
     type JsonObject,
     type JsonValue
@@ -19,16 +20,20 @@ import {
     ReceiptId,
     deriveBatchOutcome,
     type AttemptTargetDomain,
+    type CanonicalBatchFinalAdmissionContext,
+    type CanonicalBatchFinalAdmissionPort,
+    type CanonicalBatchFinalAdmissionResult,
     type CanonicalBatchInvocationRequest
 } from "../../src/invocations";
 import { InvocationId } from "../../src/interaction-references";
-import { admissionFor } from "../invocations/fixture";
+import { admissionFor, claimCodec, preparedCodec } from "../invocations/fixture";
 import { outsideVocabulary } from "./fixture";
 import { ConfirmedOperationFailure, OperationRequestKey } from "../../src/operations";
 import {
     CanonicalBatchHarness as Harness,
     canonicalBatchDescriptor as descriptor,
-    canonicalBatchFacet as facet
+    canonicalBatchFacet as facet,
+    type CanonicalBatchHarnessState
 } from "../integration/canonical-batch-harness";
 
 const answering: AttemptTargetDomain = { answering: (): boolean => true };
@@ -63,10 +68,9 @@ describe("§7.4 attempt failure kinds", () => {
                 [
                     "outputInvalid/rejected",
                     () =>
-                        AttemptFailureKind.outputInvalid(
-                            new JsonSchema({ type: "boolean" }),
-                            { value: 1 }
-                        )
+                        AttemptFailureKind.outputInvalid(new JsonSchema({ type: "boolean" }), {
+                            value: 1
+                        })
                 ],
                 [
                     "outputInvalid/accepted",
@@ -203,7 +207,8 @@ describe("§7.4 attempt failure kinds", () => {
             // illegal pair, so that is what the record must refuse.
             for (const [name, completion] of hostileCompletions()) {
                 expect(
-                    () => new AttemptReceipt(id, attempt, completion, undefined, time(1), undefined),
+                    () =>
+                        new AttemptReceipt(id, attempt, completion, undefined, time(1), undefined),
                     name
                 ).toThrow(TypeError);
             }
@@ -212,8 +217,14 @@ describe("§7.4 attempt failure kinds", () => {
                 expect(legal.failure).toBeUndefined();
             }
             expect(
-                new AttemptReceipt(id, attempt, AttemptCompletion.indeterminate, undefined, time(1), undefined)
-                    .failure
+                new AttemptReceipt(
+                    id,
+                    attempt,
+                    AttemptCompletion.indeterminate,
+                    undefined,
+                    time(1),
+                    undefined
+                ).failure
             ).toBeUndefined();
 
             // "Exactly one" is a property of the record, not of the outcome it was built from:
@@ -264,15 +275,15 @@ describe("§7.4 attempt failure kinds", () => {
                 )
             ).toThrow(/Pre-effect Receipt contains missing or unknown fields/);
 
-            expect(() => Receipt.decode(envelope(attemptPayload({ outcome: "indeterminate" })))).toThrow(
-                /Only a failed Attempt Receipt may name a failure kind/
-            );
-            expect(() => Receipt.decode(envelope(attemptPayload({ outcome: "succeeded" })))).toThrow(
-                /Only a failed Attempt Receipt may name a failure kind/
-            );
             expect(() =>
-                Receipt.decode(envelope(attemptPayload({ failure: null })))
-            ).toThrow(/A failed Attempt Receipt must name one failure kind/);
+                Receipt.decode(envelope(attemptPayload({ outcome: "indeterminate" })))
+            ).toThrow(/Only a failed Attempt Receipt may name a failure kind/);
+            expect(() =>
+                Receipt.decode(envelope(attemptPayload({ outcome: "succeeded" })))
+            ).toThrow(/Only a failed Attempt Receipt may name a failure kind/);
+            expect(() => Receipt.decode(envelope(attemptPayload({ failure: null })))).toThrow(
+                /A failed Attempt Receipt must name one failure kind/
+            );
             expect(() =>
                 Receipt.decode(envelope(attemptPayload({ failure: "workerExit" })))
             ).toThrow(/Attempt Receipt failure kind is invalid/);
@@ -360,6 +371,45 @@ describe("§7.4 attempt failure kinds", () => {
             expect(outcomes).toEqual(["failed", "failed", "failed", "failed", "failed"]);
         }
     );
+
+    test(
+        "[C13-RECEIPT-FAILURE-ORTHOGONAL] refuses rather than drops a kind offered on the pre-effect wire seam",
+        { tags: "p0" },
+        () => {
+            // The case above refuses the extra key on the way in. This is the way out: a field
+            // initializer cannot reach a frozen instance, so the one shape a store could ever
+            // be handed is a subclass answering from its prototype. Encoding is the seam every
+            // store writes through, so dropping the field would persist bytes that disagree
+            // with the live record a caller still holds.
+            const smuggled = new SmuggledKindReceipt(
+                new ReceiptId("smuggled-pre-effect"),
+                new InvocationId("smuggled-invocation"),
+                0,
+                "cancelledPreEffect",
+                time(1),
+                "cancelled before the effect"
+            );
+            expect(smuggled.failure.kind).toBe("aborted");
+            expect(() => Receipt.encode(smuggled)).toThrow(TypeError);
+            expect(() => Receipt.encode(smuggled)).toThrow(
+                /pre-effect Receipt cannot carry an attempt failure kind/
+            );
+
+            // The legitimate record still round-trips, so the refusal is about the extra field
+            // and not about the variant.
+            const honest = new PreEffectReceipt(
+                new ReceiptId("smuggled-pre-effect"),
+                new InvocationId("smuggled-invocation"),
+                0,
+                "cancelledPreEffect",
+                time(1),
+                "cancelled before the effect"
+            );
+            const decoded = Receipt.decode(Receipt.encode(honest));
+            expect(decoded).toBeInstanceOf(PreEffectReceipt);
+            expect("failure" in decoded).toBe(false);
+        }
+    );
 });
 
 describe("§7.4 failure kinds at the mediated seam", () => {
@@ -404,7 +454,12 @@ describe("§7.4 failure kinds at the mediated seam", () => {
             // handler naming a host boundary in its own rejection must reach no kind at all,
             // because each host kind is read off the boundary and never off the error.
             const claimed = ["deadline", "aborted", "domainLost", "outputInvalid"] as const;
-            const codes = ["actor.closed", "facet.inactive", "lease.invalid", "turn.invalid-state"] as const;
+            const codes = [
+                "actor.closed",
+                "facet.inactive",
+                "lease.invalid",
+                "turn.invalid-state"
+            ] as const;
             const observed: (readonly [string, string, string | undefined])[] = [];
             for (const [index, kind] of claimed.entries()) {
                 const harness = new Harness(false);
@@ -436,11 +491,11 @@ describe("§7.4 failure kinds at the mediated seam", () => {
             );
             const receipt = result.items[0]?.receipt;
             if (!(receipt instanceof AttemptReceipt)) throw new TypeError("Expected an attempt");
-            expect([receipt.outcome, receipt.failure?.kind, receipt.result?.equals(evidence)]).toEqual([
-                "failed",
-                "raised",
-                true
-            ]);
+            expect([
+                receipt.outcome,
+                receipt.failure?.kind,
+                receipt.result?.equals(evidence)
+            ]).toEqual(["failed", "raised", true]);
         }
     );
 
@@ -538,7 +593,9 @@ describe("§7.4 failure kinds at the mediated seam", () => {
         "[C13-RECEIPT-FAILURE-ORTHOGONAL] admits the retry through identical admission inputs whatever the kind recorded",
         { tags: "p0" },
         async () => {
-            for (const scenario of seamScenarios().filter((entry) => entry.name !== "unexplained")) {
+            for (const scenario of seamScenarios().filter(
+                (entry) => entry.name !== "unexplained"
+            )) {
                 const operation = scenario.descriptor ?? descriptor;
                 const harness = new Harness(false, facet, operation);
                 scenario.arm(harness);
@@ -604,15 +661,134 @@ describe("§7.4 failure kinds at the mediated seam", () => {
             expect(heads[1].id.equals(heads[0].id)).toBe(true);
             expect(heads[1].outcome).toBe("indeterminate");
             expect(
-                harness.transactions.transact((transaction) =>
-                    harness.persistence.attemptsForItem(transaction, invocation, 0)
-                ).map((attempt) => attempt.ordinal)
+                harness.transactions
+                    .transact((transaction) =>
+                        harness.persistence.attemptsForItem(transaction, invocation, 0)
+                    )
+                    .map((attempt) => attempt.ordinal)
             ).toEqual([0]);
             expect(harness.permits.issuedAdmissions).toHaveLength(1);
             expect(harness.finalAdmissions.calls).toBe(1);
         }
     );
+
+    test(
+        "[C13-RECEIPT-FAILURE-ORTHOGONAL] carries no Receipt state into any admission input",
+        { tags: "p0" },
+        async () => {
+            // The case above compares the admission decision's own fields. This one compares
+            // the complete argument set as bytes: every run states the same intent and the same
+            // retry instant, and only the first attempt's host-observed kind differs. If that
+            // Receipt state entered a claim, a permit input, or a final-admission input
+            // directly or by hashing into an existing field, the canonical bytes differ.
+            //
+            // One descriptor for every scenario, because the intent is part of what is being
+            // held equal: `outputInvalid` needs a declared output shape to violate, and the
+            // others fail before output validation, so the boolean-output operation is the one
+            // intent all five can share. The retry then returns a value it accepts.
+            const observed: (readonly [string, string])[] = [];
+            for (const scenario of seamScenarios().filter(
+                (entry) => entry.name !== "unexplained"
+            )) {
+                const admissions = new RecordingFinalAdmissions();
+                const harness = new Harness<string>(false, facet, booleanOutput, admissions);
+                scenario.arm(harness);
+                const invocation = new InvocationId("admission-inputs");
+                let execute = scenario.execute;
+                const request = seamRequest(
+                    invocation,
+                    (): Promise<FacetData> | FacetData => execute(),
+                    booleanOutput
+                );
+
+                const first = await harness.port.invoke(request);
+                const failed = first.items[0]?.receipt;
+                if (!(failed instanceof AttemptReceipt) || failed.failure === undefined) {
+                    throw new TypeError(`Expected a failed Receipt for ${scenario.name}`);
+                }
+                expect([failed.outcome, failed.failure.kind]).toEqual(["failed", scenario.name]);
+
+                execute = (): FacetData => true;
+                if (scenario.name === "deadline") harness.attemptDeadline = undefined;
+                // All first attempts can consume different clock reads while observing their
+                // boundary. Set one exact retry instant so timing cannot mask a data difference.
+                harness.setTime(10_000);
+                await harness.port.invoke(request);
+
+                const issued = harness.permits.issueInputs.at(-1);
+                const admitted = admissions.contexts.at(-1);
+                if (issued === undefined || admitted === undefined) {
+                    throw new TypeError(`Expected retry admission inputs for ${scenario.name}`);
+                }
+                const inputs = new TextDecoder().decode(
+                    encodeCanonicalJson({
+                        finalAdmission: {
+                            admittedAt: admitted.admittedAt.toISOString(),
+                            authorityAdmission: {
+                                digest: admitted.authorityAdmission.digest.value,
+                                reference: admitted.authorityAdmission.reference
+                            },
+                            claim: decodeCanonicalJson(claimCodec.encode(admitted.claim)),
+                            invocation: decodeCanonicalJson(
+                                preparedCodec.encode(admitted.invocation)
+                            )
+                        },
+                        permitIssue: {
+                            claim: decodeCanonicalJson(claimCodec.encode(issued.claim)),
+                            invocation: decodeCanonicalJson(preparedCodec.encode(issued.invocation))
+                        }
+                    })
+                );
+
+                // Named directly and not only by whole-set equality: identical bytes would also
+                // hold if every run leaked the same Receipt state. The prior Receipt's id, its
+                // outcome, and its kind are the three facts this rule keeps out of admission.
+                for (const forbidden of [failed.id.value, failed.outcome, failed.failure.kind]) {
+                    expect(inputs.includes(forbidden), `${scenario.name}/${forbidden}`).toBe(false);
+                }
+                observed.push([scenario.name, inputs]);
+            }
+
+            const [reference, ...rest] = observed;
+            if (reference === undefined) throw new TypeError("Expected admission inputs");
+            for (const [name, inputs] of rest) {
+                expect(inputs, name).toBe(reference[1]);
+            }
+        }
+    );
 });
+
+/**
+ * The final admission point, recording the complete context the runtime passes it. Admitting
+ * unconditionally keeps the recording free of any decision of its own, so what the suite reads
+ * back is exactly the input set §3.4 rule 7 compares.
+ */
+class RecordingFinalAdmissions implements CanonicalBatchFinalAdmissionPort<
+    CanonicalBatchHarnessState,
+    string,
+    string,
+    string,
+    string,
+    string,
+    string
+> {
+    public readonly contexts: CanonicalBatchFinalAdmissionContext<
+        string,
+        string,
+        string,
+        string,
+        string
+    >[] = [];
+
+    public admit(
+        _transaction: CanonicalBatchHarnessState,
+        _request: CanonicalBatchInvocationRequest<string>,
+        context: CanonicalBatchFinalAdmissionContext<string, string, string, string, string>
+    ): CanonicalBatchFinalAdmissionResult {
+        this.contexts.push(context);
+        return { kind: "admitted" };
+    }
+}
 
 /**
  * Only a subclass can offer an outcome and a kind that §7.4 forbids together, because no
@@ -664,6 +840,18 @@ class ShiftingKindCompletion extends AttemptCompletion {
 
     public get reads(): number {
         return this.#reads;
+    }
+}
+
+/**
+ * A pre-effect Receipt that answers with a failure kind. The base constructor freezes the
+ * instance, so no own field can reach one and a prototype accessor is the only shape a store
+ * could ever be handed — which is exactly the shape a codec that omitted the field instead of
+ * refusing it would let through.
+ */
+class SmuggledKindReceipt extends PreEffectReceipt {
+    public get failure(): AttemptFailureKind {
+        return AttemptFailureKind.aborted(cancelled);
     }
 }
 

@@ -705,6 +705,124 @@ export function invocationLedgerContract<Transaction>(
         );
 
         test(
+            "[C13-ADV-RECEIPT-CANCELLED] refuses each pre-effect outcome offered through the other entry point",
+            { tags: "p0" },
+            () => {
+                const harness = open();
+                const evidence = new ContractEvidence<Transaction>();
+                const invocation = prepared(
+                    "cancellation-entry-points",
+                    { item: 0 },
+                    {
+                        lease: "lease:1"
+                    }
+                );
+                const root = preparationAudit(invocation);
+                const claim = executorClaim(
+                    invocation.header.id,
+                    0,
+                    0,
+                    "claim:cancellation-entry-points",
+                    "worker:cancellation",
+                    time(10)
+                );
+                harness.transaction((transaction) => {
+                    harness.ledger.prepareWithAudit(transaction, invocation, root, evidence);
+                    harness.ledger.claimItem(transaction, claim, time(1));
+                });
+                const parts = (
+                    suffix: string,
+                    outcome: "deniedPreEffect" | "cancelledPreEffect"
+                ) => {
+                    const receipt = new PreEffectReceipt(
+                        new ReceiptId(`receipt:cancellation-entry-points:${suffix}`),
+                        invocation.header.id,
+                        0,
+                        outcome,
+                        time(3),
+                        outcome === "deniedPreEffect"
+                            ? "authority denied"
+                            : "the required Turn was cancelled"
+                    );
+                    const audit = auditRecord(
+                        `audit:cancellation-entry-points:${suffix}`,
+                        invocation.header.actor,
+                        { kind: "receipt", id: receipt.id, outcome },
+                        root.id
+                    );
+                    const publication = InvocationPublicationOutbox.pending({
+                        invocation: invocation.header.id,
+                        receipt: receipt.id,
+                        audit: audit.id
+                    });
+                    return { receipt, audit, publication };
+                };
+                const denied = parts("denied", "deniedPreEffect");
+                const cancelled = parts("cancelled", "cancelledPreEffect");
+
+                // One owning-Actor namespace and no reuse: the same item's two pre-effect
+                // outcomes are two records, so neither can be mistaken for the other later.
+                expect(denied.receipt.id.equals(cancelled.receipt.id)).toBe(false);
+
+                // Each entry point records exactly the fact it names. A cancellation is not a
+                // denial the caller happened to route differently, so neither entry point may
+                // launder the other's outcome into the ledger.
+                expectAgentCoreError(
+                    () =>
+                        harness.transaction((transaction) =>
+                            harness.ledger.recordClaimedCancellationWithAudit(
+                                transaction,
+                                claim,
+                                denied.receipt,
+                                denied.audit,
+                                denied.publication,
+                                evidence
+                            )
+                        ),
+                    /Pre-effect cancellation evidence does not bind the current claimed item/
+                );
+                expectAgentCoreError(
+                    () =>
+                        harness.transaction((transaction) =>
+                            harness.ledger.recordClaimedAuthorityDenialWithAudit(
+                                transaction,
+                                claim,
+                                cancelled.receipt,
+                                cancelled.audit,
+                                cancelled.publication,
+                                evidence
+                            )
+                        ),
+                    /Authority denial evidence does not bind the current claimed item/
+                );
+
+                // Neither refusal wrote anything, and the matching entry point still records
+                // through to durable state.
+                expect(
+                    harness.transaction((transaction) =>
+                        harness.ledger.currentReceipt(transaction, invocation.header.id, 0)
+                    )
+                ).toBeUndefined();
+                harness.transaction((transaction) =>
+                    harness.ledger.recordClaimedCancellationWithAudit(
+                        transaction,
+                        claim,
+                        cancelled.receipt,
+                        cancelled.audit,
+                        cancelled.publication,
+                        evidence
+                    )
+                );
+                harness.restart();
+                expect(
+                    harness.transaction((transaction) =>
+                        harness.ledger.currentReceipt(transaction, invocation.header.id, 0)
+                    )?.outcome
+                ).toBe("cancelledPreEffect");
+            }
+        );
+
+        test(
             "[C13-RECEIPT-ID-NAMESPACE] rejects ReceiptId reuse across pre-effect and attempted variants",
             { tags: "p0" },
             () => {
@@ -936,7 +1054,12 @@ export function invocationLedgerContract<Transaction>(
                         `worker:${name}:0`,
                         time(10)
                     );
-                    const attempt0 = effectAttempt(invocation, claim0, `attempt:${name}:0`, time(2));
+                    const attempt0 = effectAttempt(
+                        invocation,
+                        claim0,
+                        `attempt:${name}:0`,
+                        time(2)
+                    );
                     const claim1 = executorClaim(
                         invocation.header.id,
                         0,
@@ -945,7 +1068,12 @@ export function invocationLedgerContract<Transaction>(
                         `worker:${name}:1`,
                         time(20)
                     );
-                    const attempt1 = effectAttempt(invocation, claim1, `attempt:${name}:1`, time(5));
+                    const attempt1 = effectAttempt(
+                        invocation,
+                        claim1,
+                        `attempt:${name}:1`,
+                        time(5)
+                    );
 
                     harness.transaction((transaction) => {
                         harness.ledger.prepare(transaction, invocation);
@@ -982,14 +1110,15 @@ export function invocationLedgerContract<Transaction>(
                         )
                     ).toEqual([0, 1]);
                     expect(
-                        harness.transaction((transaction) =>
-                            harness.persistence.receiptsForAttempt(transaction, attempt0.id)
-                        ).map(
-                            (receipt) =>
+                        harness
+                            .transaction((transaction) =>
+                                harness.persistence.receiptsForAttempt(transaction, attempt0.id)
+                            )
+                            .map((receipt) =>
                                 receipt instanceof AttemptReceipt
                                     ? [receipt.attempt.equals(attempt0.id), receipt.failure?.kind]
                                     : "other"
-                        )
+                            )
                     ).toEqual([[true, failureOf().kind]]);
                 }
             }
@@ -1001,9 +1130,13 @@ export function invocationLedgerContract<Transaction>(
             () => {
                 for (const [name, failureOf] of failureKinds()) {
                     const harness = open();
-                    const invocation = prepared(`orthogonal-supersede-${name}`, { run: true }, {
-                        lease: "lease:1"
-                    });
+                    const invocation = prepared(
+                        `orthogonal-supersede-${name}`,
+                        { run: true },
+                        {
+                            lease: "lease:1"
+                        }
+                    );
                     const claim0 = executorClaim(
                         invocation.header.id,
                         0,
@@ -1012,7 +1145,12 @@ export function invocationLedgerContract<Transaction>(
                         `worker:${name}:s0`,
                         time(20)
                     );
-                    const attempt0 = effectAttempt(invocation, claim0, `attempt:${name}:s`, time(2));
+                    const attempt0 = effectAttempt(
+                        invocation,
+                        claim0,
+                        `attempt:${name}:s`,
+                        time(2)
+                    );
                     const unknown = new AttemptReceipt(
                         new ReceiptId(`receipt:${name}:unknown`),
                         attempt0.id,
@@ -1092,11 +1230,9 @@ export function invocationLedgerContract<Transaction>(
             { tags: "p0" },
             () => {
                 const harness = open();
-                const invocation = prepared(
-                    "orthogonal-pre-effect",
-                    [{ item: 0 }, { item: 1 }],
-                    { lease: "lease:1" }
-                );
+                const invocation = prepared("orthogonal-pre-effect", [{ item: 0 }, { item: 1 }], {
+                    lease: "lease:1"
+                });
                 harness.transaction((transaction) => {
                     harness.ledger.prepare(transaction, invocation);
                     harness.ledger.recordPreEffect(
@@ -1137,9 +1273,13 @@ export function invocationLedgerContract<Transaction>(
                 // Once an EffectAttempt exists, neither pre-effect outcome may appear for that
                 // item: the variant boundary is what keeps denial evidence out of attempted
                 // lineage.
-                const attempted = prepared("orthogonal-pre-effect-attempted", { run: true }, {
-                    lease: "lease:1"
-                });
+                const attempted = prepared(
+                    "orthogonal-pre-effect-attempted",
+                    { run: true },
+                    {
+                        lease: "lease:1"
+                    }
+                );
                 const claim = executorClaim(
                     attempted.header.id,
                     0,
@@ -1173,6 +1313,71 @@ export function invocationLedgerContract<Transaction>(
                         /untouched item/
                     );
                 }
+            }
+        );
+
+        test(
+            "[C13-RECEIPT-FAILURE-ORTHOGONAL] refuses to persist a pre-effect Receipt carrying a failure kind",
+            { tags: "p0" },
+            () => {
+                const harness = open();
+                const invocation = prepared("orthogonal-store", { item: 0 });
+                harness.transaction((transaction) =>
+                    harness.ledger.prepare(transaction, invocation)
+                );
+
+                // No factory composes a pre-effect variant with a kind and the base constructor
+                // freezes the instance, so a prototype accessor on a subclass is the only record
+                // a store could ever be handed. This is the write direction: the bytes and rows
+                // cases refuse one that already reached the store, and this backend must refuse
+                // to put one there in the first place.
+                class SmuggledKindReceipt extends PreEffectReceipt {
+                    public get failure(): AttemptFailureKind {
+                        return AttemptFailureKind.aborted(AbortSignal.abort());
+                    }
+                }
+                const smuggled = new SmuggledKindReceipt(
+                    new ReceiptId("receipt:orthogonal-store"),
+                    invocation.header.id,
+                    0,
+                    "cancelledPreEffect",
+                    time(2),
+                    "cancelled before the effect"
+                );
+                expect(smuggled.failure.kind).toBe("aborted");
+                expect(() =>
+                    harness.transaction((transaction) =>
+                        harness.ledger.recordPreEffect(transaction, smuggled)
+                    )
+                ).toThrow(/pre-effect Receipt cannot carry an attempt failure kind/);
+
+                // The refusal wrote nothing, and the honest record for the same item still
+                // persists and survives a restart — so this is about the extra field and not
+                // about the variant or the item.
+                expect(
+                    harness.transaction((transaction) =>
+                        harness.ledger.currentReceipt(transaction, invocation.header.id, 0)
+                    )
+                ).toBeUndefined();
+                harness.transaction((transaction) =>
+                    harness.ledger.recordPreEffect(
+                        transaction,
+                        new PreEffectReceipt(
+                            new ReceiptId("receipt:orthogonal-store"),
+                            invocation.header.id,
+                            0,
+                            "cancelledPreEffect",
+                            time(2),
+                            "cancelled before the effect"
+                        )
+                    )
+                );
+                harness.restart();
+                expect(
+                    harness.transaction((transaction) =>
+                        harness.ledger.currentReceipt(transaction, invocation.header.id, 0)
+                    )?.outcome
+                ).toBe("cancelledPreEffect");
             }
         );
 
@@ -7046,10 +7251,7 @@ function time(second: number): Date {
  * a per-kind property, so every sweep that proves a lineage rule ignores the kind must run
  * all five rather than one representative.
  */
-function failureKinds(): readonly (readonly [
-    string,
-    () => AttemptFailureKind
-])[] {
+function failureKinds(): readonly (readonly [string, () => AttemptFailureKind])[] {
     return [
         ["raised", (): AttemptFailureKind => AttemptFailureKind.raised],
         ["deadline", (): AttemptFailureKind => AttemptFailureKind.deadline(time(1), time(2))],

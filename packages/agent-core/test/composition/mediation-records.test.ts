@@ -374,14 +374,29 @@ describe("mediation records carry the evidence their chain needs", () => {
         expect(receiptAudit.cause?.equals(attemptAudit.id)).toBe(true);
 
         // A pre-effect denial has no attempt, so its Receipt record roots at the
-        // Invocation directly rather than dangling.
+        // Invocation directly rather than dangling. §7.4's two pre-effect outcomes get
+        // distinct ids from the same item, so neither is mistakable for the other.
         const denial = records().preEffectReceipt(leased, claim, "deniedPreEffect", now, "denied");
-        expect(denial.outcome).toBe("deniedPreEffect");
+        const cancellation = records().preEffectReceipt(
+            leased,
+            claim,
+            "cancelledPreEffect",
+            now,
+            "the required Turn was cancelled"
+        );
+        expect([denial.outcome, cancellation.outcome]).toEqual([
+            "deniedPreEffect",
+            "cancelledPreEffect"
+        ]);
+        expect(denial.id.equals(cancellation.id)).toBe(false);
         expect(
-            records()
-                .receiptAudit(leased, undefined, denial)
-                .cause?.equals(leased.header.auditCause)
-        ).toBe(true);
+            [denial, cancellation].map(
+                (receipt) =>
+                    records()
+                        .receiptAudit(leased, undefined, receipt)
+                        .cause?.equals(leased.header.auditCause) === true
+            )
+        ).toEqual([true, true]);
 
         const next = records().reconciledReceipt(
             attempt,

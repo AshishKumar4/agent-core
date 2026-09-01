@@ -1160,24 +1160,6 @@
       }
     },
     {
-      "id": "T-EVIDENCE:C13-RECEIPT-FAILURE-ORTHOGONAL",
-      "type": "T-EVIDENCE",
-      "source": { "kind": "conformance", "id": "C13-RECEIPT-FAILURE-ORTHOGONAL" },
-      "owner": "W6",
-      "priority": 5,
-      "summary": "Advance C13-RECEIPT-FAILURE-ORTHOGONAL from implemented with exact evidence",
-      "notes": [
-        "Admission independence still has no enforcement point. No §3.4 rule 7 comparison input derives from Receipt state, so the failure field is absent from every admission input by construction rather than by a check; closure needs an assertion over the admission inputs themselves, not over what the pipeline happens to read",
-        "The supersession half is only partly shown. deriveBatchOutcome and the recorded outcome are proven to ignore the kind, and reconciliation is proven to be the first record permitted to name one through src/invocations/reconciliation.ts#matches, but no case yet drives a retry after each of the five kinds to show next-ordinal eligibility is identical across them",
-        "Both persistence layers reject a pre-effect Receipt carrying a kind only through the shared codec. The memory and sqlite stores are not separately shown to refuse one, so a store that bypassed the codec would not be caught"
-      ],
-      "oracle": {
-        "kind": "conformance-status",
-        "requirementId": "C13-RECEIPT-FAILURE-ORTHOGONAL",
-        "expected": "verified"
-      }
-    },
-    {
       "id": "T-EVIDENCE:C13-RUN-CEILING-COST",
       "type": "T-EVIDENCE",
       "source": { "kind": "conformance", "id": "C13-RUN-CEILING-COST" },

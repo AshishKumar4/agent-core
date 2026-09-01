@@ -74,6 +74,9 @@ export type CanonicalBatchHarnessState = InvocationMemoryState &
     InvocationMediationMemoryState &
     DetachedEffectExecutionMemoryState;
 
+/** The PreparedInvocation shape this harness prepares, named so a suite can hold one. */
+export type CanonicalBatchPreparedInvocation = PreparedInvocation<string, string, string, string>;
+
 export const canonicalBatchFacet = new FacetRef("workspace:target");
 export const canonicalBatchDescriptor = new OperationDescriptor(
     new OperationName("send"),
@@ -220,6 +223,15 @@ class Permits implements CanonicalBatchAuthorityPermitPort<
           >)
         | undefined;
     public readonly issuedAdmissions: AuthorityAdmissionReference<string>[] = [];
+    /**
+     * Every argument pair the runtime hands the permit port, kept so a suite can assert over
+     * the §3.4 rule 7 comparison inputs themselves rather than over the decision they produced.
+     * Recorded on entry, so a call that goes on to be denied or to crash is still counted.
+     */
+    public readonly issueInputs: {
+        readonly invocation: CanonicalBatchPreparedInvocation;
+        readonly claim: ItemClaim<string>;
+    }[] = [];
 
     public constructor(
         private readonly transactions: CanonicalBatchMemoryTransactions,
@@ -236,6 +248,7 @@ class Permits implements CanonicalBatchAuthorityPermitPort<
         invocation: ReturnType<CanonicalBatchPreparation<unknown>["create"]>,
         claim: ItemClaim<string>
     ) {
+        this.issueInputs.push(Object.freeze({ invocation, claim }));
         this.issuedInsideTargetTransaction ||= this.transactions.active;
         const persisted = this.transactions.transact((transaction) =>
             this.persistence.claim(transaction, claim.id)

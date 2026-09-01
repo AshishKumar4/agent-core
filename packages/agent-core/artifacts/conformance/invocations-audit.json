@@ -189,7 +189,9 @@
       ],
       "testSelectors": [
         "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [C13-ADV-RECEIPT-CANCELLED] keeps a cancelled pre-effect Receipt terminal, outside attempted lineage, and ahead of denial",
-        "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [C13-ADV-RECEIPT-CANCELLED] keeps a cancelled pre-effect Receipt terminal, outside attempted lineage, and ahead of denial"
+        "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [C13-ADV-RECEIPT-CANCELLED] refuses each pre-effect outcome offered through the other entry point",
+        "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [C13-ADV-RECEIPT-CANCELLED] keeps a cancelled pre-effect Receipt terminal, outside attempted lineage, and ahead of denial",
+        "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [C13-ADV-RECEIPT-CANCELLED] refuses each pre-effect outcome offered through the other entry point"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
@@ -715,7 +717,8 @@
         "src/invocations/canonical-batch.ts#CanonicalBatchInvocationPort"
       ],
       "testSelectors": [
-        "test/invocations/canonical-batch.test.ts#CanonicalBatchInvocationPort [C13-EFFECT-IDEMPOTENCY] reuses a durable claim after permit-call crash and never repeats the effect"
+        "test/invocations/canonical-batch.test.ts#CanonicalBatchInvocationPort [C13-EFFECT-IDEMPOTENCY] reuses a durable claim after permit-call crash and never repeats the effect",
+        "test/invocations/canonical-batch.test.ts#CanonicalBatchInvocationPort [C13-EFFECT-IDEMPOTENCY] survives a committed transaction whose response was lost"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
@@ -1116,7 +1119,7 @@
       "owner": "W6",
       "specAnchor": "C13-RECEIPT-FAILURE-ORTHOGONAL",
       "specTextSha256": "sha256:d7f44d0e7af893393ee3471f7f547c21bbf96ddc2626fc6c0211e934c5c1fd80",
-      "status": "implemented",
+      "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [
         "src/invocations/receipt.ts#AttemptCompletion",
@@ -1126,13 +1129,29 @@
       ],
       "testSelectors": [
         "test/invocations/receipt-failure.test.ts#§7.4 attempt failure kinds [C13-RECEIPT-FAILURE-ORTHOGONAL] keeps a kind off every pre-effect and indeterminate Receipt",
-        "test/invocations/receipt-failure.test.ts#§7.4 attempt failure kinds [C13-RECEIPT-FAILURE-ORTHOGONAL] derives the same batch outcome whatever the kind"
+        "test/invocations/receipt-failure.test.ts#§7.4 attempt failure kinds [C13-RECEIPT-FAILURE-ORTHOGONAL] derives the same batch outcome whatever the kind",
+        "test/invocations/receipt-failure.test.ts#§7.4 attempt failure kinds [C13-RECEIPT-FAILURE-ORTHOGONAL] refuses rather than drops a kind offered on the pre-effect wire seam",
+        "test/invocations/receipt-failure.test.ts#§7.4 failure kinds at the mediated seam [C13-RECEIPT-FAILURE-ORTHOGONAL] keeps lineage identity fixed across every boundary and codec restart",
+        "test/invocations/receipt-failure.test.ts#§7.4 failure kinds at the mediated seam [C13-RECEIPT-FAILURE-ORTHOGONAL] admits the retry through identical admission inputs whatever the kind recorded",
+        "test/invocations/receipt-failure.test.ts#§7.4 failure kinds at the mediated seam [C13-RECEIPT-FAILURE-ORTHOGONAL] carries no Receipt state into any admission input",
+        "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [C13-RECEIPT-FAILURE-ORTHOGONAL] permits the next ordinal identically after every failure kind",
+        "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [C13-RECEIPT-FAILURE-ORTHOGONAL] supersedes one indeterminate Receipt exactly once whatever the final kind names",
+        "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [C13-RECEIPT-FAILURE-ORTHOGONAL] keeps both pre-effect outcomes outside attempted lineage",
+        "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [C13-RECEIPT-FAILURE-ORTHOGONAL] refuses to persist a pre-effect Receipt carrying a failure kind",
+        "test/invocations/ledger-memory.test.ts#[C13-RECEIPT-FAILURE-ORTHOGONAL] [invocation-persistence] memory refuses pre-effect bytes carrying a failure kind",
+        "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [C13-RECEIPT-FAILURE-ORTHOGONAL] permits the next ordinal identically after every failure kind",
+        "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [C13-RECEIPT-FAILURE-ORTHOGONAL] supersedes one indeterminate Receipt exactly once whatever the final kind names",
+        "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [C13-RECEIPT-FAILURE-ORTHOGONAL] keeps both pre-effect outcomes outside attempted lineage",
+        "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [C13-RECEIPT-FAILURE-ORTHOGONAL] refuses to persist a pre-effect Receipt carrying a failure kind",
+        "test/substrates/sqlite/invocations/persistence.test.ts#[C13-RECEIPT-FAILURE-ORTHOGONAL] SQLite refuses pre-effect rows carrying a failure kind",
+        "test/composition/mediation-pipeline.test.ts#the published mediation composition root [C13-RECEIPT-FAILURE-ORTHOGONAL] projects each stored Receipt shape the admission verifier refuses"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
-      "remainingEvidence": [
-        "Admission independence still has no enforcement point. No §3.4 rule 7 comparison input derives from Receipt state, so the failure field is absent from every admission input by construction rather than by a check; closure needs an assertion over the admission inputs themselves, not over what the pipeline happens to read",
-        "The supersession half is only partly shown. deriveBatchOutcome and the recorded outcome are proven to ignore the kind, and reconciliation is proven to be the first record permitted to name one through src/invocations/reconciliation.ts#matches, but no case yet drives a retry after each of the five kinds to show next-ordinal eligibility is identical across them",
-        "Both persistence layers reject a pre-effect Receipt carrying a kind only through the shared codec. The memory and sqlite stores are not separately shown to refuse one, so a store that bypassed the codec would not be caught"
+      "remainingEvidence": [],
+      "bounds": [
+        "Admission independence is asserted over the admission inputs and not over their correctness. The cited case canonicalises the complete argument set the runtime hands the permit port and the final admission point on a retry, holds it byte-identical across every kind, and refuses the prior Receipt's id, outcome and kind as substrings; a comparison built from Receipt-free but wrong inputs is C13-AUTH-MEDIATED-ADMISSION's subject and never this rule's",
+        "The write direction is enforced at the one RecordCodec both stores encode through, and shown once per store in each direction on top of that. A substrate that persisted Receipts with no codec at all would be outside every check here; that substrate is refused by C13-CODEC-VERSIONING and by the record-ownership registry rather than by this rule",
+        "Retry eligibility is claimed for the ordinal rule alone. That a next ordinal is admitted identically after every kind says nothing about whether a host should retry, which is policy the SPEC leaves to the caller, nor about C13-INTERCEPTOR-FROZEN-RETRY's frozen intent, which is W3's to evidence"
       ]
     },
     {
@@ -1198,13 +1217,18 @@
       "sourceSymbols": [
         "src/invocations/canonical-batch.ts#CanonicalBatchInvocationPort",
         "src/invocations/ledger.ts#InvocationLedger.prepareWithAudit",
-        "src/invocations/ledger.ts#InvocationLedger.recordClaimedAuthorityDenialWithAudit"
+        "src/invocations/ledger.ts#InvocationLedger.recordClaimedAuthorityDenialWithAudit",
+        "src/invocations/ledger.ts#InvocationLedger.recordClaimedCancellationWithAudit"
       ],
       "testSelectors": [
-        "test/invocations/canonical-batch.test.ts#CanonicalBatchInvocationPort [C13-RECEIPT-PRE-EFFECT] persists the exact Invocation-to-deniedPreEffect Receipt edge"
+        "test/invocations/canonical-batch.test.ts#CanonicalBatchInvocationPort [C13-RECEIPT-PRE-EFFECT] persists the exact Invocation-to-deniedPreEffect Receipt edge",
+        "test/invocations/detached-execution.test.ts#detached effect admission [C13-RECEIPT-PRE-EFFECT] pre-admission cancellation yields cancelledPreEffect with no EffectAttempt"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
-      "remainingEvidence": []
+      "remainingEvidence": [],
+      "bounds": [
+        "§7.4 gives the pre-effect variant two outcomes and this row evidences both: a denial before the effect and a cancellation before the effect are separate entry points on the ledger and separate ids in the one owning-Actor namespace. Which fact the admission point observed is the caller's to establish; this rule claims only that the observed one is what gets recorded, over an item with no EffectAttempt"
+      ]
     }
   ]
 }

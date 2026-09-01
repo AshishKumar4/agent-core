@@ -275,6 +275,56 @@ describe("CanonicalBatchInvocationPort", () => {
     );
 
     test(
+        "[C13-EFFECT-IDEMPOTENCY] survives a committed transaction whose response was lost",
+        { tags: "p0" },
+        async () => {
+            const harness = new Harness(false);
+            const invocation = new InvocationId("lost-receipt-response");
+
+            // The crash case above loses work before the effect. This one loses the answer
+            // after it: the handler arms the loss, so the transaction that commits the Receipt
+            // is the one whose response never reaches the caller — the at-least-once shape
+            // §8.5 and §10.1 require every cross-actor interaction to survive.
+            const value = request(invocation, [{ value: 1 }], (index) => {
+                harness.executions.push(index);
+                harness.transactions.loseNextCommittedResponse();
+            });
+            await expect(harness.port.invoke(value)).rejects.toThrow(
+                /response was lost after commit/
+            );
+
+            const committed = harness.transactions.transact((transaction) => ({
+                attempts: harness.persistence
+                    .attemptsForItem(transaction, invocation, 0)
+                    .map((attempt) => attempt.ordinal),
+                receipts: harness.persistence
+                    .receiptsForItem(transaction, invocation, 0)
+                    .map((receipt) => receipt.id.value)
+            }));
+            const [committedReceipt] = committed.receipts;
+            expect(committed.attempts).toEqual([0]);
+            expect(committed.receipts).toHaveLength(1);
+
+            // The retry observes the committed Receipt: no second attempt, no new ordinal, no
+            // duplicate Receipt, no second claim, and the handler is not run again.
+            const replayed = await harness.port.invoke(value);
+            expect(replayed.items[0]).toMatchObject({ kind: "succeeded", itemIndex: 0 });
+            expect(replayed.items[0]?.receipt.id.value).toBe(committedReceipt);
+            expect(
+                harness.transactions.transact((transaction) => ({
+                    attempts: harness.persistence
+                        .attemptsForItem(transaction, invocation, 0)
+                        .map((attempt) => attempt.ordinal),
+                    claims: harness.persistence.claimsForItem(transaction, invocation, 0).length,
+                    receipts: harness.persistence.receiptsForItem(transaction, invocation, 0).length
+                }))
+            ).toEqual({ attempts: [0], claims: 1, receipts: 1 });
+            expect(harness.executions).toEqual([0]);
+            expect(harness.finalAdmissions.calls).toBe(1);
+        }
+    );
+
+    test(
         "concurrent duplicates converge without terminalizing a live attempt",
         { tags: "p0" },
         async () => {

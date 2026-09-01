@@ -98,7 +98,7 @@ function detachedContract<Transaction>(
 
 describe("SqliteDetachedEffectExecutionPersistence", () => {
     test(
-        "[C13-OWNERSHIP-SINGLE-OWNER] [invocation.detached-effect-execution] memory and SQLite satisfy one detached execution contract",
+        "[C13-OWNERSHIP-SINGLE-OWNER] [detached-effect-execution-persistence] [invocation.detached-effect-execution] memory and SQLite satisfy one detached execution contract",
         { tags: "p1" },
         () => {
             const memoryState = createDetachedEffectExecutionMemoryState();
