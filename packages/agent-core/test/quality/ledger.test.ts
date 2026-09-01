@@ -9,7 +9,8 @@ import {
     runQualitySubprocess,
     subprocessTestOptions
 } from "./subprocess";
-import { objectsAt, readArtifact, stringAt, stringsAt } from "./artifacts";
+import { validateLiveEvidence } from "../../scripts/quality/live-substrate-evidence.mjs";
+import { objectAt, objectsAt, readArtifact, stringAt, stringsAt } from "./artifacts";
 
 /**
  * One conformance requirement as the fragments on disk record it. The ledger
@@ -108,6 +109,17 @@ describe("atomic SPEC ledger", subprocessTestOptions, () => {
         for (const gated of externalGates) {
             expect(expectedRequirements).toContain(gated);
         }
+        // The user's own authorization is what the gate list may spend: governance.mjs
+        // binds index.externalGates to exactly these atoms, so the map above may neither
+        // out-declare the authorization nor fall behind it. A gate that is declared but
+        // unauthorized contributes no atom, and so gates nothing.
+        const consent = objectAt(
+            await readArtifact("artifacts/integration/user-authorization-requests.json"),
+            "remoteConsent"
+        );
+        const consentedAtoms = stringsAt(consent, "atoms");
+        expect(stringsAt(consent, "gates").toSorted()).toEqual(expectedGateIds);
+        expect(expectedRequirements).toEqual(consentedAtoms.toSorted());
         // A consent-gated requirement resolves only through the consented live
         // substrate lane: verified, with hash-bound live evidence demanded.
         for (const requirement of profiles) {
@@ -117,6 +129,69 @@ describe("atomic SPEC ledger", subprocessTestOptions, () => {
                 expect(stringsAt(requirement, "checkerInvariants")).toContain("ACQ-LIVE");
             }
         }
+        // The other regime, and the one the tree is in: a row that rests on the live lane
+        // without an authorized gate behind it has nothing to be gated by. It may sit
+        // below verified while the archive it cited awaits its re-run — that is what the
+        // rows below are doing — but claiming external-gated would claim a consent that
+        // does not exist, and claiming verified re-arms the hash-bound demand on the
+        // archive, which the case below measures.
+        const liveRows = profiles.filter((requirement) =>
+            stringsAt(requirement, "checkerInvariants").includes("ACQ-LIVE")
+        );
+        const unauthorizedLiveRows = liveRows.filter(
+            (requirement) => !consentedAtoms.includes(stringAt(requirement, "id"))
+        );
+        expect(unauthorizedLiveRows.length).toBeGreaterThan(0);
+        for (const requirement of unauthorizedLiveRows) {
+            expect(stringAt(requirement, "status")).not.toBe("external-gated");
+        }
+    });
+
+    test("keeps a drifted live archive pending for waiting rows and fatal for a verified one", async () => {
+        const root = await ledgerFixture(true);
+        const evidence = resolve(root, "conformance/live-evidence");
+        // The tree's own state: sources the archived lane fingerprinted have changed
+        // since that deployment, and every row citing it has retreated below verified,
+        // so the drift is the operator re-run this tree is waiting for.
+        const waiting = validateLiveEvidence(evidence);
+        expect(waiting.selectors.size).toBeGreaterThan(0);
+        expect(waiting.pending.sources.length).toBeGreaterThan(0);
+        expect(waiting.pending.requirements.length).toBeGreaterThan(0);
+        // Promote one waiting row back to verified without re-running the lane. Nothing
+        // about the archive changed; what changed is that a claim now rests on it, and
+        // the same drift that was pending is a false claim and fails closed.
+        const fragmentPath = resolve(root, "conformance/profiles-cloudflare.json");
+        const fragment = await readFixtureJson<ConformanceFragment>(fragmentPath);
+        const promoted = fragment.requirements.find(
+            (requirement) =>
+                requirement.checkerInvariants.includes("ACQ-LIVE") &&
+                requirement.status !== "verified"
+        );
+        expect(promoted).toBeDefined();
+        expect(waiting.pending.requirements).toContain(promoted?.id);
+        if (promoted === undefined) return;
+        promoted.status = "verified";
+        promoted.remainingEvidence = [];
+        await writeFile(fragmentPath, `${JSON.stringify(fragment, null, 4)}\n`, "utf8");
+        expect(() => validateLiveEvidence(evidence)).toThrow(
+            /Live evidence is stale for .*; re-run the live lane/u
+        );
+    });
+
+    test("admits the tree's own ledger with its live substrate evidence retained", async () => {
+        // The detached case below strips ACQ-LIVE, so nothing else runs the real fragments
+        // through the checker while the archived lane is what their live selectors rest on.
+        // That path is exactly where a drifted archive decides between a refusal and a
+        // pending re-run, and where the index and the fragment have to agree on the gap.
+        const fixture = await ledgerFixture(true);
+
+        const building = runFixture(fixture);
+
+        expect(building.status, building.stderr).toBe(0);
+        expect(building.stderr).toBe("");
+        expect(building.stdout).toContain(
+            `${Object.values(externalRequirementsByConsentGate).flat().length} external gated`
+        );
     });
 
     test("extracts a unique owner and digest for every §13 atom and §11 profile", async () => {

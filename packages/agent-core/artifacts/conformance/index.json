@@ -15,5 +15,11 @@
     "profiles-cloudflare.json"
   ],
   "pendingFragments": [],
-  "externalGates": []
+  "externalGates": [
+    "P11-ENVIRONMENT-EPHEMERAL-DURABILITY",
+    "P11-ENVIRONMENT-PREVIEW",
+    "P11-ENVIRONMENT-SNAPSHOT",
+    "P11-SLATE-DEPLOY",
+    "P11-SLATE-MEDIATED-DEPLOY"
+  ]
 }

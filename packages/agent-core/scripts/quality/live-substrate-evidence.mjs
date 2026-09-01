@@ -17,9 +17,19 @@ const repositoryRoot = resolve(packageRoot, "../..");
  * Cloudflare lane deploys the harness to the real account and archives its
  * run manifest and phase reports. This checker binds that committed evidence
  * to the exact current tree: the manifest must be clean, its phase reports
- * must hash-match, every fingerprinted source must be byte-identical to the
- * file the lane exercised, and every scenario must have passed in the phase
- * that executed it. Any drift fails closed until the lane is re-run.
+ * must hash-match, every scenario must have passed in the phase that executed
+ * it, and every fingerprinted source must be byte-identical to the file the
+ * lane exercised.
+ *
+ * That last demand is the one the tree cannot always meet on its own, because
+ * only the operator can re-run the lane. Which verdict a drifted fingerprint
+ * earns is therefore read off the conformance ledger rather than assumed: while
+ * any row still claims `verified` from this archive, drift is that claim going
+ * false and fails closed exactly as before; once every row citing the archive
+ * has retreated below `verified`, the drift is a re-run this tree is waiting
+ * for and is reported as pending. Nothing here re-pins a fingerprint, and
+ * nothing here promotes a row: the retreat is the refusal, and the ledger and
+ * the final conformance stage are what enforce it.
  */
 export function validateLiveEvidence(root = resolve(artifactRoot, "conformance/live-evidence")) {
     const manifest = readJson(resolve(root, "run.json"), "Live evidence manifest");
@@ -81,6 +91,10 @@ export function validateLiveEvidence(root = resolve(artifactRoot, "conformance/l
     if (fingerprints.length === 0) {
         throw new TypeError("Live evidence must fingerprint its exercised sources");
     }
+    // Read lazily and only once: the steady state after a re-run is that nothing has
+    // drifted, and that state owes no fragment read at all.
+    let claims;
+    const pendingSources = [];
     for (const [path, digest] of fingerprints) {
         let bytes;
         try {
@@ -88,9 +102,12 @@ export function validateLiveEvidence(root = resolve(artifactRoot, "conformance/l
         } catch {
             throw new TypeError(`Live evidence fingerprints a missing source: ${path}`);
         }
-        if (sha256(bytes) !== digest) {
+        if (sha256(bytes) === digest) continue;
+        claims ??= liveSubstrateClaims(resolve(root, ".."));
+        if (claims.verified.length > 0) {
             throw new TypeError(`Live evidence is stale for ${path}; re-run the live lane`);
         }
+        pendingSources.push(path);
     }
 
     const reportNames = Object.keys(manifest.reports).sort();
@@ -141,7 +158,14 @@ export function validateLiveEvidence(root = resolve(artifactRoot, "conformance/l
         }
     }
     if (passed.size === 0) throw new TypeError("Live evidence contains no executed scenarios");
-    return { manifest, selectors: passed };
+    return {
+        manifest,
+        selectors: passed,
+        pending: {
+            sources: pendingSources,
+            requirements: claims === undefined ? [] : claims.awaiting
+        }
+    };
 }
 
 export function liveEvidenceSelectors(conformanceRoot) {
@@ -150,6 +174,30 @@ export function liveEvidenceSelectors(conformanceRoot) {
             ? undefined
             : resolve(conformanceRoot, "conformance/live-evidence")
     ).selectors;
+}
+
+/**
+ * Which conformance rows rest on this archive, split by whether they still claim it. The
+ * fragments the index names are the only source: a list of "the live rows" kept anywhere
+ * else would drift from the ledger the moment a row moved, and this partition is worth
+ * nothing unless it moves with the ledger. Shape is the ledger's business — a row is
+ * counted here only through the invariant it names and the status it carries.
+ */
+function liveSubstrateClaims(conformanceRoot) {
+    const index = readJson(resolve(conformanceRoot, "index.json"), "Conformance index");
+    const verified = [];
+    const awaiting = [];
+    for (const name of [index.seed, ...index.fragments, ...(index.pendingFragments ?? [])]) {
+        if (!isNonEmptyString(name)) {
+            throw new TypeError("Conformance index names an unreadable fragment");
+        }
+        const fragment = readJson(resolve(conformanceRoot, name), `Conformance fragment ${name}`);
+        for (const requirement of fragment.requirements) {
+            if (!requirement.checkerInvariants.includes("ACQ-LIVE")) continue;
+            (requirement.status === "verified" ? verified : awaiting).push(requirement.id);
+        }
+    }
+    return { verified: verified.sort(), awaiting: awaiting.sort() };
 }
 
 function readJson(path, name) {

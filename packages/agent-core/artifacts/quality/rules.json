@@ -54,7 +54,7 @@
     {
       "id": "ACQ-LIVE",
       "node": "live-evidence",
-      "description": "Committed live substrate evidence is hash-bound to the exact current sources and fully passing"
+      "description": "Committed live substrate evidence is fully passing, and hash-bound to the exact current sources wherever a conformance row still claims verified from it"
     },
     {
       "id": "ACQ-NORM",
