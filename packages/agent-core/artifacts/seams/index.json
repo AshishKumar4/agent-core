@@ -10,6 +10,7 @@
     "content-retention",
     "content-store",
     "identity-repository",
+    "detached-effect-execution-persistence",
     "invocation-evidence-persistence",
     "invocation-persistence",
     "invocation-replay-persistence",
