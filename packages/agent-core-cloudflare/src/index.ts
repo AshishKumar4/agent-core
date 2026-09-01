@@ -132,6 +132,26 @@ export type {
     PassedCapabilityLike,
     PassedCapabilityProps
 } from "./passed-capability.js";
+export {
+    PROVIDER_CAPABILITY_PATH,
+    PROVIDER_SESSION_LIMITS,
+    ProviderCapability,
+    ProviderCapabilityAuthority,
+    ProviderCapabilityDirectory,
+    ProviderCapabilityScope,
+    ProviderCapabilitySession,
+    providerSessionClock
+} from "./provider-capability.js";
+export type {
+    CapabilitySocketLike,
+    CapabilityUpgradeResponse,
+    ProviderActorStubLike,
+    ProviderCapabilityAdmission,
+    ProviderCapabilityEndpoint,
+    ProviderCapabilityHandle,
+    ProviderSessionClock,
+    ProviderSessionLimits
+} from "./provider-capability.js";
 export { DynamicWorkerLimits, DynamicWorkerLoaderAdapter } from "./loader.js";
 export type {
     DynamicWorkerHandleLike,

@@ -28,6 +28,13 @@ describe("clean package fixture", () => {
                 recursive: true
             });
             await symlink(fixtureCore, resolve(fixtureCloudflare, "node_modules/@agent-core/core"));
+            // The package's one third-party runtime dependency. The fixture states it
+            // the same way it states the workspace one, so a source file that reaches
+            // for anything else still fails here.
+            await symlink(
+                resolve(cloudflareRoot, "node_modules/capnweb"),
+                resolve(fixtureCloudflare, "node_modules/capnweb")
+            );
 
             await expect(access(resolve(fixtureCore, "dist"))).rejects.toMatchObject({
                 code: "ENOENT"

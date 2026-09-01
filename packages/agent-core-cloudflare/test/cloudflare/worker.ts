@@ -83,6 +83,8 @@ import {
 import { isPlatformMethod, isPlatformObject } from "../../src/platform-value.js";
 import { queueCodecs } from "../queue-codecs.js";
 
+export { ProviderActorDurableObject } from "./provider-actor.js";
+
 export type TestEnvironment = Env;
 
 const loaderCapabilities = new AuthoredCodeCapabilitySet([

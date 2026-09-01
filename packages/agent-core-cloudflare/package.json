@@ -28,7 +28,8 @@
     "types:cloudflare": "wrangler types test/cloudflare/worker-configuration.d.ts --config wrangler.test.jsonc"
   },
   "dependencies": {
-    "@agent-core/core": "workspace:*"
+    "@agent-core/core": "workspace:*",
+    "capnweb": "0.12.0"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "0.18.4",

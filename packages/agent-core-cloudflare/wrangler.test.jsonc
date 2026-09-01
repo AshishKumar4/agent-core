@@ -13,7 +13,8 @@
       { "name": "RUN_WORKSPACES", "class_name": "RunWorkspaceDurableObject" },
       { "name": "RUN_OBJECTS", "class_name": "RunDurableObject" },
       { "name": "TENANT_AUTHORITY", "class_name": "TenantAuthorityDurableObject" },
-      { "name": "TARGET_MEDIATION", "class_name": "TargetMediationDurableObject" }
+      { "name": "TARGET_MEDIATION", "class_name": "TargetMediationDurableObject" },
+      { "name": "PROVIDERS", "class_name": "ProviderActorDurableObject" }
     ]
   },
   "migrations": [
@@ -31,7 +32,8 @@
     {
       "tag": "v7",
       "new_sqlite_classes": ["TenantAuthorityDurableObject", "TargetMediationDurableObject"]
-    }
+    },
+    { "tag": "v8", "new_sqlite_classes": ["ProviderActorDurableObject"] }
   ],
   "r2_buckets": [{ "binding": "CONTENT", "bucket_name": "agent-core-cloudflare-test-content" }],
   "queues": {

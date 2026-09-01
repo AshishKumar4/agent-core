@@ -96,6 +96,12 @@ try {
     verifyDeclarationExports(
         resolve(consumerRoot, "node_modules/@agent-core/cloudflare/dist/index.d.ts")
     );
+    // `skipLibCheck` is about one third-party declaration file, not about this package:
+    // capnweb 0.12.0 ships an `UnstubifyInner` arm that spreads a union into a tuple,
+    // which TypeScript 7 rejects where 5.9 deferred it. Everything this check exists to
+    // prove still runs — `consumer.ts` resolves every packed type at a real use site,
+    // `consumer-negative.ts` proves the forbidden ones stay unreachable, and
+    // `verifyDeclarationExports` walks the packed entrypoint's own symbols.
     await writeFile(
         resolve(consumerRoot, "tsconfig.json"),
         JSON.stringify({
@@ -105,7 +111,8 @@ try {
                 moduleResolution: "NodeNext",
                 lib: ["ES2023", "ESNext.Disposable", "DOM"],
                 strict: true,
-                noEmit: true
+                noEmit: true,
+                skipLibCheck: true
             },
             include: ["consumer.ts", "consumer-negative.ts"]
         })
@@ -120,10 +127,12 @@ import {
     DynamicWorkerLimits,
     DynamicWorkerLoaderAdapter,
     PassedCapabilityRegistry,
+    ProviderCapabilityScope,
     WorkerLoaderAuthoredCodeBacking,
     type CloudflareErrorPort,
     type DynamicWorkerLoadOptions,
-    type DurableObjectFacetsLike
+    type DurableObjectFacetsLike,
+    type ProviderActorStubLike
 } from "@agent-core/cloudflare";
 import { AgentCoreError } from "@agent-core/core";
 import { AuthoredCodeBacking } from "@agent-core/core/operations";
@@ -167,6 +176,20 @@ void adapter;
 void canonicalBacking;
 void canonicalEnvironmentProvider;
 void canonicalSlateProvider;
+
+// The §10.2 provider seam, through the packed surface: the session is opened against a
+// provider Actor stub, the directory is reached by authenticating in band, and the
+// capability it grants is invoked through without awaiting the binding it descends
+// from — one batch, one round trip. The scope releases stub and socket together.
+declare const providerActor: ProviderActorStubLike;
+async function sealThroughProvider(): Promise<unknown> {
+    using scope = await ProviderCapabilityScope.open(providerActor, errors);
+    using capability = scope.endpoint
+        .authenticate({ credential: "consumer" })
+        .binding("gateway");
+    return await capability.invoke("seal", { payload: "consumer" });
+}
+void sealThroughProvider;
 `
     );
     const forbiddenSubpaths = registry.forbiddenSubpaths ?? [];

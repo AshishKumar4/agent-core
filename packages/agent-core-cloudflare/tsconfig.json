@@ -1,5 +1,14 @@
 {
+  // capnweb 0.12.0's published declarations do not compile under TypeScript 7.0.2: the
+  // entrypoint imports `node:http` for its Node batch helper, and `UnstubifyInner`
+  // spreads a union into a tuple, which 5.9 defers on an unresolved generic and 7
+  // evaluates eagerly (TS2574 twice, at dist/index.d.ts:63). The same construct is in
+  // today's 0.0.0-32e381c snapshot, so there is nothing upstream to pull. Declaration
+  // files are the only thing this skips; every source file here is still fully checked,
+  // and the packed declaration surface keeps its own exactness gate in
+  // scripts/check-consumer.mjs.
   "compilerOptions": {
+    "skipLibCheck": true,
     "target": "ES2022",
     "module": "Preserve",
     "moduleResolution": "Bundler",
