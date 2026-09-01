@@ -136,9 +136,9 @@
     {
       "source": "packages/agent-core/artifacts/requests/W3/README.md",
       "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
-      "sha256": "480aa5c11d581a18be989d0ac35b6cd46089aa172aff7669cfbb7a06428a2cab",
+      "sha256": "32bc2f40a74b7046a76051ad0c0b0a64907989965fa35183f5200e85fef3c2fe",
       "ratification": "lost",
-      "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
+      "reason": "Commit ce73652b joined citation labels into every cited test title; each outcome's test selectors were mechanically renamed to the labelled titles while treatment, rationale, ratification commit, and tree pins stayed untouched."
     },
     {
       "source": "packages/agent-core/artifacts/requests/W3/W0-aggregate-exports.json",
@@ -239,6 +239,13 @@
       "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
     },
     {
+      "source": "packages/agent-core/artifacts/requests/W5/README.md",
+      "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
+      "sha256": "aa50f6cd5c7a8fe9789f9601d87eedc192f2fe1f764417b9139bf86482b502a2",
+      "ratification": "lost",
+      "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
+    },
+    {
       "source": "packages/agent-core/artifacts/requests/W5/clarifications.json",
       "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
       "sha256": "6dda7263b28dd232c7fd8daaaa914c885154a3184d45a1640468166e0c75b9e4",
@@ -269,8 +276,9 @@
     {
       "source": "packages/agent-core/artifacts/requests/W5/ports.json",
       "commit": "5bc6add22be97733ce67b76c999483eeee42c6d9",
-      "sha256": "0d3467837de7f0f30a3ed3dc8a77fd00e9d5453fca5321e165e952537beef133",
-      "ratification": "commit"
+      "sha256": "8e97af82cc6c6d7bc7cabb7024e25666476223d17bf7173e6debcfc065d38a46",
+      "ratification": "commit",
+      "reason": "Commit ce73652b joined citation labels into every cited test title; each outcome's test selectors were mechanically renamed to the labelled titles while treatment, rationale, ratification commit, and tree pins stayed untouched."
     },
     {
       "source": "packages/agent-core/artifacts/requests/W5/quality.json",
@@ -280,9 +288,9 @@
       "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
     },
     {
-      "source": "packages/agent-core/artifacts/requests/W5/README.md",
+      "source": "packages/agent-core/artifacts/requests/W6/README.md",
       "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
-      "sha256": "aa50f6cd5c7a8fe9789f9601d87eedc192f2fe1f764417b9139bf86482b502a2",
+      "sha256": "90a5361f8b74fd7a4fa6ea1e77f39982445cbe828982754b7e38e8466298cef8",
       "ratification": "lost",
       "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
     },
@@ -304,13 +312,6 @@
       "source": "packages/agent-core/artifacts/requests/W6/exports.json",
       "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
       "sha256": "25731f337de9fb95b7cb87e6e2b9791ba451d52fb382c502e006121f57561c3b",
-      "ratification": "lost",
-      "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
-    },
-    {
-      "source": "packages/agent-core/artifacts/requests/W6/README.md",
-      "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
-      "sha256": "90a5361f8b74fd7a4fa6ea1e77f39982445cbe828982754b7e38e8466298cef8",
       "ratification": "lost",
       "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
     },
