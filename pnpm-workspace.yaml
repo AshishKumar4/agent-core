@@ -2,11 +2,24 @@ packages:
   - "packages/*"
 
 # A dependency's lifecycle script runs arbitrary code at install time, before any gate in
-# this repository has read a byte. pnpm blocks those scripts by default, but a default is
-# not a policy: it moves with the package manager and `pnpm approve-builds` writes an entry
-# here without ceremony. Declaring the allowlist empty makes the absence a stated invariant
-# that scripts/quality/supply-chain.mjs holds, so permitting a build becomes a reviewed diff
-# rather than a silent one. Nothing needs an exception today — esbuild is the only
-# dependency shipping a postinstall, and its binary arrives through the platform package
-# `@esbuild/linux-x64`, so the script has nothing left to do.
+# this repository has read a byte. pnpm blocks those scripts, but a default is not a policy:
+# it moves with the package manager, and `pnpm approve-builds` writes an entry here without
+# ceremony. Declaring the allowlist empty makes the absence a stated invariant that
+# scripts/quality/supply-chain.mjs holds, so permitting a build becomes a reviewed diff
+# rather than a silent one.
+#
+# That empty allowlist alone still leaves the install green. Three dependencies ship a
+# blocked script today — esbuild and workerd a postinstall, sharp an install — and pnpm
+# 10.13.1 reports them as a warning and exits 0, so nothing would go red the day a fourth
+# arrives. `strictDepBuilds` makes an unruled build a failed install
+# (ERR_PNPM_IGNORED_BUILDS), and the three names below are the reviewed decision that their
+# scripts never run: each ships its binary in a platform package — @esbuild/linux-x64,
+# @img/sharp-linux-x64, @cloudflare/workerd-linux-64 — that leaves the script nothing to do.
+# A fourth name fails the install until someone rules on it here. Nothing is ever added to
+# `onlyBuiltDependencies`.
 onlyBuiltDependencies: []
+strictDepBuilds: true
+ignoredBuiltDependencies:
+  - esbuild
+  - sharp
+  - workerd

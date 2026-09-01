@@ -6,6 +6,7 @@
       ".github/**",
       ".gitignore",
       ".node-version",
+      ".npmrc",
       ".oxlintrc.json",
       ".prettierignore",
       ".prettierrc.json",
