@@ -1,0 +1,10 @@
+{
+  "version": 3,
+  "file": "Enforcement.ts",
+  "sourceRoot": "",
+  "sources": [
+    "../../../../../formal/AgentCore/Facets/Enforcement.lean"
+  ],
+  "names": [],
+  "mappings": ";;;;;;;;;;;;;;;;;;AAoBA;;;;;;;AAUA;;;;;;AAaA;;;;;;;;;;;;;;;;;;;;;;;;AAsBA;;;;;;;;;AAUA;;;;;;;;;;;;AAlBA"
+}

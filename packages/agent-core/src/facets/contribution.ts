@@ -16,13 +16,18 @@ import {
     requireString
 } from "./data";
 import { OperationName, SlotName, SurfaceId } from "./id";
-import type { Impact } from "./enforcement";
+import type { Impact } from "./generated/AgentCore/Facets/Enforcement";
 
-// The §7.1/§7.2 impact vocabulary and floor live in their own module because the generated
-// lowering of `AgentCore.Facets.Enforcement` substitutes for exactly that surface; the
-// re-export keeps every existing importer of this module unaffected.
-export { claimHonorsEnforcementFloor, enforcementFloor } from "./enforcement";
-export type { EnforcementTier, Impact } from "./enforcement";
+// The §7.1/§7.2 impact vocabulary and floor are lowered by the TSLean compiler from
+// `formal/AgentCore/Facets/Enforcement.lean`, the module the Lean kernel checks; the
+// re-export keeps every existing importer of this module unaffected. The bytes the
+// compiler emitted, and the manifest binding them to their Lean source, live under
+// `./generated`, where scripts/quality/tslean-consumer.mjs verifies them.
+export {
+    claimHonorsEnforcementFloor,
+    enforcementFloor
+} from "./generated/AgentCore/Facets/Enforcement";
+export type { EnforcementTier, Impact } from "./generated/AgentCore/Facets/Enforcement";
 
 export class OperationDescriptor {
     public readonly help: string | undefined;

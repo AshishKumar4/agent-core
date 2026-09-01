@@ -153,11 +153,10 @@ function resolveCommand(command, path) {
     return undefined;
 }
 
-// Environment that reaches module resolution, a transform, or a test's own answer.
-// AGENT_CORE_ENFORCEMENT is the one that changes what the suite even loads:
-// vitest.config.mjs resolves every import of src/facets/enforcement to the TSLean-lowered
-// twin when it is set. The prefixes are there so a variable added to a config later is
-// bound without anyone remembering to list it.
+// Environment that reaches module resolution, a transform, or a test's own answer. The
+// prefixes are there so a variable added to a config later is bound without anyone
+// remembering to list it, and the AGENT_CORE_ prefix still binds a name the generated
+// package's regeneration gate reads.
 const RUNTIME_ENVIRONMENT = ["LANG", "LC_ALL", "NODE_ENV", "NODE_OPTIONS", "NODE_PATH", "TZ"];
 const RUNTIME_ENVIRONMENT_PREFIXES = ["AGENT_CORE_", "BUN_", "STRYKER", "VITE"];
 

@@ -24,7 +24,8 @@
     "migrations": ["tests"],
     "architecture": [],
     "coherence": [],
-    "gate-integrity": ["coherence"],
+    "tslean-consumer": [],
+    "gate-integrity": ["coherence", "tslean-consumer"],
     "tests": [
       "types",
       "dag",
@@ -52,7 +53,8 @@
       "agents",
       "live-evidence",
       "integration",
-      "gate-integrity"
+      "gate-integrity",
+      "tslean-consumer"
     ],
     "ledger": ["invariants"],
     "build": ["types"],
@@ -123,6 +125,7 @@
     "migrations": true,
     "architecture": true,
     "coherence": true,
+    "tslean-consumer": true,
     "gate-integrity": true,
     "tests": true,
     "test-priorities": true,

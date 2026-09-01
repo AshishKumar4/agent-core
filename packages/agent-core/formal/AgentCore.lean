@@ -32,6 +32,7 @@ import AgentCore.Representation.MixtureOfAgents
 import AgentCore.Proofs.Safety
 import AgentCore.Proofs.Reachability
 import AgentCore.Proofs.CanonicalMediatedTrace
+import AgentCore.Facets
 import AgentCore.Examples
 
 /-!

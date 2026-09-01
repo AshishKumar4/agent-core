@@ -1139,8 +1139,8 @@ describe("mutation run reuse", () => {
     });
 
     // A run is not only the tree. The same bytes under a different interpreter, a
-    // different Stryker, or AGENT_CORE_ENFORCEMENT set — which resolves every import of
-    // src/facets/enforcement to the TSLean-lowered twin — is a different measurement.
+    // different Stryker, or a bound AGENT_CORE_ variable set — the prefix the generated
+    // package's own regeneration gate is named under — is a different measurement.
     test("changes the key when the runtime it executes under changes", () => {
         const key = mutationRunKey("errors");
         const identity = mutationRunIdentity();
@@ -1172,19 +1172,19 @@ describe("mutation run reuse", () => {
             expect(identity.packages[name], name).toBe(assertString(manifest["version"], name));
         }
 
-        const enforcement = "AGENT_CORE_ENFORCEMENT";
-        const restore = process.env[enforcement];
+        const regenerator = "AGENT_CORE_TSLEAN_REGENERATE_PROBE";
+        const restore = process.env[regenerator];
         try {
-            process.env[enforcement] = "generated";
+            process.env[regenerator] = "probe";
             // The name is recorded; the value is not. Bound names are matched by prefix,
             // and STRYKER_DASHBOARD_API_KEY is a real Stryker variable.
-            expect(mutationRunIdentity().environment[enforcement]).toBe(
-                `sha256:${sha256("generated")}`
+            expect(mutationRunIdentity().environment[regenerator]).toBe(
+                `sha256:${sha256("probe")}`
             );
             expect(mutationRunKey("errors")).not.toBe(key);
         } finally {
-            if (restore === undefined) delete process.env[enforcement];
-            else process.env[enforcement] = restore;
+            if (restore === undefined) delete process.env[regenerator];
+            else process.env[regenerator] = restore;
         }
 
         expect(mutationRunKey("errors")).toBe(key);

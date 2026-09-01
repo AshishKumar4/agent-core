@@ -1,26 +1,22 @@
 import { describe, expect, test } from "vitest";
 import { POLICY_IMPACTS } from "../../src/definition";
-import type { EnforcementTier, Impact } from "../../src/facets/enforcement";
 import {
-    claimHonorsEnforcementFloor as handwrittenClaimHonorsFloor,
-    enforcementFloor as handwrittenEnforcementFloor
-} from "../../src/facets/enforcement";
-import {
-    claimHonorsEnforcementFloor as generatedClaimHonorsFloor,
-    enforcementFloor as generatedEnforcementFloor
-} from "../../src/facets/enforcement.generated";
+    claimHonorsEnforcementFloor,
+    enforcementFloor,
+    type EnforcementTier,
+    type Impact
+} from "../../src/facets/generated/AgentCore/Facets/Enforcement";
 
 /*
- * `enforcement.generated.ts` is what TSLean lowers from `AgentCore.Facets.Enforcement`, and
- * `AGENT_CORE_ENFORCEMENT=generated` swaps it in for the whole suite. That swap answers "does the
- * twin pass every test the handwritten module passes"; it cannot answer "do the two agree", because
- * only one of them is loaded per run. This suite loads both by path and compares them directly, so
- * the twin is exercised in the ordinary run rather than only in the substituted one.
+ * `src/facets/generated/` is what the TSLean compiler lowers from the Lean module the
+ * kernel checks, `formal/AgentCore/Facets/Enforcement.lean`. It was a twin beside a
+ * handwritten module once; the cutover made it the one live implementation, so this
+ * suite is the contract's proof against the generated artifact itself: the SPEC table,
+ * not either implementation, decides every answer.
  *
  * Both are compared against a table of the conditions SPEC §7.2 admits `direct` under, keyed by
  * `Impact` so a new impact fails to compile rather than falling through untested. Deriving the
- * expectation from either implementation would agree with any mutation of it, and deriving it from
- * one to check the other would let a shared mistake pass.
+ * expectation from the implementation would agree with any mutation of it.
  */
 
 interface Condition {
@@ -53,28 +49,20 @@ const ADMITS_DIRECT = {
 const specFloor = (impact: Impact, condition: Condition): EnforcementTier =>
     ADMITS_DIRECT[impact](condition) ? "direct" : "mediated";
 
-describe("the TSLean-lowered enforcement twin", () => {
+describe("the TSLean-generated enforcement floor", () => {
     test(
         "answers SPEC §7.2's floor over the whole impact and session domain",
         { tags: "p0" },
         () => {
             for (const impact of POLICY_IMPACTS) {
                 for (const condition of CONDITIONS) {
-                    const expected = specFloor(impact, condition);
                     expect(
-                        generatedEnforcementFloor(
+                        enforcementFloor(
                             impact,
                             condition.turnOwnedSession,
                             condition.sessionFilesystemTarget
                         )
-                    ).toBe(expected);
-                    expect(
-                        handwrittenEnforcementFloor(
-                            impact,
-                            condition.turnOwnedSession,
-                            condition.sessionFilesystemTarget
-                        )
-                    ).toBe(expected);
+                    ).toBe(specFloor(impact, condition));
                 }
             }
         }
@@ -101,10 +89,7 @@ describe("the TSLean-lowered enforcement twin", () => {
                                 ADMITS_DIRECT[derived](condition)
                         );
                         expect(
-                            generatedClaimHonorsFloor(claimed, derived, sessionFilesystemTarget)
-                        ).toBe(admissible);
-                        expect(
-                            handwrittenClaimHonorsFloor(claimed, derived, sessionFilesystemTarget)
+                            claimHonorsEnforcementFloor(claimed, derived, sessionFilesystemTarget)
                         ).toBe(admissible);
                     }
                 }
@@ -116,16 +101,16 @@ describe("the TSLean-lowered enforcement twin", () => {
         // `observe` is the only impact reaching `direct` under both session conditions, so claiming
         // it against anything else buys a tier the seam denied, while claiming anything else against
         // it is the harmless tightening.
-        expect(generatedClaimHonorsFloor("observe", "externalSend", false)).toBe(false);
-        expect(generatedClaimHonorsFloor("externalSend", "observe", false)).toBe(true);
+        expect(claimHonorsEnforcementFloor("observe", "externalSend", false)).toBe(false);
+        expect(claimHonorsEnforcementFloor("externalSend", "observe", false)).toBe(true);
 
         // A Turn-owned Session lets `execute` reach `direct`, so claiming it against `mutate` is
         // refused at exactly the sites where that condition holds — unless the seam's target is the
         // Session's own filesystem, which is the one condition that lets `mutate` reach `direct`
         // too and makes the two claims interchangeable.
-        expect(generatedClaimHonorsFloor("execute", "mutate", false)).toBe(false);
-        expect(generatedClaimHonorsFloor("mutate", "execute", false)).toBe(true);
-        expect(generatedClaimHonorsFloor("execute", "mutate", true)).toBe(true);
-        expect(generatedClaimHonorsFloor("mutate", "execute", true)).toBe(true);
+        expect(claimHonorsEnforcementFloor("execute", "mutate", false)).toBe(false);
+        expect(claimHonorsEnforcementFloor("mutate", "execute", false)).toBe(true);
+        expect(claimHonorsEnforcementFloor("execute", "mutate", true)).toBe(true);
+        expect(claimHonorsEnforcementFloor("mutate", "execute", true)).toBe(true);
     });
 });

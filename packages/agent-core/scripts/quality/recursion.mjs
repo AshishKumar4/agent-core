@@ -32,7 +32,8 @@ const checkerEntrypoints = new Set([
         "records",
         "requests",
         "seams",
-        "test-priorities"
+        "test-priorities",
+        "tslean-consumer"
     ].map((name) => `quality/${name}.mjs`)
 ]);
 

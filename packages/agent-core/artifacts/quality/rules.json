@@ -105,6 +105,11 @@
       "id": "ACQ-VOCAB",
       "node": "architecture",
       "description": "Closed vocabularies have one canonical owner"
+    },
+    {
+      "id": "ACQ-GENERATED",
+      "node": "tslean-consumer",
+      "description": "A committed TSLean-generated package is byte-bound to its manifest, its proved certificates, and the committed Lean source it lowers"
     }
   ]
 }

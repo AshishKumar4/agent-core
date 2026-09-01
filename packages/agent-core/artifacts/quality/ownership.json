@@ -151,6 +151,7 @@
     "W3": [
       "packages/agent-core/artifacts/integration/request-archive/W3/**",
       "packages/agent-core/src/facets/*.ts",
+      "packages/agent-core/src/facets/generated/**",
       "packages/agent-core/src/facets/profile-runtime/**",
       "packages/agent-core/src/operations/**",
       "packages/agent-core/src/protocol/facet-commands.ts",

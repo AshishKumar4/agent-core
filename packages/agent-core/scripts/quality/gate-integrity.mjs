@@ -163,6 +163,11 @@ const harnesses = {
         // tree's standing debt before any mutation was applied.
         argv: (root) => [script(root, "quality/architecture.mjs"), "--stage", "building"]
     },
+    "tslean-consumer": {
+        sources: ["scripts/quality/tslean-consumer.mjs"],
+        scaffold: substitute,
+        argv: (root) => [script(root, "quality/tslean-consumer.mjs"), "--stage", "building"]
+    },
     coverage: {
         sources: ["scripts/quality/coverage.mjs", "scripts/quality/coverage-policy.mjs"],
         async scaffold(root, input) {

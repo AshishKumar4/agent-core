@@ -3,32 +3,7 @@ import { defineConfig } from "vitest/config";
 
 const packageFile = (path) => fileURLToPath(new URL(path, import.meta.url));
 
-// `AGENT_CORE_ENFORCEMENT=generated` resolves every import of `src/facets/enforcement` to the
-// module TSLean lowers from `AgentCore.Facets.Enforcement`. The two export the same surface, so
-// the suite runs unmodified against either and the comparison is apples to apples: a test that
-// passes for one and fails for the other is either a behavioural difference or a test that was
-// asserting the handwritten implementation rather than SPEC §7.1-§7.2.
-const enforcementSubstitution = {
-    name: "agent-core-enforcement-substitution",
-    enforce: "pre",
-    resolveId(source) {
-        return source === "./enforcement" ? packageFile("./src/facets/enforcement.generated.ts") : null;
-    }
-};
-
-// The two answers are different shapes rather than one value: an absent variable means
-// "handwritten", `generated` means the twin, and anything else is refused. Falling an
-// unrecognised value through to handwritten would make a typo report a green that reads as
-// "the generated module passes the suite" while never having loaded it.
-const enforcementSelection = process.env.AGENT_CORE_ENFORCEMENT;
-if (enforcementSelection !== undefined && enforcementSelection !== "generated") {
-    throw new TypeError(
-        `AGENT_CORE_ENFORCEMENT must be unset or "generated", not ${JSON.stringify(enforcementSelection)}`
-    );
-}
-
 export default defineConfig({
-    plugins: enforcementSelection === "generated" ? [enforcementSubstitution] : [],
     resolve: {
         alias: {
             "bun:test": packageFile("./scripts/vitest-bun-test.mjs"),

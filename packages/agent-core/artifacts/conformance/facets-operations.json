@@ -71,7 +71,7 @@
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [
-        "src/facets/enforcement.ts#enforcementFloor",
+        "src/facets/generated/AgentCore/Facets/Enforcement.ts#enforcementFloor",
         "src/operations/command-runtime.ts#CommandRuntime"
       ],
       "testSelectors": [
@@ -335,8 +335,8 @@
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [
-        "src/facets/enforcement.ts#claimHonorsEnforcementFloor",
-        "src/facets/enforcement.ts#enforcementFloor"
+        "src/facets/generated/AgentCore/Facets/Enforcement.ts#claimHonorsEnforcementFloor",
+        "src/facets/generated/AgentCore/Facets/Enforcement.ts#enforcementFloor"
       ],
       "testSelectors": [
         "test/facets/declarations.test.ts#Impact is derived from the seam, not declared by the callee [C13-FACET-IMPACT-BOUNDARY] admits a claim only where it never buys a tier the derived impact was denied"
