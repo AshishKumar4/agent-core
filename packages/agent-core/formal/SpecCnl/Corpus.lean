@@ -4,6 +4,7 @@ import SpecCnl.Units.Claims
 import SpecCnl.Units.Commands
 import SpecCnl.Units.FacetInstall
 import SpecCnl.Units.Isolate
+import SpecCnl.Units.ModelInput
 import SpecCnl.Units.NoRetry
 import SpecCnl.Units.Placement
 import SpecCnl.Units.Receipts
@@ -486,7 +487,8 @@ def units : List RuleUnit :=
   coreUnits ++ Units.Auth.units ++ Units.Isolate.units ++ Units.Commands.units ++
     Units.FacetInstall.units ++ Units.Placement.units ++ Units.RunGraph.units ++
     Units.TrustRoute.units ++ Units.Claims.units ++ Units.Receipts.units ++
-    Units.RunSettle.units ++ Units.NoRetry.units ++ Units.ViewPlan.units
+    Units.RunSettle.units ++ Units.NoRetry.units ++ Units.ViewPlan.units ++
+    Units.ModelInput.units
 
 /-- The unit with this key, if any. -/
 def find? (key : String) : Option RuleUnit := units.find? (fun unit => unit.key == key)
