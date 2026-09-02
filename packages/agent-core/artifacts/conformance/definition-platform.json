@@ -21,24 +21,41 @@
       "owner": "W4",
       "specAnchor": "C13-BLUEPRINT-CONVERGENCE",
       "specTextSha256": "sha256:05a0dcd8dd2a6a9a0ea470e3a445d036894abe9ec13f7398178e6f0366f44748",
-      "status": "planned",
+      "status": "implemented",
       "prerequisites": [
         "C13-BLUEPRINT-REMATERIALIZE",
         "C13-BLUEPRINT-VALIDATE-BEFORE-LOAD",
         "C13-FACET-DEPENDENCY-ORDER",
         "C13-PACKAGE-DEPENDENCY-DECLARED"
       ],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
+      "sourceSymbols": [
+        "src/definition/reconciliation.ts#ReconciliationPlan",
+        "src/definition/reconciliation.ts#PendingObligationSet",
+        "src/definition/reconciliation.ts#ReconciliationObligation",
+        "src/definition/reconciliation.ts#RelianceHoldObligation",
+        "src/definition/reconciliation.ts#InvocationDrainObligation",
+        "src/definition/reconciliation.ts#RouteReservationObligation",
+        "src/definition/reconciliation.ts#PackageRetentionObligation",
+        "src/definition/reconciliation.ts#ReconciliationDeferral",
+        "src/definition/reconciliation.ts#ManagedRecordAdoption",
+        "src/definition/reconciliation.ts#planReconciliation",
+        "src/definition/materializer.ts#LocalMaterializer"
+      ],
+      "testSelectors": [
+        "test/definition/convergence.test.ts#Blueprint convergence [C13-BLUEPRINT-CONVERGENCE] reaches one Blueprint-managed record set from two issue orders and two prior managed states",
+        "test/definition/convergence.test.ts#Blueprint convergence [C13-BLUEPRINT-CONVERGENCE] holds a reliance withdrawal as an obligation naming its record, reason, and condition",
+        "test/definition/convergence.test.ts#Blueprint convergence [C13-BLUEPRINT-CONVERGENCE] holds each draining Invocation item as its own obligation",
+        "test/definition/convergence.test.ts#Blueprint convergence [C13-BLUEPRINT-CONVERGENCE] holds each unadmitted RouteReservation as its own obligation",
+        "test/definition/convergence.test.ts#Blueprint convergence [C13-BLUEPRINT-CONVERGENCE] holds a Package release SPEC 5.2 still pins as an obligation naming its holder",
+        "test/definition/convergence.test.ts#Blueprint convergence [C13-BLUEPRINT-CONVERGENCE] states convergence only as the pending set being empty",
+        "test/definition/convergence.test.ts#Blueprint convergence [C13-BLUEPRINT-CONVERGENCE] rejects a divergence no obligation expresses instead of leaving it pending",
+        "test/definition/convergence.test.ts#Blueprint convergence [C13-BLUEPRINT-CONVERGENCE] adopts a manual edit only as a change to the Blueprint",
+        "test/definition/validation.test.ts#Blueprint validation [C13-BLUEPRINT-CONVERGENCE] refuses a retired slot a retained Facet still fills, before any package code loads"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": [
-        "Nothing built today discriminates convergence from the idempotence C13-BLUEPRINT-REMATERIALIZE already verifies. Its selector proves re-applying one unchanged Blueprint reconciles to a semantic no-op, which is f(f(x)) = f(x) for one input; path-independence needs a differential harness that applies one Blueprint to a Scope by at least two admissible issue orders and from at least two different prior managed states, then asserts one identical Blueprint-managed record set once the pending set is empty. An implementation that reached the declared state only from an empty Scope must fail it",
-        "The pending set has to be carried by the reconciliation outcome rather than computed alongside it, so that converged is that set being empty rather than a separate report a host can get wrong. Verification requires the outcome type to hold the obligations and a mutation that states convergence while an obligation stands to break a cited test; a boolean flag set next to a nonempty obligation list satisfies the prose and must not satisfy the atom",
-        "Each of the four stated deferrals needs its own obligation-shape evidence \u2014 record, reason, and discharging condition all named: a reliance hold under C13-FACET-DEPENDENCY-ORDER, each draining Invocation item under C13-FACET-WITHDRAWAL-DRAIN, each unadmitted RouteReservation terminalized by a rejected RouteDelivery, and a Package retained under SPEC 5.2. No current test exercises any of them, and the Package case additionally has no coverage of the Session, tree-checkpoint, and Snapshot pin holders",
-        "The rejected-reconciliation clause is what stops converging from becoming an excuse, so it needs the strongest negative evidence: a divergence expressible as no pending obligation \u2014 a withdrawal set the host cannot compute, or a retired Slot declaration still holding an entry attributed to a retained Facet \u2014 must be refused at validation before package code loads, on the no-code-loaded terms C13-BLUEPRINT-VALIDATE-BEFORE-LOAD already tests, and must never be admitted and left pending",
-        "The managed-set scoping needs its own test because it is what makes the endpoint a function at all: an adopted manual edit must appear as a change to the Blueprint, and a host that marks an adopted record Blueprint-managed without a declaring Blueprint must be rejected. src/definition/materializer.ts#LocalMaterializer marks managed state but has no adoption path to discriminate",
-        "This rule's paragraph tightened the SPEC 9.3 retention condition from 'no Run references it' to the full SPEC 5.2 pin-holder set, so C13-BLUEPRINT-RUN-PINS carries anchored text whose Turn, Session, tree-checkpoint, and Snapshot cases its two selectors do not exercise. That atom was demoted from verified to implemented rather than left over-credited, and it now names the per-pin-holder retention tests it owes. This atom cannot be verified while the fourth deferral's discharging condition is under-covered by the neighbour that owns it",
-        "One of the four stated deferrals now has a built obligation shape to model against: src/composition/facet-withdrawal.ts#FacetWithdrawalObligation carries the reliance hold and the Invocation drain as typed cases on the withdrawal outcome, and a withdrawal is complete exactly when that set is empty. What this row still owes is the same discipline on the reconciliation outcome: src/definition/reconciliation.ts#ReconciliationPlan carries opaque `blockers: readonly string[]`, so convergence is still a report a host could get wrong rather than the obligation set being empty. The exact interface owed is a typed obligation member on ReconciliationPlan that the withdrawal obligation maps into, plus the differential harness the first item names."
+        "The mechanism this atom owes is built and exercised. src/definition/reconciliation.ts#ReconciliationPlan carries src/definition/reconciliation.ts#PendingObligationSet and derives `converged` from it, so a host cannot state convergence beside a nonempty set: the outcome type refuses a supplied pending value that is not the value object, and the four SPEC 9.3 deferrals are typed cases naming record, reason, and discharging condition. The differential harness applies one Blueprint by two issue orders and from two prior managed states, including a Scope holding records the Blueprint never declares, and asserts the identical Blueprint-managed set; adoption is an explicit path on LocalMaterializer; an unanswerable deferral is a rejected reconciliation, and the retired-slot divergence is refused at validation before any package code loads. What remains is discrimination, not construction: no mutation run records kills for these statements. The mutants that must die are one that reports convergence while an obligation stands, one that drops a holder from the retention mapping so a Turn-held release removes, one that admits an unanswerable deferral as pending, and one that adopts an undeclared record; artifacts/quality/discrimination/definition.json holds no attribution for the changed files and re-measuring it is W0's lane",
+        "Verification also waits on the neighbour that owns the fourth deferral's discharging condition: C13-BLUEPRINT-RUN-PINS now carries one retention test per SPEC 5.2 pin holder and the removal-proceeds-at-last-release mirror, so the under-coverage this atom recorded is discharged, but this atom stays implemented until that row's own promotion is measured rather than assumed"
       ]
     },
     {
@@ -61,19 +78,28 @@
       "owner": "W4",
       "specAnchor": "C13-BLUEPRINT-RUN-PINS",
       "specTextSha256": "sha256:e12d705289dc0aa90cee549b11683ba83819189d872e58780ceb57e6eafe5017",
-      "status": "implemented",
+      "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/definition/materializer.ts#LocalMaterializer"],
+      "sourceSymbols": [
+        "src/definition/materializer.ts#LocalMaterializer",
+        "src/definition/pins.ts#RecordedRunPinsReservationPort",
+        "src/definition/pins.ts#FailClosedRunPinsReservationPort",
+        "src/definition/reconciliation.ts#PackagePinHolder",
+        "src/definition/reconciliation.ts#RunPinEvidence"
+      ],
       "testSelectors": [
         "test/definition/materializer.test.ts#same-Actor additive materialization [C13-BLUEPRINT-RUN-PINS] fails closed on unknown RunPins evidence without advancing local state",
-        "test/definition/validation.test.ts#Blueprint validation [C13-BLUEPRINT-RUN-PINS] requires the exact PackageLock closure and pin metadata"
+        "test/definition/validation.test.ts#Blueprint validation [C13-BLUEPRINT-RUN-PINS] requires the exact PackageLock closure and pin metadata",
+        "test/definition/pins.test.ts#SPEC 5.2 pin holder retention [C13-BLUEPRINT-RUN-PINS] defers removing a release a turn pins with no Run holding it",
+        "test/definition/pins.test.ts#SPEC 5.2 pin holder retention [C13-BLUEPRINT-RUN-PINS] defers removing a release a session pins with no Run holding it",
+        "test/definition/pins.test.ts#SPEC 5.2 pin holder retention [C13-BLUEPRINT-RUN-PINS] defers removing a release a tree-checkpoint pins with no Run holding it",
+        "test/definition/pins.test.ts#SPEC 5.2 pin holder retention [C13-BLUEPRINT-RUN-PINS] defers removing a release a snapshot pins with no Run holding it",
+        "test/definition/pins.test.ts#SPEC 5.2 pin holder retention [C13-BLUEPRINT-RUN-PINS] removes only once the last pin holder of any kind releases",
+        "test/definition/pins.test.ts#SPEC 5.2 pin holder retention reserves idempotently per holder and answers only the pinned release",
+        "test/definition/pins.test.ts#SPEC 5.2 pin holder retention verifies exactly the Run migrations it processed"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
-      "remainingEvidence": [
-        "Demoted from verified because this atom's anchored text now names the full SPEC 5.2 pin-holder set. SPEC 9.3 previously deferred removing a pinned Package until 'no Run references it', while SPEC 5.2 keeps a Package release resolvable while any Run, Turn, Session, tree checkpoint, or Snapshot pins it; Session and Snapshot outlive a Run, so as written the clause licensed a removal 5.2 forbids. The clause was corrected, and the two selectors cited here exercise the Run case only",
-        "Verification requires one retention test per additional pin holder: a Package release named by a Turn's retained pins, by an Environment Session, by a tree checkpoint, and by a Snapshot must each defer removal on its own, with the Run terminal or absent so that no Run-shaped check can pass in its place. A single combined fixture does not discriminate, because an implementation that only consults Runs would still pass whenever a Run happens to pin the same release",
-        "The discharge side needs the mirror evidence: removal must proceed once the last pin holder of any kind releases, so a host that never removes is not silently credited with satisfying a deferral rule"
-      ]
+      "remainingEvidence": []
     },
     {
       "id": "C13-BLUEPRINT-VALIDATE-BEFORE-LOAD",
@@ -116,7 +142,10 @@
         "src/definition/credential-custody.ts#CredentialConsumerRef",
         "src/definition/credential-custody.ts#CredentialResolutionRequest",
         "src/definition/credential-custody.ts#CredentialResolution",
-        "src/definition/credential-custody.ts#CredentialProvider"
+        "src/definition/credential-custody.ts#CredentialProvider",
+        "src/definition/credential-custody.ts#environmentCredentialCustody",
+        "src/definition/credential-custody.ts#requireRecordedCustody",
+        "src/definition/credential-custody.ts#declaredCustodyFacts"
       ],
       "testSelectors": [
         "test/definition/credential-custody.test.ts#SecretRef custody [C13-CONFIG-SECRET-CUSTODY] refuses a triple no custody record authorizes and never reaches the provider",
@@ -126,12 +155,14 @@
         "test/definition/credential-custody.test.ts#SecretRef custody [C13-CONFIG-SECRET-CUSTODY] decides from the triple alone and refuses a key carrying any further discriminant",
         "test/definition/credential-custody.test.ts#SecretRef custody [C13-CONFIG-SECRET-CUSTODY] separates a confirmed custody refusal from a provider outcome it does not hold",
         "test/definition/credential-custody.test.ts#SecretRef custody [C13-CONFIG-SECRET-CUSTODY] reads custody from the consumer's own durable record and adds no store of its own",
-        "test/definition/credential-custody.test.ts#SecretRef custody [C13-CONFIG-SECRET-CUSTODY] refuses every inexact or non-canonical custody value where it is written"
+        "test/definition/credential-custody.test.ts#SecretRef custody [C13-CONFIG-SECRET-CUSTODY] refuses every inexact or non-canonical custody value where it is written",
+        "test/definition/credential-custody.test.ts#SecretRef custody [C13-CONFIG-SECRET-CUSTODY] reads an Environment's custody from the Blueprint-managed record that declares it",
+        "test/definition/credential-custody.test.ts#SecretRef custody [C13-CONFIG-SECRET-CUSTODY] refuses an Environment declaration that records custody inexactly or for another Tenant"
       ],
       "checkerInvariants": [],
       "remainingEvidence": [
         "The resolution seam this clause names now exists and every MUST about its decision is discriminated by a killed mutation, measured in a detached worktree at an explicit sha rather than in the shared tree: Tenant scope by SecretRef source at read time and at write time, the exact recorded consumer, the exact recorded endpoint with a repoint answered distinctly from a ref never accepted, the check standing before any value is produced (the provider is never consulted on a refusal), and no member on a resolution a credential could travel back to a caller in. Custody stays constituent data a consumer's own record carries: the seam takes the (SecretRef, consumer, endpoint) triple as data, adds no store, and a Binding's custody projects into it through the Binding codec unchanged",
-        "Only one of the three consumer kinds this clause names by name actually records a custody record, so for the other two there is nothing for the seam to check and the acceptance clause is unmet in the tree. Measured: src/environments/environment.ts#Environment carries no credential at all, and a SecretRef reaches an Environment only as the runtime values src/environments/provider.ts#EnvironmentCredentialProxyCapability and src/facets/environment/facet.ts#EnvironmentCredentialInput, neither of which is durable nor paired with a target endpoint; src/facets/event.ts#IngressVerification is durable inside an EventDeclaration codec but pairs verification.secret with a scheme and no endpoint, and its requireExactFields(['scheme','secret']) refuses one. Closing this atom needs the endpoint pairing on both consumers, which is a W3 shape change on src/facets/event.ts plus an Environment-side custody record, and W3 evidence a W4 row cannot cite",
+        "One of the two unmet consumer kinds is now met and the other is named exactly. The Environment consumer records custody where its Tenant declares it: a Blueprint's `environments` entry (9.2) materializes into the Blueprint-managed `environment` record, whose `credentials` entries are exact (SecretRef, endpoint) pairs validated in src/definition/materialization-kind.ts before any package code loads and projected into the seam by src/definition/credential-custody.ts#environmentCredentialCustody, with the Tenant-scope check applied where the record is written (src/definition/credential-custody.ts#requireRecordedCustody, called from materializeActorPlan) as well as at read time. What stays owed is the ingress half, and it is W3's: src/facets/event.ts#IngressVerification pairs verification.secret with a scheme and no endpoint, and its requireExactFields(['scheme','secret']) refuses one, so closing it needs the endpoint on that shape, a major bump of the registered facet.ingress-verification codec with its artifacts/records row, and W3-side tests \u2014 evidence a W4 row cannot cite under requireEvidenceOwner, so this item names the work rather than carrying it",
         "The mediated disposition has no caller. This clause says that for a mediated externalSend effect a custody failure is an ordinary failed AttemptReceipt, and no operation in the tree resolves a SecretRef, so the positive half is unreachable rather than unevidenced and a test asserting it would assert its own mapping. The negative half is proven and must stay proven: a refusal is a returned outcome rather than a thrown control-flow signal, carries exactly an outcome and a custody reason, registers no codec in artifacts/records, and adds no code to src/errors.ts, so custody denial has no record kind or vocabulary of its own",
         "Two inherited items are dropped rather than carried, because measurement contradicts their basis. Binding-snapshot-to-permit/request binding for cross-Actor mediated admission is C13-AUTH-MEDIATED-ADMISSION's mechanism and appears nowhere in this clause's text, so it is that row's to evidence. A deployed Cloudflare boundary was named as blocking verification, but this clause's substrate credential injection is a SHOULD and the ref-only MUST belongs to the verified C13-CONFIG-SECRET-REF, so no W8 evidence is owed here and none is cited"
       ]

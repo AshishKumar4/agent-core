@@ -2,6 +2,7 @@ import { hasExactJsonKeys, isJsonObject, type JsonValue } from "../core";
 import { PackagePin } from "../definition-references";
 import { Automation, type IsolationMode } from "../facets";
 import { AgentCoreError } from "../errors";
+import { declaredCustodyFacts } from "./credential-custody";
 import { invalidDefinition } from "./error";
 import { PlacementInput, parseIsolationMode, selectPlacement } from "./placement";
 import { PolicySet } from "./policy";
@@ -34,7 +35,7 @@ export const BLUEPRINT_CONTRIBUTOR = "blueprint";
 
 const materializationKinds: Readonly<Record<string, MaterializationKindValidator>> = Object.freeze({
     "agent-profile": declarationMapValidator("Agent profile"),
-    environment: declarationMapValidator("Environment"),
+    environment: validateEnvironmentDeclaration,
     "facet-install": validateFacetInstall,
     "facet-placement": validateFacetPlacement,
     "policy-set": (desired) => PolicySet.fromData(desired).toData(),
@@ -135,6 +136,22 @@ function declarationMapValidator(subject: string): MaterializationKindValidator 
         }
         return desired;
     };
+}
+
+/**
+ * §3.5, §9.2: an Environment is one of the consumers that accepts a SecretRef, and the
+ * Tenant records that acceptance where it declares the Environment. The declaration's
+ * `credentials` entries are therefore the Environment's custody record — each an exact
+ * (SecretRef, endpoint) pair — validated here so an unpaired or malformed acceptance is
+ * refused before any Package code loads rather than at the resolution seam.
+ */
+function validateEnvironmentDeclaration(desired: JsonValue): JsonValue {
+    const object = requireObject(desired, "Environment");
+    if (Object.keys(object).length === 0) {
+        throw invalidDefinition("Environment declaration must not be empty");
+    }
+    declaredCustodyFacts(object, "Environment credential custody");
+    return desired;
 }
 
 function requireObject(value: JsonValue, subject: string): { readonly [key: string]: JsonValue } {

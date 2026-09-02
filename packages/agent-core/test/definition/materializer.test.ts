@@ -9,6 +9,7 @@ import {
 import {
     Digest,
     Revision,
+    SemVer,
     decodeCanonicalJson,
     encodeCanonicalJson,
     type JsonObject
@@ -34,7 +35,13 @@ import {
 } from "../../src/definition/materializer";
 import { AgentCoreError } from "../../src/errors";
 import { TenantId } from "../../src/identity";
-import { RunPinEvidence, type ManagedResourceSnapshot } from "../../src/definition/reconciliation";
+import {
+    DeferredManagedRecord,
+    PackageId,
+    PackagePin,
+    RunPinEvidence,
+    type ManagedResourceSnapshot
+} from "../../src/definition";
 import { requireObject, tamperedRecord } from "./record-data";
 import {
     MemoryManagedResourcePort,
@@ -177,7 +184,7 @@ describe("same-Actor additive materialization", () => {
             semanticNoop: false
         });
         expect(applied.insertedRecords).toHaveLength(2);
-        expect(applied.blockers).toEqual([]);
+        expect(applied.pending.converged).toBe(true);
         expect(replayed).toMatchObject({
             insertedGeneration: false,
             insertedRecords: [],
@@ -185,7 +192,7 @@ describe("same-Actor additive materialization", () => {
             semanticNoop: true
         });
         expect(replayed.actions).toEqual(["noop", "noop"]);
-        expect(replayed.blockers).toEqual([]);
+        expect(replayed.pending.converged).toBe(true);
         expect(snapshot.generations).toHaveLength(1);
         expect(snapshot.records).toHaveLength(2);
         expect(snapshot.pointer?.revision.value).toBe(0);
@@ -451,15 +458,18 @@ describe("same-Actor additive materialization", () => {
             actorPlan(actor, origin(1, "one"), [projection("policy:stable", { value: 1 })])
         );
         const before = store.snapshot();
-        store.resourcePort.evidence = () => new RunPinEvidence("unknown", ["w5-unavailable"]);
+        store.resourcePort.deferral = (change) =>
+            RunPinEvidence.inconclusive("unknown", "w5-unavailable").deferral(
+                new DeferredManagedRecord(change),
+                pinnedRelease()
+            );
 
-        const blocked = materializer.apply(actorPlan(actor, origin(2, "two"), []));
-        expect(blocked.blockers).toEqual(["unknown:w5-unavailable"]);
-        expect(blocked.pointerChanged).toBe(false);
-        expect(blocked.insertedGeneration).toBe(false);
-        expect(blocked.insertedRecords).toEqual([]);
-        expect(blocked.semanticNoop).toBe(false);
-        expect(blocked.actions).toEqual(["remove"]);
+        // SPEC 9.3: evidence the host cannot turn into an obligation naming its record,
+        // reason, and condition is a rejected reconciliation, never a removal admitted and
+        // left pending on an unstated reason.
+        expect(() => materializer.apply(actorPlan(actor, origin(2, "two"), []))).toThrow(
+            /not expressible as a pending obligation: unknown RunPins evidence: w5-unavailable/
+        );
         expect(store.snapshot()).toMatchObject({
             generations: before.generations,
             records: before.records,
@@ -511,7 +521,7 @@ describe("same-Actor additive materialization", () => {
         });
         expect(result.insertedRecords).toEqual([]);
         expect(result.actions).toEqual([]);
-        expect(result.blockers).toEqual([]);
+        expect(result.pending.converged).toBe(true);
         expect(store.snapshot().pointer?.revision.value).toBe(0);
     });
 
@@ -800,6 +810,15 @@ function projection(logicalKey: string, desired: { readonly value: number }): De
     const approved: PolicySetInit =
         desired.value % 3 === 0 ? { ...tiered, approvals: ["externalSend"] } : tiered;
     return policyProjection(logicalKey, new PolicySet(approved));
+}
+
+function pinnedRelease(): PackagePin {
+    return new PackagePin(
+        new PackageId("acme.deploy"),
+        new SemVer("1.4.0"),
+        digestOf("manifest"),
+        digestOf("code")
+    );
 }
 
 function forgeActorPlanKind(plan: ActorPlan, recordKind: string): ActorPlan {

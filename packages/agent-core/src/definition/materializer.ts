@@ -6,12 +6,15 @@ import {
     MaterializationGenerationPointer
 } from "./generation";
 import { validateMaterializationKind } from "./materialization-kind";
+import { requireRecordedCustody } from "./credential-custody";
 import { ActorPlan, MaterializationPlan } from "./plan";
 import type { DeploymentId, MaterializationGenerationId } from "./id";
 import {
     ManagedResourcePort,
+    PendingObligationSet,
     applyReconciliation,
     planReconciliation,
+    type ManagedRecordAdoption,
     type ReconciliationAction
 } from "./reconciliation";
 import { corruptDefinition, definitionRevisionConflict, invalidDefinitionState } from "./error";
@@ -75,7 +78,12 @@ export interface LocalMaterializationResult {
     readonly pointerChanged: boolean;
     readonly semanticNoop: boolean;
     readonly actions: readonly ReconciliationAction["kind"][];
-    readonly blockers: readonly string[];
+    /**
+     * SPEC §9.3: the deferrals this reconciliation opened, each naming its record, reason,
+     * and discharging condition. A Scope is converged exactly when this set is empty, so a
+     * caller reads `pending.converged` rather than a second answer stated beside it.
+     */
+    readonly pending: PendingObligationSet;
 }
 
 export class LocalMaterializer<TTransaction> {
@@ -100,20 +108,33 @@ export class LocalMaterializer<TTransaction> {
         return materializeActorPlan(this.#actor, requireLocalActorPlan(canonical));
     }
 
-    public apply(plan: ActorPlan | MaterializationPlan): LocalMaterializationResult {
-        return this.#store.transaction((transaction) => this.applyInTransaction(transaction, plan));
+    /**
+     * SPEC §9.3: `adoptions` are the manual edits an operator explicitly adopts. Adoption
+     * is admissible only as a change to the Blueprint, so each one names a record this
+     * plan declares; an adoption no declaration covers is rejected rather than marked
+     * Blueprint-managed.
+     */
+    public apply(
+        plan: ActorPlan | MaterializationPlan,
+        adoptions: readonly ManagedRecordAdoption[] = []
+    ): LocalMaterializationResult {
+        return this.#store.transaction((transaction) =>
+            this.applyInTransaction(transaction, plan, adoptions)
+        );
     }
 
     public applyInTransaction(
         transaction: TTransaction,
-        plan: ActorPlan | MaterializationPlan
+        plan: ActorPlan | MaterializationPlan,
+        adoptions: readonly ManagedRecordAdoption[] = []
     ): LocalMaterializationResult {
-        return this.applyTransaction(transaction, this.materialize(plan));
+        return this.applyTransaction(transaction, this.materialize(plan), adoptions);
     }
 
     private applyTransaction(
         transaction: TTransaction,
-        desired: LocalMaterialization
+        desired: LocalMaterialization,
+        adoptions: readonly ManagedRecordAdoption[]
     ): LocalMaterializationResult {
         const current = this.#store.loadGenerationPointer(
             transaction,
@@ -151,9 +172,10 @@ export class LocalMaterializer<TTransaction> {
                 deploymentId: desired.generation.origin.deploymentId
             },
             previousRecords,
-            desired.records
+            desired.records,
+            adoptions
         );
-        if (reconciliation.blockers.length > 0) {
+        if (!reconciliation.converged) {
             const activePointer = requireStored(
                 current,
                 "active pointer for blocked reconciliation"
@@ -170,7 +192,7 @@ export class LocalMaterializer<TTransaction> {
                 pointerChanged: false,
                 semanticNoop: false,
                 actions: reconciliation.actions.map((action) => action.kind),
-                blockers: reconciliation.blockers
+                pending: reconciliation.pending
             });
         }
         const semanticNoop =
@@ -186,7 +208,7 @@ export class LocalMaterializer<TTransaction> {
                 pointerChanged: false,
                 semanticNoop: true,
                 actions: reconciliation.actions.map((action) => action.kind),
-                blockers: []
+                pending: PendingObligationSet.empty
             });
         }
         applyReconciliation(transaction, this.#resources, reconciliation);
@@ -270,7 +292,7 @@ export class LocalMaterializer<TTransaction> {
             pointerChanged: true,
             semanticNoop,
             actions: reconciliation.actions.map((action) => action.kind),
-            blockers: []
+            pending: PendingObligationSet.empty
         });
     }
 }
@@ -287,6 +309,9 @@ export function materializeActorPlan(actor: ActorRef, plan: ActorPlan): LocalMat
     const records = canonical.projections.map((projection) =>
         ManagedStateRecord.fromProjection(actor, canonical.origin, generation.id, projection)
     );
+    // §3.5: whatever records custody checks it, so an Environment declaration that names
+    // another Tenant's SecretRef is refused where it is written into managed state.
+    for (const record of records) requireRecordedCustody(record);
     return Object.freeze({
         generation,
         records: Object.freeze(records)
@@ -358,8 +383,7 @@ function freezeResult(result: LocalMaterializationResult): LocalMaterializationR
     return Object.freeze({
         ...result,
         insertedRecords: Object.freeze([...result.insertedRecords]),
-        actions: Object.freeze([...result.actions]),
-        blockers: Object.freeze([...result.blockers])
+        actions: Object.freeze([...result.actions])
     });
 }
 

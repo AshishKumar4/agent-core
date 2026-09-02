@@ -383,6 +383,52 @@ describe("Blueprint validation", () => {
     );
 
     test(
+        "[C13-BLUEPRINT-CONVERGENCE] refuses a retired slot a retained Facet still fills, before any package code loads",
+        { tags: "p0" },
+        () => {
+            // A retired slot declaration whose entries a retained Facet still fills is a
+            // divergence no SPEC 9.3 deferral covers: it is not a reliance hold, a draining
+            // item, an unadmitted reservation, or a retained Package, so there is no pending
+            // obligation naming a record, a reason, and a discharging condition to express
+            // it with. It is therefore a rejected reconciliation, refused at validation on
+            // C13-BLUEPRINT-VALIDATE-BEFORE-LOAD's terms rather than admitted and left
+            // pending until someone re-declares the slot.
+            const cardSlot = new SlotDeclaration(
+                new SlotName("dashboard.card"),
+                new JsonSchema({
+                    properties: { title: { type: "string" } },
+                    required: ["title"],
+                    type: "object"
+                }),
+                new SlotAuthorityPolicy(["installed"], ["scope.read"])
+            );
+            const retained = packageRelease("cards", {
+                contributions: new Contributions([
+                    new Contribution(new SlotName("dashboard.card"), [{ title: "Health" }])
+                ])
+            });
+            const options = {
+                lock: packageLock([retained]),
+                releases: [retained],
+                schemaValidator
+            };
+            const loader = vi.fn();
+
+            // The same closure with the slot declared is admissible, so the refusal below
+            // is the retirement and not the Facet.
+            expect(
+                validateBlueprint(blueprint([install("cards", "^1")], { slots: [cardSlot] }), options)
+                    .declarations
+            ).toHaveLength(1);
+
+            expect(() => {
+                loader(validateBlueprint(blueprint([install("cards", "^1")]), options));
+            }).toThrow(/undeclared slot dashboard.card/);
+            expect(loader).not.toHaveBeenCalled();
+        }
+    );
+
+    test(
         "keeps unsupported executable-shaped contributions as inert declarations",
         { tags: "p1" },
         () => {

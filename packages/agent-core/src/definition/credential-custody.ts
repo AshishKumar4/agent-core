@@ -1,4 +1,5 @@
-import { SecretRef } from "../core";
+import { SecretRef, hasExactJsonKeys, isJsonObject, type JsonValue } from "../core";
+import type { ManagedStateRecord } from "./generation";
 import { invalidDefinition } from "./error";
 
 /**
@@ -64,6 +65,37 @@ export class CredentialCustodyFact {
         this.secret = new SecretRef(secret.source, secret.provider, secret.id);
         this.endpoint = requireExactEndpoint(endpoint);
         Object.freeze(this);
+    }
+
+    /**
+     * The form a consumer's own durable record carries the fact in. It is exactly the
+     * pairing §3.5 names — one SecretRef and one target endpoint — so a Binding's stored
+     * custody and a Blueprint-declared Environment's are the same fact written down twice
+     * rather than two custody vocabularies.
+     */
+    public static fromData(value: JsonValue | undefined, subject: string): CredentialCustodyFact {
+        const object = requireCustodyObject(value, subject);
+        if (!hasExactJsonKeys(object, ["endpoint", "secret"])) {
+            throw invalidDefinition(`${subject} contains missing or unknown fields`);
+        }
+        const secret = requireCustodyObject(object["secret"], `${subject} SecretRef`);
+        if (!hasExactJsonKeys(secret, ["id", "provider", "source"])) {
+            throw invalidDefinition(`${subject} SecretRef contains missing or unknown fields`);
+        }
+        return new CredentialCustodyFact(
+            new SecretRef(
+                requireCustodyText(secret["source"], `${subject} SecretRef source`),
+                requireCustodyText(secret["provider"], `${subject} SecretRef provider`),
+                requireCustodyText(secret["id"], `${subject} SecretRef ID`)
+            ),
+            requireCustodyText(object["endpoint"], `${subject} endpoint`)
+        );
+    }
+
+    public get key(): string {
+        return [this.secret.source, this.secret.provider, this.secret.id, this.endpoint].join(
+            "\u0000"
+        );
     }
 }
 
@@ -288,6 +320,66 @@ export class RecordedCustodySeam extends CredentialIsolationSeam {
 }
 
 /**
+ * §3.5 names an Environment among the consumers that accept a SecretRef, and §9.2 is where
+ * a Tenant declares one: a Blueprint's `environments` entry is materialized (§9.3) into the
+ * Blueprint-managed `environment` record this projects from. The custody stays that
+ * record's own constituent data — a `credentials` list of (SecretRef, endpoint) pairs — so
+ * the seam gains a second consumer kind to check without a store or a record kind of its
+ * own. `resolves` is the consumer's own liveness: a declaration the active generation no
+ * longer carries stops resolving with the record that held it.
+ */
+export function environmentCredentialCustody(
+    record: ManagedStateRecord,
+    resolves: boolean
+): CredentialCustody {
+    if (record.recordKind !== ENVIRONMENT_RECORD_KIND) {
+        throw invalidDefinition("Environment custody reads an Environment declaration record");
+    }
+    return new CredentialCustody(
+        record.origin.tenantId.value,
+        new CredentialConsumerRef(ENVIRONMENT_RECORD_KIND, record.logicalKey),
+        resolves,
+        declaredCustodyFacts(record.desired, "Environment credential custody")
+    );
+}
+
+/**
+ * §3.5: the Tenant scope of a custody record is checked by whatever records it, so a
+ * declaration that names another Tenant's SecretRef is refused as it is written rather
+ * than resolving later against a Tenant that never accepted it.
+ */
+export function requireRecordedCustody(record: ManagedStateRecord): void {
+    if (record.recordKind !== ENVIRONMENT_RECORD_KIND) return;
+    environmentCredentialCustody(record, true);
+}
+
+/**
+ * The declared custody a Blueprint-managed record carries, refused as a set rather than a
+ * list: one (SecretRef, endpoint) pair written twice is an inexact custody value, and §3.5
+ * makes exactness the rule wherever custody is written.
+ */
+export function declaredCustodyFacts(
+    desired: JsonValue,
+    subject: string
+): readonly CredentialCustodyFact[] {
+    const declaration = requireCustodyObject(desired, subject);
+    const declared = declaration[CUSTODY_DECLARATION_FIELD];
+    if (declared === undefined) return [];
+    if (!Array.isArray(declared) || declared.length === 0) {
+        throw invalidDefinition(`${subject} must be a nonempty list when it is declared`);
+    }
+    const facts = declared.map((value) => CredentialCustodyFact.fromData(value, subject));
+    const keys = new Set<string>();
+    for (const fact of facts) {
+        if (keys.has(fact.key)) {
+            throw invalidDefinition(`${subject} repeats one SecretRef and endpoint pair`);
+        }
+        keys.add(fact.key);
+    }
+    return Object.freeze(facts);
+}
+
+/**
  * A target endpoint is compared, never interpreted. §3.5 makes exactness the rule and
  * leaves the endpoint's form to whoever records custody — a Binding already requires a
  * canonical absolute URL, and an Environment's injection target need not be one at all —
@@ -300,4 +392,31 @@ function requireExactEndpoint(value: string): string {
         throw new TypeError("A credential target endpoint must be a nonblank exact token");
     }
     return value;
+}
+
+/**
+ * The one Blueprint-managed record kind that carries custody today (§9.2's `environments`),
+ * and the field it carries it in. A profile that names another consumer records its own
+ * custody on its own record; §3.5 keeps the consumer set open and the fact shape fixed.
+ */
+const ENVIRONMENT_RECORD_KIND = "environment";
+const CUSTODY_DECLARATION_FIELD = "credentials";
+
+function requireCustodyObject(
+    value: JsonValue | undefined,
+    subject: string
+): { readonly [key: string]: JsonValue } {
+    if (!isJsonObject(value)) throw invalidDefinition(`${subject} must be an object`);
+    return value;
+}
+
+function requireCustodyText(value: JsonValue | undefined, subject: string): string {
+    if (!isCustodyText(value) || value.length === 0 || value !== value.trim()) {
+        throw invalidDefinition(`${subject} must be a nonblank canonical string`);
+    }
+    return value;
+}
+
+function isCustodyText(value: JsonValue | undefined): value is string {
+    return typeof value === "string";
 }

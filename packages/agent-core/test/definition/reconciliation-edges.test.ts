@@ -1,21 +1,32 @@
 import { describe, expect, test } from "vitest";
 import { ActorId, ActorRef } from "../../src/actors";
-import { Digest, Revision } from "../../src/core";
+import { Digest, Revision, SemVer } from "../../src/core";
 import {
     ActorPlan,
     DeploymentId,
     DeploymentKey,
+    DeferredManagedRecord,
     ManagedOrigin,
     ManagedStateRecord,
     MaterializationGeneration,
+    PackageId,
+    PackagePin,
+    PackagePinHolder,
+    PackageRetentionObligation,
+    PendingObligationSet,
     PolicySet,
+    ReconciliationDeferral,
+    ReconciliationPlan,
+    RelianceHoldObligation,
     RunPinEvidence,
     applyReconciliation,
     planReconciliation,
     policyProjection,
+    type ManagedResourceChange,
     type ManagedResourceSnapshot
 } from "../../src/definition";
 import { TenantId } from "../../src/identity";
+import { FacetRef } from "../../src/facets";
 import { forged } from "./record-data";
 import {
     MemoryManagedResourcePort,
@@ -86,7 +97,7 @@ describe("reconciliation adversarial boundaries", () => {
     });
 
     test(
-        "rejects malformed pin evidence and owner adapters that lie about mutation",
+        "rejects malformed deferrals and owner adapters that lie about mutation",
         { tags: "p0" },
         () => {
             const previous = record(1, "policy:a", PolicySet.empty());
@@ -94,13 +105,34 @@ describe("reconciliation adversarial boundaries", () => {
             const state = memoryState(snapshotOf(previous));
             const malformed =
                 new (class extends MemoryManagedResourcePort<MemoryManagedResourceState> {
-                    public override pinEvidence(): import("../../src/definition").RunPinEvidence {
-                        return forged<RunPinEvidence>({});
+                    public override deferrals(): ReconciliationDeferral {
+                        return forged<ReconciliationDeferral>({});
                     }
                 })();
             expect(() =>
                 planReconciliation(state, malformed, owner(), [previous], [desired])
-            ).toThrow(/malformed RunPins/);
+            ).toThrow(/malformed deferral/);
+
+            const foreign =
+                new (class extends MemoryManagedResourcePort<MemoryManagedResourceState> {
+                    public override deferrals(
+                        _transaction: MemoryManagedResourceState,
+                        change: ManagedResourceChange
+                    ): ReconciliationDeferral {
+                        return ReconciliationDeferral.holding([
+                            new RelianceHoldObligation(
+                                new DeferredManagedRecord({
+                                    ...change,
+                                    current: { ...change.current, resourceId: digest("elsewhere") }
+                                }),
+                                new FacetRef("core:dependent")
+                            )
+                        ]);
+                    }
+                })();
+            expect(() =>
+                planReconciliation(state, foreign, owner(), [previous], [desired])
+            ).toThrow(/deferral names another record/);
 
             const noRemove =
                 new (class extends MemoryManagedResourcePort<MemoryManagedResourceState> {
@@ -129,16 +161,33 @@ describe("reconciliation adversarial boundaries", () => {
             ).toThrow(/mutation did not persist/);
 
             expect(() =>
-                applyReconciliation(state, noRemove, {
-                    actions: [],
-                    blockers: ["unknown:w5"]
-                })
+                applyReconciliation(
+                    state,
+                    noRemove,
+                    new ReconciliationPlan(
+                        [],
+                        new PendingObligationSet([
+                            new PackageRetentionObligation(
+                                new DeferredManagedRecord({
+                                    kind: "remove",
+                                    current: snapshotOf(previous)
+                                }),
+                                pinnedRelease(),
+                                new PackagePinHolder("run", "run-holding")
+                            )
+                        ])
+                    )
+                )
             ).not.toThrow();
             expect(() =>
-                applyReconciliation(state, noRemove, {
-                    actions: [{ kind: "noop", current: snapshotOf(previous), desired: previous }],
-                    blockers: []
-                })
+                applyReconciliation(
+                    state,
+                    noRemove,
+                    new ReconciliationPlan(
+                        [{ kind: "noop", current: snapshotOf(previous), desired: previous }],
+                        PendingObligationSet.empty
+                    )
+                )
             ).not.toThrow();
         }
     );
@@ -211,7 +260,7 @@ describe("reconciliation ordering and persistence proof", () => {
                 [updateDesired, createLarge, noop, createSmall]
             );
 
-            expect(plan.blockers).toEqual([]);
+            expect(plan.converged).toBe(true);
             expect(plan.actions.map((action) => action.kind)).toEqual([
                 "create",
                 "create",
@@ -234,7 +283,7 @@ describe("reconciliation ordering and persistence proof", () => {
         }
     );
 
-    test("sorts blocker labels canonically across evidence kinds", { tags: "p1" }, () => {
+    test("sorts the pending set canonically across obligation kinds", { tags: "p1" }, () => {
         const updatePrevious = record(1, "policy:update", PolicySet.empty());
         const updateDesired = record(2, "policy:update", new PolicySet({ approvals: ["execute"] }));
         const removed = record(1, "policy:removed", PolicySet.empty());
@@ -242,10 +291,18 @@ describe("reconciliation ordering and persistence proof", () => {
         state.resources.set(updatePrevious.resourceId.value, snapshotOf(updatePrevious));
         state.resources.set(removed.resourceId.value, snapshotOf(removed));
         const port = new MemoryManagedResourcePort<MemoryManagedResourceState>();
-        port.evidence = (change) =>
+        port.deferral = (change) =>
             change.kind === "update"
-                ? new RunPinEvidence("stale", ["b"])
-                : new RunPinEvidence("blocked", ["a"]);
+                ? ReconciliationDeferral.holding([
+                      new RelianceHoldObligation(
+                          new DeferredManagedRecord(change),
+                          new FacetRef("core:dependent")
+                      )
+                  ])
+                : RunPinEvidence.retained([
+                      new PackagePinHolder("snapshot", "snapshot-late"),
+                      new PackagePinHolder("run", "run-early")
+                  ]).deferral(new DeferredManagedRecord(change), pinnedRelease());
 
         const plan = planReconciliation(
             state,
@@ -254,18 +311,41 @@ describe("reconciliation ordering and persistence proof", () => {
             [updatePrevious, removed],
             [updateDesired]
         );
-        expect(plan.blockers).toEqual(["blocked:a", "stale:b"]);
+        expect(plan.converged).toBe(false);
+        expect(plan.pending.obligations.map((obligation) => obligation.key)).toEqual(
+            [...plan.pending.obligations].map((obligation) => obligation.key).toSorted()
+        );
+        expect(plan.pending.ofKind("reliance").map((obligation) => obligation.record)).toEqual([
+            "core:dependent"
+        ]);
+        expect(plan.pending.ofKind("retention").map((obligation) => obligation.reason)).toEqual([
+            "run run-early pins that Package release",
+            "snapshot snapshot-late pins that Package release"
+        ]);
     });
 
-    test("applies nothing while any blocker remains", { tags: "p0" }, () => {
+    test("applies nothing while any obligation stands", { tags: "p0" }, () => {
         const desired = record(1, "policy:gated", PolicySet.empty());
         const state = memoryState();
         const port = new MemoryManagedResourcePort<MemoryManagedResourceState>();
 
-        applyReconciliation(state, port, {
-            actions: [{ kind: "create", desired }],
-            blockers: ["stale:pinned"]
-        });
+        applyReconciliation(
+            state,
+            port,
+            new ReconciliationPlan(
+                [{ kind: "create", desired }],
+                new PendingObligationSet([
+                    new PackageRetentionObligation(
+                        new DeferredManagedRecord({
+                            kind: "remove",
+                            current: snapshotOf(desired)
+                        }),
+                        pinnedRelease(),
+                        new PackagePinHolder("tree-checkpoint", "checkpoint-gated")
+                    )
+                ])
+            )
+        );
         expect(state.resources.size).toBe(0);
     });
 
@@ -333,6 +413,15 @@ describe("reconciliation ordering and persistence proof", () => {
         ).toThrow(/desired generation contains duplicate managed resource identity/);
     });
 });
+
+function pinnedRelease(): PackagePin {
+    return new PackagePin(
+        new PackageId("acme.deploy"),
+        new SemVer("1.4.0"),
+        digest("manifest"),
+        digest("code")
+    );
+}
 
 function record(generation: number, logicalKey: string, policy: PolicySet): ManagedStateRecord {
     const materializationOrigin = origin(generation);

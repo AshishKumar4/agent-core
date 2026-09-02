@@ -38,7 +38,7 @@ describe("W4 error taxonomy", () => {
             readFileSync(resolve(packageRoot, "artifacts/quality/w4-error-taxonomy.json"), "utf8")
         );
         expect(taxonomy.edition).toBe("3.0.0");
-        expect(taxonomy.allowedTypeErrorSites).toHaveLength(177);
+        expect(taxonomy.allowedTypeErrorSites).toHaveLength(189);
         expect(taxonomy.allowedTypeErrorSites[0]).toEqual({
             declarationSha256: expect.stringMatching(/^[0-9a-f]{64}$/u),
             file: expect.stringMatching(/^src\/.+\.ts$/u),
@@ -47,16 +47,16 @@ describe("W4 error taxonomy", () => {
             occurrence: expect.any(Number)
         });
         expect(taxonomy.expected).toEqual({
-            agentCoreOperationalThrows: 249,
-            allowedTypeErrors: 177,
+            agentCoreOperationalThrows: 266,
+            allowedTypeErrors: 189,
             preservedRethrows: 1,
             bareErrors: 0
         });
         expect(taxonomy.expectedOperationalByCode).toEqual({
             "codec.invalid": 115,
-            "operation.invalid-input": 40,
+            "operation.invalid-input": 48,
             "protocol.invalid-envelope": 5,
-            "protocol.invalid-state": 72,
+            "protocol.invalid-state": 81,
             "protocol.revision-conflict": 17
         });
     });
@@ -99,7 +99,7 @@ describe("W4 error taxonomy", () => {
                 }),
             "codec.invalid"
         );
-        expect(() => new RunPinEvidence("clear", ["run"])).toThrow(TypeError);
+        expect(() => RunPinEvidence.retained([])).toThrow(TypeError);
         expect(() => new DeploymentId("bad")).toThrow(TypeError);
         expect(new ActorRef("tenant", new ActorId("tenant")).id.value).toBe("tenant");
     });

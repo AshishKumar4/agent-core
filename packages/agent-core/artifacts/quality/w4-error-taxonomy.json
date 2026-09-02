@@ -1127,17 +1127,101 @@
       "occurrence": 1
     },
     {
-      "declarationSha256": "4840300d2db874b01acaae0238bbcbb26a91f2c03736616d198a682450dcdaf7",
+      "declarationSha256": "e1c33022f0cb98ef6c64308f3a07ee0cf538368e4656091a97253c3ae5e02070",
       "file": "src/definition/reconciliation.ts",
-      "symbol": "RunPinEvidence.constructor",
-      "statementSha256": "0b87becab582853787dcce1ce26ed9a173068c8ef6262f1e1e639445aacb91fd",
+      "symbol": "HoldingDeferral.constructor",
+      "statementSha256": "41c9d26d5ebf997e6d48996b489dbcb6d952f0f58c39b60273b5864488afb427",
       "occurrence": 1
     },
     {
-      "declarationSha256": "4840300d2db874b01acaae0238bbcbb26a91f2c03736616d198a682450dcdaf7",
+      "declarationSha256": "928ba8c59dc24456e7c13b8833cd24a08d17b184ff99772cf335759dcdec786a",
       "file": "src/definition/reconciliation.ts",
-      "symbol": "RunPinEvidence.constructor",
-      "statementSha256": "27726413fa2c242c9f771a2af6e660df006d92d84599f803928a7084e2f0cdb5",
+      "symbol": "InconclusivePinEvidence.constructor",
+      "statementSha256": "592ac2085ed125a26a0b5c725e77396b6c628e1c62d9f78d67c2e77bddf121e9",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "928ba8c59dc24456e7c13b8833cd24a08d17b184ff99772cf335759dcdec786a",
+      "file": "src/definition/reconciliation.ts",
+      "symbol": "InconclusivePinEvidence.constructor",
+      "statementSha256": "b22a318d060175fd31f314871a34582d9a19edae900b4ac2c6d1ce0a1cbc4691",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "7a33aa19e6d4e0826a60c4b73fba08102c791cb2196c58e1701f0ff4c573e1da",
+      "file": "src/definition/reconciliation.ts",
+      "symbol": "ManagedRecordAdoption.constructor",
+      "statementSha256": "4568ed4f52d3eb611a71c515d6184b2a1c4e97aea873a6a7b193e63955245df3",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "9b10be93eb86c33e5318a51cdbb73d52254df1ae96927cb96160b52aa17cdf5d",
+      "file": "src/definition/reconciliation.ts",
+      "symbol": "PackagePinHolder.constructor",
+      "statementSha256": "3d3ee2335df15345811fdeab1ddc107f1b53425a885eb2d650719036305883f6",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "9b10be93eb86c33e5318a51cdbb73d52254df1ae96927cb96160b52aa17cdf5d",
+      "file": "src/definition/reconciliation.ts",
+      "symbol": "PackagePinHolder.constructor",
+      "statementSha256": "a655783c30600247d7bdaffd56c145dfdb1a7c798a41eba582d5cf9c69ba70ff",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "428ef9590da2062a75b4150e5f3a2a462455f85522ff75c25b0e0a5abfd26975",
+      "file": "src/definition/reconciliation.ts",
+      "symbol": "PackageRetentionObligation.constructor",
+      "statementSha256": "a9d62c5559908f4af975cdd217aa53cc26ae3d6016d9539523c226e0cd5fc9de",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "b86cd15e4f31019487ee14869818cceec22b8a8b5980bd4c85c987176f9d3dca",
+      "file": "src/definition/reconciliation.ts",
+      "symbol": "PendingObligationSet.constructor",
+      "statementSha256": "37bb448ccdaad2d9e0ed3824cf045aaa8321ff7ee2092ab5fd751d619c826da0",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "aea69ede3ea7fa3397a92981f58a99e8f6cdb15ad7f74dd178ecca57de80bfed",
+      "file": "src/definition/reconciliation.ts",
+      "symbol": "ReconciliationObligation.constructor",
+      "statementSha256": "b7cf2e300d6b035d99a206d665c94e27997f441225a1e6e39f7b6aebe34e0eae",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "9909780845de9b5e6181605813182d1c4e4d3913dfe136df4adaabc9b56d2e56",
+      "file": "src/definition/reconciliation.ts",
+      "symbol": "ReconciliationPlan.constructor",
+      "statementSha256": "e2ac516636ac70008fde4bb3e30f1e497c2db7425a416197d9540f16dcc05580",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "c7aff14cd848318534476be6555a9d9498bb8d93f323b8a6a8f1c29fd5783ac4",
+      "file": "src/definition/reconciliation.ts",
+      "symbol": "RetainedPinEvidence.constructor",
+      "statementSha256": "321dc1deb48fd7d482c9c4bf96d56a13f218c4240d3d7285a192296d314577a4",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "c7aff14cd848318534476be6555a9d9498bb8d93f323b8a6a8f1c29fd5783ac4",
+      "file": "src/definition/reconciliation.ts",
+      "symbol": "RetainedPinEvidence.constructor",
+      "statementSha256": "3594c771d14b7befb4ed67a096b48baf189f22977ba84e25784e254d265fac37",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "c7aff14cd848318534476be6555a9d9498bb8d93f323b8a6a8f1c29fd5783ac4",
+      "file": "src/definition/reconciliation.ts",
+      "symbol": "RetainedPinEvidence.constructor",
+      "statementSha256": "8e60ee0ef5b26a0ff7cda029669f0adf584f7ee79653db20e969548b34030696",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "33db5e104f53bc904e24f5ba2addfbfb91dc9b5e53d72ec29c3f71ae9d3c744d",
+      "file": "src/definition/reconciliation.ts",
+      "symbol": "UnanswerableDeferral.constructor",
+      "statementSha256": "f9add1a6908b32111c1746084d73300767e18e63d13908481bf6f0cfe33b2a7f",
       "occurrence": 1
     },
     {
@@ -1263,16 +1347,16 @@
     }
   ],
   "expected": {
-    "agentCoreOperationalThrows": 249,
-    "allowedTypeErrors": 177,
+    "agentCoreOperationalThrows": 266,
+    "allowedTypeErrors": 189,
     "preservedRethrows": 1,
     "bareErrors": 0
   },
   "expectedOperationalByCode": {
     "codec.invalid": 115,
-    "operation.invalid-input": 40,
+    "operation.invalid-input": 48,
     "protocol.invalid-envelope": 5,
-    "protocol.invalid-state": 72,
+    "protocol.invalid-state": 81,
     "protocol.revision-conflict": 17
   }
 }

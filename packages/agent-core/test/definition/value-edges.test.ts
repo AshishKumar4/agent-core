@@ -16,11 +16,13 @@ import {
     PackageDependency,
     PackageId,
     PackageInstall,
+    PackagePinHolder,
     RunPinEvidence,
     canonicalCompatibilityRange,
     compatibilityAdmits,
     evaluatePolicy,
     type EnforcementTierOverrides,
+    type PinHolderKind,
 } from "../../src/definition";
 import {
     SlotAuthorityPolicy,
@@ -98,12 +100,39 @@ describe("definition value boundaries", () => {
     );
 
     test("requires complete nonduplicated fail-closed RunPins evidence", { tags: "p0" }, () => {
+        const holders = [
+            new PackagePinHolder("turn", "turn-b"),
+            new PackagePinHolder("run", "run-a")
+        ];
         expect(RunPinEvidence.clear().permitsChange).toBe(true);
-        expect(new RunPinEvidence("blocked", ["b", "a"]).blockers).toEqual(["a", "b"]);
-        expect(new RunPinEvidence("blocked", ["run"]).permitsChange).toBe(false);
-        expect(() => new RunPinEvidence("clear", ["run"])).toThrow(/Clear RunPins/);
-        expect(() => new RunPinEvidence("unknown", [])).toThrow(/all other evidence/);
-        expect(() => new RunPinEvidence("partial", ["same", "same"])).toThrow(/unique/);
+        expect(RunPinEvidence.clear().conclusive).toBe(true);
+        expect(RunPinEvidence.clear().holders).toEqual([]);
+        expect(RunPinEvidence.retained(holders).holders.map((holder) => holder.key)).toEqual([
+            "run:run-a",
+            "turn:turn-b"
+        ]);
+        expect(RunPinEvidence.retained(holders).permitsChange).toBe(false);
+        expect(RunPinEvidence.retained(holders).conclusive).toBe(true);
+        expect(RunPinEvidence.inconclusive("unknown", "w5-unavailable").conclusive).toBe(false);
+        expect(RunPinEvidence.inconclusive("unknown", "w5-unavailable").holders).toEqual([]);
+        expect(() => RunPinEvidence.retained([])).toThrow(/must name the holders/);
+        expect(() => RunPinEvidence.inconclusive("partial", " ")).toThrow(/must explain why/);
+        expect(() =>
+            RunPinEvidence.retained([
+                new PackagePinHolder("snapshot", "same"),
+                new PackagePinHolder("snapshot", "same")
+            ])
+        ).toThrow(/unique/);
+        // SAFETY: the narrowing is the adversary — a kind outside SPEC 5.2's five holders
+        // reaches the constructor only by claiming to be one, which is the guard under test.
+        const foreignKind = "workspace" as PinHolderKind;
+        expect(() => new PackagePinHolder(foreignKind, "holder")).toThrow(/SPEC 5.2 pin holders/);
+        expect(() => new PackagePinHolder("session", " ")).toThrow(/nonblank canonical identity/);
+        expect(
+            new PackagePinHolder("tree-checkpoint", "checkpoint").equals(
+                new PackagePinHolder("tree-checkpoint", "checkpoint")
+            )
+        ).toBe(true);
     });
 
     test(

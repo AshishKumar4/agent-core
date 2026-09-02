@@ -1,6 +1,17 @@
 import { describe, expect, test } from "vitest";
+import { ActorId, ActorRef } from "../../src/actors";
 import { Binding, BindingCredentialCustody, GrantId } from "../../src/authority";
-import { SecretRef } from "../../src/core";
+import { Digest, SecretRef, type JsonValue } from "../../src/core";
+import {
+    ActorPlan,
+    DeploymentId,
+    DeploymentKey,
+    DesiredProjection,
+    ManagedOrigin,
+    type ManagedStateRecord
+} from "../../src/definition";
+import { materializeActorPlan } from "../../src/definition/materializer";
+import { AgentCoreError } from "../../src/errors";
 import {
     CredentialConsumerRef,
     CredentialCustody,
@@ -10,6 +21,7 @@ import {
     CredentialResolution,
     CredentialResolutionRequest,
     RecordedCustodySeam,
+    environmentCredentialCustody,
     type CredentialTransport
 } from "../../src/definition/credential-custody";
 import { BindingName, FacetRef, ProtectionDomain } from "../../src/facets";
@@ -22,6 +34,7 @@ import {
     TenantId,
     WorkspaceId
 } from "../../src/identity";
+import { tamperedRecord } from "./record-data";
 
 const tenantId = new TenantId("tenant-custody");
 const otherTenantId = new TenantId("tenant-outsider");
@@ -34,6 +47,10 @@ const endpoint = "https://integration.example/v1/requests";
 const repointed = "https://integration.example/v2/requests";
 const credential = new SecretRef(tenantId.value, "vault", "deploy-token");
 const consumer = new CredentialConsumerRef("binding", "binding:deploy");
+const rotated = new SecretRef(tenantId.value, "vault", "rotated-token");
+const foreignCredential = new SecretRef(otherTenantId.value, "vault", "deploy-token");
+const environmentActor = new ActorRef("environment", new ActorId("environment-custody"));
+const environmentDeployment = DeploymentId.derive(tenantId, new DeploymentKey("platform"));
 
 /**
  * Records every value handed to transport, so a refusal that leaked the credential is
@@ -509,4 +526,174 @@ describe("SecretRef custody", () => {
             );
         }
     );
+
+    test(
+        "[C13-CONFIG-SECRET-CUSTODY] reads an Environment's custody from the Blueprint-managed record that declares it",
+        { tags: "p0" },
+        () => {
+            // §3.5 names an Environment as a consumer that accepts a SecretRef, and §9.2 is
+            // where its Tenant declares one. The declaration materializes into the managed
+            // `environment` record, so the seam has a second consumer kind to check without
+            // a store or a record kind of its own.
+            const record = environmentRecord([
+                { endpoint, secret: secretData(credential) },
+                { endpoint: repointed, secret: secretData(rotated) }
+            ]);
+            const custody = environmentCredentialCustody(record, true);
+            const holder = new CredentialConsumerRef("environment", record.logicalKey);
+            const provider = new HeldCredential(credential);
+            const transport = new RecordingTransport();
+
+            expect(custody.consumer.equals(holder)).toBe(true);
+            expect(custody.tenant).toBe(tenantId.value);
+            expect(custody.facts.map((fact) => fact.endpoint)).toEqual([endpoint, repointed]);
+            expect(
+                new RecordedCustodySeam(custody, provider).resolve(
+                    new CredentialResolutionRequest(credential, holder, endpoint),
+                    transport
+                ).outcome
+            ).toBe("presented");
+
+            // The recorded consumer is this Environment and this endpoint: a Binding of the
+            // same name and the endpoint the ref was not accepted for are both refused.
+            expect(
+                new RecordedCustodySeam(custody, provider).resolve(
+                    new CredentialResolutionRequest(
+                        credential,
+                        new CredentialConsumerRef("binding", record.logicalKey),
+                        endpoint
+                    ),
+                    transport
+                ).refusal
+            ).toBe("consumer-unrecorded");
+            // The second declared pair is a different credential at the new endpoint, so
+            // repointing answers distinctly from a ref this Environment never accepted.
+            expect(
+                new RecordedCustodySeam(custody, provider).resolve(
+                    new CredentialResolutionRequest(credential, holder, repointed),
+                    transport
+                ).refusal
+            ).toBe("endpoint-unrecorded");
+            expect(
+                new RecordedCustodySeam(custody, provider).resolve(
+                    new CredentialResolutionRequest(
+                        new SecretRef(tenantId.value, "vault", "never-accepted"),
+                        holder,
+                        endpoint
+                    ),
+                    transport
+                ).refusal
+            ).toBe("secret-unrecorded");
+
+            // A retired declaration stops resolving with the record that carried it.
+            expect(
+                new RecordedCustodySeam(
+                    environmentCredentialCustody(record, false),
+                    provider
+                ).resolve(
+                    new CredentialResolutionRequest(credential, holder, endpoint),
+                    transport
+                ).refusal
+            ).toBe("consumer-revoked");
+            expect(transport.injected).toEqual(["authorization=Bearer raw-deploy-token"]);
+        }
+    );
+
+    test(
+        "[C13-CONFIG-SECRET-CUSTODY] refuses an Environment declaration that records custody inexactly or for another Tenant",
+        { tags: "p0" },
+        () => {
+            // §3.5: `source` MUST equal the exact canonical TenantId, checked by whatever
+            // records custody — so the refusal happens where the declaration is written into
+            // managed state, not only when a seam later reads it.
+            expect(() =>
+                materializeActorPlan(
+                    environmentActor,
+                    environmentPlan([{ endpoint, secret: secretData(foreignCredential) }])
+                )
+            ).toThrow(/SecretRef source must equal its Tenant ID/u);
+            expect(() =>
+                environmentCredentialCustody(
+                    environmentRecord([{ endpoint, secret: secretData(credential) }]),
+                    true
+                )
+            ).not.toThrow();
+
+            // The pairing is validated before any package code loads: a declaration with no
+            // endpoint, an unknown field, a blank endpoint, or one pair written twice is not
+            // a custody record the seam could check.
+            for (const [subject, declared] of [
+                ["no endpoint", [{ secret: secretData(credential) }]],
+                ["unknown field", [{ endpoint, scheme: "hmac", secret: secretData(credential) }]],
+                ["blank endpoint", [{ endpoint: " ", secret: secretData(credential) }]],
+                ["partial SecretRef", [{ endpoint, secret: { id: "deploy-token" } }]],
+                ["empty list", []],
+                [
+                    "a repeated pair",
+                    [
+                        { endpoint, secret: secretData(credential) },
+                        { endpoint, secret: secretData(credential) }
+                    ]
+                ]
+            ] as const) {
+                expect(
+                    () => environmentProjection({ credentials: [...declared], image: "node:22" }),
+                    subject
+                ).toThrow(AgentCoreError);
+            }
+
+            // A record of another kind is not an Environment's custody, and a declaration
+            // that records none simply holds none.
+            expect(() =>
+                environmentCredentialCustody(
+                    tamperedRecord(environmentRecord([]), { recordKind: "policy-set" }),
+                    true
+                )
+            ).toThrow(/reads an Environment declaration record/u);
+            expect(environmentCredentialCustody(environmentRecord([]), true).facts).toEqual([]);
+        }
+    );
 });
+
+/** The Blueprint-managed record a declared Environment (§9.2, §9.3) materializes into. */
+function environmentRecord(credentials: readonly JsonValue[]): ManagedStateRecord {
+    return materializeActorPlan(environmentActor, environmentPlan(credentials)).records[0]!;
+}
+
+function environmentPlan(credentials: readonly JsonValue[]): ActorPlan {
+    return new ActorPlan({
+        actor: environmentActor,
+        origin: new ManagedOrigin({
+            tenantId,
+            deploymentId: environmentDeployment,
+            attestationDigest: digestOf("attestation"),
+            blueprintDigest: digestOf("blueprint"),
+            packageLockDigest: digestOf("package-lock"),
+            configDigest: digestOf("config"),
+            generation: 1
+        }),
+        projections: [
+            environmentProjection(
+                credentials.length === 0
+                    ? { image: "node:22" }
+                    : { credentials: [...credentials], image: "node:22" }
+            )
+        ]
+    });
+}
+
+function environmentProjection(declaration: JsonValue): DesiredProjection {
+    return new DesiredProjection({
+        logicalKey: "environment:0",
+        recordKind: "environment",
+        desired: declaration
+    });
+}
+
+function secretData(secret: SecretRef): JsonValue {
+    return { id: secret.id, provider: secret.provider, source: secret.source };
+}
+
+function digestOf(value: string): Digest {
+    return Digest.sha256(new TextEncoder().encode(value));
+}

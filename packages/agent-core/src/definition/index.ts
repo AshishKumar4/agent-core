@@ -144,7 +144,18 @@ export type {
     PreparedPackageContribution
 } from "./installation";
 export {
+    DeferredManagedRecord,
+    InvocationDrainObligation,
+    ManagedRecordAdoption,
     ManagedResourcePort,
+    PackagePinHolder,
+    PackageRetentionObligation,
+    PendingObligationSet,
+    ReconciliationDeferral,
+    ReconciliationObligation,
+    ReconciliationPlan,
+    RelianceHoldObligation,
+    RouteReservationObligation,
     RunPinEvidence,
     applyReconciliation,
     planReconciliation
@@ -154,8 +165,9 @@ export type {
     ManagedResourceOwner,
     ManagedResourceSnapshot,
     PinEvidenceKind,
+    PinHolderKind,
     ReconciliationAction,
-    ReconciliationPlan
+    ReconciliationObligationKind
 } from "./reconciliation";
 export {
     DeploymentRecord,
@@ -180,6 +192,7 @@ export type {
 export {
     DefinitionSourceRevisionPort,
     FailClosedRunPinsReservationPort,
+    RecordedRunPinsReservationPort,
     RunPinsReservationPort
 } from "./pins";
 export type {
