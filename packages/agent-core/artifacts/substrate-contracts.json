@@ -1,0 +1,550 @@
+{
+  "edition": "1.0.0",
+  "owner": "W8",
+  "leanLibrary": "AgentCore.Substrate",
+  "buildTarget": "lake build AgentCore.Substrate",
+  "leanRoot": "formal",
+  "dischargeSource": "formal/AgentCore/Substrate/Contracts.lean",
+  "premiseSource": "formal/AgentCore/Substrate/Effect.lean",
+  "liveArchive": {
+    "run": "artifacts/conformance/live-evidence/run.json",
+    "commit": "38649dcd64e4384fd84ecd2bdde96178b7295063",
+    "worker": "agent-core-live-harness",
+    "selectorPrefix": "cloudflare/test/live/"
+  },
+  "seams": [
+    {
+      "seam": "store",
+      "module": "formal/AgentCore/Substrate/LocalStore.lean",
+      "effect": "AgentCore.Substrate.LocalStoreEffect",
+      "lawsStructure": "AgentCore.Substrate.LocalStoreLaws",
+      "opcodes": [
+        "host.store.get",
+        "host.store.put",
+        "host.store.delete",
+        "host.store.list",
+        "host.store.txn"
+      ],
+      "adapters": [
+        "packages/agent-core/src/actors/store.ts#ActorLocalStore",
+        "packages/agent-core/src/actors/store.ts#MemoryActorStore",
+        "packages/agent-core/src/substrates/sqlite/sqlite.ts#TransactionalSqlite",
+        "packages/agent-core/src/substrates/sqlite/actor.ts#SqliteActorStore",
+        "packages/agent-core-cloudflare/src/sqlite.ts#CloudflareSqlite"
+      ],
+      "lawEvidence": [
+        {
+          "law": "read_is_pure",
+          "verdict": "honored",
+          "code": "packages/agent-core-cloudflare/src/sqlite.ts:216-232 readRows executes and materializes rows without writing; packages/agent-core/src/actors/store.ts:315-323 MemoryActorStore.read hands out a detached readonly view of the active draft",
+          "atom": "C13-OWNERSHIP-ACTOR-CONTRACT"
+        },
+        {
+          "law": "txn_commits",
+          "verdict": "honored",
+          "code": "packages/agent-core-cloudflare/src/sqlite.ts:177-208 CloudflareSqlite.transaction runs the body inside storage.transactionSync and rethrows the body's failure, so a throw rolls the whole span back",
+          "atom": "C13-PROTOCOL-ATOMIC-EVIDENCE"
+        },
+        {
+          "law": "txn_refuses_over_limit",
+          "verdict": "honored-with-scope",
+          "code": "packages/agent-core-cloudflare/src/sqlite.ts:48-61 requireStorableBlob refuses a payload past SQL_BLOB_LIMIT_BYTES=2000000 before a write seam opens a transaction",
+          "atom": "C13-CLOUDFLARE-STORAGE-LIMIT",
+          "scope": "The bound-parameter and statement-length checks (requireExecutableStatement, sqlite.ts:82-105) run inside execute, hence inside an open transactionSync when the write is transactional. The observable law still holds because a throw inside transactionSync rolls the transaction back, but the SPEC's 'before opening a transaction' clause is literally satisfied only for blob payloads. Recorded as finding SC-F1."
+        },
+        {
+          "law": "put_get, put_get_other, delete_get, delete_get_other",
+          "verdict": "unimplemented-shape",
+          "code": "packages/agent-core/src/actors/store.ts:108-117 ActorLocalStore is a transaction-scope seam (transaction/read/activateActor plus loadRecordSetDeclaration/saveRecordSetDeclaration), not a key/value store; durable data access is SQL through the transaction handle",
+          "scope": "The key/value projection these laws describe is the shape a total kernel can call and the shape DO storage's own KV API has; it does not exist as an agent-core seam today. Recorded as finding SC-F2."
+        },
+        {
+          "law": "list_complete, list_sorted",
+          "verdict": "unimplemented-shape",
+          "code": "no prefix listing exists on ActorLocalStore or on CloudflareSqlite; iteration today is per-store SQL with its own ORDER BY (for example packages/agent-core-cloudflare/src/alarm-claims.ts:12 READ_EARLIEST uses MIN(due_at))",
+          "scope": "Deterministic sorted-key iteration is the law an adapter for host.store.list owes. Recorded as finding SC-F2."
+        }
+      ]
+    },
+    {
+      "seam": "alarm",
+      "module": "formal/AgentCore/Substrate/Alarms.lean",
+      "effect": "AgentCore.Substrate.AlarmEffect",
+      "lawsStructure": "AgentCore.Substrate.AlarmLaws",
+      "opcodes": ["host.alarm.set", "host.alarm.get", "host.alarm.delete"],
+      "adapters": [
+        "packages/agent-core-cloudflare/src/alarm-claims.ts#DurableAlarmClaims",
+        "packages/agent-core-cloudflare/src/reconciliation.ts#AlarmOutboxReconciler",
+        "packages/agent-core-cloudflare/src/reconciliation.ts#SqliteReconciliationOutbox"
+      ],
+      "lawEvidence": [
+        {
+          "law": "set_arms (single physical slot)",
+          "verdict": "honored",
+          "code": "packages/agent-core-cloudflare/src/alarm-claims.ts:100-125 ClaimedAlarmStorage.setAlarm records a claim then synchronizes the one physical alarm to the earliest claim",
+          "atom": "C13-CLOUDFLARE-ALARM-CLAIMS"
+        },
+        {
+          "law": "ClaimTable.record (one claim per owner)",
+          "verdict": "honored",
+          "code": "packages/agent-core-cloudflare/src/alarm-claims.ts:9-10 WRITE_CLAIM upserts ON CONFLICT (owner) DO UPDATE, so an owner holds exactly one claim",
+          "atom": "C13-CLOUDFLARE-ALARM-CLAIMS"
+        },
+        {
+          "law": "ClaimTable.earliest / arm_tracks_earliest_claim",
+          "verdict": "honored",
+          "code": "packages/agent-core-cloudflare/src/alarm-claims.ts:12 READ_EARLIEST is SELECT MIN(due_at); synchronize (114-125) deletes the physical alarm when the claim set is empty and sets it to the earliest otherwise",
+          "atom": "C13-CLOUDFLARE-ALARM-CLAIMS"
+        },
+        {
+          "law": "ClaimTable.acknowledge (fenced release)",
+          "verdict": "honored",
+          "code": "packages/agent-core-cloudflare/src/alarm-claims.ts:11,49-54 DELETE_CLAIM_AT releases only WHERE owner = ? AND due_at = ?, and release returns without deleting when the caller observed no claim",
+          "atom": "C13-CLOUDFLARE-RECONCILIATION-FENCE"
+        },
+        {
+          "law": "release_keeps_other_owners_wakeup",
+          "verdict": "honored",
+          "code": "packages/agent-core-cloudflare/src/alarm-claims.ts:105-125 deleteAlarm fences its release and then re-arms from the surviving claim set, with the claim-set read taken after the last await and before the write it decides",
+          "atom": "C13-CLOUDFLARE-ALARM-CLAIMS"
+        },
+        {
+          "law": "get_is_pure",
+          "verdict": "honored-with-scope",
+          "code": "packages/agent-core-cloudflare/src/alarm-claims.ts:89-98 getAlarm reports a claim only while the physical alarm is non-null",
+          "scope": "The adapter's read is a two-source join (claim table and physical slot) rather than one slot read; the modelled get is the physical slot. A kernel that reads its own claim table sees the same answer, which is why arbitration in the Lean model is over ClaimTable rather than over the slot."
+        }
+      ]
+    },
+    {
+      "seam": "content",
+      "module": "formal/AgentCore/Substrate/Content.lean",
+      "effect": "AgentCore.Substrate.ContentEffect",
+      "lawsStructure": "AgentCore.Substrate.ContentLaws",
+      "opcodes": [
+        "host.content.put",
+        "host.content.get",
+        "host.content.head",
+        "host.content.range"
+      ],
+      "adapters": [
+        "packages/agent-core/src/content/store.ts#ContentStore",
+        "packages/agent-core/src/content/memory.ts#MemoryContentStore",
+        "packages/agent-core/src/substrates/sqlite/content.ts#SqliteContentStore",
+        "packages/agent-core-cloudflare/src/content-object.ts#R2ContentObjectRepository"
+      ],
+      "lawEvidence": [
+        {
+          "law": "put_is_content_addressed",
+          "verdict": "honored",
+          "code": "packages/agent-core-cloudflare/src/content-object.ts:203-213 the R2 key is KEY_PREFIX/tenant-sha256/<tenant digest>/sha256/<body digest>, computed from the bytes",
+          "atom": "C13-CONTENT-RESOLUTION"
+        },
+        {
+          "law": "get_verifies",
+          "verdict": "honored",
+          "code": "packages/agent-core-cloudflare/src/content-object.ts:138-141 a read recomputes SHA-256 over the body and calls corrupt() on mismatch, after validateObject re-checks key, size, metadata digests and the R2 checksum (183-194)",
+          "atom": "C13-CONTENT-RESOLUTION"
+        },
+        {
+          "law": "put_refuses_over_limit",
+          "verdict": "honored",
+          "code": "packages/agent-core-cloudflare/src/content-object.ts:23,92,161-169 R2_BUFFERED_OBJECT_LIMIT_BYTES=33554432 refuses a write before it is attempted",
+          "atom": "C13-CLOUDFLARE-STORAGE-LIMIT"
+        },
+        {
+          "law": "get_refuses_over_limit",
+          "verdict": "honored",
+          "code": "packages/agent-core-cloudflare/src/content-object.ts:132-134 the read refuses on the stored size reported by R2 before the body is fetched",
+          "atom": "C13-CLOUDFLARE-STORAGE-LIMIT",
+          "scope": "This law was added to ContentLaws because the adapter enforces the bound in both directions; a write-only bound would have modelled the seam incorrectly."
+        },
+        {
+          "law": "range_refuses_outside",
+          "verdict": "honored",
+          "code": "packages/agent-core/src/content/range.ts:30-35,52-56 ByteRange.read refuses with content.invalid-range rather than clamping, and both ContentStore implementations apply it (src/content/memory.ts:189-193, src/substrates/sqlite/content.ts:84-88)",
+          "atom": "C13-CONTENT-RESOLUTION"
+        },
+        {
+          "law": "head_reports_size, head_is_faithful",
+          "verdict": "honored",
+          "code": "packages/agent-core/src/content/memory.ts:195-200 and src/substrates/sqlite/content.ts:90-94 stat validates the stored content and reports its own size and digest, or undefined when absent",
+          "atom": "C13-CONTENT-RESOLUTION"
+        },
+        {
+          "law": "head_reports_size, range_is_a_slice on the R2 path",
+          "verdict": "unimplemented",
+          "code": "packages/agent-core-cloudflare/src/content-object.ts exposes put and get only; no head/stat and no range read exist on the R2 repository, and no class in packages/agent-core-cloudflare extends ContentStore",
+          "scope": "§8.2 declares get(ref, range?) and stat(ref); the deployed R2 path implements neither, and C13-CONTENT-RESOLUTION is verified against the sqlite store. Recorded as finding SC-F3."
+        }
+      ]
+    },
+    {
+      "seam": "queue",
+      "module": "formal/AgentCore/Substrate/Queue.lean",
+      "effect": "AgentCore.Substrate.QueueEffect",
+      "lawsStructure": "AgentCore.Substrate.QueueLaws",
+      "opcodes": ["host.queue.send", "host.queue.ack", "host.queue.retry"],
+      "adapters": ["packages/agent-core-cloudflare/src/queue.ts#AtLeastOnceQueueAdapter"],
+      "lawEvidence": [
+        {
+          "law": "Disposition.hostCall (undecodable retries, never acknowledges)",
+          "verdict": "honored",
+          "code": "packages/agent-core-cloudflare/src/queue.ts:87-95 an undecodable body is retried and recorded as poison, never acknowledged, because acknowledging destroys it",
+          "atom": "C13-CLOUDFLARE-QUEUE-DISPOSITION",
+          "scope": "The first Lean draft mapped undecodable to no host call at all. The adapter and §10.4 both retry it; the model was corrected to match. Recorded as finding SC-F4."
+        },
+        {
+          "law": "batch_dispositions_are_independent",
+          "verdict": "honored",
+          "code": "packages/agent-core-cloudflare/src/queue.ts:100-130 a thrown target retries just that message and continues the batch, each message acking or retrying on its own",
+          "atom": "C13-CLOUDFLARE-QUEUE-DISPOSITION"
+        },
+        {
+          "law": "ack_consumes, retry_redelivers",
+          "verdict": "honored",
+          "code": "packages/agent-core-cloudflare/src/queue.ts:120-130 dispositions call message.ack() or message.retry(options) on the platform message",
+          "atom": "C13-CLOUDFLARE-QUEUE-DISPOSITION"
+        },
+        {
+          "law": "ack_requires_inflight",
+          "verdict": "untestable-at-this-seam",
+          "code": "packages/agent-core-cloudflare/src/queue.ts:138-150 dispose() wraps a platform ack/retry failure as protocol.invalid-state; the platform message object is the only holder of in-flight state",
+          "scope": "The adapter cannot observe the queue's in-flight set, so a stale acknowledgement is refused by the platform rather than by the adapter. The law states what an implementation of the modelled seam owes."
+        },
+        {
+          "law": "retry_dead_letters_at_bound",
+          "verdict": "honored-by-configuration",
+          "code": "packages/agent-core-cloudflare/src/queue.ts:87-95 hands custody to the queue's dead-letter policy; the bound and the DLQ are wrangler queue configuration rather than adapter code",
+          "atom": "C13-CLOUDFLARE-QUEUE-DISPOSITION",
+          "scope": "The live scenario dead-letters through a real queue, so the configuration is exercised where it matters; no adapter symbol carries maxAttempts."
+        }
+      ]
+    },
+    {
+      "seam": "isolate",
+      "module": "formal/AgentCore/Substrate/Isolate.lean",
+      "effect": "AgentCore.Substrate.IsolateEffect",
+      "lawsStructure": "AgentCore.Substrate.IsolateLaws",
+      "opcodes": ["host.isolate.load", "host.isolate.call"],
+      "adapters": [
+        "packages/agent-core-cloudflare/src/loader.ts#DynamicWorkerLoaderAdapter",
+        "packages/agent-core-cloudflare/src/loader.ts#DynamicWorkerLimits",
+        "packages/agent-core-cloudflare/src/facet-host.ts#DurableObjectFacetHost"
+      ],
+      "lawEvidence": [
+        {
+          "law": "load_requires_bound",
+          "verdict": "honored-by-construction",
+          "code": "packages/agent-core-cloudflare/src/loader.ts:21-28,39-44,91-101,217-226 DynamicWorkerLimits requires positive safe integers, the load record's limits field is required where the platform's is optional, and the bound is a constructor argument of the adapter",
+          "atom": "C13-CLOUDFLARE-DYNAMIC-COMPUTE-BOUND",
+          "scope": "An unbounded load is not expressible against this adapter, so the modelled refusal branch is unreachable here. The law is what a substrate whose loader offers an optional bound owes; the row says the same thing."
+        },
+        {
+          "law": "load_allocates_fresh",
+          "verdict": "honored",
+          "code": "packages/agent-core-cloudflare/src/loader.ts:62-83 the adapter admits only the unkeyed load verb; the name-keyed warm path (WorkerLoader.get) is not reachable, so no reuse identity is ever computed",
+          "atom": "C13-CLOUDFLARE-DYNAMIC-ISOLATE-IDENTITY"
+        },
+        {
+          "law": "load_reaches_exactly_delegated",
+          "verdict": "honored",
+          "code": "packages/agent-core-cloudflare/src/loader.ts:91-101 env is a frozen copy of the passed capabilities and globalOutbound is fixed to null in the load record",
+          "atom": "C13-CLOUDFLARE-DYNAMIC-NO-EGRESS",
+          "scope": "The structural half only. The row forbids citing the local hosting test as evidence for the runtime rule, and this entry cites the code rather than that test."
+        },
+        {
+          "law": "call_requires_live",
+          "verdict": "honored",
+          "code": "packages/agent-core-cloudflare/src/loader.ts:172-190 OwnedDynamicWorkerScope closes on Symbol.dispose and refuses use afterwards",
+          "atom": "C13-CLOUDFLARE-DYNAMIC-STORE-LIFECYCLE"
+        },
+        {
+          "law": "stop and destroy verbs",
+          "verdict": "outside-the-opcode-set",
+          "code": "packages/agent-core-cloudflare/src/facet-host.ts#DurableObjectFacetHost carries open/suspend/retire, which are the abort-preserves and delete-destroys verbs of §10.2",
+          "scope": "The pinned kernel opcode set is load and call, so a dynamic domain's lifecycle is the hosting Actor's concern and not a kernel host call. Recorded as finding SC-F5."
+        }
+      ]
+    },
+    {
+      "seam": "rpc",
+      "module": "formal/AgentCore/Substrate/Rpc.lean",
+      "effect": "AgentCore.Substrate.RpcEffect",
+      "lawsStructure": "AgentCore.Substrate.RpcLaws",
+      "opcodes": ["host.rpc.call", "host.rpc.dispose"],
+      "adapters": [
+        "packages/agent-core-cloudflare/src/namespace.ts#throughActorObject",
+        "packages/agent-core-cloudflare/src/stub-failure.ts#CloudflareStubFailure",
+        "packages/agent-core-cloudflare/src/provider-capability.ts",
+        "packages/agent-core-cloudflare/src/permit-capability.ts"
+      ],
+      "lawEvidence": [
+        {
+          "law": "call_requires_live, dispose_releases",
+          "verdict": "honored-with-scope",
+          "code": "packages/agent-core-cloudflare/src/loader.ts:184-200 and packages/agent-core-cloudflare/src/stub-failure.ts wrap stub disposal and stub failure; disposal is Symbol.dispose on the owning scope",
+          "scope": "Stub liveness is not observable at the adapter boundary: a dropped stub surfaces as a platform failure the adapter classifies. The laws state what the modelled seam owes an implementation."
+        },
+        {
+          "law": "pipelining_is_transparent",
+          "verdict": "unverified",
+          "code": "no adapter symbol asserts that a call on a promise stub answers as a call on its resolution; AGENTS.md requires pipelining be used, and no conformance row observes its transparency",
+          "scope": "Recorded as finding SC-F6."
+        }
+      ]
+    }
+  ],
+  "premises": [
+    {
+      "premise": "adapterImplementsSeam",
+      "kind": "safety",
+      "channel": "declaredNonClaim",
+      "declaration": "SPEC §14 NC-TYPESCRIPT-SUBSTRATE-REFINEMENT and NC-CLOUDFLARE-BEHAVIOR: proving that TypeScript, an adapter, or a deployment refines Lean is explicitly not a goal of the formal package"
+    },
+    {
+      "premise": "storeSpanExclusive",
+      "kind": "safety",
+      "channel": "conformanceAtom",
+      "atom": "C13-OWNERSHIP-ACTOR-CONTRACT",
+      "atomStatus": "verified",
+      "selectors": [
+        "test/conformance/ownership.test.ts#Actor ownership contract [C13-OWNERSHIP-ACTOR-CONTRACT] memory serializes, recovers, linearizes, and fences one command stream",
+        "test/conformance/ownership.test.ts#Actor ownership contract [C13-OWNERSHIP-ACTOR-CONTRACT] sqlite serializes, recovers, linearizes, and fences one command stream"
+      ],
+      "mechanism": "packages/agent-core/src/actors/types.ts:53-57 SynchronousResultGuard makes a Promise-returning transaction body ill-typed, packages/agent-core/src/actors/store.ts:388 requireSynchronousResult rejects a thenable at runtime, and packages/agent-core-cloudflare/src/sqlite.ts:177-208 refuses a nested transaction and runs the span inside storage.transactionSync"
+    },
+    {
+      "premise": "storeCommitAtomic",
+      "kind": "safety",
+      "channel": "conformanceAtom",
+      "atom": "C13-PROTOCOL-ATOMIC-EVIDENCE",
+      "atomStatus": "verified",
+      "selectors": [
+        "test/protocol/tenant-decision.test.ts#[C13-PROTOCOL-ATOMIC-EVIDENCE] (memory) an effect that lands without its linked evidence is refused",
+        "test/protocol/tenant-decision.test.ts#[C13-PROTOCOL-ATOMIC-EVIDENCE] (sqlite) an effect that lands without its linked evidence is refused"
+      ]
+    },
+    {
+      "premise": "storeDeclaredBoundAccepted",
+      "kind": "safety",
+      "channel": "liveLane",
+      "atom": "C13-CLOUDFLARE-STORAGE-LIMIT",
+      "atomStatus": "verified",
+      "selectors": [
+        "cloudflare/test/live/phase-1.test.ts#live Cloudflare platform-semantics evidence [C13-CLOUDFLARE-STORAGE-LIMIT] stores a row at the declared blob limit and refuses one past it"
+      ]
+    },
+    {
+      "premise": "storeRestartResumesDurableState",
+      "kind": "safety",
+      "channel": "conformanceAtom",
+      "atom": "C13-OWNERSHIP-ACTOR-CONTRACT",
+      "atomStatus": "verified",
+      "selectors": [
+        "test/conformance/ownership.test.ts#Actor ownership contract [C13-OWNERSHIP-ACTOR-CONTRACT] sqlite serializes, recovers, linearizes, and fences one command stream"
+      ]
+    },
+    {
+      "premise": "alarmDurableAcrossInstanceLoss",
+      "kind": "safety",
+      "channel": "rowBelowVerified",
+      "atom": "C13-CLOUDFLARE-ALARM-DURABILITY",
+      "atomStatus": "implemented",
+      "selectors": [
+        "cloudflare/test/live/phase-1.test.ts#live Cloudflare platform-semantics evidence [C13-CLOUDFLARE-ALARM-DURABILITY] fires an alarm scheduled before a real instance kill, with nothing outside the object waking it",
+        "cloudflare/test/live/phase-1.test.ts#live Cloudflare platform-semantics evidence [C13-CLOUDFLARE-ALARM-DURABILITY] re-fires an alarm whose handler threw, with no external re-arming"
+      ],
+      "owed": "The row itself: no test exercises a start that recovers an alarm the platform stopped re-firing, and the live lane owes that scenario under ACQ-LIVE."
+    },
+    {
+      "premise": "alarmFiresNoEarlierThanArmed",
+      "kind": "safety",
+      "channel": "declaredAssumption",
+      "declaration": "SPEC §14: trusted monotonic time enforces lease expiry and immutable resolution deadlines",
+      "owed": "No committed scenario asserts that a firing did not precede its armed time; the alarm-claims live scenario asserts which claim fired, not when."
+    },
+    {
+      "premise": "alarmEventuallyFires",
+      "kind": "progress",
+      "channel": "declaredAssumption",
+      "declaration": "SPEC §14: invalidation transport, cross-Actor delivery, reconciliation, and provider queries are eventually scheduled only under an explicit fairness/eventual-delivery premise, and no designated liveness theorem is claimed"
+    },
+    {
+      "premise": "contentRetentionUntilReleased",
+      "kind": "safety",
+      "channel": "rowBelowVerified",
+      "atom": "C13-CONTENT-CUSTODY",
+      "atomStatus": "implemented",
+      "selectors": [
+        "test/content/memory.test.ts#memory content-retention contract [C13-CONTENT-CUSTODY] a defined removal path releases the edge in the same transaction",
+        "test/content/memory.test.ts#memory content-retention contract [C13-CONTENT-CUSTODY] a faulted transaction leaves no owner edge and no retained content"
+      ],
+      "owed": "The row carries five remaining-evidence entries of its own; retention across host-external collection is not observable through the modelled seam, which has no delete opcode."
+    },
+    {
+      "premise": "contentDigestCollisionResistant",
+      "kind": "safety",
+      "channel": "declaredNonClaim",
+      "declaration": "SPEC §14 NC-CRYPTOGRAPHIC-COLLISION-RESISTANCE; the assumption is stated as 'codecs are canonical and chosen digests meet their stated collision assumptions'",
+      "mechanism": "AgentCore.Substrate.content_read_is_determined takes digest injectivity as an explicit parameter, so the conclusion that rests on the assumption names it"
+    },
+    {
+      "premise": "contentBucketIsTenantOwned",
+      "kind": "safety",
+      "channel": "conformanceAtom",
+      "atom": "C13-CONTENT-RESOLUTION",
+      "atomStatus": "verified",
+      "selectors": [
+        "test/content/sqlite.test.ts#SqliteContentStore [C13-CONTENT-RESOLUTION] resolves content and retention edges after an adapter restart"
+      ],
+      "mechanism": "packages/agent-core-cloudflare/src/content-object.ts:211-213 the R2 key embeds the tenant digest, so a resolution cannot leave its Tenant's key space"
+    },
+    {
+      "premise": "queueAtLeastOnceDelivery",
+      "kind": "progress",
+      "channel": "declaredAssumption",
+      "declaration": "SPEC §14: eventual delivery holds only under an explicit fairness premise",
+      "mechanism": "the live queue scenario shows one real redelivery, which supports the mechanism and cannot establish a universal progress statement"
+    },
+    {
+      "premise": "queueAckedNeverRedelivered",
+      "kind": "safety",
+      "channel": "liveLane",
+      "atom": "C13-CLOUDFLARE-QUEUE-DISPOSITION",
+      "atomStatus": "verified",
+      "selectors": [
+        "cloudflare/test/live/phase-1.test.ts#live Cloudflare platform-semantics evidence [C13-CLOUDFLARE-QUEUE-DISPOSITION] acknowledges, redelivers, and dead-letters through a real queue"
+      ]
+    },
+    {
+      "premise": "queueDeadLetterCustody",
+      "kind": "safety",
+      "channel": "liveLane",
+      "atom": "C13-CLOUDFLARE-QUEUE-DISPOSITION",
+      "atomStatus": "verified",
+      "selectors": [
+        "cloudflare/test/live/phase-1.test.ts#live Cloudflare platform-semantics evidence [C13-CLOUDFLARE-QUEUE-DISPOSITION] acknowledges, redelivers, and dead-letters through a real queue"
+      ]
+    },
+    {
+      "premise": "isolateNoAmbientEgress",
+      "kind": "safety",
+      "channel": "gap",
+      "atom": "C13-CLOUDFLARE-DYNAMIC-NO-EGRESS",
+      "atomStatus": "planned",
+      "owed": "Adversarial code in a real isolate of each offered backing, failing an unbound global fetch AND an unbound connect while a Binding it was explicitly passed still answers. The row records that lane as CloudflareCapabilities-2's and explicitly forbids citing cloudflare/test/hosting.test.ts 'forces one-time Dynamic Worker load with null outbound and only passed Bindings', because that test asserts the argument the adapter passed and attempts no egress."
+    },
+    {
+      "premise": "isolateBoundEnforcedByRuntime",
+      "kind": "safety",
+      "channel": "gap",
+      "atom": "C13-CLOUDFLARE-DYNAMIC-COMPUTE-BOUND",
+      "atomStatus": "implemented",
+      "owed": "The row's own words: nothing yet proves Cloudflare enforces the bound it is handed. The live lane owes a submission that spins past a small cpuMs and a submission that exceeds subRequests, each asserting the platform's immediate throw rather than a completed run."
+    },
+    {
+      "premise": "isolatePrivateStoreUnreadable",
+      "kind": "safety",
+      "channel": "rowBelowVerified",
+      "atom": "C13-CLOUDFLARE-DYNAMIC-STORE-CUSTODY",
+      "atomStatus": "implemented",
+      "selectors": [
+        "cloudflare/test/facet-host.test.ts#Cloudflare dynamic-domain facet hosting [C13-CLOUDFLARE-DYNAMIC-STORE-CUSTODY] offers the hosting Actor no reader of a domain's own store"
+      ],
+      "owed": "The row: no facet has been created against a real Durable Object, storage isolation is modelled with a fake, and the live lane owes a scenario writing from both sides and showing neither can read the other's."
+    },
+    {
+      "premise": "isolateFreshLoadPerSubmission",
+      "kind": "safety",
+      "channel": "rowBelowVerified",
+      "atom": "C13-CLOUDFLARE-DYNAMIC-ISOLATE-IDENTITY",
+      "atomStatus": "implemented",
+      "selectors": [
+        "cloudflare/test/hosting.test.ts#Cloudflare hosting adapters [C13-CLOUDFLARE-DYNAMIC-ISOLATE-IDENTITY] loads a second isolate for identical code rather than serving it the first submission's delegation"
+      ],
+      "owed": "The row: no test observes the hazard itself, only its absence; the live lane owes one scenario that loads under a name, re-gets that name with a different capability set, and records whether the second submission observes the first's env."
+    },
+    {
+      "premise": "rpcStubLifetimeBoundedByContext",
+      "kind": "safety",
+      "channel": "gap",
+      "owed": "No §13 atom states a stub's validity window. The nearest citation is packages/agent-core-cloudflare/src/stub-failure.ts#CloudflareStubFailure under C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY, which is about durable work surviving a deployment rather than about when a stub stops answering. What is owed is a scenario that holds a stub across an execution context boundary and observes the failure rather than a reused handle."
+    },
+    {
+      "premise": "rpcRedeliveryPreservesIntent",
+      "kind": "safety",
+      "channel": "conformanceAtom",
+      "atom": "C13-ROUTE-DELIVERY-ONCE",
+      "atomStatus": "verified",
+      "selectors": [
+        "test/workspaces/protocols.test.ts#authenticated target projection protocol [C13-ROUTE-DELIVERY-ONCE] admits projection and invocation once, then returns the terminal delivery on replay"
+      ],
+      "mechanism": "C13-PROTOCOL-DUPLICATE is verified alongside it: a redelivered cross-Actor command replays the recorded outcome with exactly one effect"
+    },
+    {
+      "premise": "rpcDisposalReleasesRemoteResources",
+      "kind": "safety",
+      "channel": "gap",
+      "owed": "No §13 atom covers callee-side release on disposal. AGENTS.md states the obligation ('RPC stubs must be disposed to prevent resource leaks on the server side') and no conformance row observes a release. What is owed is a scenario that disposes a stub and observes the callee's resource going away."
+    }
+  ],
+  "findings": [
+    {
+      "id": "SC-F1",
+      "severity": "scope",
+      "seam": "store",
+      "statement": "C13-CLOUDFLARE-STORAGE-LIMIT requires a write seam to refuse an over-limit payload before opening a transaction. requireStorableBlob does that for blob payloads, but requireExecutableStatement — the bound-parameter and statement-length check — runs inside execute, which is inside storage.transactionSync for a transactional write. The observable rule still holds because a throw inside transactionSync rolls back, so the durable log is unchanged, but the refusal is a rollback rather than a pre-check.",
+      "code": "packages/agent-core-cloudflare/src/sqlite.ts:82-105,252-264",
+      "modelled": "LocalStoreLaws.txn_refuses_over_limit states the observable consequence (refusal with the state untouched), which both mechanisms satisfy."
+    },
+    {
+      "id": "SC-F2",
+      "severity": "shape",
+      "seam": "store",
+      "statement": "ActorLocalStore is a transaction-scope seam (transaction, read, activateActor, and a record-set declaration blob pair), not a key/value store, and no prefix listing exists anywhere on it. The kernel-facing key/value projection that host.store.get/put/delete/list/txn describes has no implementation in either package today; every durable read and write is SQL through a transaction handle.",
+      "code": "packages/agent-core/src/actors/store.ts:42-117; packages/agent-core/src/substrates/sqlite/sqlite.ts:113-144",
+      "modelled": "LocalStoreLaws is the contract an adapter for this seam owes, including deterministic sorted-key iteration, which no current store offers as a seam operation."
+    },
+    {
+      "id": "SC-F3",
+      "severity": "gap",
+      "seam": "content",
+      "statement": "§8.2 declares get(ref, range?) and stat(ref). The R2 object repository implements neither: it offers whole-object put and get with digest verification and a 32 MiB buffered bound, and no class in packages/agent-core-cloudflare extends ContentStore. Range and stat exist only on the memory and sqlite stores, where a range is a slice of an already-buffered object. C13-CONTENT-RESOLUTION is verified against the sqlite store, so no verified row covers R2 content resolution.",
+      "code": "packages/agent-core-cloudflare/src/content-object.ts:85-143; packages/agent-core/src/content/memory.ts:188-200; packages/agent-core/src/substrates/sqlite/content.ts:84-94",
+      "modelled": "ContentLaws models head and range as first-class operations, with range_refuses_outside matching ByteRange.read's refusal rather than R2's clamping."
+    },
+    {
+      "id": "SC-F4",
+      "severity": "model-corrected",
+      "seam": "queue",
+      "statement": "The first Lean draft made an undecodable body produce no host call at all. Both §10.4 and the adapter retry it — acknowledging destroys the message, and leaving it undispositioned loses the decision — so Disposition.hostCall now retries and only acceptance acknowledges. The cross-check against the adapter is what caught it.",
+      "code": "packages/agent-core-cloudflare/src/queue.ts:87-95",
+      "modelled": "AgentCore.Substrate.undecodable_is_retried_never_acknowledged and only_acceptance_acknowledges"
+    },
+    {
+      "id": "SC-F5",
+      "severity": "scope",
+      "seam": "isolate",
+      "statement": "C13-CLOUDFLARE-DYNAMIC-STORE-LIFECYCLE (stopping preserves a domain's store, destroying releases it, and a withdrawal destroys rather than stops) is not expressible in the pinned kernel opcode set of load and call. Those verbs live on DurableObjectFacetHost as open/suspend/retire, and the row itself records that no withdrawal path calls retire yet.",
+      "code": "packages/agent-core-cloudflare/src/facet-host.ts#DurableObjectFacetHost",
+      "modelled": "Out of scope for AgentCore.Substrate.Isolate by construction; the isolate seam models load and call only, and Opcode.isolate_seam_has_no_store_access proves the store custody half at the interface."
+    },
+    {
+      "id": "SC-F6",
+      "severity": "gap",
+      "seam": "rpc",
+      "statement": "AGENTS.md requires promise pipelining wherever possible and requires stub disposal, and no conformance atom observes either property. Nothing in the repository establishes that a call on a promise stub answers as a call on its resolution, and nothing observes a callee-side release on disposal.",
+      "code": "packages/agent-core/AGENTS.md is the source of both obligations; no atom in artifacts/conformance covers them",
+      "modelled": "RpcLaws.pipelining_is_transparent and RpcLaws.dispose_releases state them; Premise.rpcDisposalReleasesRemoteResources and Premise.rpcStubLifetimeBoundedByContext record the missing evidence as gaps."
+    },
+    {
+      "id": "SC-F7",
+      "severity": "observation",
+      "seam": "alarm",
+      "statement": "ClaimedAlarmStorage.getAlarm reports an owner's claim only while the physical alarm is non-null, so a claim table with a torn-down physical alarm reads as unarmed rather than as armed-but-unsynchronized. The Lean model keeps arbitration over the claim table and models get as the physical slot, which is why the two agree: the claim table is the repair source in both.",
+      "code": "packages/agent-core-cloudflare/src/alarm-claims.ts:89-98",
+      "modelled": "AgentCore.Substrate.arm_tracks_earliest_claim and rebuild_is_idempotent"
+    }
+  ]
+}

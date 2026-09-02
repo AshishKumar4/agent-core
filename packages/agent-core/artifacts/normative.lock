@@ -44,6 +44,16 @@
     "AgentCore.Slates",
     "AgentCore.Slots",
     "AgentCore.Subscriptions",
+    "AgentCore.Substrate",
+    "AgentCore.Substrate.Alarms",
+    "AgentCore.Substrate.AtLeastOnce",
+    "AgentCore.Substrate.Content",
+    "AgentCore.Substrate.Contracts",
+    "AgentCore.Substrate.Effect",
+    "AgentCore.Substrate.Isolate",
+    "AgentCore.Substrate.LocalStore",
+    "AgentCore.Substrate.Queue",
+    "AgentCore.Substrate.Rpc",
     "AgentCore.View"
   ],
   "declarations": [
