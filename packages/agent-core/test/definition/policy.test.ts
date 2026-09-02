@@ -196,7 +196,8 @@ describe("pure policy floors", () => {
                 ).toBe("mediated");
             }
 
-            // Co-location governs the exception like every other direct floor (§7.2 line 2824).
+            // Co-location governs the exception like every other direct floor (§7.2 lines
+            // 2824-2828).
             for (const placement of ["dynamic", "provider"] as const) {
                 expect(evaluatePolicy({ ...ownFilesystem, placement }).tier).toBe("mediated");
             }
@@ -217,9 +218,9 @@ describe("pure policy floors", () => {
                 })
             ).toEqual({ approvalRequired: false, tier: "direct" });
 
-            // An impact the vocabulary does not name reaches the direct branch the exception
-            // opened by spelling alone, so the floor answers it mediated rather than falling
-            // through.
+            // A name the vocabulary does not carry must reach nothing: the own-filesystem
+            // branch is the only conditional direct answer a `mutate`-shaped name could fall
+            // into, so the floor answers mediated rather than falling through to it.
             expect(
                 evaluatePolicy({ ...ownFilesystem, impact: forged<Impact>("mutate.session") })
             ).toEqual({ approvalRequired: false, tier: "mediated" });
