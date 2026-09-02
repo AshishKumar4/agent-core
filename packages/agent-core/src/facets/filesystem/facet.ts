@@ -151,6 +151,13 @@ class ReplaceWriteMode extends FilesystemWriteMode {
     }
 }
 
+/**
+ * The profile's one write over content the caller never read. Its precondition is empty by
+ * design rather than by omission: `create` requires absence and `replace` requires the
+ * content it names, so `upsert` is the single unobserved overwrite, and because a mode is
+ * always declared it is a `mutate` intent a Workspace policy can refuse by name instead of
+ * the shape a write falls back to.
+ */
 class UpsertWriteMode extends FilesystemWriteMode {
     public readonly name = "upsert";
     public requireWritable(): void {}
@@ -233,10 +240,17 @@ export interface FilesystemListInput extends PublicProfileInput {
     readonly limit?: number;
 }
 
+/**
+ * The mode is required rather than optional, and that requirement is what
+ * `P11-FILESYSTEM-WRITE-UNOBSERVED` turns on: `upsert` is the profile's one write over
+ * content the caller never read, so it has to be a declared intent a Workspace policy can
+ * refuse. A declaration a caller may decline to make is not a declaration, so an omitted
+ * mode is inadmissible here and at the backend seam, and no layer mints a default for it.
+ */
 export interface FilesystemWriteInput extends PublicProfileInput {
     readonly path: string;
     readonly content: Uint8Array;
-    readonly mode?: FilesystemWriteMode;
+    readonly mode: FilesystemWriteMode;
 }
 
 export interface FilesystemRemoveInput extends PublicProfileInput {
@@ -401,7 +415,7 @@ export const FILESYSTEM_OPERATION_CONTRACTS = Object.freeze({
                 content: { type: "array", items: { type: "integer", minimum: 0, maximum: 255 } },
                 mode: writeModeSchema
             },
-            ["path", "content"]
+            ["path", "content", "mode"]
         ),
         voidSchema,
         profileWireCodec(
@@ -409,7 +423,7 @@ export const FILESYSTEM_OPERATION_CONTRACTS = Object.freeze({
                 dataRecord({
                     path: input.path,
                     content: [...input.content],
-                    mode: input.mode?.toData()
+                    mode: input.mode.toData()
                 }),
             decodeWriteInput
         ),
@@ -479,11 +493,17 @@ export const FILESYSTEM_CONTRIBUTIONS = new Contributions([
     )
 ]);
 
+/**
+ * The mutating seam. `write` takes the mode value object always: an omitted mode is
+ * inadmissible here, so no backing store has an absent-mode branch to give a meaning to and
+ * none of them mints `upsert` as a default. The unobserved overwrite
+ * `P11-FILESYSTEM-WRITE-UNOBSERVED` permits stays reachable only by naming it.
+ */
 export abstract class FilesystemBackend {
     public abstract read(path: string, range?: FilesystemReadRange): Uint8Array;
     public abstract stat(path: string): FilesystemStat;
     public abstract list(path: string, cursor?: string, limit?: number): FilesystemPage;
-    public abstract write(path: string, content: Uint8Array, mode?: FilesystemWriteMode): void;
+    public abstract write(path: string, content: Uint8Array, mode: FilesystemWriteMode): void;
     public abstract remove(path: string): void;
     public abstract move(source: string, destination: string): void;
     public abstract mkdir(path: string, recursive?: boolean): void;
@@ -626,12 +646,14 @@ function decodeRange(data: FacetData): FilesystemReadRange {
 
 function decodeWriteInput(data: FacetData): FilesystemWriteInput {
     const object = requireDataObject(data, "Filesystem write input");
-    const mode = object["mode"];
-    const input: FilesystemWriteInput = {
+    return {
         path: requireString(object["path"], "Filesystem write path"),
-        content: decodeBytes(object["content"]!)
+        content: decodeBytes(object["content"]!),
+        // An absent mode reaches requireWriteMode as `undefined` and is refused there with
+        // the profile's own taxonomy: the decoder mints nothing, so the model-facing input
+        // admits no undeclared write.
+        mode: requireWriteMode(object["mode"])
     };
-    return mode === undefined ? input : { ...input, mode: requireWriteMode(mode) };
 }
 
 function decodeBytes(data: FacetData): Uint8Array {
@@ -643,17 +665,20 @@ function decodeBytes(data: FacetData): Uint8Array {
  * it guards against; the domain carries a mode object. An unrecognised label never reaches a
  * write path, and neither does a `replace` that names no digest — the term's own decoder owns
  * its exact field set, so an unguarded `replace` produces no mode rather than a permissive one.
+ * An omitted mode takes the same exit: the decoder refuses it rather than choosing one, which
+ * is what keeps `upsert` a declaration instead of the shape a write falls back to.
  */
-function requireWriteMode(value: FacetData): FilesystemWriteMode {
+function requireWriteMode(value: FacetData | undefined): FilesystemWriteMode {
     if (isFacetDataMap(value)) {
         const term = FILESYSTEM_WRITE_MODE_TERMS.find(
             (candidate) => candidate.name === value["name"]
         );
         if (term !== undefined) return term.decode(value);
     }
-    // A bare label is the pre-guard wire form, and it is refused with the profile's own code
-    // rather than as a shape error: an unguarded `replace` is invalid input, not a type
-    // confusion, and a caller branching on stable codes has to be able to see that.
+    // A bare label, an unknown label, and an omitted mode are all the pre-guard wire form,
+    // and each is refused with the profile's own code rather than as a shape error: an
+    // unguarded `replace` and an undeclared write are invalid input, not a type confusion,
+    // and a caller branching on stable codes has to be able to see that.
     throw new DetailedProfileError(
         "operation.invalid-input",
         "operation.invalid-input",

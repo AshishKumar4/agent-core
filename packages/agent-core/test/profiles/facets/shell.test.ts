@@ -8,6 +8,7 @@ import {
     FacetPackageId,
     FilesystemFacet,
     FilesystemError,
+    FilesystemWriteMode,
     MemoryFilesystemBackend,
     OperationName,
     SHELL_OPERATIONS,
@@ -143,7 +144,11 @@ describe("Shell protected facade", () => {
                 start: (context) =>
                     immediateProcess(
                         context.filesystem
-                            .write({ path: "/composed", content: new Uint8Array([1]) })
+                            .write({
+                                path: "/composed",
+                                content: new Uint8Array([1]),
+                                mode: FilesystemWriteMode.create
+                            })
                             .then(() => 0)
                     )
             });
@@ -248,7 +253,8 @@ describe("Shell protected facade", () => {
                         (async () => {
                             await context.filesystem.write({
                                 path: context.argv[0]!,
-                                content: new Uint8Array([1])
+                                content: new Uint8Array([1]),
+                                mode: FilesystemWriteMode.create
                             });
                             context.io.writeStdout(new Uint8Array([1]));
                             return 0;

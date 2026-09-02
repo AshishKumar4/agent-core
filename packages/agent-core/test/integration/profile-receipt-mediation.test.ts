@@ -10,6 +10,7 @@ import {
     BindingName,
     FacetRef,
     FilesystemFacet,
+    FilesystemWriteMode,
     MemoryFilesystemBackend,
     ProfileRuntimeHostBinding,
     ProtectedProfileRuntimePort,
@@ -52,7 +53,13 @@ describe("Canonical profile Receipt mediation", () => {
             runtime.activate();
             const backend = new MemoryFilesystemBackend();
             const filesystem = new FilesystemFacet(runtime, backend);
-            const request = { path: "/file", content: new Uint8Array([1]) };
+            // The mode is part of the frozen intent: a replayed write names the same
+            // unobserved overwrite it named the first time, digest included.
+            const request = {
+                path: "/file",
+                content: new Uint8Array([1]),
+                mode: FilesystemWriteMode.upsert
+            };
 
             const first = await filesystem.write(request);
             expect(first).toBeInstanceOf(AttemptReceipt);

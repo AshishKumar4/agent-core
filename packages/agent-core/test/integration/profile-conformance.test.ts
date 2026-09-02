@@ -19,6 +19,7 @@ import {
     FILESYSTEM_OPERATION_CONTRACTS,
     FacetPackageId,
     FacetRef,
+    FilesystemWriteMode,
     MemoryDeviceConsentBackend,
     MemoryFilesystemBackend,
     ProfileRuntimeEffectsPort,
@@ -94,7 +95,7 @@ describe("Exact profile runtime conformance", () => {
             const aliased = canonical.alias("platform.readFile");
             const fixture = profileFixture("base-alias", aliased.descriptor);
             const filesystem = new MemoryFilesystemBackend();
-            filesystem.write("/file", new Uint8Array([1, 2]));
+            filesystem.write("/file", new Uint8Array([1, 2]), FilesystemWriteMode.create);
 
             const result = await fixture.runtime.invoke(aliased, { path: "/file" }, (input) =>
                 filesystem.read(input.path, input.range)

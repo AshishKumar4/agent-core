@@ -24,6 +24,7 @@ export type {
     FilesystemTargetCases,
     FilesystemWriteInput
 } from "./facet";
+export { InterleavedFilesystemBackend } from "./interleaved";
 export { MemoryFilesystemBackend } from "./memory";
 export { MountFilesystemBackend } from "./mount";
 export type { FilesystemMount } from "./mount";

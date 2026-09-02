@@ -283,8 +283,8 @@ export function filesystemReaderBackendEvidence(
         test("reads byte ranges and returns stat-inclusive sorted pages", { tags: "p1" }, () => {
             const { reader, seed } = create();
             seed.mkdir("/docs");
-            seed.write("/docs/b", new Uint8Array([1, 2, 3, 4]));
-            seed.write("/docs/a", new Uint8Array([5]));
+            seed.write("/docs/b", new Uint8Array([1, 2, 3, 4]), FilesystemWriteMode.create);
+            seed.write("/docs/a", new Uint8Array([5]), FilesystemWriteMode.create);
             expect([...reader.read("/docs/b", { offset: 1, length: 2 })]).toEqual([2, 3]);
             const first = reader.list("/docs", undefined, 1);
             expect(first.entries).toEqual([reader.stat("/docs/a")]);

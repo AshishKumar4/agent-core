@@ -1421,21 +1421,26 @@
       "owner": "W8",
       "specAnchor": "P11-FILESYSTEM-ERROR-CONTENT-MISMATCH",
       "specTextSha256": "sha256:797fe1c0e8b562e232146d91a899c737763c82736bb0ff2bf7aedb10971f584c",
-      "status": "planned",
+      "status": "implemented",
       "prerequisites": [
         "P11-BASE-CONTRACT",
         "P11-BASE-TESTS",
         "P11-FILESYSTEM-ERROR-CODES",
         "P11-FILESYSTEM-WRITE-OBSERVED"
       ],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
+      "sourceSymbols": [
+        "src/facets/filesystem/error.ts#FILESYSTEM_ERROR_CODES",
+        "src/facets/filesystem/error.ts#FilesystemError",
+        "src/facets/filesystem/facet.ts#ReplaceWriteMode.requireWritable"
+      ],
+      "testSelectors": [
+        "test/profiles/facets/filesystem.test.ts#Filesystem backend invariants [P11-FILESYSTEM-ERROR-CONTENT-MISMATCH] branches three ways and produces the seventh code from the guard alone"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": [
-        "The code exists as declared vocabulary and has no producer. src/facets/filesystem/error.ts carries `content-mismatch` in FilesystemErrorCode and FILESYSTEM_ERROR_CODES so the amended P11-FILESYSTEM-ERROR-CODES stays true of the code, but no write path raises it, because the guarded `replace` that would raise it is owed under P11-FILESYSTEM-WRITE-OBSERVED",
-        "The conformance test is owed as a three-way branch, since the value of a distinct code is exactly that a caller can act on it: an absent target yields `not-found` and the caller creates; a present target whose content differs yields `content-mismatch` and the caller re-reads; a `create` over a present target yields `exists`. A host that collapses the middle case into either neighbour passes a two-way test and denies the caller the one recovery that differs",
-        "P11-FILESYSTEM-CODE-ASSERTIONS and P11-FILESYSTEM-ERROR-BRANCHING remain satisfied by the existing assertions in test/profiles/facets/conformance-ledger.test.ts and test/profiles/facets/filesystem.test.ts, updated to the seven-member set; what is owed here is the assertion that the seventh member is produced by the guard and by nothing else",
-        "testSelectors is empty because scripts/quality/ledger.mjs#validateStatus rejects a planned requirement that carries source symbols, test selectors, or checker invariants; the selectors above are named as prose obligations until the code exists and the status moves to implemented"
+        "The code has its producer and its branch test. src/facets/filesystem/facet.ts#ReplaceWriteMode.requireWritable raises it when the digest a `replace` names differs from the content the store holds at its atomic step, and the cited test drives the three-way branch on every backing this profile ships — an absent target answering `not-found` and the caller creating, a present target with differing content answering `content-mismatch` and the caller re-reading and re-guarding, a `create` over a present target answering `exists`. The middle case is asserted by its exact code rather than by failure, so a host collapsing it into either neighbour fails rather than passes",
+        "The sole-producer claim is behavioural, and that is its limit: the test discharges every write mode's precondition directly, showing only the guard comparison producing the seventh member, and drives the other six members of the fixed set to their own codes, showing nothing else producing it on any path a caller can reach. It cannot show that nothing *can*: a future backing that constructed FilesystemError(\"content-mismatch\", …) outside a guard comparison would need the shared suite extended to catch it, since the code's construction is not restricted to the mode that owns it",
+        "The caller-side value of a distinct code — that a caller can act on it — is demonstrated inside the test by performing the recovery each code names rather than by a consumer. No product code in this repository branches on `content-mismatch` yet, so what is exercised is that the recovery is available, not that a caller depends on it"
       ]
     },
     {
@@ -1665,21 +1670,27 @@
       "owner": "W8",
       "specAnchor": "P11-FILESYSTEM-WRITE-GUARD-ATOMIC",
       "specTextSha256": "sha256:cf5ed6c487eee963da0028f3fbd8bdbba6f3c065506292ce0efcd2f0f4d1f9ff",
-      "status": "planned",
+      "status": "implemented",
       "prerequisites": [
         "P11-BASE-CONTRACT",
         "P11-BASE-TESTS",
         "P11-FILESYSTEM-ATOMIC-WRITE",
         "P11-FILESYSTEM-WRITE-OBSERVED"
       ],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
+      "sourceSymbols": [
+        "src/facets/filesystem/interleaved.ts#InterleavedFilesystemBackend",
+        "src/facets/filesystem/interleaved.ts#InterleavedFilesystemBackend.write",
+        "src/facets/filesystem/memory.ts#MemoryFilesystemBackend.write"
+      ],
+      "testSelectors": [
+        "test/profiles/facets/filesystem.test.ts#Filesystem backend invariants [P11-FILESYSTEM-WRITE-GUARD-ATOMIC] rejects a guarded replace whose comparison passed before another write landed",
+        "test/profiles/facets/filesystem.test.ts#Filesystem backend invariants [P11-FILESYSTEM-WRITE-GUARD-ATOMIC] fails a host that discharges the guard at admission instead of at the atomic store step"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": [
-        "There is no comparison to make atomic yet, so this atom cannot precede P11-FILESYSTEM-WRITE-OBSERVED. What is owed beyond it is that the comparison and the replacement occupy the single atomic step P11-FILESYSTEM-ATOMIC-WRITE already requires: a backend that reads the current content, compares, and then writes through a second store call satisfies the guard's wording and loses the guarantee, because a concurrent write landing between the two produces a write that passed a check against content it did not replace",
-        "The conformance test is owed as an interleaving, not as a sequential case: a guarded `replace` whose comparison observes matching content while another write lands before the replacement must reject rather than apply. src/facets/filesystem/memory.ts is synchronous and cannot express the interleaving, so the owed test drives it through a backend seam that can, or through an instrumented backend whose comparison step yields, and asserts the prior content survived",
-        "The adversarial case is a guard that is checked at admission rather than at the store. A precondition evaluated during §7.3 preparation and then trusted at effect time is a time-of-check-to-time-of-use hole precisely because §7.3 freezes intent before the effect, so the test must fail a host that discharges the guard anywhere other than the atomic store step",
-        "testSelectors is empty because scripts/quality/ledger.mjs#validateStatus rejects a planned requirement that carries source symbols, test selectors, or checker invariants; the selectors above are named as prose obligations until the code exists and the status moves to implemented"
+        "The interleaving is expressed rather than argued, and the seam that expresses it is now source: src/facets/filesystem/interleaved.ts#InterleavedFilesystemBackend splits a guarded write at exactly the comparison the rule is about, hands the window between comparison and replacement to its caller, and reaches the wrapped store's atomic step with the mode still in hand. The store re-discharges the guard against the content it replaces, so a write landing in that window surfaces as a rejection and the content present when the replacement would have run survives it. The limit is the backing: the in-memory store is the only one this profile ships, and its comparison and set cannot be interrupted at all, so what is proven is that this store's atomic step is where the guard is discharged. A backing whose store step awaits I/O between the two owes the same interleave against its own step when it exists",
+        "The adversarial host is exercised rather than made unrepresentable. The cited test constructs a backend that discharges the guard during §7.3 preparation and then reaches the store unguarded, shows it applying a replacement over content its comparison never saw under the identical interleave, and shows the two hosts indistinguishable in the sequential case — which is why the sequential case cannot be the test. What stays open is structural: with the mode a required argument at the backend seam, a host can still choose `upsert` at the effect after checking a guard itself, so the interleaved assertions are what forbid it rather than the type",
+        "The seam is exercised as an ordinary backing in the shared suite when nothing is armed in its window, which is what makes a rejection under an armed one attributable to the landing write rather than to the split; it is not exercised through the mediated facade, where the window would sit between admission and effect rather than inside the store step. That composition is owed if the guarantee is ever claimed for a host whose preparation and effect run in different processes"
       ]
     },
     {
@@ -1687,21 +1698,27 @@
       "owner": "W8",
       "specAnchor": "P11-FILESYSTEM-WRITE-GUARD-PORTABLE",
       "specTextSha256": "sha256:97c142bed1300692b70e54544a3b3306525ce46625a9ec6c1cf792d1fd5cdb00",
-      "status": "planned",
+      "status": "implemented",
       "prerequisites": [
         "P11-BASE-CONTRACT",
         "P11-BASE-TESTS",
         "P11-FILESYSTEM-BACKINGS",
         "P11-FILESYSTEM-WRITE-OBSERVED"
       ],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
+      "sourceSymbols": [
+        "src/facets/filesystem/facet.ts#FilesystemStat",
+        "src/facets/filesystem/facet.ts#FilesystemWriteMode.replace",
+        "src/facets/filesystem/facet.ts#ReplaceWriteMode.requireWritable",
+        "src/facets/filesystem/mount.ts#MountFilesystemBackend.write"
+      ],
+      "testSelectors": [
+        "test/profiles/facets/filesystem.test.ts#Filesystem backend invariants [P11-FILESYSTEM-WRITE-GUARD-PORTABLE] presents one content-derived guard across backing stores and keeps stat free of a digest"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": [
-        "The choice this atom fixes is not yet expressible, and it is the reason the guard is a `Digest` (§1.4) rather than a store-native token: src/facets/filesystem/facet.ts#FilesystemStat reports `{ path, kind, size, modifiedAt }`, and a modification time is a per-store heuristic that a mount composition would have to translate between backings. Owed: the guard value is derived from content and from nothing else, so the same guard is meaningful against every backing store without a translation layer, and no backend introduces a private token as an alternative",
-        "The conformance test is owed as a cross-backing assertion rather than a single-store one: a guard produced by reading through one backing store and presented to a write through a different backing store holding identical content must be accepted, and one presented against different content must reject. src/facets/filesystem/mount.ts routes a write to whichever mount resolves the path, so the mount composition is where a per-store token would break and where the digest must not",
-        "A negative obligation is owed as well: `stat` MUST NOT be extended to always report a content digest, because the profile's cheap metadata Operation would then pay a full read per call. The guard is derived by the caller from the content a `read` already returned, which is what keeps the observation requirement free of any new per-session state and keeps `stat` at its current cost",
-        "testSelectors is empty because scripts/quality/ledger.mjs#validateStatus rejects a planned requirement that carries source symbols, test selectors, or checker invariants; the selectors above are named as prose obligations until the code exists and the status moves to implemented"
+        "The choice is now expressible and expressed: the guard is a `Digest` (§1.4) of the content and of nothing else, computed at the comparison by src/facets/filesystem/facet.ts#ReplaceWriteMode.requireWritable, and src/facets/filesystem/facet.ts#FilesystemStat still reports `{ path, kind, size, modifiedAt }` with no store-native token beside it. The cited test derives a guard from a read through one backing store and presents it to a write the mount routes to a different one, accepted against identical content and refused against different content, with the second backing behind the observation wrapper so a wrapper cannot translate it either",
+        "Both backings in that composition are the same implementation, because it is the only mutable backing this profile ships. What the test therefore shows is that the mount composition requires no token translation, not yet that a structurally different store declines to introduce one of its own; that obligation lands with the second backing implementation, and it is the case the atom is really about",
+        "The negative obligation is asserted as shape and as cost: `stat` publishes exactly its four members, its wire schema refuses an added digest field, and a stat through the observed backing records a stat and no read, so the cheap metadata Operation pays no full read. What is not visible to a test is a backing that computes a digest inside `stat` and discards it, since only reads the composition can observe are recorded"
       ]
     },
     {
@@ -1734,22 +1751,30 @@
       "owner": "W8",
       "specAnchor": "P11-FILESYSTEM-WRITE-UNOBSERVED",
       "specTextSha256": "sha256:aaf2160845c67d6f78a2e0ef58dbc5eda43674936688b268c75b9a68bebc8338",
-      "status": "planned",
+      "status": "implemented",
       "prerequisites": [
         "P11-BASE-CONTRACT",
         "P11-BASE-TESTS",
         "P11-FILESYSTEM-WRITE",
         "P11-FILESYSTEM-WRITE-OBSERVED"
       ],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
+      "sourceSymbols": [
+        "src/facets/filesystem/facet.ts#FilesystemBackend.write",
+        "src/facets/filesystem/facet.ts#FilesystemWriteInput",
+        "src/facets/filesystem/facet.ts#UpsertWriteMode",
+        "src/facets/filesystem/facet.ts#decodeWriteInput",
+        "src/facets/filesystem/facet.ts#requireWriteMode",
+        "src/facets/filesystem/memory.ts#MemoryFilesystemBackend.write"
+      ],
+      "testSelectors": [
+        "test/profiles/facets/filesystem.test.ts#Filesystem protected facade [P11-FILESYSTEM-WRITE-UNOBSERVED] refuses upsert before the effect while admitting create and guarded replace",
+        "test/profiles/facets/filesystem.test.ts#Filesystem protected facade [P11-FILESYSTEM-WRITE-UNOBSERVED] permits the one declared unobserved overwrite and records its mode in the mediated intent"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": [
-        "The distinction this atom draws does not yet exist, because today every mode overwrites without naming content and `upsert` is merely the mode with no existence precondition (src/facets/filesystem/facet.ts#UpsertWriteMode has an empty `requireWritable`). Once `replace` is guarded, `upsert` becomes the profile's single unobserved overwrite, and what is owed is that this is the only such path: no default, no absent-mode fallback, and no third route to overwriting content the caller never read",
-        "src/facets/filesystem/memory.ts defaults an omitted mode to `FilesystemWriteMode.upsert`, and test/profiles/facets/filesystem.test.ts exercises `filesystem.write(\"/fresh\", new Uint8Array([5]))` with no mode at all, so an unobserved overwrite is currently reachable without being declared. Owed: whether an omitted mode remains admissible at the backend seam is a decision this rule forces, and the model-facing Operation input must not admit one, because a declared intent that a caller can decline to declare is not a declaration",
-        "The policy half is owed and is what makes the rule worth stating: `upsert` carries `mutate` impact like every other write, so the fact that a Workspace policy can refuse it specifically depends on policy resolving on the mode and not only on the Operation. A test is owed showing a policy that admits `create` and guarded `replace` while denying `upsert`, and showing that the denial is a pre-effect outcome under §7.3 rather than a store-level rejection",
-        "The conformance test is owed in two shapes: an `upsert` over a present target succeeds and replaces content the caller never observed, which is the behaviour this rule permits rather than forbids; and the Receipt for that write records the mode, so an unobserved overwrite is distinguishable in the audit trail from a guarded one after the fact",
-        "testSelectors is empty because scripts/quality/ledger.mjs#validateStatus rejects a planned requirement that carries source symbols, test selectors, or checker invariants; the selectors above are named as prose obligations until the code exists and the status moves to implemented"
+        "The distinction now exists and `upsert` is the only path to it. An omitted mode is inadmissible: src/facets/filesystem/facet.ts#FilesystemBackend.write takes the mode value object always, src/facets/filesystem/memory.ts#MemoryFilesystemBackend.write no longer mints `FilesystemWriteMode.upsert` for a silent caller, src/facets/filesystem/facet.ts#FilesystemWriteInput requires it, and src/facets/filesystem/facet.ts#requireWriteMode refuses an absent one with `operation.invalid-input` rather than choosing a mode. The cited tests drive all of it — the wire schema refusing a mode-less write, the decoder refusing it with the profile's own code, the encode path refusing it for a caller that forces one past the type, every backing's write carrying arity three, and the three declared labels being the only ones the wire admits",
+        "The policy half is enforced at the seam a host owns rather than declared: the cited refusal is a ProtectedOperationPort that reads the declared mode out of the admitted intent and denies before the effect, which is possible precisely because the mode is part of that intent and never a default the host supplies. src/definition/policy.ts#PolicySet still resolves on `Impact` alone, so a Workspace policy cannot yet *state* \"refuse upsert\" declaratively — only a host admission inspecting the input can enforce it. Giving the declarative vocabulary a mode predicate is outside this atom's files and is what a verified row would additionally cite",
+        "The audit half is shown through the recording protected port: each mediated write's admitted intent names its mode, two writes alike but for the mode attest different intent digests, and their Receipts differ, so an unobserved overwrite is distinguishable from a guarded one after the fact. What is not yet shown is the same distinction read back out of a *persisted* Receipt across a restart — test/integration/profile-receipt-mediation.test.ts now names its mode on the canonical W6 path but asserts replay identity rather than reading the mode back from durable state"
       ]
     },
     {

@@ -66,7 +66,7 @@ export class MountFilesystemBackend extends FilesystemBackend {
         );
     }
 
-    public write(path: string, content: Uint8Array, mode?: FilesystemWriteMode): void {
+    public write(path: string, content: Uint8Array, mode: FilesystemWriteMode): void {
         const resolved = this.resolve(path);
         resolved.mount.backend.write(resolved.path, content, mode);
     }

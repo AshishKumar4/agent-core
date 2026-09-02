@@ -170,7 +170,7 @@ for (const [id, name, expected] of [
 }
 requirement("P11-FILESYSTEM-ATOMICITY-ASSERTIONS", () => {
     const filesystem = new MemoryFilesystemBackend(1);
-    filesystem.write("/file", new Uint8Array([1]));
+    filesystem.write("/file", new Uint8Array([1]), FilesystemWriteMode.create);
     expect(() =>
         filesystem.write(
             "/file",
@@ -216,15 +216,15 @@ requirement("P11-FILESYSTEM-ERROR-CODES", () => {
 requirement("P11-FILESYSTEM-PAGING-ASSERTIONS", () => {
     const filesystem = new MemoryFilesystemBackend();
     filesystem.mkdir("/docs");
-    filesystem.write("/docs/b", new Uint8Array([1, 2]));
-    filesystem.write("/docs/a", new Uint8Array([3]));
+    filesystem.write("/docs/b", new Uint8Array([1, 2]), FilesystemWriteMode.create);
+    filesystem.write("/docs/a", new Uint8Array([3]), FilesystemWriteMode.create);
     const first = filesystem.list("/docs", undefined, 1);
     expect(first.entries).toEqual([filesystem.stat("/docs/a")]);
     expect(filesystem.list("/docs", first.cursor, 1).entries).toEqual([filesystem.stat("/docs/b")]);
 });
 requirement("P11-FILESYSTEM-READONLY", () => {
     const mutable = new MemoryFilesystemBackend();
-    mutable.write("/file", new Uint8Array([1]));
+    mutable.write("/file", new Uint8Array([1]), FilesystemWriteMode.create);
     const readonly = new ReadonlyFilesystemBackend(mutable);
     expect(readonly.read("/file")).toEqual(new Uint8Array([1]));
     expect("write" in readonly).toBe(false);

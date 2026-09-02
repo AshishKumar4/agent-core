@@ -41,7 +41,7 @@ export class ObservedFilesystemBackend extends FilesystemBackend {
         return result;
     }
 
-    public write(path: string, content: Uint8Array, mode?: FilesystemWriteMode): void {
+    public write(path: string, content: Uint8Array, mode: FilesystemWriteMode): void {
         this.backend.write(path, content, mode);
         this.record("write", path);
     }

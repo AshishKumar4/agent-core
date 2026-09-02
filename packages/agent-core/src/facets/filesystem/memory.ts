@@ -4,10 +4,10 @@ import { DetailedProfileError } from "../profile-runtime";
 import {
     FilesystemBackend,
     FilesystemTargetState,
-    FilesystemWriteMode,
     type FilesystemPage,
     type FilesystemReadRange,
-    type FilesystemStat
+    type FilesystemStat,
+    type FilesystemWriteMode
 } from "./facet";
 import { filesystemParent, normalizeFilesystemPath } from "./path";
 
@@ -96,11 +96,7 @@ export class MemoryFilesystemBackend extends FilesystemBackend {
         return Object.freeze(next === undefined ? page : { ...page, cursor: next });
     }
 
-    public write(
-        path: string,
-        content: Uint8Array,
-        mode: FilesystemWriteMode = FilesystemWriteMode.upsert
-    ): void {
+    public write(path: string, content: Uint8Array, mode: FilesystemWriteMode): void {
         const normalized = this.mutablePath(path);
         if (content.byteLength > this.#maxFileBytes) {
             throw fileError("too-large", normalized, "File exceeds the configured size limit");
