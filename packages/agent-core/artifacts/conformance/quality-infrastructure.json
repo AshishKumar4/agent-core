@@ -11,7 +11,7 @@
       "prerequisites": [],
       "sourceSymbols": ["scripts/quality/codec-records.mjs#discoverCodecRecords"],
       "testSelectors": [
-        "test/integration/cache-loss.test.ts#[C13-ADV-CACHE-LOSS] rebuilds a lost derived index from canonical content"
+        "test/integration/cache-loss.test.ts#[C13-ADV-CACHE-LOSS] [C13-OWNERSHIP-SINGLE-OWNER] rebuilds a lost derived index from canonical content"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
@@ -93,7 +93,7 @@
         "test/conformance/ownership.test.ts#one durable owner per record kind [C13-OWNERSHIP-SINGLE-OWNER] the derived cache inventory is the whole set, and each entry states how the cache survives loss",
         "test/conformance/profile-base.test.ts#Profile base conformance [C13-OWNERSHIP-SINGLE-OWNER] rejects a second durable plane for every registered record kind",
         "test/composition/authority-state.test.ts#production authority state seams (memory) [C13-OWNERSHIP-SINGLE-OWNER] drops and rebuilds the derived authority cache from canonical Tenant state",
-        "test/integration/cache-loss.test.ts#[C13-ADV-CACHE-LOSS] rebuilds a lost derived index from canonical content"
+        "test/integration/cache-loss.test.ts#[C13-ADV-CACHE-LOSS] [C13-OWNERSHIP-SINGLE-OWNER] rebuilds a lost derived index from canonical content"
       ],
       "checkerInvariants": [],
       "remainingEvidence": [

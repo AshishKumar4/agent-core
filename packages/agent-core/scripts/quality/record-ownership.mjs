@@ -61,7 +61,7 @@ export const DERIVED_CACHE_INVENTORY = Object.freeze([
         versionedBy: "replacement against the canonical entry set it was built from",
         rebuiltBy: "src/facets/memory/facet.ts#MemoryIndexBackend.replace",
         missIsOrdinary: "a search over a lost index answers empty rather than throwing",
-        test: "test/integration/cache-loss.test.ts#[C13-ADV-CACHE-LOSS] rebuilds a lost derived index from canonical content"
+        test: "test/integration/cache-loss.test.ts#[C13-ADV-CACHE-LOSS] [C13-OWNERSHIP-SINGLE-OWNER] rebuilds a lost derived index from canonical content"
     })
 ]);
 const derivedCacheFields = [
