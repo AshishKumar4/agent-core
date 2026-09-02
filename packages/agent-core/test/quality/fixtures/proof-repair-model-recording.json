@@ -1,0 +1,29 @@
+{
+  "baseline": "a438b7a29bedc5af2d146b6ef6b0813a1b550815078de3ce050873570598bacd",
+  "exchanges": [
+    {
+      "attempt": 1,
+      "prompt": "Close every obligation in the trusted repair objective:\n  C13-RUN-ANCESTRY [a918901377c9455fd9632715990d25aecc26ace44315cdcd059b652f428b8ee0] at SPEC.md:1601",
+      "reply": "{\n  \"artifacts\": [\n    {\n      \"path\": \"SpecCnl/Proofs.lean\",\n      \"text\": \"import SpecCnl.Bridge\\n\\n/-!\\n# Discharging every hand proposition\\n\\nWritten by hand against `AgentCore`, not generated. Without these a bridge lemma is\\nworthless: `cnl_X ↔ hand_X` says nothing at all if `hand_X` is false. These theorems are\\nwhat make the bridges load-bearing, and they are what the gate counts.\\n\\nEvery unit in the corpus has a theorem here. A unit whose hand proposition cannot be\\ndischarged does not get a weaker sentence: it stays out of the corpus, and its\\ncounterexample goes in `SpecCnl.Divergence`.\\n-/\\n\\nnamespace SpecCnl.Proofs\\n\\nopen AgentCore\\n\\ntheorem proved_C13_RUN_ANCESTRY : Bridge.hand_C13_RUN_ANCESTRY := by\\n  have forward : ∀ (left right : GraphStore), left.commits = right.commits →\\n      ∀ ancestor child, Ancestor left ancestor child → Ancestor right ancestor child := by\\n    intro left right same ancestor child chain\\n    induction chain with\\n    | refl lookup => exact .refl (same ▸ lookup)\\n  intro left right same ancestor child\\n  exact ⟨forward left right same ancestor child, forward right left same.symm ancestor child⟩\\n\\nend SpecCnl.Proofs\\n\"\n    }\n  ],\n  \"baseline\": \"a438b7a29bedc5af2d146b6ef6b0813a1b550815078de3ce050873570598bacd\",\n  \"obligations\": [\n    {\n      \"anchor\": \"SPEC.md:1601\",\n      \"atoms\": [\n        \"C13-RUN-ANCESTRY\"\n      ],\n      \"unit\": \"a918901377c9455fd9632715990d25aecc26ace44315cdcd059b652f428b8ee0\"\n    }\n  ]\n}"
+    },
+    {
+      "attempt": 2,
+      "feedback": "compile W0 SpecCnl/Proofs.lean:24:2: the artifact does not elaborate [unsolved goals\ncase parent\nleft right : GraphStore\n⊢ Ancestor right ancestor child]\npreserved: nothing is closed yet",
+      "prompt": "Close every obligation in the trusted repair objective:\n  C13-RUN-ANCESTRY [a918901377c9455fd9632715990d25aecc26ace44315cdcd059b652f428b8ee0] at SPEC.md:1601",
+      "reply": "{\n  \"artifacts\": [\n    {\n      \"path\": \"SpecCnl/Proofs.lean\",\n      \"text\": \"import SpecCnl.Bridge\\n\\n/-!\\n# Discharging every hand proposition\\n\\nWritten by hand against `AgentCore`, not generated. Without these a bridge lemma is\\nworthless: `cnl_X ↔ hand_X` says nothing at all if `hand_X` is false. These theorems are\\nwhat make the bridges load-bearing, and they are what the gate counts.\\n\\nEvery unit in the corpus has a theorem here. A unit whose hand proposition cannot be\\ndischarged does not get a weaker sentence: it stays out of the corpus, and its\\ncounterexample goes in `SpecCnl.Divergence`.\\n-/\\n\\nnamespace SpecCnl.Proofs\\n\\nopen AgentCore\\n\\ntheorem proved_C13_RUN_ANCESTRY : Bridge.hand_C13_RUN_ANCESTRY := by\\n  have forward : ∀ (left right : GraphStore), left.commits = right.commits →\\n      ∀ ancestor child, Ancestor left ancestor child → Ancestor right ancestor child := by\\n    intro left right same ancestor child chain\\n    induction chain with\\n    | refl lookup => exact .refl (same ▸ lookup)\\n    | parent lookup member _ step => exact .parent (same ▸ lookup) member step\\n  intro left right same ancestor child\\n  exact ⟨forward left right same ancestor child, forward right left same.symm ancestor child⟩\\n\\nend SpecCnl.Proofs\\n\"\n    }\n  ],\n  \"baseline\": \"a438b7a29bedc5af2d146b6ef6b0813a1b550815078de3ce050873570598bacd\",\n  \"obligations\": [\n    {\n      \"anchor\": \"SPEC.md:1601\",\n      \"atoms\": [\n        \"C13-RUN-ANCESTRY\"\n      ],\n      \"unit\": \"a918901377c9455fd9632715990d25aecc26ace44315cdcd059b652f428b8ee0\"\n    }\n  ]\n}"
+    }
+  ],
+  "kind": "proof.repair.model.recording",
+  "model": "derived-from-reviewed-corpus",
+  "objective": [
+    {
+      "anchor": "SPEC.md:1601",
+      "atoms": [
+        "C13-RUN-ANCESTRY"
+      ],
+      "unit": "a918901377c9455fd9632715990d25aecc26ace44315cdcd059b652f428b8ee0"
+    }
+  ],
+  "provenance": "Derived from repository content at packages/agent-core: the accepted reply carries the reviewed formal/SpecCnl/Proofs.lean prefix through its C13-RUN-ANCESTRY discharge, the refused reply is that text with the induction's parent case deleted, and both turns are the questions the landed host and protocol actually asked. Re-record a live run with scripts/quality/proof-repair-run.mjs --consent live-model --record.",
+  "version": "1.0"
+}

@@ -18,6 +18,11 @@ export function assertObject(value: JsonValue | undefined, owner: string): JsonO
 export function assertArray(value: JsonValue | undefined, owner: string): readonly JsonValue[];
 export function assertBoolean(value: JsonValue | undefined, owner: string): boolean;
 export function assertString(value: JsonValue | undefined, owner: string): string;
+export function assertExactKeys(
+    value: JsonValue | undefined,
+    expected: readonly string[],
+    owner: string
+): void;
 export function assertOneOf<Allowed extends JsonValue>(
     value: JsonValue | undefined,
     allowed: readonly Allowed[],
