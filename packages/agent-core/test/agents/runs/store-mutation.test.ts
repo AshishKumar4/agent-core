@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { ContentRef, Revision } from "../../../src/core";
-import { ContentOwnerEdge } from "../../../src/content";
+import { ContentOwnerEdge, contentOwnerKey } from "../../../src/content";
 import { AgentCoreError } from "../../../src/errors";
 import { RunCommitId, TurnId } from "../../../src/execution-references";
 import { ReceiptId } from "../../../src/invocation-references";
@@ -159,16 +159,15 @@ function withCheckpoint(snapshot: MemoryRunStorageSnapshot, checkpoint: RunCheck
     const records = snapshot.records.map((row) =>
         row.kind === "checkpoint" ? { ...row, bytes: RunCheckpointCodec.encode(checkpoint) } : row
     );
-    const prefix = ownerPrefix("checkpoint", checkpoint.id.value);
     const edges = [
-        new ContentOwnerEdge(ids.holder.tenantId, ids.actor, `${prefix}state`, checkpoint.state),
+        contentOwnerEdge("run.checkpoint", checkpoint.id.value, "state", checkpoint.state),
         ...(checkpoint.tree === undefined
             ? []
             : [
-                  new ContentOwnerEdge(
-                      ids.holder.tenantId,
-                      ids.actor,
-                      `${prefix}tree`,
+                  contentOwnerEdge(
+                      "run.checkpoint",
+                      checkpoint.id.value,
+                      "tree",
                       checkpoint.tree
                   )
               ])
@@ -177,7 +176,11 @@ function withCheckpoint(snapshot: MemoryRunStorageSnapshot, checkpoint: RunCheck
         memoryRunStorage({
             ...snapshot,
             records,
-            content: replaceOwnerNamespace(snapshot, prefix, edges)
+            content: replaceOwnerNamespace(
+                snapshot,
+                ownerPrefix("checkpoint", checkpoint.id.value),
+                edges
+            )
         })
     );
 }
@@ -224,7 +227,25 @@ function ownerPrefix(
         spawn: "run.spawn-reservation",
         turn: "turn.record"
     }[kind];
-    return `record:${ownerKind}:${key.length}:${key}:`;
+    // The tuple encoding writes [namespace, kind, key, field, ...], so the prefix up to
+    // and including the record key component reaches exactly that record's edges: the
+    // field component begins with a JSON string quote no earlier component can contain,
+    // so a shorter key cannot embed itself in a longer one's prefix.
+    return contentOwnerKey(ownerKind, key, "field").slice(0, -'"field"]'.length);
+}
+
+function contentOwnerEdge(
+    kind: string,
+    key: string,
+    field: string,
+    ref: ContentRef
+): ContentOwnerEdge {
+    return new ContentOwnerEdge(
+        ids.holder.tenantId,
+        ids.actor,
+        contentOwnerKey(kind, key, field),
+        ref
+    );
 }
 
 function replaceOwnerNamespace(

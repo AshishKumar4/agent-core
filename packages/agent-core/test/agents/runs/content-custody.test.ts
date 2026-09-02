@@ -20,7 +20,12 @@ import {
     TurnInboxEntry,
     TurnInboxEntryId
 } from "../../../src/agents/runs";
-import { ContentOwnerEdge, MemoryContentStore, type ContentStore } from "../../../src/content";
+import {
+    ContentOwnerEdge,
+    contentOwnerKey,
+    MemoryContentStore,
+    type ContentStore
+} from "../../../src/content";
 import { ContentRef, Digest, Revision, compareCanonicalText } from "../../../src/core";
 import { AgentCoreError } from "../../../src/errors";
 import { TenantId } from "../../../src/identity";
@@ -926,7 +931,7 @@ test(
         first.transaction((transaction) => first.repository.insertTurn(transaction, turn));
         const snapshot = first.storage.snapshot();
         const inputEdgeBytes = snapshot.content.edges.find((bytes) =>
-            ContentOwnerEdge.decode(bytes).ownerKey.endsWith(":input")
+            ContentOwnerEdge.decode(bytes).ownerKey.endsWith('"input"]')
         );
         if (inputEdgeBytes === undefined) throw new TypeError("Turn input edge is missing");
         const inputEdge = ContentOwnerEdge.decode(inputEdgeBytes);
@@ -940,7 +945,7 @@ test(
         const stale = new ContentOwnerEdge(
             tenant,
             owner,
-            "record:turn.record:12:missing-turn:input",
+            contentOwnerKey("turn.record", "missing-turn", "input"),
             input
         );
         const corruptions: readonly MemoryRunStorageSnapshot[] = [
@@ -1108,7 +1113,7 @@ test(
             const other = (await first.content.put(encode(`sqlite-${corruption}-other`))).ref;
             const turn = turnRecord(input);
             first.transaction((transaction) => first.repository.insertTurn(transaction, turn));
-            const ownerKey = `record:turn.record:${turn.id.value.length}:${turn.id.value}:input`;
+            const ownerKey = contentOwnerKey("turn.record", turn.id.value, "input");
 
             if (corruption === "missing") {
                 database.damage("DELETE FROM content_owner_edges WHERE owner_key = ?", [ownerKey]);
@@ -1134,7 +1139,7 @@ test(
                 const edge = new ContentOwnerEdge(
                     tenant,
                     owner,
-                    "record:turn.record:12:missing-turn:input",
+                    contentOwnerKey("turn.record", "missing-turn", "input"),
                     input
                 );
                 database.damage(
@@ -1178,7 +1183,7 @@ test("SQLite owner keys reject duplicate custody edges", { tags: "p0" }, async (
     const input = (await harness.content.put(encode("sqlite-duplicate-input"))).ref;
     const turn = turnRecord(input);
     harness.transaction((transaction) => harness.repository.insertTurn(transaction, turn));
-    const ownerKey = `record:turn.record:${turn.id.value.length}:${turn.id.value}:input`;
+    const ownerKey = contentOwnerKey("turn.record", turn.id.value, "input");
     const edge = new ContentOwnerEdge(tenant, owner, ownerKey, input);
 
     expect(() =>
@@ -1312,7 +1317,7 @@ function ownerField(
     ref: ContentRef | undefined
 ): readonly [string, ContentRef] {
     if (ref === undefined) throw new TypeError(`Expected ${field} content`);
-    return [`record:${kind}:${key.length}:${key}:${field}`, ref];
+    return [contentOwnerKey(kind, key, field), ref];
 }
 
 function turnRecord(input: ContentRef, revision = new Revision(0)): Turn {

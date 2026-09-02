@@ -1,5 +1,6 @@
 import { ActorId, ActorRef, type ActorKind } from "../actors";
 import {
+    canonicalTupleKey,
     ContentRef,
     type ContentRetentionField,
     Digest,
@@ -110,22 +111,29 @@ export class ContentOwnerEdge {
 const contentOwnerEdgeCodecInstance = new ContentOwnerEdgeCodec();
 
 /**
- * The owner-key namespace one record kind holds its content under. A store verifies its
- * whole custody against exactly the namespaces of the kinds it owns, so the prefix and the
- * key below are written once, here, and never spelled out at a call site.
+ * The namespace one record kind's owner keys share. A store verifies its whole custody
+ * against exactly the namespaces of the kinds it owns, and the encoded tuple below always
+ * begins with the kind, so this prefix reaches every key of one kind and no key of another.
  */
 export function contentOwnerNamespace(kind: string): string {
-    return `record:${kind}:`;
+    return canonicalTupleKey("record", [kind]).slice(0, -1) + ",";
 }
 
 /**
- * The owner key one durable record's field holds its ContentRef under. The key length
- * prefix keeps a record identity that itself contains the separator from colliding with
- * another record's key, and the kind namespace keeps one Actor's record families apart
- * inside the single custody namespace §8.4 gives it.
+ * The owner key one durable record's field holds its ContentRef under. It is the repo's
+ * injective composite-key idiom — one canonical JSON tuple of the kind, the record's own
+ * key, and the field — so no record identity or field name can collide with another's key
+ * by containing a separator, and one Actor's record families stay distinct inside the
+ * single custody namespace §8.4 gives it.
+ *
+ * The format changed once, from a hand-built `record:<kind>:<len>:<key>:<field>`
+ * concatenation to this tuple encoding, inside the same wave that introduced it and before
+ * any durable store shipped an owner edge written under the old shape. No migration is owed:
+ * the two builds never meet over one stored set, and the §8.3 declaration gate refuses the
+ * older build's records on activation rather than decoding them.
  */
 export function contentOwnerKey(kind: string, key: string, field: string): string {
-    return `${contentOwnerNamespace(kind)}${key.length}:${key}:${field}`;
+    return canonicalTupleKey("record", [kind, key, field]);
 }
 
 /**

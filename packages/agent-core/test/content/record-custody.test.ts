@@ -80,6 +80,8 @@ import { admissionFor, prepared } from "../invocations/fixture";
 import { at, contentOwner } from "./retention-contract";
 
 const encode = (value: string): Uint8Array => new TextEncoder().encode(value);
+/** Every owner key the tuple encoding writes begins with ["record", */
+const TUPLE_NAMESPACE = ['["record",'];
 const owner = contentOwner();
 
 /**
@@ -120,7 +122,7 @@ function expectExactCustody(
 ): void {
     const retention = store.retention(owner.tenant, actor);
     store.transaction((transaction) =>
-        retention.verifyExactNamespace(transaction, ["record:"], expected)
+        retention.verifyExactNamespace(transaction, TUPLE_NAMESPACE, expected)
     );
 }
 
@@ -549,7 +551,7 @@ describe("co-transacted record custody on SQLite", () => {
                 result
             );
             database.transaction(() =>
-                retention.verifyExactNamespace(database, ["record:"], [expected])
+                retention.verifyExactNamespace(database, TUPLE_NAMESPACE, [expected])
             );
             const collected = database.transaction(() =>
                 retention.collect(database, { allowsCollection: () => true }, at(1_000))
@@ -588,7 +590,7 @@ describe("co-transacted record custody on SQLite", () => {
                 event.payload
             );
             database.transaction(() =>
-                retention.verifyExactNamespace(database, ["record:"], [expected])
+                retention.verifyExactNamespace(database, TUPLE_NAMESPACE, [expected])
             );
             expect(
                 database.transaction(() =>
@@ -619,7 +621,7 @@ describe("co-transacted record custody on SQLite", () => {
                     persistence.appendEvent(database, event, eventRetention(event))
                 )
             ).toThrow(expect.objectContaining({ code: "protocol.invalid-state" }));
-            database.transaction(() => retention.verifyExactNamespace(database, ["record:"], []));
+            database.transaction(() => retention.verifyExactNamespace(database, TUPLE_NAMESPACE, []));
         }
     );
 });

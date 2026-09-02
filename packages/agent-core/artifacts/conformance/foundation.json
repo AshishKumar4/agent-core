@@ -9,7 +9,9 @@
       "specTextSha256": "sha256:1c91fabba1ef86b01e936edfa9f94afd16e21c8a0f386bb7db9f9f2cbe2e8015",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/protocol/dispatcher.ts#CommandDispatcher"],
+      "sourceSymbols": [
+        "src/protocol/dispatcher.ts#CommandDispatcher"
+      ],
       "testSelectors": [
         "test/actors/actor.test.ts#Memory ActorStore contract [C13-ADV-COMMAND-REJECTIONS] rejects commands after close and invalidates the durable fence",
         "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) [C13-ADV-COMMAND-REJECTIONS] rejects a missing caller cause before content and replays its identity",
@@ -17,7 +19,10 @@
         "test/protocol/dispatcher.test.ts#[C13-ADV-COMMAND-REJECTIONS] byte limit validation names the failing limit exactly",
         "test/protocol/dispatcher.test.ts#[C13-ADV-COMMAND-REJECTIONS] rejects an envelope beyond the configured byte limit"
       ],
-      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "checkerInvariants": [
+        "ACQ-IMPORT",
+        "ACQ-TEST"
+      ],
       "remainingEvidence": []
     },
     {
@@ -27,14 +32,19 @@
       "specTextSha256": "sha256:af5d1246383c66033f16ce8805f7a5c478a6081b831be07069b1a6a2184f18ab",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/core/codec.ts#RecordCodec"],
+      "sourceSymbols": [
+        "src/core/codec.ts#RecordCodec"
+      ],
       "testSelectors": [
         "test/content/memory.test.ts#MemoryContentStore records [C13-CODEC-VERSIONING] round-trips stat and owner-edge records through versioned codecs",
         "test/core/codec.test.ts#Canonical codecs [C13-CODEC-VERSIONING] decodes and upcasts an older minor in the same major",
         "test/core/codec.test.ts#Canonical codecs [C13-CODEC-VERSIONING] rejects an unknown major with its typed error",
         "test/core/codec.test.ts#Canonical codecs [C13-CODEC-VERSIONING] rejects future minor versions and unknown envelope fields"
       ],
-      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "checkerInvariants": [
+        "ACQ-IMPORT",
+        "ACQ-TEST"
+      ],
       "remainingEvidence": []
     },
     {
@@ -43,7 +53,9 @@
       "specAnchor": "C13-CODEC-INCOMPATIBILITY-TOTAL",
       "specTextSha256": "sha256:f3dc4040087cec82dfbf438380df470d7759fe741c683e416038f11e24f54585",
       "status": "implemented",
-      "prerequisites": ["C13-CODEC-VERSIONING"],
+      "prerequisites": [
+        "C13-CODEC-VERSIONING"
+      ],
       "sourceSymbols": [
         "src/actors/actor.ts#Actor",
         "src/actors/fence.ts#ActorRecoveryState",
@@ -75,12 +87,15 @@
         "test/core/codec.test.ts#CodecDeclaration [C13-CODEC-INCOMPATIBILITY-TOTAL] freezes the compatible singleton against public method replacement",
         "test/core/codec.test.ts#CodecDeclaration [C13-CODEC-INCOMPATIBILITY-TOTAL] names its kinds once, in canonical order",
         "test/core/codec.test.ts#CodecDeclaration [C13-CODEC-INCOMPATIBILITY-TOTAL] round-trips through its stored form and refuses a malformed one",
-        "test/agents/runs/derivation-totality.test.ts#Run derivation totality [C13-RUN-FRONTIER-COMPLETE] a reserved-minus-completed frontier rejects an unreadable record set rather than answering short",
-        "test/agents/runs/derivation-totality.test.ts#Run derivation totality [C13-RUN-ANCESTRY] an ancestry walk rejects an unreadable record set rather than answering not-an-ancestor",
-        "test/agents/runs/derivation-totality.test.ts#Run derivation totality [C13-RUN-SETTLED-DERIVED] a settlement test rejects an unreadable record set rather than reporting settled",
+        "test/agents/runs/derivation-totality.test.ts#Run derivation totality [C13-CODEC-INCOMPATIBILITY-TOTAL] [C13-RUN-FRONTIER-COMPLETE] a reserved-minus-completed frontier rejects an unreadable record set rather than answering short",
+        "test/agents/runs/derivation-totality.test.ts#Run derivation totality [C13-CODEC-INCOMPATIBILITY-TOTAL] [C13-RUN-ANCESTRY] an ancestry walk rejects an unreadable record set rather than answering not-an-ancestor",
+        "test/agents/runs/derivation-totality.test.ts#Run derivation totality [C13-CODEC-INCOMPATIBILITY-TOTAL] [C13-RUN-SETTLED-DERIVED] a settlement test rejects an unreadable record set rather than reporting settled",
         "test/agents/runs/derivation-totality.test.ts#Run derivation totality [C13-CODEC-INCOMPATIBILITY-TOTAL] the Run record set a protocol command declares is the set these derivations read"
       ],
-      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "checkerInvariants": [
+        "ACQ-IMPORT",
+        "ACQ-TEST"
+      ],
       "remainingEvidence": [
         "The declaration member exists and every registered command carries a value, so a command family's own records now sit inside the declaration a reader compares against rather than only inside the set the gate protects. src/protocol/registration.ts#ProtocolCommand requires a CodecDeclaration; src/core/codec.ts#CodecDeclaration.merge folds them together, admitting a kind declared twice at one version and refusing one declared at two, because \u00a78.4 rule 1 gives each record type exactly one writer; and src/protocol/dispatcher.ts#CommandDispatcher merges its own write and audit records with every registered command's declaration before Actor stores it. Values: src/protocol/run-commands.ts declares src/agents/runs/store.ts#RUN_RECORD_CODECS, derived from the same descriptor table the Run storage reads and writes through; src/protocol/facet-commands.ts declares facet.installed-slot and facet.slot-entry on all three Slot commands; src/protocol/materialization-commands.ts declares definition.materialization-plan; src/invocations/command.ts declares invocation.approval and invocation.receipt; src/protocol/bootstrap.ts declares protocol.tenant-bootstrap-anchor; src/composition/authority-commands.ts declares the request and evidence records of each of its four commands; and src/workspaces/{source,target}-protocol.ts declare the Event, route and retention-proof records they write",
         "One half of the dated instance is now caught at the declaration and four fifths of it is not. W4's treeMerge cutover moved five definition majors \u2014 definition.blueprint 2 to 3, definition.managed-state 2 to 3, definition.actor-plan 1 to 2, definition.materialization-plan 1 to 2 and definition.materialization-rollout 1 to 2 \u2014 and of those only definition.materialization-plan is decoded by a command's own code, so only it is nameable in src/protocol/materialization-commands.ts. The other four are written behind MaterializationCommandBackend by the applying Actor's local materializer, which declares its own record set through its own Actor and does not yet name them. Closing it needs that materializer to declare what a local apply writes \u2014 a W4 change in src/definition \u2014 after which the command's declaration and the applying store's declaration together cover the whole cutover"
@@ -146,7 +161,10 @@
         "test/content/record-custody.test.ts#co-transacted record custody on SQLite [C13-CONTENT-CUSTODY] an appended Event registers its payload through the workspaces retention port",
         "test/content/record-custody.test.ts#co-transacted record custody on SQLite [C13-CONTENT-CUSTODY] an Event naming content the Actor does not hold is refused before the record lands"
       ],
-      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "checkerInvariants": [
+        "ACQ-IMPORT",
+        "ACQ-TEST"
+      ],
       "remainingEvidence": [
         "Registration and release are now wired for all 24 declared durable kinds, so the 17 this row owed are closed at their own write paths. W1's seam is unchanged in what it promises and still proven by the one parameterised body in test/content/retention-contract.ts against both implementations; it gains one member, ContentRetention#holds, so a write path can ask whether its Actor holds the bytes before it builds the record and refuse with its own protocol error instead of a custody fault. The projection vocabulary sits in src/core/content-ref.ts beside ContentRef itself \u2014 ContentRetentionField and contentRetentionFields moved there out of src/agents/record-data.ts \u2014 because a record that names content must not take a runtime dependency on the plane that retains it, and putting it in the content plane closed a content-environments-facets-identity import cycle. src/content/retention.ts holds what needs the seam: contentOwnerNamespace and contentOwnerKey so the owner-key shape is written once, and ContentRecordCustody, the one implementation that derives a record's edges and reconciles them through a ContentRetention. W5's src/agents/runs/store.ts now builds its owner keys through that helper instead of its own template. W8: src/slates/store.ts#MemorySlateStore registers slate, slate.version, slate.preview, slate.resource, slate.publication, slate.deployment, slate.resource-reservation and slate.deployment-reservation, and src/environments/store.ts#MemoryEnvironmentStore registers environment.revision and swaps environment.snapshot content on re-capture. W4: src/definition/package-store.ts#ProjectedPackageStore registers definition.package-release and definition.metadata-snapshot through the nested field paths the registry declares. W6: src/invocations/receipt.ts#receiptContentRetention projects the inherited AttemptReceipt.result, and both invocation persistences retain it on append and never release it. W7: src/workspaces/retention.ts#ContentRetentionPort now declares retain, src/workspaces/retention.ts#WorkspaceContentRetention is its implementation over this seam, and src/workspaces/persistence.ts registers inside the transaction that appends the Event, reservation, projection or View retention proof",
         "Three planes register outside a transaction the content plane can join, and that is the residue this row still owes rather than a bound it declines. src/slates/store.ts#MemorySlateStore, src/environments/store.ts#MemoryEnvironmentStore and src/definition/package-store.ts#ProjectedPackageStore each perform one write per call with no transaction handle to share, so their custody registers first and their row lands second: a fault between the two leaves a retained edge no record names and no removal path releases, which collection is required never to reclaim and therefore never frees. The safe ordering is deliberate \u2014 the reverse would lose content a landed record names \u2014 and the Slate draft path buffers its registrations so a faulted transaction discards both, which test/content/record-custody.test.ts asserts. Closing it needs those three planes to expose a transaction the content plane can enlist in, the way src/agents/runs/store.ts, src/substrates/sqlite/invocations/persistence.ts and src/workspaces/persistence.ts already do; that is a plane-shape change in W8 and W4 files rather than more custody wiring",
@@ -166,11 +184,16 @@
       "specTextSha256": "sha256:099344f157293aca7636e56c923c09078b752c22261749456adf634bb6deaa88",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/content/store.ts#ContentStore"],
+      "sourceSymbols": [
+        "src/content/store.ts#ContentStore"
+      ],
       "testSelectors": [
         "test/content/sqlite.test.ts#SqliteContentStore [C13-CONTENT-RESOLUTION] resolves content and retention edges after an adapter restart"
       ],
-      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "checkerInvariants": [
+        "ACQ-IMPORT",
+        "ACQ-TEST"
+      ],
       "remainingEvidence": []
     },
     {
@@ -180,12 +203,17 @@
       "specTextSha256": "sha256:80fb9bcada9a0d76261521c3eb046aea00961147925f3ee8a894d19d6ab14e0d",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/protocol/dispatcher.ts#CommandDispatcher"],
+      "sourceSymbols": [
+        "src/protocol/dispatcher.ts#CommandDispatcher"
+      ],
       "testSelectors": [
         "test/protocol/tenant-decision.test.ts#[C13-PROTOCOL-ATOMIC-EVIDENCE] (memory) an effect that lands without its linked evidence is refused",
         "test/protocol/tenant-decision.test.ts#[C13-PROTOCOL-ATOMIC-EVIDENCE] (sqlite) an effect that lands without its linked evidence is refused"
       ],
-      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "checkerInvariants": [
+        "ACQ-IMPORT",
+        "ACQ-TEST"
+      ],
       "remainingEvidence": []
     },
     {
@@ -195,12 +223,17 @@
       "specTextSha256": "sha256:a8a62cc4584ede418ea1d7a180e34de4297108386ef6ab4e67679994130143d1",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/protocol/dispatcher.ts#CommandDispatcher"],
+      "sourceSymbols": [
+        "src/protocol/dispatcher.ts#CommandDispatcher"
+      ],
       "testSelectors": [
         "test/protocol/tenant-decision.test.ts#[C13-PROTOCOL-DUPLICATE] (memory) a redelivered cross-Actor command replays the recorded outcome with exactly one effect and a distinguishable audit entry",
         "test/protocol/tenant-decision.test.ts#[C13-PROTOCOL-DUPLICATE] (sqlite) a redelivered cross-Actor command replays the recorded outcome with exactly one effect and a distinguishable audit entry"
       ],
-      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "checkerInvariants": [
+        "ACQ-IMPORT",
+        "ACQ-TEST"
+      ],
       "remainingEvidence": []
     },
     {
@@ -210,13 +243,18 @@
       "specTextSha256": "sha256:79ba1aa5ba515b0973a7e38e2714ab7d2794bd0f76ffee07a5649575c48c3fcc",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/protocol/dispatcher.ts#CommandDispatcher"],
+      "sourceSymbols": [
+        "src/protocol/dispatcher.ts#CommandDispatcher"
+      ],
       "testSelectors": [
         "test/protocol/codec.test.ts#CommandEnvelope codec [C13-PROTOCOL-EXACT-ENVELOPE] [command-envelope] round-trips absent optional fields and every Actor caller kind",
         "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) [C13-PROTOCOL-EXACT-ENVELOPE] preserves the qualified current lease across restart and rejects its PrincipalId from another Tenant",
         "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (SQLite) [C13-PROTOCOL-EXACT-ENVELOPE] preserves the qualified current lease across restart and rejects its PrincipalId from another Tenant"
       ],
-      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "checkerInvariants": [
+        "ACQ-IMPORT",
+        "ACQ-TEST"
+      ],
       "remainingEvidence": []
     },
     {
@@ -235,7 +273,10 @@
         "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) [C13-PROTOCOL-FAMILY-ENVELOPE-POLICY] enforces every revision and lease field policy",
         "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (SQLite) [C13-PROTOCOL-FAMILY-ENVELOPE-POLICY] enforces every revision and lease field policy"
       ],
-      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "checkerInvariants": [
+        "ACQ-IMPORT",
+        "ACQ-TEST"
+      ],
       "remainingEvidence": []
     },
     {
@@ -245,11 +286,16 @@
       "specTextSha256": "sha256:3048a41969c38519ac8e7a019971a2a295e0871b994e5cca188dfbdf29bfe830",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/protocol/dispatcher.ts#CommandDispatcher"],
+      "sourceSymbols": [
+        "src/protocol/dispatcher.ts#CommandDispatcher"
+      ],
       "testSelectors": [
         "test/protocol/tenant-decision.test.ts#[C13-PROTOCOL-OUTCOMES] [actor-local-store] [protocol-persistence] two hosts decide every declared command outcome identically"
       ],
-      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "checkerInvariants": [
+        "ACQ-IMPORT",
+        "ACQ-TEST"
+      ],
       "remainingEvidence": [],
       "bounds": [
         "Determinism is measured across hosts, not across runs. Twelve cases run on the memory and SQLite compositions agree case by case including on the envelope digest, so the two hosts are shown to have decided the same bytes rather than merely to have produced the same labels, and the observed outcome set equals the exact declared CommandOutcome union. Not measured: repeated runs of one host, and concurrent interleaving of two commands on one Actor. 'Two hosts agree once' and 'one host agrees with itself always' are different facts and only the first is evidenced. This is the same reading the prior citation claimed for the [actor-local-store] [protocol-persistence] seam pair, so the bound is inherited rather than introduced. (W1, ProtocolEvidence.)"
@@ -262,12 +308,17 @@
       "specTextSha256": "sha256:b1070d79ff78b899a0699c34708ed90dedeadd1d66af6ef410724afe0921c475",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/protocol/dispatcher.ts#CommandDispatcher"],
+      "sourceSymbols": [
+        "src/protocol/dispatcher.ts#CommandDispatcher"
+      ],
       "testSelectors": [
         "test/protocol/tenant-decision.test.ts#[C13-PROTOCOL-REJECTION-ROOT] (memory) a cross-Actor rejection with no usable caller cause still produces an attributable host root",
         "test/protocol/tenant-decision.test.ts#[C13-PROTOCOL-REJECTION-ROOT] (sqlite) a cross-Actor rejection with no usable caller cause still produces an attributable host root"
       ],
-      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "checkerInvariants": [
+        "ACQ-IMPORT",
+        "ACQ-TEST"
+      ],
       "remainingEvidence": [],
       "bounds": [
         "The field-level root assertion covers two of the six rejection outcomes directly. In the (memory) and (sqlite) cases of the cited test, the two expect blocks whose keys include rootKind, rootCause, rootIsTheDecidingHost and correlationIsHostMinted check the audit for kind write, absent cause, naming its own write, the deciding host's Actor and tenant, and a correlation measured to differ from the caller's decision correlation - one block for the rejectedAuthority traversal, one for the rejectedMalformed traversal whose caller cause belongs to the other Actor. The remaining four outcomes - rejectedLease, rejectedLifecycle, rejectedRevision, rejectedAuthentication - are covered by the plane-level attribution walk, which requires every audit in the Actor's plane to reach a root section 8.5 admits with actor, tenant and correlation held constant along the chain, and by host-to-host parity on whether the decision's audit is a root. The atom's stated MUST is covered for all eight outcomes; what is checked on two rather than six is the field-by-field shape of the root, not the property that a rejection is attributable. (W1, ProtocolEvidence.)"
@@ -288,7 +339,10 @@
         "test/protocol/persistence-memory.test.ts#ProtocolPersistence (memory) [C13-PROTOCOL-WRITE-AUDIT-LINK] persists only reciprocal WriteRecord and AuditRecord links",
         "test/protocol/persistence-sqlite.test.ts#ProtocolPersistence (SQLite) [C13-PROTOCOL-WRITE-AUDIT-LINK] persists only reciprocal WriteRecord and AuditRecord links"
       ],
-      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "checkerInvariants": [
+        "ACQ-IMPORT",
+        "ACQ-TEST"
+      ],
       "remainingEvidence": []
     }
   ]

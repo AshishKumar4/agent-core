@@ -83,6 +83,7 @@ describe("W1 verification manifest", () => {
         expect(manifest.sourceFiles).toEqual(taxonomy.sources);
         expect(integration.sourceExtensions).toEqual(["src/actors/id.ts", "src/core/narrow.ts"]);
         expect(integration.testExtensions).toEqual([
+            "test/content/record-custody.test.ts",
             "test/core/errors.test.ts",
             "test/core/narrow.test.ts"
         ]);

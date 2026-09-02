@@ -141,7 +141,7 @@ function createHarness(): DerivationHarness {
 
 describe("Run derivation totality", () => {
     test(
-        "[C13-RUN-FRONTIER-COMPLETE] a reserved-minus-completed frontier rejects an unreadable record set rather than answering short",
+        "[C13-CODEC-INCOMPATIBILITY-TOTAL] [C13-RUN-FRONTIER-COMPLETE] a reserved-minus-completed frontier rejects an unreadable record set rather than answering short",
         { tags: "p0" },
         async () => {
             // The readable answer is one outstanding obligation; a reader that skipped the
@@ -162,7 +162,7 @@ describe("Run derivation totality", () => {
     );
 
     test(
-        "[C13-RUN-ANCESTRY] an ancestry walk rejects an unreadable record set rather than answering not-an-ancestor",
+        "[C13-CODEC-INCOMPATIBILITY-TOTAL] [C13-RUN-ANCESTRY] an ancestry walk rejects an unreadable record set rather than answering not-an-ancestor",
         { tags: "p0" },
         async () => {
             // A walk that stops at the first commit it cannot decode answers `false`, which
@@ -185,7 +185,7 @@ describe("Run derivation totality", () => {
     );
 
     test(
-        "[C13-RUN-SETTLED-DERIVED] a settlement test rejects an unreadable record set rather than reporting settled",
+        "[C13-CODEC-INCOMPATIBILITY-TOTAL] [C13-RUN-SETTLED-DERIVED] a settlement test rejects an unreadable record set rather than reporting settled",
         { tags: "p0" },
         async () => {
             // Two of three obligations are discharged, so the readable answer is `false`. A
