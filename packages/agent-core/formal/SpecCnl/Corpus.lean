@@ -10,6 +10,7 @@ import SpecCnl.Units.Receipts
 import SpecCnl.Units.RunGraph
 import SpecCnl.Units.RunSettle
 import SpecCnl.Units.TrustRoute
+import SpecCnl.Units.ViewPlan
 
 /-!
 # The corpus: reviewed controlled-language input
@@ -485,7 +486,7 @@ def units : List RuleUnit :=
   coreUnits ++ Units.Auth.units ++ Units.Isolate.units ++ Units.Commands.units ++
     Units.FacetInstall.units ++ Units.Placement.units ++ Units.RunGraph.units ++
     Units.TrustRoute.units ++ Units.Claims.units ++ Units.Receipts.units ++
-    Units.RunSettle.units ++ Units.NoRetry.units
+    Units.RunSettle.units ++ Units.NoRetry.units ++ Units.ViewPlan.units
 
 /-- The unit with this key, if any. -/
 def find? (key : String) : Option RuleUnit := units.find? (fun unit => unit.key == key)

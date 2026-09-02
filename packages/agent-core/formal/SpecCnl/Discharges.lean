@@ -10,6 +10,7 @@ import SpecCnl.Proofs.Receipts
 import SpecCnl.Proofs.RunGraph
 import SpecCnl.Proofs.RunSettle
 import SpecCnl.Proofs.TrustRoute
+import SpecCnl.Proofs.ViewPlan
 
 /-!
 # Every discharge, assembled

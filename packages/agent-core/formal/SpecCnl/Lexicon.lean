@@ -9,6 +9,7 @@ import SpecCnl.Entries.Receipts
 import SpecCnl.Entries.RunGraph
 import SpecCnl.Entries.RunSettle
 import SpecCnl.Entries.TrustRoute
+import SpecCnl.Entries.ViewPlan
 import SpecCnl.Grammar
 import SpecCnl.Parse
 
@@ -689,7 +690,7 @@ def lexicon : List LexEntry :=
     Entries.Auth.entries ++ Entries.Isolate.entries ++ Entries.Commands.entries ++
     Entries.FacetInstall.entries ++ Entries.Placement.entries ++ Entries.RunGraph.entries ++
     Entries.TrustRoute.entries ++ Entries.Claims.entries ++ Entries.Receipts.entries ++
-    Entries.RunSettle.entries ++ Entries.NoRetry.entries
+    Entries.RunSettle.entries ++ Entries.NoRetry.entries ++ Entries.ViewPlan.entries
 
 /-- An entry id may use lowercase letters, digits, and dots, and must start with a
 letter.

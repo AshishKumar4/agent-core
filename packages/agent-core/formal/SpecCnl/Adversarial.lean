@@ -12,6 +12,7 @@ import SpecCnl.Negatives.Receipts
 import SpecCnl.Negatives.RunGraph
 import SpecCnl.Negatives.RunSettle
 import SpecCnl.Negatives.TrustRoute
+import SpecCnl.Negatives.ViewPlan
 
 /-!
 # The adversarial corpus
@@ -196,7 +197,7 @@ def cases : List Case :=
   coreCases ++ Negatives.Auth.cases ++ Negatives.Isolate.cases ++ Negatives.Commands.cases ++
     Negatives.FacetInstall.cases ++ Negatives.Placement.cases ++ Negatives.RunGraph.cases ++
     Negatives.TrustRoute.cases ++ Negatives.Claims.cases ++ Negatives.Receipts.cases ++
-    Negatives.RunSettle.cases ++ Negatives.NoRetry.cases
+    Negatives.RunSettle.cases ++ Negatives.NoRetry.cases ++ Negatives.ViewPlan.cases
 
 /-- Adjacent-token transpositions of a sentence, dropping any that reproduce the input. -/
 def scrambles (sentence : String) : List String :=

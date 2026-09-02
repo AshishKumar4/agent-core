@@ -8,6 +8,7 @@ import AgentCore.Cnl.Placement
 import AgentCore.Cnl.Receipts
 import AgentCore.Cnl.RunGraph
 import AgentCore.Cnl.TrustRoute
+import AgentCore.Cnl.ViewPlan
 
 /-!
 # Theorems the controlled language needs, grouped by SPEC domain
