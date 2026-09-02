@@ -21,8 +21,9 @@ const packageRoot = join(import.meta.dirname, "..", "..");
 
 /** Atoms whose rule unit is hard-excluded, from artifacts/cnl/ratchet.json. */
 const excluded = new Set(
-    JSON.parse(readFileSync(join(packageRoot, "artifacts", "cnl", "ratchet.json"), "utf8"))
-        .exclusions.flatMap((exclusion) => exclusion.atoms)
+    JSON.parse(
+        readFileSync(join(packageRoot, "artifacts", "cnl", "ratchet.json"), "utf8")
+    ).exclusions.flatMap((exclusion) => exclusion.atoms)
 );
 
 /** Atoms already claimed by a corpus unit, read from the corpus itself. */
@@ -194,7 +195,7 @@ const groups = [
             "C13-PREPARED-ITEM-KEYS",
             "C13-PREPARED-REPLAY-IDENTITY",
             "C13-PREPARED-ROUTED-PROJECTION",
-            "C13-PREPARED-NO-TURN-OWNER",
+            "C13-PREPARED-NO-TURN-OWNER"
         ]
     },
     {
