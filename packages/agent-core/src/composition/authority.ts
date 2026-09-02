@@ -22,6 +22,14 @@ import type { LeaseToken, TurnLease } from "../agents";
 import type { RouteReservationId } from "../interaction-references";
 import type { MediatedReplayBinding } from "../operations";
 
+/**
+ * Why a stale mediated re-check refuses, stated once. The thrown error and the durable
+ * `deniedPreEffect` Receipt a stale observation writes (§3.4 rule 7) must say the same
+ * thing: a caller reading the error and an auditor reading the Receipt are looking at one
+ * refusal, and two independently spelled reasons would make that impossible to confirm.
+ */
+export const MEDIATED_STALE_DENIAL_REASON = "Mediated authority intent is stale";
+
 export interface OperationResolutionEvidence {
     readonly principal: PrincipalRef;
     readonly binding: Binding;
@@ -393,7 +401,7 @@ export class TenantOperationAuthority<Caller> implements OperationAuthorityPort<
             !this.state.admits(resolution, descriptor, inputs, at)
         ) {
             this.state.observeStale(resolution, descriptor, inputs);
-            throw denied("Mediated authority intent is stale");
+            throw denied(MEDIATED_STALE_DENIAL_REASON);
         }
         return new MediatedAuthorityIntent(
             resolution.principal,

@@ -1,6 +1,7 @@
 export { TenantAuthoredCodeDelegationPort, isolateDomain } from "./authored-code";
 export type { IsolateGatewayFactory, TenantAuthoredCodeDelegationInit } from "./authored-code";
 export {
+    MEDIATED_STALE_DENIAL_REASON,
     MediatedAuthorityIntent,
     ResolvedOperationAuthority,
     ResolutionStamp,
@@ -102,7 +103,9 @@ export type {
 } from "./run-evidence";
 export { DurableRunAdmissionPort } from "./run-admission";
 export { ActorAuthorityState } from "./authority-state";
-export type { ActorAuthorityHost } from "./authority-state";
+export type { ActorAuthorityHost, StaleDenialEvidence } from "./authority-state";
+export { DerivedDenialAuthorityHost, DerivedStaleDenialEvidence } from "./authority-denial";
+export type { ActorDenialIdentity, StaleDenialRecords } from "./authority-denial";
 export { SlateRuntimeBackend } from "./slate-profile";
 export type { SlateRuntimePort } from "./slate-profile";
 export { assembleSingleTenantPolicy, TenantMultiplicityPolicy } from "./single-tenant";

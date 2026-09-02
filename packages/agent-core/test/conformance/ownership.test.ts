@@ -10,6 +10,15 @@ import {
 import { CodecDeclaration } from "../../src/core";
 import { SqliteActorStore, type TransactionalSqlite } from "../../src/substrates";
 import { sqliteInteger, TestSqlite } from "../helpers/sqlite";
+import { sourceProject } from "../../scripts/quality/evidence.mjs";
+import {
+    AUTHORITY_RECORD_CLASSES,
+    DERIVED_CACHE_INVENTORY,
+    discoverDerivedCaches,
+    discoverPersistenceSurfaces,
+    validateAuthorityPlaneExclusivity,
+    validateDerivedCacheInventory
+} from "../../scripts/quality/record-ownership.mjs";
 
 interface ContractActor {
     currentFence(): Promise<ActorFence>;
@@ -98,6 +107,80 @@ describe("Actor ownership contract", () => {
             });
             expect(harness.value()).toBe(2);
             await expect(recovered.increment()).resolves.toBe(3);
+        }
+    );
+});
+
+describe("one durable owner per record kind", () => {
+    test(
+        "[C13-OWNERSHIP-AUTHORITY-RECORDS] [C13-OWNERSHIP-SINGLE-OWNER] no durable surface outside the Tenant authority plane can hold a Binding, Grant or ScopeEpoch",
+        { tags: "p0", timeout: 60_000 },
+        () => {
+            const surfaces = discoverPersistenceSurfaces(sourceProject());
+            expect(surfaces.length).toBeGreaterThan(50);
+            expect(() => validateAuthorityPlaneExclusivity(surfaces)).not.toThrow();
+
+            // The Run and Workspace Actors are the two the rule names, and what they hold
+            // of the authority plane is nothing at all — not the record and not an index
+            // of it. A dedicated Run Actor therefore has no local Binding projection to
+            // authorize from, which is why §7.2 leaves it on the mediated path.
+            const runAndWorkspace = surfaces.filter(
+                (surface) =>
+                    surface.context.startsWith("src/agents/") ||
+                    surface.context.startsWith("src/workspaces/")
+            );
+            expect(runAndWorkspace.length).toBeGreaterThan(0);
+            expect(runAndWorkspace.flatMap((surface) => surface.records)).toEqual([]);
+
+            // A unique registry declaration cannot see this: the adversary registers
+            // nothing and simply adds the member. Each of the three records must be
+            // refused on its own, so a check that noticed only Bindings would fail here.
+            for (const record of AUTHORITY_RECORD_CLASSES) {
+                const dualWriter = {
+                    selector: `src/workspaces/persistence.ts#WorkspacePersistence`,
+                    context: "src/workspaces/persistence.ts",
+                    records: [{ record, member: `put${record}` }]
+                };
+                expect(() => validateAuthorityPlaneExclusivity([...surfaces, dualWriter])).toThrow(
+                    `Durable surface outside the Tenant authority plane holds ${record}: src/workspaces/persistence.ts#WorkspacePersistence`
+                );
+            }
+        }
+    );
+
+    test(
+        "[C13-OWNERSHIP-SINGLE-OWNER] the derived cache inventory is the whole set, and each entry states how the cache survives loss",
+        { tags: "p0", timeout: 60_000 },
+        () => {
+            const caches = discoverDerivedCaches(sourceProject());
+            expect(() => validateDerivedCacheInventory(caches)).not.toThrow();
+            expect(caches.map((cache) => cache.source).sort()).toEqual(
+                DERIVED_CACHE_INVENTORY.map((entry) => entry.source).sort()
+            );
+
+            // Every entry names a real cache and a test that shows it rebuilt, so the
+            // inventory cannot record a property nothing demonstrates.
+            for (const entry of DERIVED_CACHE_INVENTORY) {
+                expect(entry.test).toMatch(/^test\/.+#.+$/);
+                expect(entry.rebuiltBy.length).toBeGreaterThan(0);
+            }
+
+            // A cache the tree grows and the inventory does not know about is refused —
+            // which is what turns "every cache is rebuildable" from a claim about the one
+            // measured case into a claim about the set.
+            expect(() =>
+                validateDerivedCacheInventory([
+                    ...caches,
+                    { source: "src/workspaces/persistence.ts#WorkspacePersistence.#bindingCache" }
+                ])
+            ).toThrow(
+                "Derived cache is not in the inventory: src/workspaces/persistence.ts#WorkspacePersistence.#bindingCache"
+            );
+            // And an inventory entry whose cache was deleted is refused too, so the list
+            // cannot outlive what it describes.
+            expect(() => validateDerivedCacheInventory([])).toThrow(
+                /Derived cache inventory names no such cache/
+            );
         }
     );
 });

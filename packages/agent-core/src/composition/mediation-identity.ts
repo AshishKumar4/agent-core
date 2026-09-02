@@ -12,7 +12,9 @@ import {
 } from "../invocations";
 import type { MediatedInvocationIdentityPort } from "../invocations";
 import type { MediatedInvocationPreflight } from "../operations";
-import { canonicalFacetData } from "../facets";
+import { canonicalFacetData, type FacetData, type OperationDescriptor } from "../facets";
+import { scopeKey } from "../authority";
+import type { OperationResolutionState } from "./authority";
 
 /**
  * Every mediation identifier is a domain-separated digest of the durable evidence that
@@ -31,6 +33,7 @@ import { canonicalFacetData } from "../facets";
 const IDENTITY_DOMAIN = Object.freeze({
     invocation: "agent-core.identity.invocation.v1",
     directInvocation: "agent-core.identity.direct-invocation.v1",
+    staleDenialInvocation: "agent-core.identity.stale-denial-invocation.v1",
     directItem: "agent-core.identity.direct-item.v1",
     idempotencySeed: "agent-core.identity.idempotency-seed.v1",
     correlation: "agent-core.identity.correlation.v1",
@@ -93,6 +96,52 @@ export class DerivedMediationIdentities implements MediatedInvocationIdentityPor
     public directInvocation(requestKey: string): InvocationId {
         return new InvocationId(
             derive(IDENTITY_DOMAIN.directInvocation, { requestKey, scope: this.scope })
+        );
+    }
+
+    /**
+     * The Invocation a stale mediated observation denies (§3.4 rule 7, §7.4). It is minted
+     * under its own domain because the mediated `invocation` derivation is unreachable
+     * here: a stale re-check throws before `replayBinding` exists, so the replay reservation
+     * that identity commits to has not been formed yet. What HAS been formed is the exact
+     * resolution the caller presented, and every field below is part of what made this
+     * intent distinct — so two different stale operations never collide, and the same stale
+     * observation retried after a crash recomputes the same Receipt and AuditRecord ids
+     * instead of forking a second denial for one refusal.
+     *
+     * The Binding generation and the resolution's own path epochs are in the evidence
+     * deliberately: they are the STALE values the caller presented, not the current ones,
+     * which is what makes the identity name this refusal rather than the state that
+     * replaced it.
+     */
+    public staleDenialInvocation(
+        resolution: OperationResolutionState,
+        descriptor: OperationDescriptor,
+        inputs: readonly FacetData[]
+    ): InvocationId {
+        return new InvocationId(
+            derive(IDENTITY_DOMAIN.staleDenialInvocation, {
+                binding: {
+                    generation: resolution.binding.generation,
+                    key: resolution.binding.key
+                },
+                descriptor: Digest.sha256(encodeCanonicalJson(descriptor.toData())).value,
+                execution: executionReference(resolution),
+                facet: resolution.binding.facet.value,
+                owner: { id: resolution.owner.id.value, kind: resolution.owner.kind },
+                path: resolution.pathEpochs.path.map((entry) => [
+                    scopeKey(entry.scope),
+                    entry.epoch
+                ]),
+                payload: inputs.map(
+                    (input) => Digest.sha256(encodeCanonicalJson(canonicalFacetData(input))).value
+                ),
+                principal: {
+                    principal: resolution.principal.principalId.value,
+                    tenant: resolution.principal.tenantId.value
+                },
+                scope: this.scope
+            })
         );
     }
 
@@ -186,4 +235,25 @@ export class DerivedMediationIdentities implements MediatedInvocationIdentityPor
 
 function derive(domain: string, evidence: JsonValue): string {
     return `${domain}:${Digest.sha256(encodeCanonicalJson({ domain, evidence })).value}`;
+}
+
+/**
+ * Which execution a resolution was issued against, as identity evidence. A Turn-leased
+ * resolution and a route-driven one are different intents even for the same Binding and
+ * arguments, and a resolution carrying neither is a third case rather than a missing
+ * field — stating all three keeps the absent one from digesting the same as a Turn whose
+ * token happened to be omitted.
+ */
+function executionReference(resolution: OperationResolutionState): JsonValue {
+    if (resolution.lease !== undefined) {
+        return {
+            epoch: resolution.lease.epoch,
+            kind: "turn",
+            turn: resolution.lease.turn.value
+        };
+    }
+    if (resolution.route !== undefined) {
+        return { kind: "route", route: resolution.route.value };
+    }
+    return { kind: "none" };
 }

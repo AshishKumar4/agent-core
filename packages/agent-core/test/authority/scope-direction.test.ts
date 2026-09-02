@@ -2,6 +2,22 @@ import { describe, expect, test } from "vitest";
 import { ActorId, ActorRef } from "../../src/actors";
 import { Digest, Revision, encodeCanonicalJson } from "../../src/core";
 import { BindingName, CapabilitySpec, FacetRef, ProtectionDomain } from "../../src/facets";
+import { MemoryWorkspaceSlotStore } from "../../src/facets/slot-memory";
+import { WorkspaceSlotCatalog, type SlotQueryAuthorityPort } from "../../src/facets/slot-store";
+import { contribute, entry, install, slot } from "../w3/slot-store-contract";
+import {
+    MemoryWorkspaceRecords,
+    WorkspacePersistence,
+    eventMatches,
+    type Subscription
+} from "../../src/workspaces";
+import {
+    eventFixture,
+    sourceActor,
+    subscriptionFixture,
+    targetActor,
+    tenant as routingTenant
+} from "../workspaces/fixtures";
 import {
     PrincipalId,
     Project,
@@ -45,6 +61,29 @@ const mailObserve = new CapabilitySpec({
     facetPattern: "workspace:mail.*",
     impacts: ["observe"]
 });
+/**
+ * The Workspace id a Tenant-scoped Slot Actor would answer under. Slot storage is keyed
+ * by exactly one WorkspaceId (src/facets/slot-store.ts#WorkspaceSlotStore), so "installed
+ * at the Tenant" has no other spelling today — and naming it here is what keeps the case
+ * meaningful once one exists.
+ */
+const tenantSlotHost = new WorkspaceId("workspace-scope-direction-tenant-host");
+const viewer: Readonly<{ readonly authentication: string }> = Object.freeze({
+    authentication: "scope-direction"
+});
+
+/**
+ * A slot authority that refuses nothing. The confinement under test is the store's, so
+ * every policy answer here is deliberately permissive: a case that passed because the
+ * authority port said no would prove nothing about Scope direction.
+ */
+function permissive(workspace: WorkspaceId): SlotQueryAuthorityPort<typeof viewer> {
+    return {
+        workspace: () => workspace,
+        canViewSlot: async () => true,
+        canViewEntry: async () => true
+    };
+}
 
 describe("authority resolves downward along the Scope chain", () => {
     test(
@@ -224,7 +263,232 @@ describe("authority resolves downward along the Scope chain", () => {
             expect(store.grant(childAbove)).toBeUndefined();
         }
     );
+
+    test(
+        "[C13-AUTH-SCOPE-DIRECTION] a Facet installed above a Workspace composes into no slot query beneath it",
+        { tags: "p0" },
+        async () => {
+            // A Slot Actor is keyed by exactly one WorkspaceId today, so an ancestor-scoped
+            // slot store is not representable and the ancestor's installation has to be
+            // modelled as the store such an Actor WOULD own. That is the whole point of the
+            // case: the confinement must not depend on the ancestor-scoped store staying
+            // absent, because the day one is added it will hold a Slot with this exact
+            // declaration, this exact contributor, and an entry a descendant would happily
+            // render if anything let it through.
+            const above = new MemoryWorkspaceSlotStore(tenantSlotHost);
+            install(above, slot());
+            contribute(above, entry("workspace:mail", 1, { title: "Installed at the Tenant" }));
+            const beneath = new MemoryWorkspaceSlotStore(nearId);
+            install(beneath, slot());
+
+            // Nothing here refuses on policy. Both authority ports below authorize the
+            // viewer, the Slot, and every entry, so a query that returned the ancestor's
+            // entry would be composition rather than a permission bug — which is the
+            // direction the regression would actually arrive from.
+            const declaration = slot().declaration.name;
+            const beneathCatalog = new WorkspaceSlotCatalog(beneath, viewer, permissive(nearId));
+            await expect(beneathCatalog.query(declaration)).resolves.toEqual([]);
+
+            // The entry exists and the Slot name matches: queried at the Workspace that owns
+            // it, the same catalog over the same declaration answers with it. So the empty
+            // answer above is confinement, not an absent fixture.
+            const aboveCatalog = new WorkspaceSlotCatalog(
+                above,
+                viewer,
+                permissive(tenantSlotHost)
+            );
+            await expect(aboveCatalog.query(declaration)).resolves.toEqual([
+                expect.objectContaining({ value: { title: "Installed at the Tenant" } })
+            ]);
+
+            // And there is no way to ask the ancestor's store on a descendant's behalf: the
+            // catalog binds to the viewer's own Workspace at construction, so an ancestor's
+            // entries have no path into a descendant's query even when the authority port
+            // would allow every one of them.
+            expect(() => new WorkspaceSlotCatalog(above, viewer, permissive(nearId))).toThrow(
+                expect.objectContaining({
+                    code: "authority.denied",
+                    message: "SlotCatalog requires an authenticated viewer for its Workspace"
+                })
+            );
+        }
+    );
+
+    test(
+        "[C13-AUTH-SCOPE-DIRECTION] an Event reaches only Subscriptions the accepting Actor itself holds",
+        { tags: "p0" },
+        () => {
+            const event = eventFixture("scope-direction");
+            const held = subscriptionFixture("scope-direction-accepting");
+            const sideways = subscriptionFixture("scope-direction-sibling");
+
+            // The matcher cannot separate these: both patterns accept this exact Event on
+            // kind, source and trust, which is everything §6 gives it to compare. So if
+            // confinement lived in the matcher it would already have failed here.
+            expect(eventMatches(held.source, event)).toBe(true);
+            expect(eventMatches(sideways.source, event)).toBe(true);
+
+            const accepting = workspaceRecords(sourceActor, held);
+            const sibling = workspaceRecords(targetActor, sideways);
+
+            // Each Actor's candidate set is its own store's Subscriptions and nothing
+            // else. The sibling's Subscription matches the Event exactly and is still not
+            // a candidate where the Event is accepted, so a route is something an Actor
+            // declares for itself rather than something a matching pattern earns.
+            expect(subscriptionIds(accepting)).toEqual([held.id.value]);
+            expect(subscriptionIds(sibling)).toEqual([sideways.id.value]);
+
+            // The discriminator: widen the candidate supply past the accepting Actor and
+            // the sibling's Subscription becomes a candidate for the same Event, against
+            // the same matcher and the same records. The assertion above is what that
+            // mutation turns red.
+            expect(subscriptionIds(widened(accepting, sibling))).toEqual([
+                held.id.value,
+                sideways.id.value
+            ]);
+        }
+    );
+
+    test(
+        "[C13-AUTH-SCOPE-DIRECTION] reacting across Scopes needs a declared Subscription and a Grant that reaches its Binding",
+        { tags: "p0" },
+        () => {
+            const event = eventFixture("scope-direction-cross");
+            const declared = subscriptionFixture("scope-direction-cross");
+
+            // Standing above the Event's Workspace earns nothing. Before the route is
+            // declared the reacting Actor's candidate set is empty even though its
+            // pattern would match, which is the difference between a declared route and
+            // inherited visibility.
+            const reacting = workspaceRecords(sourceActor);
+            expect(subscriptionIds(reacting)).toEqual([]);
+            expect(eventMatches(declared.source, event)).toBe(true);
+
+            reacting.persistence.saveSubscription(reacting.records, declared, undefined);
+            expect(subscriptionIds(reacting)).toEqual([declared.id.value]);
+
+            // And the declared route carries its own delivery authority rather than the
+            // Event's: it names a Binding, and that Binding resolves down the same chain
+            // every other authority decision in this file uses. Held at the Project the
+            // Grant reaches the Workspace beneath it.
+            if (declared.authority.kind !== "initiator") {
+                throw new TypeError("Route fixture must declare initiator authority");
+            }
+            const routeName = declared.authority.binding;
+            const { store, service, runtime } = fixture();
+            const above = new GrantId("scope-direction-route-above");
+            service.createGrant(grant(above, projectScope));
+            const binding = Binding.active(nearScope, subject, domain, routeName, above, facet);
+            service.createBinding(binding);
+            expect(check(runtime, binding, path(store, nearScope)).allowed).toBe(true);
+
+            // Held at the Workspace next door it reaches nothing, so the route's delivery
+            // is refused there for the same reason a Binding is: the Grant is off the
+            // target's ancestry.
+            const { service: other, runtime: otherRuntime, store: otherStore } = fixture();
+            const sideways = new GrantId("scope-direction-route-sideways");
+            other.createGrant(grant(sideways, siblingScope));
+            expect(() =>
+                other.createBinding(
+                    Binding.active(nearScope, subject, domain, routeName, sideways, facet)
+                )
+            ).toThrow(
+                expect.objectContaining({
+                    code: "authority.denied",
+                    message:
+                        "Binding requires a live allow Grant for its subject and Workspace path"
+                })
+            );
+            expect(otherStore.bindings()).toEqual([]);
+            expect(
+                otherRuntime.check(
+                    new AuthorityCheckRequest({
+                        ownerTenant: tenantId,
+                        owner: workspaceActor,
+                        ownerFence: 1,
+                        principal: holder,
+                        binding: Binding.active(
+                            nearScope,
+                            subject,
+                            domain,
+                            routeName,
+                            sideways,
+                            facet
+                        ),
+                        intent: {
+                            facet,
+                            operation: "read",
+                            impact: "observe",
+                            arguments: argumentsValue,
+                            argumentsDigest
+                        },
+                        expectedPath: path(otherStore, nearScope),
+                        invocationDigest: Digest.sha256(Uint8Array.of(7)),
+                        itemIndex: 0,
+                        attemptOrdinal: 0,
+                        nonce: "scope-direction-route-sideways"
+                    }),
+                    new Date(5_000)
+                ).allowed
+            ).toBe(false);
+        }
+    );
 });
+
+/** Content retention is not what this proves; the store is. */
+const routingRetention = { verify: () => true, release: () => {}, discard: () => {} };
+
+interface WorkspaceRecords {
+    readonly records: MemoryWorkspaceRecords;
+    readonly persistence: WorkspacePersistence<MemoryWorkspaceRecords>;
+}
+
+/** One Workspace Actor's own record store, optionally holding one declared Subscription. */
+function workspaceRecords(actor: ActorRef, declared?: Subscription): WorkspaceRecords {
+    const records = new MemoryWorkspaceRecords();
+    const persistence = new WorkspacePersistence<MemoryWorkspaceRecords>(
+        (value) => value,
+        routingRetention,
+        actor,
+        routingTenant
+    );
+    if (declared !== undefined) persistence.saveSubscription(records, declared, undefined);
+    return { records, persistence };
+}
+
+function subscriptionIds(owned: WorkspaceRecords): readonly string[] {
+    return owned.persistence
+        .listSubscriptions(owned.records)
+        .map((subscription) => subscription.id.value);
+}
+
+/**
+ * The mutation the Event conjunct needs: a candidate supply that reaches past the
+ * accepting Actor into a sibling's store. Overriding the one method the routing snapshot
+ * calls is the whole of it — there is no separate subscription-supply port to widen, so
+ * this is exactly the shape the regression would take.
+ */
+function widened(accepting: WorkspaceRecords, sibling: WorkspaceRecords): WorkspaceRecords {
+    class WidenedPersistence extends WorkspacePersistence<MemoryWorkspaceRecords> {
+        public override listSubscriptions(
+            transaction: MemoryWorkspaceRecords
+        ): readonly Subscription[] {
+            return [
+                ...super.listSubscriptions(transaction),
+                ...sibling.persistence.listSubscriptions(sibling.records)
+            ];
+        }
+    }
+    return {
+        records: accepting.records,
+        persistence: new WidenedPersistence(
+            (value) => value,
+            routingRetention,
+            sourceActor,
+            routingTenant
+        )
+    };
+}
 
 /** A bootstrapped Tenant holding one Project with two sibling Workspaces under it. */
 function fixture() {

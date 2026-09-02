@@ -361,16 +361,28 @@
       "owner": "W2",
       "specAnchor": "C13-AUTH-ISOLATE-NAMESPACE-CLOSED",
       "specTextSha256": "sha256:aad6bba45210c6c34f7a67ae810503dad0087705555ad0c21e6642124c4611b2",
-      "status": "planned",
+      "status": "implemented",
       "prerequisites": ["C13-AUTH-BINDING-NAME-CANONICAL", "C13-AUTH-ISOLATE-DELEGATION"],
-      "sourceSymbols": [],
-      "testSelectors": [],
+      "sourceSymbols": ["src/composition/authored-code.ts#TenantAuthoredCodeDelegationPort"],
+      "testSelectors": [
+        "test/conformance/isolate-namespace.test.ts#the capability namespace a §4.7 isolate is given [C13-AUTH-ISOLATE-NAMESPACE-CLOSED] every namespace keys by a Map, and a prototype-bearing structure is refused",
+        "test/conformance/isolate-namespace.test.ts#the capability namespace a §4.7 isolate is given [C13-AUTH-ISOLATE-NAMESPACE-CLOSED] no namespace answers a name the hosting language supplies",
+        "test/conformance/isolate-namespace.test.ts#the capability namespace a §4.7 isolate is given [C13-AUTH-ISOLATE-NAMESPACE-CLOSED] the programmaticToolCall consumer reaches exactly the passed set and nothing beside it",
+        "test/conformance/isolate-namespace.test.ts#the capability namespace a §4.7 isolate is given [C13-AUTH-ISOLATE-NAMESPACE-CLOSED] the slateBackend consumer reaches exactly the passed set and nothing beside it",
+        "test/conformance/isolate-namespace.test.ts#the capability namespace a §4.7 isolate is given [C13-AUTH-ISOLATE-NAMESPACE-CLOSED] the agentAuthoredFacet consumer reaches exactly the passed set and nothing beside it",
+        "test/authority/isolate-namespace-refusal.test.ts#an inadmissible capability name is refused, never renamed [C13-AUTH-ISOLATE-NAMESPACE-CLOSED] every repair a host might apply reaches an admissible name the plane has already bound",
+        "test/authority/isolate-namespace-refusal.test.ts#an inadmissible capability name is refused, never renamed [C13-AUTH-ISOLATE-NAMESPACE-CLOSED] refuses the inadmissible spelling at the name, the record, and the decode boundary",
+        "test/authority/isolate-namespace-refusal.test.ts#an inadmissible capability name is refused, never renamed [C13-AUTH-ISOLATE-NAMESPACE-CLOSED] refuses an empty name without substituting one",
+        "test/authority/isolate-namespace-refusal.test.ts#an inadmissible capability name is refused, never renamed [C13-AUTH-ISOLATE-NAMESPACE-CLOSED] admits the longest canonical name and refuses the next character rather than truncating it"
+      ],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "W3 holds the isolate channel: src/operations/authored-code.ts#AuthoredCodeCapabilitySet keys the namespace by a Map and GatewayAuthoredCodeInvocationPort checks passed-set membership before resolving, with test/operations/authored-code.test.ts covering an unpassed language-supplied name, a passed one, and the fixed set, so a W2 row cannot cite them under the evidence-ownership rule",
-        "Closure is unproven for the Slate-backend and agent-authored-facet consumers: only the programmatic-tool-call channel has a covered namespace",
-        "No checker forbids a host from assembling a capability namespace as a prototype-bearing structure, so the Map keying is a convention rather than an enforced one",
-        "The no-renaming half is now proven in test/authority/isolate-namespace-refusal.test.ts, which is why this row stays planned only on the three items above: for every repair a host might apply — trim, case-fold, NFKC, combining-mark strip, truncate to the 256-character limit — the file first proves the repaired spelling is admissible and already bound, then proves the inadmissible spelling is refused at the BindingName, at the Binding record, and at Binding.fromData, leaving exactly the one Binding that was written. An empty name is refused with no substituted default, and the longest canonical name is admitted while the next character is refused rather than truncated. A mutation making Binding.fromData normalize the decoded name instead of refusing it turns that file red."
+        "W3 holds the isolate channel and W2 cannot cite it: src/operations/authored-code.ts#AuthoredCodeCapabilitySet keys the namespace by a Map and GatewayAuthoredCodeInvocationPort checks passed-set membership before resolving, with test/operations/authored-code.test.ts covering an unpassed language-supplied name, a passed one, and the fixed set. The evidence-ownership rule leaves those uncitable here, so the channel-level proof stays owed to W3 even though the closure it states is now also held at the W9-owned conformance seam this row cites"
+      ],
+      "bounds": [
+        "Consumer closure is proved at the host seam, which is as far as the tree reaches. src/operations/authored-code.ts#AuthoredCodeHost.run takes the consumer and selects a backing by it, but the only production caller is the programmatic-tool-call Operation, whose input schema pins that one consumer; no code path runs a Slate backend or an agent-authored Facet, and neither a Slate nor a dispatch-namespace AuthoredCodeBacking exists. The cited cases therefore drive all three consumers through the real host with a recording backing, and what they establish is that the namespace handed to a backing is the delegated set whichever consumer selected it — not that a deployed Slate backend behaves this way, which needs the consumer to exist first.",
+        "The structural half checks the two declared §4.7 namespaces key by a Map. It reads the declared member type, so it catches a namespace re-assembled as an object or a Record and does not attempt to decide arbitrary container shapes; the behavioural half holds the same claim from the outside for every inherited name that is also an admissible BindingName.",
+        "The structural guard itself is scripts/quality/record-ownership.mjs#validateClosedNamespaceStructure, exercised by the cited conformance case. It is W0-owned, so this row names it here rather than citing it: requireEvidenceOwner admits only W2 and W9 source under a W2 row, and a checker living in the quality scripts is neither."
       ]
     },
     {
@@ -410,7 +422,10 @@
         "src/authority/runtime.ts#TenantAuthorityRuntime.check",
         "src/authority/watermark-store.ts#InvalidationWatermarkStore",
         "src/authority/watermark-store.ts#MemoryInvalidationWatermarkStore",
-        "src/substrates/sqlite/watermark.ts#SqliteInvalidationWatermarkStore"
+        "src/substrates/sqlite/watermark.ts#SqliteInvalidationWatermarkStore",
+        "src/composition/authority-denial.ts#DerivedStaleDenialEvidence",
+        "src/composition/authority-denial.ts#DerivedDenialAuthorityHost",
+        "src/composition/mediation-identity.ts#DerivedMediationIdentities"
       ],
       "testSelectors": [
         "test/authority/runtime-foundation.test.ts#Tenant authority runtime [C13-AUTH-MEDIATED-STALE] returns current path evidence and detects stale evidence",
@@ -426,14 +441,21 @@
         "test/composition/authority-state.test.ts#production authority state (sqlite) [C13-AUTH-MEDIATED-STALE] [C13-AUTH-RESOLUTION-LIFETIME] a stale observation atomically joins the watermark, invalidates the cache, and records the denial without an EffectAttempt",
         "test/composition/stale-denial.test.ts#stale mediated authority produces durable denial evidence (§3.4 rule 7) [C13-AUTH-MEDIATED-STALE] advancing a scope epoch denies mediated with joined watermark, invalidation, and evidence",
         "test/authority/mediated-stale-adversarial.test.ts#the durable target-local denial a stale mediated read commits: memory [C13-AUTH-MEDIATED-STALE] [C13-ADV-MEDIATED-STALE] advances the watermark strictly before it appends the denial",
-        "test/authority/mediated-stale-adversarial.test.ts#the durable target-local denial a stale mediated read commits: sqlite [C13-AUTH-MEDIATED-STALE] [C13-ADV-MEDIATED-STALE] advances the watermark strictly before it appends the denial"
+        "test/authority/mediated-stale-adversarial.test.ts#the durable target-local denial a stale mediated read commits: sqlite [C13-AUTH-MEDIATED-STALE] [C13-ADV-MEDIATED-STALE] advances the watermark strictly before it appends the denial",
+        "test/composition/derived-denial.test.ts#the denial content a stale mediated observation derives [C13-AUTH-MEDIATED-STALE] shipped code derives the whole §7.4 chain from the stale resolution",
+        "test/composition/derived-denial.test.ts#the denial content a stale mediated observation derives [C13-AUTH-MEDIATED-STALE] the derived edge is the one the audit chain admits, and a supplied one need not be",
+        "test/composition/derived-denial.test.ts#the denial content a stale mediated observation derives [C13-AUTH-MEDIATED-STALE] one stale resolution derives one denial, and every changed evidence field derives another",
+        "test/composition/derived-denial.test.ts#the denial content a stale mediated observation derives [C13-AUTH-MEDIATED-STALE] observeStale persists exactly the derived pair and no host-chosen record",
+        "test/composition/derived-denial.test.ts#the denial content a stale mediated observation derives [C13-AUTH-MEDIATED-STALE] a resolution the host will not answer for derives no denial"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": [
-        "One clause remains, and it is no longer the order. No production ActorAuthorityHost exists in the tree: src/composition/authority-state.ts#ActorAuthorityHost is implemented only by test harnesses, so the Receipt and AuditRecord CONTENT a deployment would write is still host-supplied rather than derived by shipped code. That file is W9's and this stream may not add the production host, so the clause is owed by whoever lands it"
+        "The clause is no longer that the content is unshipped. src/composition/authority-denial.ts#DerivedStaleDenialEvidence derives the whole §7.4 chain — the Invocation, its correlation, the deniedPreEffect Receipt and the AuditRecord edge — from the stale resolution, and src/composition/authority-denial.ts#DerivedDenialAuthorityHost is the production host a deployment extends to get it, leaving abstract only the members the port comment already names as real boundaries. What remains is that ActorAuthorityHost still declares denialEvidence, so a deployment that implements the interface directly can supply its own content instead. Closing that means removing the member and deriving inside ActorAuthorityState, which rewrites the two cited order harnesses and is a port change this stream was not scoped to make"
       ],
       "bounds": [
-        "The order clause that used to be recorded here as undischargeable is discharged, and how it is discharged is the bound. The join-before-denial sequence is observed AT the InvalidationWatermarkStore and denial-append seams as the production code calls them, not reconstructed from durable state after the commit, because both writes land in one Actor transaction and no post-commit witness can tell the required order from the reverse. Reversing the two statements in ActorAuthorityState.observeStale turns exactly the two cited order tests red and nothing else, which is what makes them the sole discriminator of that clause"
+        "The order clause that used to be recorded here as undischargeable is discharged, and how it is discharged is the bound. The join-before-denial sequence is observed AT the InvalidationWatermarkStore and denial-append seams as the production code calls them, not reconstructed from durable state after the commit, because both writes land in one Actor transaction and no post-commit witness can tell the required order from the reverse. Reversing the two statements in ActorAuthorityState.observeStale turns exactly the two cited order tests red and nothing else, which is what makes them the sole discriminator of that clause",
+        "The denial Invocation is minted under its own derivation domain because the mediated one is unreachable at a stale re-check: the refusal throws before replayBinding exists, so the replay reservation that identity commits to has not been formed. What the stale-denial identity commits to instead is the exact resolution the caller presented — principal, Binding key and generation, the stale path epochs, the descriptor, the payload digests and the execution reference — which is what makes one refusal recomputable and two different refusals distinct.",
+        "The Invocation root the denial chains to is derived here but written by the deployment: the port's appendDenial carries the pair, not the root, so a host that opens the Invocation at refusal time writes records(...).root and one that opened it earlier recomputes the identical id. This row does not claim a deployment that writes neither still produces an admissible chain — the audit rule refuses that edge, which the cited case shows."
       ]
     },
     {
@@ -555,22 +577,37 @@
       "owner": "W2",
       "specAnchor": "C13-AUTH-SCOPE-DIRECTION",
       "specTextSha256": "sha256:17e1d2eb740d936c817a99a6731f2dee4ff266ba9f601114d5ea13893f056398",
-      "status": "planned",
+      "status": "implemented",
       "prerequisites": [
         "C13-AUTH-DENY-PRECEDENCE",
         "C13-AUTH-PATH-ORDER",
         "C13-FACET-SLOT-VISIBILITY",
         "C13-SUBSCRIPTION-AUTHORITY"
       ],
-      "sourceSymbols": [],
-      "testSelectors": [],
+      "sourceSymbols": [
+        "src/identity/scope.ts#scopePath",
+        "src/authority/runtime.ts#TenantAuthorityRuntime",
+        "src/authority/service.ts#AuthorityMutationService",
+        "src/authority/closure.ts#assertAuthorityClosure"
+      ],
+      "testSelectors": [
+        "test/authority/scope-direction.test.ts#authority resolves downward along the Scope chain [C13-AUTH-SCOPE-DIRECTION] the resolution path is the exact ordered ancestry and names no sibling or descendant",
+        "test/authority/scope-direction.test.ts#authority resolves downward along the Scope chain [C13-AUTH-SCOPE-DIRECTION] a live allow Grant held at the Tenant or the Project reaches a Workspace beneath it",
+        "test/authority/scope-direction.test.ts#authority resolves downward along the Scope chain [C13-AUTH-SCOPE-DIRECTION] a sibling Workspace's Grant reaches nothing here while an ancestor's does",
+        "test/authority/scope-direction.test.ts#authority resolves downward along the Scope chain [C13-AUTH-SCOPE-DIRECTION] a Binding backed by a sibling Workspace's Grant is refused at every site that writes or reads it",
+        "test/authority/scope-direction.test.ts#authority resolves downward along the Scope chain [C13-AUTH-SCOPE-DIRECTION] authority never resolves upward: an attenuation from a descendant is refused where it is written",
+        "test/authority/scope-direction.test.ts#authority resolves downward along the Scope chain [C13-AUTH-SCOPE-DIRECTION] a Facet installed above a Workspace composes into no slot query beneath it",
+        "test/authority/scope-direction.test.ts#authority resolves downward along the Scope chain [C13-AUTH-SCOPE-DIRECTION] an Event reaches only Subscriptions the accepting Actor itself holds",
+        "test/authority/scope-direction.test.ts#authority resolves downward along the Scope chain [C13-AUTH-SCOPE-DIRECTION] reacting across Scopes needs a declared Subscription and a Grant that reaches its Binding"
+      ],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "The authority half of the downward direction is now discriminated and stays uncited only because a planned row may carry no selectors: test/authority/scope-direction.test.ts proves against src/identity/scope.ts#scopePath and src/authority/runtime.ts#TenantAuthorityRuntime that the resolution path is the exact ordered ancestry and names no sibling or descendant; that a live allow Grant held at the Tenant or the Project reaches a Workspace beneath it at both validateBinding and check; that the same deny held at a sibling Workspace reaches nothing while one held at the Project does; that a Binding backed by a sibling's Grant is refused at src/authority/service.ts#requireBindingAuthority, at validateBinding, and by the closure src/authority/closure.ts asserts on every commit; and that an attenuation from a descendant is refused by Grant.canAttenuate, by createGrant, and by that same closure. The POLICY half is still absent: nothing asserts that declared PolicySet material — enforcement tiers, quotas, retention — resolves along the same path, and src/definition/policy.ts is W4, so a host resolving policy per-Workspace only would satisfy every current test",
-        "The composition conjunct is true by construction and unasserted, which is the direction a regression arrives from: src/facets/slot-store.ts#WorkspaceSlotCatalog reads a WorkspaceSlotStore and can only return the queried Workspace's own entries, so an ancestor's install cannot compose into a descendant today because no ancestor-scoped slot store exists. Closure needs the adversarial case — a Facet installed at the Tenant, a slot query at a Workspace beneath it, no entry returned — so the confinement survives the day a Tenant-scoped store is added",
-        "The Event conjunct cannot be proved by the matcher and has to be proved at the store that supplies candidate Subscriptions: src/workspaces/policy.ts#eventMatches compares kind, source and accepted trust only, so a Subscription (src/workspaces/subscription.ts#Subscription) whose pattern matches an Event accepted by a sibling or ancestor Actor exactly must still be shown never to receive it, and a mutation widening the candidate set past the accepting Actor must break a cited test",
-        "The positive cross-Scope path is untested as a Scope statement: a Tenant reacting to a Workspace Event must be shown to require a declared Subscription whose delivery authority is checked under C13-SUBSCRIPTION-AUTHORITY, and the same reaction must be impossible without that Subscription and its Grant, which is what separates a declared route from inherited visibility",
-        "The first of the two mutations this rule needs is now proven and the second is not. Narrowing the resolver's reach set in src/authority/runtime.ts#TenantAuthorityRuntime from the target's ancestry to the Scope holding the Grant turns the two positive reach tests red, and narrowing scopeReaches in the same file to an equality turns the validateBinding half red; both were applied, observed red, reverted, and observed green. The companion mutation — a slot entry or an Event that traverses the chain the way a Grant does — cannot be authored by W2: it needs src/facets/slot-store.ts (W3) and src/workspaces/{policy,subscription}.ts (W7)"
+        "One mutation is still owed and W2 cannot author it. The two authority-side mutations are proven: narrowing the resolver's reach set in src/authority/runtime.ts#TenantAuthorityRuntime from the target's ancestry to the Scope holding the Grant turns the two positive reach tests red, and narrowing scopeReaches in the same file to an equality turns the validateBinding half red; both were applied, observed red, reverted, and observed green. The companion — a slot entry or an Event that traverses the chain the way a Grant does — needs src/facets/slot-store.ts (W3) and src/workspaces/{policy,subscription}.ts (W7) plus a W0 lane to record the kills, so it stays owed by those owners"
+      ],
+      "bounds": [
+        "The three conjuncts this row promoted on are proved where each one is decidable, not where it would be most convenient. Slot confinement is proved at src/facets/slot-store.ts#WorkspaceSlotCatalog rather than at a Tenant-scoped slot store, because slot storage is keyed by exactly one WorkspaceId and an ancestor-scoped store is not representable today; the cited case therefore models the ancestor's installation as the store such an Actor would own and pins the two lines that will still refuse when one exists — the owner equality at construction and at query — with an authority port that authorizes everything, so no case passes because a policy said no.",
+        "The Event conjunct is proved at the candidate supply and not at the matcher, because src/workspaces/policy.ts#eventMatches compares kind, source and accepted trust only and accepts the sibling's Subscription for the same Event. What the cited test holds is that each Actor's candidates are its own store's Subscriptions, and it states the mutation explicitly by widening that supply and showing the sibling's Subscription become a candidate. The full SourceEventProtocol snapshot/prepare path is not exercised here; the store that supplies it is.",
+        "The cross-Scope positive path is proved as a Scope statement rather than as a delivery: the reacting Actor holds no candidate until the Subscription is declared, and the Binding that Subscription names resolves down the same ancestry every other case in the file uses. Running the route to a delivered Invocation belongs to C13-SUBSCRIPTION-AUTHORITY and is not claimed here."
       ]
     },
     {
@@ -592,7 +629,7 @@
       "checkerInvariants": [],
       "remainingEvidence": [
         "Principal-independence is enforced today at the durable custody boundary and in the custody lookup: BindingCredentialCustody.fromData admits exactly an (endpoint, secret) fact and refuses any further discriminant, and Binding.hasCredentialCustody decides from the (SecretRef, endpoint) pair with no subject input, so two Principals of one Tenant observe the identical answer. That is the half of the rule a record can carry",
-        "The other half needs the seam that does not exist yet. C13-CONFIG-SECRET-CUSTODY's remaining provider work is a concrete credential-isolation adapter; until it exists nothing demonstrates that a live resolution presents the (SecretRef, consumer, endpoint) triple with no Principal component, that a resolution refused for one Principal is refused for every Principal of that Tenant, or that a seam offered a Principal-qualified key fails the attempt rather than degrading to a narrower scope"
+        "The other half exists and is uncitable from here rather than missing. C13-CONFIG-SECRET-CUSTODY's adapter is src/definition/credential-custody.ts#RecordedCustodySeam over #CredentialIsolationSeam: its #CredentialResolutionRequest is exactly the (SecretRef, consumer, endpoint) triple with no Principal, Membership or presenter component and freezes itself so none can be added, and RecordedCustodySeam.resolve refuses an inexact request up front rather than degrading to a narrower scope. Every executed selector for those clauses lives in test/definition/credential-custody.test.ts and every symbol under src/definition, both W4-owned, so requireEvidenceOwner bars this W2 row from citing either. The clause is therefore owed as a cross-row dependency on C13-CONFIG-SECRET-CUSTODY, not as unbuilt work"
       ]
     },
     {

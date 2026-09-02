@@ -36,14 +36,27 @@
       "owner": "W0",
       "specAnchor": "C13-OWNERSHIP-AUTHORITY-RECORDS",
       "specTextSha256": "sha256:f30e59854af61ab03e5ed8f68db9f0eb153e3c953951fba86a5c86114c9b8d23",
-      "status": "planned",
+      "status": "implemented",
       "prerequisites": [],
-      "sourceSymbols": [],
-      "testSelectors": [],
+      "sourceSymbols": [
+        "src/authority/service.ts#AuthorityMutationService",
+        "src/authority/planner.ts#EpochPlanner",
+        "scripts/quality/record-ownership.mjs#discoverPersistenceSurfaces",
+        "scripts/quality/record-ownership.mjs#validateAuthorityPlaneExclusivity"
+      ],
+      "testSelectors": [
+        "test/conformance/ownership.test.ts#one durable owner per record kind [C13-OWNERSHIP-AUTHORITY-RECORDS] [C13-OWNERSHIP-SINGLE-OWNER] no durable surface outside the Tenant authority plane can hold a Binding, Grant or ScopeEpoch",
+        "test/conformance/profile-base.test.ts#Profile base conformance [C13-OWNERSHIP-AUTHORITY-RECORDS] declares Binding, Grant, and ScopeEpoch only in the Tenant authority plane",
+        "test/substrates/sqlite/behavior-branches.test.ts#SQLite Tenant control behavior branches [C13-OWNERSHIP-AUTHORITY-RECORDS] [authority-mutation-store] [identity-repository] memory and SQLite keep Binding transitions and path epochs in one Tenant control plane",
+        "test/substrates/sqlite/behavior-branches.test.ts#SQLite Tenant control behavior branches [C13-OWNERSHIP-AUTHORITY-RECORDS] memory rolls back a Binding write when its same-transaction epoch advance fails",
+        "test/substrates/sqlite/behavior-branches.test.ts#SQLite Tenant control behavior branches [C13-OWNERSHIP-AUTHORITY-RECORDS] sqlite rolls back a Binding write when its same-transaction epoch advance fails"
+      ],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "Creating, replacing, and deactivating a Binding now advances its path epoch in the same Tenant-local transaction, with memory and SQLite success, idempotence, and rollback coverage; the record registry also declares Binding, Grant, and ScopeEpoch only in the Tenant authority store",
-        "The remaining evidence must discriminate against an undeclared Workspace or Run store persisting a canonical or mirrored Binding, Grant, or ScopeEpoch; rejecting a duplicate registry row does not detect an implementation that dual-writes without registering the second plane"
+        "The dual-write discriminator reaches one package. scripts/quality/record-ownership.mjs#discoverPersistenceSurfaces walks packages/agent-core/src only, so a second durable plane added under packages/agent-core-cloudflare/src would hold a Binding, Grant or ScopeEpoch without failing anything — the same defect class the walk exists to catch, one package over. Extending it needs the Cloudflare surfaces classified the same way and is owed with W8's ownership work"
+      ],
+      "bounds": [
+        "The discriminator is structural and its boundary is a bounded context, not a store list: a durable surface may name Binding, Grant or ScopeEpoch only if it is declared inside the authority context AGENTS.md already assigns those records to. That is what makes it independent of the registry — an unregistered second plane is caught by the member signature it has to declare, which is the case a duplicate-row check cannot see. It does not attempt to decide, within that context, which surface persists a record and which only reads or joins one; src/authority/watermark-store.ts#InvalidationWatermarkStore accepts ScopeEpoch values and persists a joined watermark rather than a ScopeEpoch record, and the walk admits it on context rather than on that distinction."
       ]
     },
     {
@@ -65,16 +78,31 @@
       "owner": "W0",
       "specAnchor": "C13-OWNERSHIP-SINGLE-OWNER",
       "specTextSha256": "sha256:ca218efab81a2ec9c0c068d73d5ae5fabb92b8de45544267ae13fd5a4862942d",
-      "status": "planned",
+      "status": "implemented",
       "prerequisites": [],
-      "sourceSymbols": [],
-      "testSelectors": [],
+      "sourceSymbols": [
+        "scripts/quality/record-ownership.mjs#validateRecordOwnership",
+        "scripts/quality/record-ownership.mjs#discoverPersistenceSurfaces",
+        "scripts/quality/record-ownership.mjs#validateAuthorityPlaneExclusivity",
+        "scripts/quality/record-ownership.mjs#discoverDerivedCaches",
+        "scripts/quality/record-ownership.mjs#validateDerivedCacheInventory",
+        "src/composition/authority-state.ts#ActorAuthorityState"
+      ],
+      "testSelectors": [
+        "test/conformance/ownership.test.ts#one durable owner per record kind [C13-OWNERSHIP-AUTHORITY-RECORDS] [C13-OWNERSHIP-SINGLE-OWNER] no durable surface outside the Tenant authority plane can hold a Binding, Grant or ScopeEpoch",
+        "test/conformance/ownership.test.ts#one durable owner per record kind [C13-OWNERSHIP-SINGLE-OWNER] the derived cache inventory is the whole set, and each entry states how the cache survives loss",
+        "test/conformance/profile-base.test.ts#Profile base conformance [C13-OWNERSHIP-SINGLE-OWNER] rejects a second durable plane for every registered record kind",
+        "test/composition/authority-state.test.ts#production authority state seams (memory) [C13-OWNERSHIP-SINGLE-OWNER] drops and rebuilds the derived authority cache from canonical Tenant state",
+        "test/integration/cache-loss.test.ts#[C13-ADV-CACHE-LOSS] rebuilds a lost derived index from canonical content"
+      ],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "The importable record-ownership validator and its all-kind adversary prove that the declared registry cannot name a second owner for a durable kind, and the authority-state contract proves one derived cache can be dropped and rebuilt",
-        "Rule 2 still needs implementation-linked evidence for the constrained dedicated-Run index and for every other Actor retaining identifiers or rebuildable indexes rather than replayable canonical state",
-        "Rule 3 still needs a complete cache inventory proving every cache is derived, versioned, rebuildable, and treats a miss as ordinary; one authority-cache loss case is not the universal claim",
-        "Rule 4 still needs a discriminator for undeclared dual writes and evidence that cross-Actor reads use RPC or explicitly versioned snapshots; a unique registry declaration alone cannot prove either absence"
+        "Rule 4's second half is still owed. The undeclared-dual-write half is now discriminated structurally rather than by registry uniqueness, but nothing yet shows that cross-Actor reads use RPC or explicitly versioned snapshots; that is a statement about how one Actor reads another's state, which no walk over persistence surfaces reaches",
+        "The same walk reaches packages/agent-core/src only, so a second durable plane or an undeclared cache added under packages/agent-core-cloudflare/src is outside both the plane check and the cache inventory. Extending both to the second package is owed with W8's ownership work"
+      ],
+      "bounds": [
+        "Rule 2 is answered by absence, and the absence is the evidence: no surface in src/agents or src/workspaces names Binding, Grant or ScopeEpoch at all — not the record and not an index of one — so a dedicated Run Actor holds no local Binding projection to authorize from and §7.2 leaves it on the mediated path. The cited case asserts that emptiness against the discovered surface set rather than asserting the constrained index exists, because it does not.",
+        "Rule 3's inventory is complete by discovery rather than by assertion: a cache is a class-private property whose name or declared type marks it a cache or a derived index, the discovered set and the declared inventory must be equal, and each entry names the test that shows it rebuilt. Two caches meet that predicate today. Cache backends a host supplies through a seam — the web response cache and the device result cache — are constructor parameters rather than owned state and hold no derived copy of canonical durable state, so they are outside the inventory by the same predicate."
       ]
     }
   ]

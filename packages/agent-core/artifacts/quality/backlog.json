@@ -312,12 +312,9 @@
       "source": { "kind": "conformance", "id": "C13-AUTH-ISOLATE-NAMESPACE-CLOSED" },
       "owner": "W2",
       "priority": 5,
-      "summary": "Advance C13-AUTH-ISOLATE-NAMESPACE-CLOSED from planned with exact evidence",
+      "summary": "Advance C13-AUTH-ISOLATE-NAMESPACE-CLOSED from implemented with exact evidence",
       "notes": [
-        "W3 holds the isolate channel: src/operations/authored-code.ts#AuthoredCodeCapabilitySet keys the namespace by a Map and GatewayAuthoredCodeInvocationPort checks passed-set membership before resolving, with test/operations/authored-code.test.ts covering an unpassed language-supplied name, a passed one, and the fixed set, so a W2 row cannot cite them under the evidence-ownership rule",
-        "Closure is unproven for the Slate-backend and agent-authored-facet consumers: only the programmatic-tool-call channel has a covered namespace",
-        "No checker forbids a host from assembling a capability namespace as a prototype-bearing structure, so the Map keying is a convention rather than an enforced one",
-        "The no-renaming half is now proven in test/authority/isolate-namespace-refusal.test.ts, which is why this row stays planned only on the three items above: for every repair a host might apply — trim, case-fold, NFKC, combining-mark strip, truncate to the 256-character limit — the file first proves the repaired spelling is admissible and already bound, then proves the inadmissible spelling is refused at the BindingName, at the Binding record, and at Binding.fromData, leaving exactly the one Binding that was written. An empty name is refused with no substituted default, and the longest canonical name is admitted while the next character is refused rather than truncated. A mutation making Binding.fromData normalize the decoded name instead of refusing it turns that file red."
+        "W3 holds the isolate channel and W2 cannot cite it: src/operations/authored-code.ts#AuthoredCodeCapabilitySet keys the namespace by a Map and GatewayAuthoredCodeInvocationPort checks passed-set membership before resolving, with test/operations/authored-code.test.ts covering an unpassed language-supplied name, a passed one, and the fixed set. The evidence-ownership rule leaves those uncitable here, so the channel-level proof stays owed to W3 even though the closure it states is now also held at the W9-owned conformance seam this row cites"
       ],
       "oracle": {
         "kind": "conformance-status",
@@ -333,7 +330,7 @@
       "priority": 5,
       "summary": "Advance C13-AUTH-MEDIATED-STALE from implemented with exact evidence",
       "notes": [
-        "One clause remains, and it is no longer the order. No production ActorAuthorityHost exists in the tree: src/composition/authority-state.ts#ActorAuthorityHost is implemented only by test harnesses, so the Receipt and AuditRecord CONTENT a deployment would write is still host-supplied rather than derived by shipped code. That file is W9's and this stream may not add the production host, so the clause is owed by whoever lands it"
+        "The clause is no longer that the content is unshipped. src/composition/authority-denial.ts#DerivedStaleDenialEvidence derives the whole §7.4 chain — the Invocation, its correlation, the deniedPreEffect Receipt and the AuditRecord edge — from the stale resolution, and src/composition/authority-denial.ts#DerivedDenialAuthorityHost is the production host a deployment extends to get it, leaving abstract only the members the port comment already names as real boundaries. What remains is that ActorAuthorityHost still declares denialEvidence, so a deployment that implements the interface directly can supply its own content instead. Closing that means removing the member and deriving inside ActorAuthorityState, which rewrites the two cited order harnesses and is a port change this stream was not scoped to make"
       ],
       "oracle": {
         "kind": "conformance-status",
@@ -347,13 +344,9 @@
       "source": { "kind": "conformance", "id": "C13-AUTH-SCOPE-DIRECTION" },
       "owner": "W2",
       "priority": 5,
-      "summary": "Advance C13-AUTH-SCOPE-DIRECTION from planned with exact evidence",
+      "summary": "Advance C13-AUTH-SCOPE-DIRECTION from implemented with exact evidence",
       "notes": [
-        "The authority half of the downward direction is now discriminated and stays uncited only because a planned row may carry no selectors: test/authority/scope-direction.test.ts proves against src/identity/scope.ts#scopePath and src/authority/runtime.ts#TenantAuthorityRuntime that the resolution path is the exact ordered ancestry and names no sibling or descendant; that a live allow Grant held at the Tenant or the Project reaches a Workspace beneath it at both validateBinding and check; that the same deny held at a sibling Workspace reaches nothing while one held at the Project does; that a Binding backed by a sibling's Grant is refused at src/authority/service.ts#requireBindingAuthority, at validateBinding, and by the closure src/authority/closure.ts asserts on every commit; and that an attenuation from a descendant is refused by Grant.canAttenuate, by createGrant, and by that same closure. The POLICY half is still absent: nothing asserts that declared PolicySet material — enforcement tiers, quotas, retention — resolves along the same path, and src/definition/policy.ts is W4, so a host resolving policy per-Workspace only would satisfy every current test",
-        "The composition conjunct is true by construction and unasserted, which is the direction a regression arrives from: src/facets/slot-store.ts#WorkspaceSlotCatalog reads a WorkspaceSlotStore and can only return the queried Workspace's own entries, so an ancestor's install cannot compose into a descendant today because no ancestor-scoped slot store exists. Closure needs the adversarial case — a Facet installed at the Tenant, a slot query at a Workspace beneath it, no entry returned — so the confinement survives the day a Tenant-scoped store is added",
-        "The Event conjunct cannot be proved by the matcher and has to be proved at the store that supplies candidate Subscriptions: src/workspaces/policy.ts#eventMatches compares kind, source and accepted trust only, so a Subscription (src/workspaces/subscription.ts#Subscription) whose pattern matches an Event accepted by a sibling or ancestor Actor exactly must still be shown never to receive it, and a mutation widening the candidate set past the accepting Actor must break a cited test",
-        "The positive cross-Scope path is untested as a Scope statement: a Tenant reacting to a Workspace Event must be shown to require a declared Subscription whose delivery authority is checked under C13-SUBSCRIPTION-AUTHORITY, and the same reaction must be impossible without that Subscription and its Grant, which is what separates a declared route from inherited visibility",
-        "The first of the two mutations this rule needs is now proven and the second is not. Narrowing the resolver's reach set in src/authority/runtime.ts#TenantAuthorityRuntime from the target's ancestry to the Scope holding the Grant turns the two positive reach tests red, and narrowing scopeReaches in the same file to an equality turns the validateBinding half red; both were applied, observed red, reverted, and observed green. The companion mutation — a slot entry or an Event that traverses the chain the way a Grant does — cannot be authored by W2: it needs src/facets/slot-store.ts (W3) and src/workspaces/{policy,subscription}.ts (W7)"
+        "One mutation is still owed and W2 cannot author it. The two authority-side mutations are proven: narrowing the resolver's reach set in src/authority/runtime.ts#TenantAuthorityRuntime from the target's ancestry to the Scope holding the Grant turns the two positive reach tests red, and narrowing scopeReaches in the same file to an equality turns the validateBinding half red; both were applied, observed red, reverted, and observed green. The companion — a slot entry or an Event that traverses the chain the way a Grant does — needs src/facets/slot-store.ts (W3) and src/workspaces/{policy,subscription}.ts (W7) plus a W0 lane to record the kills, so it stays owed by those owners"
       ],
       "oracle": {
         "kind": "conformance-status",
@@ -370,7 +363,7 @@
       "summary": "Advance C13-AUTH-SECRET-SCOPE from implemented with exact evidence",
       "notes": [
         "Principal-independence is enforced today at the durable custody boundary and in the custody lookup: BindingCredentialCustody.fromData admits exactly an (endpoint, secret) fact and refuses any further discriminant, and Binding.hasCredentialCustody decides from the (SecretRef, endpoint) pair with no subject input, so two Principals of one Tenant observe the identical answer. That is the half of the rule a record can carry",
-        "The other half needs the seam that does not exist yet. C13-CONFIG-SECRET-CUSTODY's remaining provider work is a concrete credential-isolation adapter; until it exists nothing demonstrates that a live resolution presents the (SecretRef, consumer, endpoint) triple with no Principal component, that a resolution refused for one Principal is refused for every Principal of that Tenant, or that a seam offered a Principal-qualified key fails the attempt rather than degrading to a narrower scope"
+        "The other half exists and is uncitable from here rather than missing. C13-CONFIG-SECRET-CUSTODY's adapter is src/definition/credential-custody.ts#RecordedCustodySeam over #CredentialIsolationSeam: its #CredentialResolutionRequest is exactly the (SecretRef, consumer, endpoint) triple with no Principal, Membership or presenter component and freezes itself so none can be added, and RecordedCustodySeam.resolve refuses an inexact request up front rather than degrading to a narrower scope. Every executed selector for those clauses lives in test/definition/credential-custody.test.ts and every symbol under src/definition, both W4-owned, so requireEvidenceOwner bars this W2 row from citing either. The clause is therefore owed as a cross-row dependency on C13-CONFIG-SECRET-CUSTODY, not as unbuilt work"
       ],
       "oracle": {
         "kind": "conformance-status",
@@ -951,10 +944,9 @@
       "source": { "kind": "conformance", "id": "C13-OWNERSHIP-AUTHORITY-RECORDS" },
       "owner": "W0",
       "priority": 5,
-      "summary": "Advance C13-OWNERSHIP-AUTHORITY-RECORDS from planned with exact evidence",
+      "summary": "Advance C13-OWNERSHIP-AUTHORITY-RECORDS from implemented with exact evidence",
       "notes": [
-        "Creating, replacing, and deactivating a Binding now advances its path epoch in the same Tenant-local transaction, with memory and SQLite success, idempotence, and rollback coverage; the record registry also declares Binding, Grant, and ScopeEpoch only in the Tenant authority store",
-        "The remaining evidence must discriminate against an undeclared Workspace or Run store persisting a canonical or mirrored Binding, Grant, or ScopeEpoch; rejecting a duplicate registry row does not detect an implementation that dual-writes without registering the second plane"
+        "The dual-write discriminator reaches one package. scripts/quality/record-ownership.mjs#discoverPersistenceSurfaces walks packages/agent-core/src only, so a second durable plane added under packages/agent-core-cloudflare/src would hold a Binding, Grant or ScopeEpoch without failing anything — the same defect class the walk exists to catch, one package over. Extending it needs the Cloudflare surfaces classified the same way and is owed with W8's ownership work"
       ],
       "oracle": {
         "kind": "conformance-status",
@@ -968,12 +960,10 @@
       "source": { "kind": "conformance", "id": "C13-OWNERSHIP-SINGLE-OWNER" },
       "owner": "W0",
       "priority": 5,
-      "summary": "Advance C13-OWNERSHIP-SINGLE-OWNER from planned with exact evidence",
+      "summary": "Advance C13-OWNERSHIP-SINGLE-OWNER from implemented with exact evidence",
       "notes": [
-        "The importable record-ownership validator and its all-kind adversary prove that the declared registry cannot name a second owner for a durable kind, and the authority-state contract proves one derived cache can be dropped and rebuilt",
-        "Rule 2 still needs implementation-linked evidence for the constrained dedicated-Run index and for every other Actor retaining identifiers or rebuildable indexes rather than replayable canonical state",
-        "Rule 3 still needs a complete cache inventory proving every cache is derived, versioned, rebuildable, and treats a miss as ordinary; one authority-cache loss case is not the universal claim",
-        "Rule 4 still needs a discriminator for undeclared dual writes and evidence that cross-Actor reads use RPC or explicitly versioned snapshots; a unique registry declaration alone cannot prove either absence"
+        "Rule 4's second half is still owed. The undeclared-dual-write half is now discriminated structurally rather than by registry uniqueness, but nothing yet shows that cross-Actor reads use RPC or explicitly versioned snapshots; that is a statement about how one Actor reads another's state, which no walk over persistence surfaces reaches",
+        "The same walk reaches packages/agent-core/src only, so a second durable plane or an undeclared cache added under packages/agent-core-cloudflare/src is outside both the plane check and the cache inventory. Extending both to the second package is owed with W8's ownership work"
       ],
       "oracle": {
         "kind": "conformance-status",

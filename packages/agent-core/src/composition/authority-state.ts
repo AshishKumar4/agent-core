@@ -27,6 +27,17 @@ import type {
 } from "./authority";
 
 /**
+ * The durable pair one stale observation commits: a deniedPreEffect Receipt and the
+ * AuditRecord that chains it. They are one contract because §7.4 admits neither alone —
+ * a Receipt with no audit edge is unattributable and an audit edge with no Receipt is
+ * unsubstantiated — so no seam here may carry one without the other.
+ */
+export interface StaleDenialEvidence {
+    readonly receipt: PreEffectReceipt;
+    readonly audit: AuditRecord;
+}
+
+/**
  * The host-specific inputs an Actor's authority state composes: how resolution
  * candidates are built from materialized Bindings, where the current Turn lease
  * lives, which policy admits an operation, and how a denial persists. Each is a
@@ -61,7 +72,7 @@ export interface ActorAuthorityHost {
         resolution: OperationResolutionState,
         descriptor: OperationDescriptor,
         inputs: readonly FacetData[]
-    ): { readonly receipt: PreEffectReceipt; readonly audit: AuditRecord };
+    ): StaleDenialEvidence;
     transaction<Result>(operation: () => Result): Result;
 }
 

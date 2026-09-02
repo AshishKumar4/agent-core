@@ -17,6 +17,265 @@ const recordFields = [
 const contentBearingRecordFields = [...recordFields, "contentRetention"].sort();
 const runRepository = "src/agents/runs/store.ts#RunRepository";
 
+/**
+ * SPEC §8.4 rule 6 gives Binding, Grant and ScopeEpoch one owning Actor, the Tenant. A
+ * registry that names one owner per kind proves only that nobody DECLARED a second plane;
+ * an implementation that added `putBinding` to the Workspace persistence or the Run
+ * repository and never registered it would leave the registry unanimous and the rule
+ * broken, which is the defect this walk exists to catch.
+ *
+ * The discriminator is structural rather than declarative: a durable surface that can
+ * hold an authority record has to say so in a member signature, so the record classes
+ * reaching persistence surfaces outside the authority bounded context are exactly the
+ * second planes. The context is the one AGENTS.md already assigns — `src/authority` owns
+ * "Grants, Bindings, resolution, epochs, watermarks" — plus the substrate adapters that
+ * implement that context's stores and nothing else.
+ */
+export const AUTHORITY_RECORD_CLASSES = Object.freeze(["Binding", "Grant", "ScopeEpoch"]);
+const AUTHORITY_CONTEXT =
+    /^src\/(?:authority\/|substrates\/sqlite\/(?:authority|binding|bootstrap|tenant|watermark)\.ts$)/;
+const PERSISTENCE_SURFACE = /(?:Store|Persistence|Repository)$/;
+
+/**
+ * Every derived cache in the tree, and how each one satisfies §8.4 rule 3: derived from
+ * canonical state, versioned so a stale entry cannot be served, rebuildable after loss,
+ * and treating a miss as ordinary rather than as an error.
+ *
+ * This is the inventory the rule calls complete, and `discoverDerivedCaches` is what makes
+ * "complete" a fact instead of a claim: the discovered set and this list must be equal, so
+ * a cache added anywhere in `src` fails the check until it is entered here with the four
+ * properties named and a test that shows them.
+ */
+export const DERIVED_CACHE_INVENTORY = Object.freeze([
+    Object.freeze({
+        source: "src/composition/authority-state.ts#ActorAuthorityState.#cache",
+        derivedFrom: "src/composition/authority-state.ts#ActorAuthorityHost.resolve",
+        versionedBy: "the candidate's LeaseToken, revalidated against the host's live lease",
+        rebuiltBy: "a miss re-resolving through the host and re-populating the entry",
+        missIsOrdinary: "an absent or non-matching entry resolves again instead of failing",
+        test: "test/composition/authority-state.test.ts#production authority state seams (memory) [C13-OWNERSHIP-SINGLE-OWNER] drops and rebuilds the derived authority cache from canonical Tenant state"
+    }),
+    Object.freeze({
+        source: "src/facets/memory/facet.ts#MemoryBackend.#index",
+        derivedFrom: "src/facets/memory/facet.ts#MemoryContentBackend",
+        versionedBy: "replacement against the canonical entry set it was built from",
+        rebuiltBy: "src/facets/memory/facet.ts#MemoryIndexBackend.replace",
+        missIsOrdinary: "a search over a lost index answers empty rather than throwing",
+        test: "test/integration/cache-loss.test.ts#[C13-ADV-CACHE-LOSS] rebuilds a lost derived index from canonical content"
+    })
+]);
+const derivedCacheFields = [
+    "derivedFrom",
+    "missIsOrdinary",
+    "rebuiltBy",
+    "source",
+    "test",
+    "versionedBy"
+];
+/**
+ * Every durable persistence surface declared under `packages/agent-core/src`, with the
+ * authority record classes each one names and where. Separated from the rule below so a
+ * test can hold the discovered set against a surface the tree does not contain — a
+ * validator that can only read the tree cannot be shown to refuse anything.
+ */
+export function discoverPersistenceSurfaces(project) {
+    const surfaces = [];
+    for (const [path, source] of agentCoreSources(project)) {
+        for (const statement of source.statements) {
+            if (!ts.isClassDeclaration(statement) && !ts.isInterfaceDeclaration(statement)) {
+                continue;
+            }
+            if (statement.name === undefined || !PERSISTENCE_SURFACE.test(statement.name.text)) {
+                continue;
+            }
+            surfaces.push({
+                selector: `${path}#${statement.name.text}`,
+                context: path,
+                records: authorityRecordsNamedBy(statement, source)
+            });
+        }
+    }
+    return surfaces;
+}
+
+/**
+ * SPEC §8.4 rule 6 and C13-OWNERSHIP-AUTHORITY-RECORDS: no Actor other than the Tenant
+ * holds a canonical or mirrored Binding, Grant or ScopeEpoch. A surface outside the
+ * authority context that names one in a member signature is a second durable plane
+ * whether or not the registry was told about it.
+ */
+export function validateAuthorityPlaneExclusivity(surfaces) {
+    if (!Array.isArray(surfaces)) throw new TypeError("Persistence surfaces must be an array");
+    for (const surface of surfaces) {
+        if (!isJsonObject(surface) || !isNonEmptyString(surface.selector)) {
+            throw new TypeError("Persistence surface is malformed");
+        }
+        if (AUTHORITY_CONTEXT.test(String(surface.context)) || surface.records.length === 0) {
+            continue;
+        }
+        const named = [...new Set(surface.records.map((entry) => entry.record))].sort();
+        throw new TypeError(
+            `Durable surface outside the Tenant authority plane holds ${named.join(", ")}: ${surface.selector}`
+        );
+    }
+}
+
+/**
+ * Every cache in the tree: a class-private property whose name or declared type marks it
+ * as a cache or a derived index. Private is the discriminating half — an ordinal named
+ * `itemIndex` and a record's `cacheLineage` field are public data on a durable record,
+ * while owned rebuildable state is exactly the state a class keeps to itself.
+ */
+export function discoverDerivedCaches(project) {
+    const caches = [];
+    for (const [path, source] of agentCoreSources(project)) {
+        for (const statement of source.statements) {
+            if (!ts.isClassDeclaration(statement) || statement.name === undefined) continue;
+            for (const member of statement.members) {
+                if (!ts.isPropertyDeclaration(member)) continue;
+                const name = member.name?.getText(source) ?? "";
+                const owned =
+                    name.startsWith("#") || hasModifier(member, ts.SyntaxKind.PrivateKeyword);
+                if (!owned) continue;
+                const shape = `${name} ${member.type?.getText(source) ?? ""} ${
+                    member.initializer?.getText(source) ?? ""
+                }`;
+                if (!/cache|index/i.test(shape)) continue;
+                caches.push({ source: `${path}#${statement.name.text}.${name}` });
+            }
+        }
+    }
+    return caches;
+}
+
+/**
+ * SPEC §8.4 rule 3: every cache is derived, versioned, rebuildable, and treats a miss as
+ * ordinary. One cache-loss case proves that of one cache; this proves the inventory is
+ * the whole set, which is the half a single case cannot reach.
+ */
+export function validateDerivedCacheInventory(caches, inventory = DERIVED_CACHE_INVENTORY) {
+    for (const entry of inventory) {
+        if (!isJsonObject(entry) || !sameFields(entry, derivedCacheFields)) {
+            throw new TypeError("Derived cache inventory entry is malformed");
+        }
+        for (const field of derivedCacheFields) {
+            if (!isNonEmptyString(entry[field])) {
+                throw new TypeError(`Derived cache ${entry.source} is missing ${field}`);
+            }
+        }
+    }
+    const declared = [...new Set(inventory.map((entry) => entry.source))].sort();
+    if (declared.length !== inventory.length) {
+        throw new TypeError("Derived cache inventory declares one cache twice");
+    }
+    const discovered = [...new Set(caches.map((cache) => cache.source))].sort();
+    const undeclared = discovered.filter((source) => !declared.includes(source));
+    if (undeclared.length > 0) {
+        throw new TypeError(`Derived cache is not in the inventory: ${undeclared.join(", ")}`);
+    }
+    const stale = declared.filter((source) => !discovered.includes(source));
+    if (stale.length > 0) {
+        throw new TypeError(`Derived cache inventory names no such cache: ${stale.join(", ")}`);
+    }
+}
+
+/**
+ * The §4.7 capability namespaces: the name-keyed sets an isolate reaches its whole world
+ * through. A namespace assembled as a plain object answers its prototype's names as well
+ * as its own, so an isolate given one could address `constructor` or `toString` without
+ * anything being passed — and no `instanceof` check on the entries takes that back,
+ * because the leak is in the container rather than in what it holds.
+ *
+ * Keying by a Map is what closes it, and until this checker existed that was a convention
+ * a host could drop without any gate noticing.
+ */
+const NAMESPACE_STRUCTURES = Object.freeze([
+    Object.freeze({
+        source: "src/operations/authored-code.ts#AuthoredCodeCapabilitySet",
+        member: "#capabilities"
+    }),
+    Object.freeze({
+        source: "src/operations/authored-code.ts#AuthoredCodeBackingSet",
+        member: "#backings"
+    })
+]);
+const MAP_KEYED = /^(?:Readonly)?Map</;
+
+export { NAMESPACE_STRUCTURES };
+
+/** How each declared §4.7 namespace stores its entries, read off the declaration. */
+export function discoverNamespaceStructures(project) {
+    const wanted = new Map(NAMESPACE_STRUCTURES.map((entry) => [entry.source, entry.member]));
+    const structures = [];
+    for (const [path, source] of agentCoreSources(project)) {
+        for (const statement of source.statements) {
+            if (!ts.isClassDeclaration(statement) || statement.name === undefined) continue;
+            const selector = `${path}#${statement.name.text}`;
+            const member = wanted.get(selector);
+            if (member === undefined) continue;
+            const declared = statement.members.find(
+                (candidate) =>
+                    ts.isPropertyDeclaration(candidate) &&
+                    candidate.name?.getText(source) === member
+            );
+            if (declared === undefined) {
+                throw new TypeError(`§4.7 namespace member is missing: ${selector}`);
+            }
+            structures.push({
+                source: selector,
+                member,
+                keying: (declared.type?.getText(source) ?? "").trim()
+            });
+        }
+    }
+    const found = structures.map((entry) => entry.source);
+    for (const entry of NAMESPACE_STRUCTURES) {
+        if (!found.includes(entry.source)) {
+            throw new TypeError(`§4.7 namespace is missing: ${entry.source}`);
+        }
+    }
+    return structures;
+}
+
+/** SPEC §4.7: an isolate's namespace answers exactly the names it was passed. */
+export function validateClosedNamespaceStructure(structures) {
+    if (!Array.isArray(structures)) throw new TypeError("Namespace structures must be an array");
+    for (const structure of structures) {
+        if (!isJsonObject(structure) || !isNonEmptyString(structure.source)) {
+            throw new TypeError("Namespace structure is malformed");
+        }
+        if (!MAP_KEYED.test(String(structure.keying))) {
+            throw new TypeError(`§4.7 namespace is not keyed by a Map: ${structure.source}`);
+        }
+    }
+}
+
+/** Package-relative `src` paths and their parsed sources, from the one shared program. */
+function agentCoreSources(project) {
+    const sources = [];
+    for (const name of project.program.getSourceFileNames()) {
+        const match = /packages\/agent-core\/(src\/.+)$/.exec(name.replaceAll("\\", "/"));
+        if (match === null || name.includes("/node_modules/")) continue;
+        const source = project.program.getSourceFile(name);
+        if (source === undefined || source.isDeclarationFile) continue;
+        sources.push([match[1], source]);
+    }
+    return sources;
+}
+
+function authorityRecordsNamedBy(declaration, source) {
+    const named = [];
+    for (const member of declaration.members) {
+        const text = member.getText(source);
+        for (const record of AUTHORITY_RECORD_CLASSES) {
+            if (new RegExp(`\\b${record}\\b`).test(text)) {
+                named.push({ record, member: member.name?.getText(source) ?? "<anonymous>" });
+            }
+        }
+    }
+    return named;
+}
+
 export function validateRecordOwnership(records) {
     if (!Array.isArray(records)) throw new TypeError("Record ownership registry must be an array");
     const kinds = new Set();
