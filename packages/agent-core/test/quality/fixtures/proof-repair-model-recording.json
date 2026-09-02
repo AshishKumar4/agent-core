@@ -18,9 +18,7 @@
   "objective": [
     {
       "anchor": "SPEC.md:1601",
-      "atoms": [
-        "C13-RUN-ANCESTRY"
-      ],
+      "atoms": ["C13-RUN-ANCESTRY"],
       "unit": "a918901377c9455fd9632715990d25aecc26ace44315cdcd059b652f428b8ee0"
     }
   ],

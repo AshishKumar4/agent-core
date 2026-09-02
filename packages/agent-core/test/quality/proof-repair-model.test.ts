@@ -2,7 +2,11 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
-import { assertObject, parseCanonicalJson, type JsonValue } from "../../scripts/quality/project.mjs";
+import {
+    assertObject,
+    parseCanonicalJson,
+    type JsonValue
+} from "../../scripts/quality/project.mjs";
 import {
     ProofObligation,
     ProofRepairCandidate,
@@ -69,11 +73,7 @@ import {
 const packageRoot = resolve(import.meta.dirname, "../..");
 const reviewedProofs = join(packageRoot, "formal", "SpecCnl", "Proofs.lean");
 const committedCorpus = join(packageRoot, "artifacts", "cnl", "ledger.json");
-const recordingFixture = join(
-    import.meta.dirname,
-    "fixtures",
-    "proof-repair-model-recording.json"
-);
+const recordingFixture = join(import.meta.dirname, "fixtures", "proof-repair-model-recording.json");
 
 /** The candidate-writable module of the corpus, and the frozen module the audited run
  * elaborates. Both are the real corpus's own names. */
@@ -598,10 +598,16 @@ describe("the live-model proof candidate generator", () => {
             ProofRepairModelRecording.read(rewritten({ version: "2.0" }), "a recording")
         ).toThrow("record the run again");
         expect(() =>
-            ProofRepairModelRecording.read(rewritten({ kind: "proof.repair.ledger" }), "a recording")
+            ProofRepairModelRecording.read(
+                rewritten({ kind: "proof.repair.ledger" }),
+                "a recording"
+            )
         ).toThrow("is not a proof repair model recording");
         expect(() =>
-            ProofRepairModelRecording.read(rewritten({ endpoint: "https://example" }), "a recording")
+            ProofRepairModelRecording.read(
+                rewritten({ endpoint: "https://example" }),
+                "a recording"
+            )
         ).toThrow("missing or unknown fields");
         expect(() =>
             ProofRepairModelRecording.read(rewritten({ provenance: undefined }), "a recording")
@@ -633,8 +639,7 @@ describe("the live-model proof candidate generator", () => {
                 ])
         ).toThrow("produces the evidence that judges it");
         expect(
-            () =>
-                new ProofRepairPrompt(selected.store.load().digest, selected.objective, [])
+            () => new ProofRepairPrompt(selected.store.load().digest, selected.objective, [])
         ).toThrow("shows the model no writable artifact");
     });
 
@@ -689,7 +694,12 @@ describe("the live-model proof candidate generator", () => {
         expect(
             () =>
                 new SpawnProofModelExchange(
-                    { endpoint: "http://127.0.0.1:1/", model: "", credential: () => "x", timeoutMs: 1_000 },
+                    {
+                        endpoint: "http://127.0.0.1:1/",
+                        model: "",
+                        credential: () => "x",
+                        timeoutMs: 1_000
+                    },
                     childFixture
                 )
         ).toThrow("names no model");

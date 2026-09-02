@@ -43,11 +43,8 @@ register(new URL("./ts-companion.mjs", import.meta.url));
 const { acceptedProofArtifact } = await import("./proof-repair-record.ts");
 const { RepositoryProofArtifactOwners } = await import("./proof-repair.ts");
 const { FileProofRepairStore, proofRepairLedgerArtifact } = await import("./proof-repair-store.ts");
-const {
-    LeanProofCandidateVerification,
-    ProofCommand,
-    SpawnProofCommandRunner
-} = await import("./proof-repair-verification.ts");
+const { LeanProofCandidateVerification, ProofCommand, SpawnProofCommandRunner } =
+    await import("./proof-repair-verification.ts");
 const { ProofRepairHost, cnlCorpusLedgerArtifact } = await import("./proof-repair-host.ts");
 const {
     ProofRepairModelGenerator,

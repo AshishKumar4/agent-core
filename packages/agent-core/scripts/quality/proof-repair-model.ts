@@ -547,17 +547,6 @@ export class SpawnProofModelExchange extends ProofModelExchange {
     }
 }
 
-/** Both readers below classify through the one classifier this repository parses artifacts
- * with, and leave the answer in the type, so a caller inherits the proof instead of
- * restating it. */
-function isJsonNumber(value: JsonValue | undefined): value is number {
-    return jsonKind(value) === "number";
-}
-
-function isJsonString(value: JsonValue | undefined): value is string {
-    return jsonKind(value) === "string";
-}
-
 /**
  * The generator itself: one exchange per turn, under two bounds.
  *
@@ -648,4 +637,15 @@ export function proofModelProposal(reply: string): JsonValue {
     } catch {
         return reply;
     }
+}
+
+/** Both readers below classify through the one classifier this repository parses artifacts
+ * with, and leave the answer in the type, so a caller inherits the proof instead of
+ * restating it. */
+function isJsonNumber(value: JsonValue | undefined): value is number {
+    return jsonKind(value) === "number";
+}
+
+function isJsonString(value: JsonValue | undefined): value is string {
+    return jsonKind(value) === "string";
 }
