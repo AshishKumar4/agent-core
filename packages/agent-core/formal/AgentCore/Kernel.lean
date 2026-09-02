@@ -4,6 +4,7 @@ import AgentCore.Kernel.Definition.Placement
 import AgentCore.Kernel.Runs.Lease
 import AgentCore.Kernel.Runs.Turn
 import AgentCore.Kernel.Runs.Pins
+import AgentCore.Kernel.Runs.Commit
 
 /-!
 # The executable Agent Core kernel
