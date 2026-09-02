@@ -46,6 +46,7 @@ import {
 import { counterDispatcherContract } from "./dispatcher-contract";
 import { expectAgentCoreErrorValue } from "./error-assertion";
 import { SqliteCounterHarness } from "./sqlite-counter-fixture";
+import { CodecDeclaration } from "../../src/core";
 
 counterDispatcherContract("memory", (options) => new CounterHarness(options));
 counterDispatcherContract("SQLite", (options) => new SqliteCounterHarness(options));
@@ -1031,6 +1032,7 @@ class ProbeAuthenticator extends CommandAuthenticator<CommandCaller> {
 }
 
 class ProbeCommand implements ProtocolCommand<ProbeState, ProbeRead> {
+    public readonly declaration = CodecDeclaration.empty;
     public readonly command = "probe.command";
     public readonly caller = CommandCallerPolicy.principal();
     public readonly expectedRevision = "forbidden" as const;
@@ -1065,6 +1067,7 @@ class ProbeCommand implements ProtocolCommand<ProbeState, ProbeRead> {
 }
 
 class OptionalRevisionProbeCommand implements ProtocolCommand<ProbeState, ProbeRead> {
+    public readonly declaration = CodecDeclaration.empty;
     public readonly command = "probe.command";
     public readonly caller = CommandCallerPolicy.principal();
     public readonly expectedRevision = "optional" as const;

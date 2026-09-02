@@ -58,6 +58,7 @@ import {
     type MediationPreparedInvocation
 } from "../../src/composition";
 import type { LeaseToken } from "../../src/agents";
+import { recordingCustody } from "../helpers/custody";
 
 const tenant = new TenantId("preparation-tenant");
 const principal = new PrincipalRef(tenant, new PrincipalId("preparation-principal"));
@@ -196,7 +197,7 @@ const admissionCodec = structuralCodec(
 
 function preparation() {
     const transactions = new MemoryTransactions();
-    const persistence = new MemoryInvocationPersistence(mediationInvocationCodecs(admissionCodec));
+    const persistence = new MemoryInvocationPersistence(mediationInvocationCodecs(admissionCodec), recordingCustody());
     const port = new CanonicalMediationPreparation(
         identities,
         activations,

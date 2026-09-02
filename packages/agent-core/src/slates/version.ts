@@ -1,4 +1,12 @@
-import { ContentRef, Digest, RecordCodec, type JsonValue, TextId } from "../core";
+import {
+    ContentRef,
+    type ContentRetentionField,
+    contentRetentionFields,
+    Digest,
+    type JsonValue,
+    RecordCodec,
+    TextId
+} from "../core";
 import { WorkspaceId } from "../identity";
 import {
     contentRef,
@@ -99,3 +107,13 @@ export class SlateVersion {
 }
 
 const slateVersionCodecInstance = new SlateVersionCodecV1();
+
+/**
+ * A committed version's frozen source (§8.4). Versions are immutable, so this retention is
+ * owed on write and never released while the version stands.
+ */
+export function slateVersionContentRetention(
+    value: SlateVersion
+): readonly ContentRetentionField[] {
+    return contentRetentionFields([["source", value.source]]);
+}

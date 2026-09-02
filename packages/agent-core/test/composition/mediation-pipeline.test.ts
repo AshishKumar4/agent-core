@@ -144,6 +144,7 @@ import {
     type TransactionalSqlite
 } from "../../src/substrates";
 import { TestSqlite } from "../helpers/sqlite";
+import { recordingCustody } from "../helpers/custody";
 
 const recordData = jsonDataParser((message) => new TypeError(message));
 
@@ -669,7 +670,7 @@ async function harness(options: HarnessOptions = {}): Promise<Harness> {
     const persistence: MediationPersistence<PipelineState, DemoAdmission> =
         options.persistence ??
         previous?.persistence ??
-        new MemoryInvocationPersistence(mediationInvocationCodecs(admissionCodec));
+        new MemoryInvocationPersistence(mediationInvocationCodecs(admissionCodec), recordingCustody());
     const evidence = previous?.evidence ?? new MemoryInvocationMediationPersistence();
     const detachedExecutions =
         previous?.detachedExecutions ?? new MemoryDetachedEffectExecutionPersistence();
@@ -1385,7 +1386,7 @@ describe("the published mediation composition root", () => {
                 transactions: new MemoryTransactions(),
                 persistence: new MemoryInvocationPersistence(
                     mediationInvocationCodecs(admissionCodec)
-                ),
+                , recordingCustody()),
                 detachedExecutions: new MemoryDetachedEffectExecutionPersistence(),
                 detachedSchedule: new MemorySchedule(),
                 detachedIntervalMilliseconds: DETACHED_INTERVAL_MS,
@@ -1515,7 +1516,7 @@ describe("the published mediation composition root", () => {
             let ordinal = 0;
             for (const [refusal, tamper] of refusals) {
                 ordinal += 1;
-                const records = new ProjectedRecords(mediationInvocationCodecs(admissionCodec));
+                const records = new ProjectedRecords(mediationInvocationCodecs(admissionCodec), recordingCustody());
                 const value = await harness({ persistence: records });
                 tamper(records);
                 await expect(

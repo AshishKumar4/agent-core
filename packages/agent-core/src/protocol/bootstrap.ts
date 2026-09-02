@@ -1,5 +1,6 @@
 import { ActorId, type ActorRef } from "../actors";
 import {
+    CodecDeclaration,
     RecordCodec,
     decodeBase64,
     decodeCanonicalJson,
@@ -158,6 +159,10 @@ class TenantBootstrapCommand<Transaction, Read> implements ProtocolCommand<
     TenantBootstrapReply,
     TenantBootstrapObservation
 > {
+    /**
+     * §8.3: the anchor this command writes to prove a Tenant was bootstrapped exactly once.
+     */
+    public readonly declaration = CodecDeclaration.of([TenantBootstrapAnchorRecord.codec]);
     public readonly command = "tenant.bootstrap";
     public readonly caller = CommandCallerPolicy.principal();
     public readonly expectedRevision = "required" as const;

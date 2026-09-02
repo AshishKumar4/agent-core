@@ -3,6 +3,8 @@ import { CodecRecord, isString, requireExactFields, requireObject } from "../rec
 import {
     ByteRange,
     ContentOwnerEdge,
+    contentOwnerKey,
+    contentOwnerNamespace,
     ContentStat,
     ContentStore,
     MediaHint,
@@ -10,8 +12,11 @@ import {
     type ContentPutResult
 } from "../../content";
 import {
+    CodecDeclaration,
+    type ContentRetentionField,
     Revision,
     type ContentRef,
+    type DeclaredCodecVersion,
     type Digest,
     RecordCodec,
     type JsonValue,
@@ -53,7 +58,6 @@ import type { RunCommitId, TurnId } from "../../execution-references";
 import { RunAdmissionRegistry, RunAdmissionRegistryCodec } from "./admission";
 import { ForcedTurnCancellation, ForcedTurnCancellationCodec } from "./forced-cancellation";
 import type { LeaseToken } from "./lease";
-import type { ContentRetentionField } from "../record-data";
 
 export interface RunExecutionScope {
     readonly run: Run;
@@ -846,6 +850,7 @@ interface DecodedRunContentRecord {
 }
 
 interface RunRecordDescriptorBase {
+    readonly codec: DeclaredCodecVersion;
     readonly ownerKind: string;
     decodeContent(bytes: Uint8Array): DecodedRunContentRecord | undefined;
 }
@@ -973,8 +978,22 @@ const RUN_RECORD_DESCRIPTORS = Object.freeze({
 }) satisfies Readonly<Record<RunRecordKind, RunRecordDescriptorBase>>;
 
 const RUN_CONTENT_OWNER_PREFIXES = Object.freeze([
-    ...new Set(RUN_RECORD_KINDS.map((kind) => `record:${RUN_RECORD_DESCRIPTORS[kind].ownerKind}:`))
+    ...new Set(
+        RUN_RECORD_KINDS.map((kind) =>
+            contentOwnerNamespace(RUN_RECORD_DESCRIPTORS[kind].ownerKind)
+        )
+    )
 ]);
+
+/**
+ * The record set a Run protocol command's execution writes, at the codec versions this
+ * build writes them under (§8.3). It is derived from the same descriptor table the storage
+ * reads and writes through, so a codec major that moves here moves in exactly one place and
+ * a reader compares against the set it will actually decode.
+ */
+export const RUN_RECORD_CODECS: CodecDeclaration = CodecDeclaration.of(
+    RUN_RECORD_KINDS.map((kind) => RUN_RECORD_DESCRIPTORS[kind].codec)
+);
 
 function recordDescriptor<Value extends CodecRecord>(
     codec: RecordCodec<Value>,
@@ -1036,7 +1055,7 @@ function contentOwnerEdges<Transaction>(
                 new ContentOwnerEdge(
                     storage.tenant,
                     storage.owner,
-                    `record:${decoded.ownerKind}:${decoded.key.length}:${decoded.key}:${field}`,
+                    contentOwnerKey(decoded.ownerKind, decoded.key, field),
                     ref
                 )
         )

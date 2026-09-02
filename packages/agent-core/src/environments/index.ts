@@ -1,4 +1,8 @@
-export { Environment, EnvironmentRevisionRecord } from "./environment";
+export {
+    Environment,
+    EnvironmentRevisionRecord,
+    environmentRevisionContentRetention
+} from "./environment";
 export { PortExposure, PortExposureState } from "./exposure";
 export type { PortExposureStateName } from "./exposure";
 export {
@@ -34,9 +38,14 @@ export {
     EnvironmentSessionState
 } from "./session";
 export type { EnvironmentSessionStateName } from "./session";
-export { EnvironmentSnapshot, EnvironmentSnapshotState } from "./snapshot";
+export {
+    EnvironmentSnapshot,
+    environmentSnapshotContentRetention,
+    EnvironmentSnapshotState
+} from "./snapshot";
 export type { EnvironmentSnapshotStateName } from "./snapshot";
 export { EnvironmentStore, MemoryEnvironmentStore } from "./store";
+export type { EnvironmentContentCustody } from "./store";
 export type {
     EnvironmentStoredRecordKind,
     EnvironmentStoredRow,

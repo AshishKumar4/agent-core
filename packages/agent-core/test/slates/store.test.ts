@@ -30,13 +30,14 @@ import {
     type MemorySlateSnapshot
 } from "../../src/slates";
 import { WorkspaceId } from "../../src/workspaces";
+import { recordingCustody } from "../helpers/custody";
 
 describe("MemorySlateStore", () => {
     test(
         "[P11-SLATE-IMMUTABLE-PUBLICATION] [slate] [slate.version] [slate.publication] [slate.deployment] [slate.resource] [slate.preview] retains immutable Slate history and restores detached codec bytes",
         { tags: "p0" },
         () => {
-            const store = new MemorySlateStore();
+            const store = new MemorySlateStore(recordingCustody());
             const slate = Slate.initial(
                 new SlateId("slate-history"),
                 new WorkspaceId("workspace-history"),
@@ -65,7 +66,7 @@ describe("MemorySlateStore", () => {
             ).toBe(true);
 
             const snapshot = store.snapshot();
-            const restored = new MemorySlateStore(snapshot);
+            const restored = new MemorySlateStore(recordingCustody(), snapshot);
             snapshot.slates[0]!.bytes.fill(0);
             snapshot.versions[0]!.bytes.fill(0);
 
@@ -76,7 +77,7 @@ describe("MemorySlateStore", () => {
     );
 
     test("enforces CAS and immutable record replay", { tags: "p0" }, () => {
-        const store = new MemorySlateStore();
+        const store = new MemorySlateStore(recordingCustody());
         const slate = Slate.initial(
             new SlateId("slate-cas"),
             new WorkspaceId("workspace-cas"),
@@ -109,7 +110,7 @@ describe("MemorySlateStore", () => {
         "rejects projection corruption and non-contiguous replay snapshots",
         { tags: "p0" },
         () => {
-            const store = new MemorySlateStore();
+            const store = new MemorySlateStore(recordingCustody());
             const slate = Slate.initial(
                 new SlateId("slate-corrupt"),
                 new WorkspaceId("workspace-corrupt"),
@@ -120,7 +121,7 @@ describe("MemorySlateStore", () => {
 
             expect(
                 () =>
-                    new MemorySlateStore({
+                    new MemorySlateStore(recordingCustody(), {
                         ...snapshot,
                         slates: [{ ...snapshot.slates[0]!, workspaceId: new WorkspaceId("wrong") }]
                     })
@@ -132,7 +133,7 @@ describe("MemorySlateStore", () => {
             );
             expect(
                 () =>
-                    new MemorySlateStore({
+                    new MemorySlateStore(recordingCustody(), {
                         ...snapshot,
                         slates: [violating(snapshot.slates[0]!, { revision: 1 })]
                     })
@@ -149,7 +150,7 @@ describe("MemorySlateStore", () => {
         "commits synchronous transactions atomically and rolls back failed or async drafts",
         { tags: "p0" },
         async () => {
-            const store = new MemorySlateStore();
+            const store = new MemorySlateStore(recordingCustody());
             const slate = Slate.initial(
                 new SlateId("slate-transaction"),
                 new WorkspaceId("workspace-transaction"),
@@ -256,7 +257,7 @@ describe("MemorySlateStore", () => {
             const snapshot = graph.store.snapshot();
             expect(
                 () =>
-                    new MemorySlateStore({
+                    new MemorySlateStore(recordingCustody(), {
                         ...snapshot,
                         versions: snapshot.versions.map((row) => ({ ...row, id: "wrong-version" }))
                     })
@@ -268,7 +269,7 @@ describe("MemorySlateStore", () => {
             );
             expect(
                 () =>
-                    new MemorySlateStore({
+                    new MemorySlateStore(recordingCustody(), {
                         ...snapshot,
                         deploymentReservations: snapshot.deploymentReservations.map((row) => ({
                             ...row,
@@ -281,7 +282,7 @@ describe("MemorySlateStore", () => {
                     "Stored Slate reservation invocation does not match its codec bytes"
                 )
             );
-            expect(() => new MemorySlateStore({ ...snapshot, deployments: [] })).toThrow(
+            expect(() => new MemorySlateStore(recordingCustody(), { ...snapshot, deployments: [] })).toThrow(
                 new AgentCoreError(
                     "protocol.invalid-state",
                     "Slate active deployment must be a successful owned deployment"
@@ -289,7 +290,7 @@ describe("MemorySlateStore", () => {
             );
             expect(
                 () =>
-                    new MemorySlateStore({
+                    new MemorySlateStore(recordingCustody(), {
                         ...snapshot,
                         versions: [...snapshot.versions, snapshot.versions[0]!]
                     })
@@ -306,7 +307,7 @@ describe("MemorySlateStore", () => {
         "rejects noncontiguous CAS updates and immutable ownership changes",
         { tags: "p0" },
         () => {
-            const store = new MemorySlateStore();
+            const store = new MemorySlateStore(recordingCustody());
             const slate = Slate.initial(
                 new SlateId("slate-invalid-cas"),
                 new WorkspaceId("workspace-cas"),
@@ -355,7 +356,7 @@ describe("MemorySlateStore", () => {
     );
 
     test("uses the shared taxonomy for graph and reservation invariants", { tags: "p1" }, () => {
-        const store = new MemorySlateStore();
+        const store = new MemorySlateStore(recordingCustody());
         const workspace = new WorkspaceId("workspace-invariants");
         const slate = Slate.initial(new SlateId("slate-invariants"), workspace, ref("source"));
         store.compareAndSetSlate(undefined, slate);
@@ -496,7 +497,7 @@ describe("MemorySlateStore", () => {
 
         expectAgentCoreError(
             () =>
-                new MemorySlateStore({
+                new MemorySlateStore(recordingCustody(), {
                     ...store.snapshot(),
                     slates: [...store.snapshot().slates, store.snapshot().slates[0]!]
                 }),
@@ -505,7 +506,7 @@ describe("MemorySlateStore", () => {
         );
         expectAgentCoreError(
             () =>
-                new MemorySlateStore({
+                new MemorySlateStore(recordingCustody(), {
                     ...store.snapshot(),
                     slates: [
                         ...store.snapshot().slates,
@@ -650,7 +651,7 @@ describe("MemorySlateStore", () => {
             }
         ];
         for (const invalid of invalidSnapshots) {
-            expect(() => new MemorySlateStore(invalid)).toThrow(AgentCoreError);
+            expect(() => new MemorySlateStore(recordingCustody(), invalid)).toThrow(AgentCoreError);
         }
     });
 
@@ -658,7 +659,7 @@ describe("MemorySlateStore", () => {
         "rejects fork-origin mutation and accepts exact parent-version lineage",
         { tags: "p0" },
         () => {
-            const store = new MemorySlateStore();
+            const store = new MemorySlateStore(recordingCustody());
             const workspace = new WorkspaceId("workspace-lineage");
             const slate = Slate.initial(new SlateId("slate-lineage"), workspace, ref("source"));
             store.compareAndSetSlate(undefined, slate);
@@ -725,13 +726,13 @@ describe("MemorySlateStore", () => {
             const complete = completeGraph("restart-edges");
             const completeSnapshot = complete.store.snapshot();
             expect(
-                new MemorySlateStore({
+                new MemorySlateStore(recordingCustody(), {
                     ...completeSnapshot,
                     slates: [...completeSnapshot.slates].reverse()
                 }).getSlate(complete.slate.id)?.revision
             ).toEqual(complete.current.revision);
 
-            const lineageStore = new MemorySlateStore();
+            const lineageStore = new MemorySlateStore(recordingCustody());
             const lineageWorkspace = new WorkspaceId("workspace-dangling-parent");
             const lineageSlate = Slate.initial(
                 new SlateId("slate-dangling-parent"),
@@ -757,7 +758,7 @@ describe("MemorySlateStore", () => {
             const lineageSnapshot = lineageStore.snapshot();
             expect(
                 () =>
-                    new MemorySlateStore({
+                    new MemorySlateStore(recordingCustody(), {
                         ...lineageSnapshot,
                         versions: lineageSnapshot.versions.filter(
                             (row) => row.id !== parent.id.value
@@ -768,7 +769,7 @@ describe("MemorySlateStore", () => {
             const publishedHistory = completeSnapshot.slates.slice(0, -1);
             expect(
                 () =>
-                    new MemorySlateStore({
+                    new MemorySlateStore(recordingCustody(), {
                         ...completeSnapshot,
                         slates: publishedHistory,
                         deployments: []
@@ -776,7 +777,7 @@ describe("MemorySlateStore", () => {
             ).toThrow(/dangling deployment/);
             expect(
                 () =>
-                    new MemorySlateStore({
+                    new MemorySlateStore(recordingCustody(), {
                         ...completeSnapshot,
                         slates: publishedHistory,
                         deployments: [],
@@ -784,7 +785,7 @@ describe("MemorySlateStore", () => {
                     })
             ).toThrow(/resource reservation has a dangling deployment/);
 
-            const previewStore = new MemorySlateStore();
+            const previewStore = new MemorySlateStore(recordingCustody());
             const previewWorkspace = new WorkspaceId("workspace-versioned-preview");
             const previewSlate = Slate.initial(
                 new SlateId("slate-versioned-preview"),
@@ -816,7 +817,7 @@ describe("MemorySlateStore", () => {
                 )
             );
             const previewSnapshot = previewStore.snapshot();
-            expect(() => new MemorySlateStore({ ...previewSnapshot, versions: [] })).toThrow(
+            expect(() => new MemorySlateStore(recordingCustody(), { ...previewSnapshot, versions: [] })).toThrow(
                 /preview has a dangling or inexact source/
             );
         }
@@ -826,7 +827,7 @@ describe("MemorySlateStore", () => {
         "rejects fork closure and resource finalization after their durable dependencies disappear",
         { tags: "p0" },
         () => {
-            const store = new MemorySlateStore();
+            const store = new MemorySlateStore(recordingCustody());
             const workspace = new WorkspaceId("workspace-fork-closure");
             const source = Slate.initial(
                 new SlateId("slate-fork-source"),
@@ -851,7 +852,7 @@ describe("MemorySlateStore", () => {
             ).toThrowError(expect.objectContaining({ code: "slate.invalid-version" }));
 
             const graph = completeGraph("resource-dependency-loss");
-            const hidden = new HiddenDeploymentSlateStore(graph.store.snapshot());
+            const hidden = new HiddenDeploymentSlateStore(recordingCustody(), graph.store.snapshot());
             hidden.hideDeployments = true;
             expect(() => hidden.addResource(graph.resource)).toThrow(/deployment must exist/);
         }
@@ -867,7 +868,7 @@ class HiddenDeploymentSlateStore extends MemorySlateStore {
 }
 
 function completeGraph(label: string) {
-    const store = new MemorySlateStore();
+    const store = new MemorySlateStore(recordingCustody());
     const workspace = new WorkspaceId(`workspace-${label}`);
     const slate = Slate.initial(new SlateId(`slate-${label}`), workspace, ref(`${label}-source`));
     store.compareAndSetSlate(undefined, slate);

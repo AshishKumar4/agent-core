@@ -74,6 +74,7 @@ export const INVOCATION_CONTEXT_EXPORTS = Object.freeze({
         "deriveBatchOutcome",
         "immutableReference",
         "invocationError",
+        "receiptContentRetention",
         "requireArray",
         "requireCanonicalText",
         "requireDate",

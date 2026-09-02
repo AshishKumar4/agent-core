@@ -1620,6 +1620,7 @@ function createPersistence(options: HarnessOptions): WorkspacePersistence<Worksp
         (storage) => storage,
         {
             verify: (_storage, reference) => options.verify?.(reference) ?? true,
+            retain: () => {},
             release: (_storage, reference) => options.released?.push(reference),
             discard: () => {}
         },
@@ -1631,7 +1632,7 @@ function createPersistence(options: HarnessOptions): WorkspacePersistence<Worksp
 function newPersistence(): WorkspacePersistence<WorkspaceRecordStorage> {
     return new WorkspacePersistence(
         (storage) => storage,
-        { verify: () => true, release: () => {}, discard: () => {} },
+        { verify: () => true, retain: () => {}, release: () => {}, discard: () => {} },
         sourceActor,
         tenant
     );

@@ -51,7 +51,7 @@ test("file-backed SQLite records survive a database close and reopen", { tags: "
         let records = new SqliteWorkspaceRecords(database);
         let persistence = new WorkspacePersistence<TransactionalSqlite>(
             () => records,
-            { verify: () => true, release: () => {}, discard: () => {} },
+            { verify: () => true, retain: () => {}, release: () => {}, discard: () => {} },
             sourceActor,
             tenant
         );
@@ -64,7 +64,7 @@ test("file-backed SQLite records survive a database close and reopen", { tags: "
         records = new SqliteWorkspaceRecords(database);
         persistence = new WorkspacePersistence<TransactionalSqlite>(
             () => records,
-            { verify: () => true, release: () => {}, discard: () => {} },
+            { verify: () => true, retain: () => {}, release: () => {}, discard: () => {} },
             sourceActor,
             tenant
         );
@@ -114,7 +114,7 @@ test(
             let records = new SqliteWorkspaceRecords(opened);
             let persistence = new WorkspacePersistence<TransactionalSqlite>(
                 () => records,
-                { verify: () => true, release: () => {}, discard: () => {} },
+                { verify: () => true, retain: () => {}, release: () => {}, discard: () => {} },
                 sourceActor,
                 tenant
             );
@@ -140,7 +140,7 @@ test(
             records = new SqliteWorkspaceRecords(reopened);
             persistence = new WorkspacePersistence<TransactionalSqlite>(
                 () => records,
-                { verify: () => true, release: () => {}, discard: () => {} },
+                { verify: () => true, retain: () => {}, release: () => {}, discard: () => {} },
                 sourceActor,
                 tenant
             );
@@ -477,7 +477,7 @@ function createSqliteHarness(): WorkspacePersistenceHarness<TransactionalSqlite>
     let records = new SqliteWorkspaceRecords(database);
     const persistence = new WorkspacePersistence<TransactionalSqlite>(
         () => records,
-        { verify: () => true, release: () => {}, discard: () => {} },
+        { verify: () => true, retain: () => {}, release: () => {}, discard: () => {} },
         sourceActor,
         tenant
     );
@@ -505,7 +505,7 @@ function openWorkspace(database: FileSqlite): OpenedWorkspace {
     const records = new SqliteWorkspaceRecords(database);
     const persistence = new WorkspacePersistence<TransactionalSqlite>(
         () => records,
-        { verify: () => true, release: () => {}, discard: () => {} },
+        { verify: () => true, retain: () => {}, release: () => {}, discard: () => {} },
         sourceActor,
         tenant
     );

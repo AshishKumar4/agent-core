@@ -1,5 +1,5 @@
 import type { ActorRef } from "../actors";
-import type { Revision } from "../core";
+import { CodecDeclaration, type Revision } from "../core";
 import type { LeaseToken } from "../agents";
 import { AgentCoreError } from "../errors";
 import type {
@@ -505,6 +505,16 @@ class SourceEventProtocolCommand<Transaction, Read> implements ProtocolCommand<
     EventAcceptanceResult,
     EventAcceptanceResult
 > {
+    /**
+     * §8.3: accepting an Event writes the Event itself, the reservations its routing
+     * appends, and the retention proof that keeps the payload alive. A reader that cannot
+     * decode any of the three cannot serve this Actor's source plane.
+     */
+    public readonly declaration = CodecDeclaration.of([
+        Event.codec,
+        RouteReservation.codec,
+        ContentRetentionReference.codec
+    ]);
     public readonly command = SOURCE_EVENT_COMMAND;
     public readonly caller: CommandCallerPolicy;
     public readonly expectedRevision: ExpectedRevisionPolicy;

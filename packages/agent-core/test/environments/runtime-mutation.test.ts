@@ -31,6 +31,7 @@ import {
     type SnapshotEnvironmentRequest
 } from "../../src/environments";
 import { PrincipalId, PrincipalRef, TenantId } from "../../src/identity";
+import { recordingCustody } from "../helpers/custody";
 
 const environmentId = new EnvironmentId("environment-runtime-mutation");
 const lease: LeaseToken = Object.freeze({
@@ -387,7 +388,7 @@ describe("EnvironmentController mutation kills", () => {
     );
 
     test("restore fails closed when the pinned snapshot is not ready", { tags: "p0" }, async () => {
-        const inner = new MemoryEnvironmentStore();
+        const inner = new MemoryEnvironmentStore(recordingCustody());
         const masking = new MaskingEnvironmentStore(inner);
         const provider = new TestProvider(descriptor("provider-restore-not-ready", "1"));
         const registry = new MemoryEnvironmentProviderRegistry([provider]);
@@ -420,7 +421,7 @@ describe("EnvironmentController mutation kills", () => {
     });
 
     test("provider resolution demands the exact pinned generation", { tags: "p0" }, async () => {
-        const inner = new MemoryEnvironmentStore();
+        const inner = new MemoryEnvironmentStore(recordingCustody());
         const masking = new MaskingEnvironmentStore(inner);
         const provider = new TestProvider(descriptor("provider-wrong-generation", "2"));
         const registry = new MemoryEnvironmentProviderRegistry([provider]);
@@ -444,7 +445,7 @@ describe("EnvironmentController mutation kills", () => {
     });
 
     test("every record CAS loss names its exact subject", { tags: "p1" }, async () => {
-        const store = new RejectingEnvironmentStore();
+        const store = new RejectingEnvironmentStore(recordingCustody());
         const provider = new TestProvider(descriptor("provider-cas-messages", "3"));
         const registry = new MemoryEnvironmentProviderRegistry([provider]);
         const controller = new EnvironmentController(store, registry, {
@@ -514,7 +515,7 @@ describe("EnvironmentController mutation kills", () => {
     });
 
     test("rotation surfaces exhausted revision and generation counters", { tags: "p1" }, () => {
-        const store = new HeadOverrideEnvironmentStore();
+        const store = new HeadOverrideEnvironmentStore(recordingCustody());
         const provider = new TestProvider(descriptor("provider-exhausted-rotation", "4"));
         const registry = new MemoryEnvironmentProviderRegistry([provider]);
         const controller = new EnvironmentController(store, registry, {
@@ -756,7 +757,7 @@ describe("EnvironmentController mutation kills", () => {
     );
 
     test("codes a missing pinned revision during provider resolution", { tags: "p1" }, async () => {
-        const inner = new MemoryEnvironmentStore();
+        const inner = new MemoryEnvironmentStore(recordingCustody());
         const masking = new MaskingEnvironmentStore(inner);
         const provider = new TestProvider(descriptor("provider-hidden-revision", "5"));
         const registry = new MemoryEnvironmentProviderRegistry([provider]);
@@ -783,7 +784,7 @@ describe("EnvironmentController mutation kills", () => {
         "codes a provision conflict when the stored revision record is missing",
         { tags: "p1" },
         () => {
-            const inner = new MemoryEnvironmentStore();
+            const inner = new MemoryEnvironmentStore(recordingCustody());
             const masking = new MaskingEnvironmentStore(inner);
             const provider = new TestProvider(descriptor("provider-conflict-no-revision", "6"));
             const registry = new MemoryEnvironmentProviderRegistry([provider]);
@@ -808,7 +809,7 @@ describe("EnvironmentController mutation kills", () => {
         "fails a snapshot whose session is missing, not open, or epoch-drifted at settle time",
         { tags: "p0" },
         async () => {
-            const inner = new MemoryEnvironmentStore();
+            const inner = new MemoryEnvironmentStore(recordingCustody());
             const masking = new MaskingEnvironmentStore(inner);
             const provider = new TestProvider(descriptor("provider-snapshot-session-guard", "7"));
             const registry = new MemoryEnvironmentProviderRegistry([provider]);
@@ -847,7 +848,7 @@ describe("EnvironmentController mutation kills", () => {
             // store refuses a row whose key contradicts its bytes, so every conjunct but
             // the provider is true by construction. Each mask falsifies exactly one.
             for (const mask of ["environment", "revision", "generation"] as const) {
-                const inner = new MemoryEnvironmentStore();
+                const inner = new MemoryEnvironmentStore(recordingCustody());
                 const masking = new MaskingEnvironmentStore(inner);
                 const provider = new TestProvider(descriptor(`provider-replay-${mask}`, "c"));
                 const registry = new MemoryEnvironmentProviderRegistry([provider]);
@@ -875,7 +876,7 @@ describe("EnvironmentController mutation kills", () => {
         "tells a replayed reservation from the session the store answers with",
         { tags: "p0" },
         () => {
-            const inner = new MemoryEnvironmentStore();
+            const inner = new MemoryEnvironmentStore(recordingCustody());
             const masking = new MaskingEnvironmentStore(inner);
             const provider = new TestProvider(descriptor("provider-replay-reservation", "e"));
             const registry = new MemoryEnvironmentProviderRegistry([provider]);
@@ -906,7 +907,7 @@ describe("EnvironmentController mutation kills", () => {
             // and epoch, so a request replayed against its own session agrees on both by
             // construction. Each mask leaves exactly one of them differing.
             for (const mask of ["generation", "epoch"] as const) {
-                const inner = new MemoryEnvironmentStore();
+                const inner = new MemoryEnvironmentStore(recordingCustody());
                 const masking = new MaskingEnvironmentStore(inner);
                 const provider = new TestProvider(descriptor(`provider-replay-pin-${mask}`, "f"));
                 const registry = new MemoryEnvironmentProviderRegistry([provider]);
@@ -1246,7 +1247,7 @@ class Deferred<Value> {
 
 function setup(label: string) {
     const provider = new TestProvider(descriptor(`provider-${label}`, "0"));
-    const store = new MemoryEnvironmentStore();
+    const store = new MemoryEnvironmentStore(recordingCustody());
     const registry = new MemoryEnvironmentProviderRegistry([provider]);
     const verifier: TurnLeaseVerifier = { permits: (candidate) => candidate === lease };
     const controller = new EnvironmentController(store, registry, verifier);

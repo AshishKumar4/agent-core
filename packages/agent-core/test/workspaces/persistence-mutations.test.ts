@@ -49,6 +49,7 @@ import {
 
 const durableRetention: ContentRetentionPort<WorkspaceRecordStorage> = {
     verify: () => true,
+    retain: () => {},
     release: () => {},
     discard: () => {}
 };
@@ -287,6 +288,7 @@ describe("event persistence", () => {
         const records = new MemoryWorkspaceRecords();
         const persistence = persistenceWith(sourceActor, {
             verify: () => false,
+            retain: () => {},
             release: () => {},
             discard: () => {}
         });

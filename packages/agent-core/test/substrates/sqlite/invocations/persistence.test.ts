@@ -38,13 +38,14 @@ import {
 import { invocationLedgerContract } from "../../../invocations/ledger-contract";
 import { createSqliteInvocationPersistence } from "./fixture";
 import { describe, expect, test } from "vitest";
+import { recordingCustody } from "../../../helpers/custody";
 
 test(
     "[invocation-persistence] memory and SQLite satisfy one shared codec-storage contract",
     { tags: "p1" },
     () => {
         const memoryState = createInvocationMemoryState();
-        const memory = new MemoryInvocationPersistence(invocationCodecs);
+        const memory = new MemoryInvocationPersistence(invocationCodecs, recordingCustody());
         verifyPreparedContract(memory, (operation) => operation(memoryState), "memory");
 
         const database = new TestSqlite();

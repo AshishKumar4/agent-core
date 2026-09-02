@@ -66,6 +66,7 @@ import {
 } from "../substrates/sqlite/invocations/fixture";
 import { PrincipalRef, Workspace } from "../identity/internal-fixture";
 import { TestSqlite } from "../helpers/sqlite";
+import { recordingCustody } from "../helpers/custody";
 
 const tenantId = new TenantId("tenant-mediated-stale");
 const principalId = new PrincipalId("principal-mediated-stale");
@@ -712,7 +713,7 @@ function auditRoot(): AuditRecord {
 function memoryDenialPlane(): DenialPlane {
     const seeded = new MemoryInvalidationWatermarkStore(tenantId, workspaceActor);
     seeded.save(emptyWatermark);
-    const receipts = new MemoryInvocationPersistence(invocationCodecs);
+    const receipts = new MemoryInvocationPersistence(invocationCodecs, recordingCustody());
     const audits = new MemoryInvocationMediationPersistence();
     const actors = new MemoryActorStore<DenialActorState>(
         {

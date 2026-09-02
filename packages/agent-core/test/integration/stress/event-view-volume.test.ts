@@ -45,7 +45,7 @@ const WATERMARK_JOINS = 1_500;
 const WATERMARK_SCOPES = 12;
 const WATERMARK_EPOCH_SPREAD = 8;
 
-const retentionPort = { verify: () => true, release: () => {}, discard: () => {} };
+const retentionPort = { verify: () => true, retain: () => {}, release: () => {}, discard: () => {} };
 
 function sourcePersistence(): WorkspacePersistence<MemoryWorkspaceRecords> {
     return new WorkspacePersistence<MemoryWorkspaceRecords>(

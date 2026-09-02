@@ -37,6 +37,7 @@ import {
     type SlateProviderResourceRequest
 } from "../../src/slates";
 import { WorkspaceId } from "../../src/workspaces";
+import { recordingCustody } from "../helpers/custody";
 
 describe("SlateRuntime mutation kills", () => {
     test("rejects non-canonical external keys before reserving", { tags: "p0" }, async () => {
@@ -218,7 +219,7 @@ describe("SlateRuntime mutation kills", () => {
     });
 
     test("commit refuses a head that vanished inside the transaction", { tags: "p1" }, async () => {
-        const store = new DraftDoctoringStore();
+        const store = new DraftDoctoringStore(recordingCustody());
         const fixture = runtimeFixture("commit-strip", store);
         const slate = await fixture.runtime.create(fixture.workspace, ref("strip-source"));
         await fixture.runtime.commit(slate.id);
@@ -241,7 +242,7 @@ describe("SlateRuntime mutation kills", () => {
         "fork revalidates the exact source graph inside the transaction",
         { tags: "p1" },
         async () => {
-            const store = new DraftDoctoringStore();
+            const store = new DraftDoctoringStore(recordingCustody());
             const fixture = runtimeFixture("fork-revalidate", store);
             const slate = await fixture.runtime.create(fixture.workspace, ref("fork-source"));
             const version = await fixture.runtime.commit(slate.id);
@@ -261,7 +262,7 @@ describe("SlateRuntime mutation kills", () => {
         "publish revalidates the version binding inside the transaction",
         { tags: "p1" },
         async () => {
-            const store = new DraftDoctoringStore();
+            const store = new DraftDoctoringStore(recordingCustody());
             const fixture = runtimeFixture("publish-revalidate", store);
             const slate = await fixture.runtime.create(fixture.workspace, ref("publish-source"));
             const version = await fixture.runtime.commit(slate.id);
@@ -610,7 +611,7 @@ interface RuntimeFixture {
 
 function runtimeFixture(
     label: string,
-    store: MemorySlateStore = new MemorySlateStore()
+    store: MemorySlateStore = new MemorySlateStore(recordingCustody())
 ): RuntimeFixture {
     const mutations = new StubMutationSeam();
     const invocations = new StubInvocationSeam();
@@ -665,7 +666,7 @@ function doctoredSlate(current: Slate): Slate {
 }
 
 function inactiveDeploymentStore(label: string): InactiveDeploymentStore {
-    const store = new MemorySlateStore();
+    const store = new MemorySlateStore(recordingCustody());
     const workspace = new WorkspaceId(`workspace-${label}`);
     const slate = Slate.initial(new SlateId(`slate-${label}`), workspace, ref(`${label}-source`));
     expect(store.compareAndSetSlate(undefined, slate)).toBe(true);

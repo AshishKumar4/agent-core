@@ -27,7 +27,7 @@ describe("ViewReplayProtocol", () => {
             const records = new MemoryWorkspaceRecords();
             const persistence = new WorkspacePersistence<MemoryWorkspaceRecords>(
                 (value) => value,
-                { verify: () => true, release: () => {}, discard: () => {} },
+                { verify: () => true, retain: () => {}, release: () => {}, discard: () => {} },
                 sourceActor,
                 tenant
             );
@@ -68,7 +68,7 @@ describe("ViewReplayProtocol", () => {
             const restartedRecords = new MemoryWorkspaceRecords(records.snapshot());
             const restartedPersistence = new WorkspacePersistence<MemoryWorkspaceRecords>(
                 (value) => value,
-                { verify: () => true, release: () => {}, discard: () => {} },
+                { verify: () => true, retain: () => {}, release: () => {}, discard: () => {} },
                 sourceActor,
                 tenant
             );
@@ -104,7 +104,7 @@ describe("ViewReplayProtocol", () => {
             const records = new MemoryWorkspaceRecords();
             const persistence = new WorkspacePersistence<MemoryWorkspaceRecords>(
                 (value) => value,
-                { verify: () => true, release: () => {}, discard: () => {} },
+                { verify: () => true, retain: () => {}, release: () => {}, discard: () => {} },
                 sourceActor,
                 tenant
             );
@@ -133,7 +133,7 @@ describe("ViewReplayProtocol", () => {
             const records = new MemoryWorkspaceRecords();
             const persistence = new WorkspacePersistence<MemoryWorkspaceRecords>(
                 (value) => value,
-                { verify: () => true, release: () => {}, discard: () => {} },
+                { verify: () => true, retain: () => {}, release: () => {}, discard: () => {} },
                 sourceActor,
                 tenant
             );
@@ -183,7 +183,7 @@ describe("ViewReplayProtocol", () => {
             const records = new MemoryWorkspaceRecords();
             const persistence = new WorkspacePersistence<MemoryWorkspaceRecords>(
                 (value) => value,
-                { verify: () => true, release: () => {}, discard: () => {} },
+                { verify: () => true, retain: () => {}, release: () => {}, discard: () => {} },
                 sourceActor,
                 tenant
             );
@@ -230,7 +230,7 @@ describe("ViewReplayProtocol", () => {
         const records = new MemoryWorkspaceRecords();
         const persistence = new WorkspacePersistence<MemoryWorkspaceRecords>(
             (value) => value,
-            { verify: () => true, release: () => {}, discard: () => {} },
+            { verify: () => true, retain: () => {}, release: () => {}, discard: () => {} },
             sourceActor,
             tenant
         );
@@ -270,7 +270,7 @@ describe("ViewReplayProtocol", () => {
             const records = new MemoryWorkspaceRecords();
             const persistence = new WorkspacePersistence<MemoryWorkspaceRecords>(
                 (value) => value,
-                { verify: () => true, release: () => {}, discard: () => {} },
+                { verify: () => true, retain: () => {}, release: () => {}, discard: () => {} },
                 sourceActor,
                 tenant
             );
@@ -313,7 +313,7 @@ describe("ViewReplayProtocol", () => {
         const records = new MemoryWorkspaceRecords();
         const persistence = new WorkspacePersistence<MemoryWorkspaceRecords>(
             (value) => value,
-            { verify: () => true, release: () => {}, discard: () => {} },
+            { verify: () => true, retain: () => {}, release: () => {}, discard: () => {} },
             sourceActor,
             tenant
         );
@@ -346,7 +346,7 @@ describe("ViewReplayProtocol", () => {
         const records = new MemoryWorkspaceRecords();
         const persistence = new WorkspacePersistence<MemoryWorkspaceRecords>(
             (value) => value,
-            { verify: () => true, release: () => {}, discard: () => {} },
+            { verify: () => true, retain: () => {}, release: () => {}, discard: () => {} },
             sourceActor,
             tenant
         );
@@ -396,7 +396,7 @@ describe("ViewReplayProtocol", () => {
             const records = new MemoryWorkspaceRecords();
             const persistence = new WorkspacePersistence<MemoryWorkspaceRecords>(
                 (value) => value,
-                { verify: () => true, release: () => {}, discard: () => {} },
+                { verify: () => true, retain: () => {}, release: () => {}, discard: () => {} },
                 sourceActor,
                 tenant
             );
@@ -450,6 +450,7 @@ describe("ViewReplayProtocol", () => {
                 (value) => value,
                 {
                     verify: () => true,
+                    retain: () => {},
                     release: (_transaction, reference) => released.push(reference.id.value),
                     discard: () => {}
                 },
@@ -509,7 +510,7 @@ describe("replay divergence detection", () => {
         const records = new MemoryWorkspaceRecords();
         const persistence = new WorkspacePersistence<MemoryWorkspaceRecords>(
             (value) => value,
-            { verify: () => true, release: () => {}, discard: () => {} },
+            { verify: () => true, retain: () => {}, release: () => {}, discard: () => {} },
             sourceActor,
             tenant
         );

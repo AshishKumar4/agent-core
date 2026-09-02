@@ -28,10 +28,11 @@ import {
     type StoredSlateReservation
 } from "../../src/slates";
 import { WorkspaceId } from "../../src/workspaces";
+import { recordingCustody } from "../helpers/custody";
 
 describe("MemorySlateStore mutation kills", () => {
     test("lists records in ID order scoped to their exact owner", { tags: "p1" }, () => {
-        const store = new MemorySlateStore();
+        const store = new MemorySlateStore(recordingCustody());
         const workspace = new WorkspaceId("workspace-list-order");
         const second = buildGraph(store, workspace, "list-b");
         const first = buildGraph(store, workspace, "list-a");
@@ -67,7 +68,7 @@ describe("MemorySlateStore mutation kills", () => {
     });
 
     test("snapshots order slate rows by ID and revision", { tags: "p1" }, () => {
-        const store = new MemorySlateStore();
+        const store = new MemorySlateStore(recordingCustody());
         const workspace = new WorkspaceId("workspace-snapshot-order");
         const slateB = Slate.initial(new SlateId("slate-order-b"), workspace, ref("b-0"));
         expect(store.compareAndSetSlate(undefined, slateB)).toBe(true);
@@ -86,7 +87,7 @@ describe("MemorySlateStore mutation kills", () => {
     });
 
     test("rejects histories with gaps or a missing first revision", { tags: "p0" }, () => {
-        const store = new MemorySlateStore();
+        const store = new MemorySlateStore(recordingCustody());
         const workspace = new WorkspaceId("workspace-history-gap");
         const slate = Slate.initial(new SlateId("slate-history-gap"), workspace, ref("one"));
         expect(store.compareAndSetSlate(undefined, slate)).toBe(true);
@@ -101,14 +102,14 @@ describe("MemorySlateStore mutation kills", () => {
 
         expect(
             () =>
-                new MemorySlateStore({
+                new MemorySlateStore(recordingCustody(), {
                     ...snapshot,
                     slates: snapshot.slates.filter((row) => row.revision !== 1)
                 })
         ).toThrowError(error);
         expect(
             () =>
-                new MemorySlateStore({
+                new MemorySlateStore(recordingCustody(), {
                     ...snapshot,
                     slates: snapshot.slates.filter((row) => row.revision !== 0)
                 })
@@ -116,7 +117,7 @@ describe("MemorySlateStore mutation kills", () => {
     });
 
     test("catches workspace and fork-origin drift across revisions", { tags: "p0" }, () => {
-        const store = new MemorySlateStore();
+        const store = new MemorySlateStore(recordingCustody());
         const workspace = new WorkspaceId("workspace-transition-drift");
         const slate = Slate.initial(new SlateId("slate-transition-drift"), workspace, ref("one"));
         expect(store.compareAndSetSlate(undefined, slate)).toBe(true);
@@ -136,7 +137,7 @@ describe("MemorySlateStore mutation kills", () => {
 
         expect(
             () =>
-                new MemorySlateStore({
+                new MemorySlateStore(recordingCustody(), {
                     ...snapshot,
                     slates: snapshot.slates.map((row) =>
                         row.revision === 1
@@ -151,7 +152,7 @@ describe("MemorySlateStore mutation kills", () => {
                 })
         ).toThrowError(error);
 
-        const forkStore = new MemorySlateStore();
+        const forkStore = new MemorySlateStore(recordingCustody());
         const origin = Slate.initial(
             new SlateId("slate-fork-origin"),
             workspace,
@@ -183,7 +184,7 @@ describe("MemorySlateStore mutation kills", () => {
 
         expect(
             () =>
-                new MemorySlateStore({
+                new MemorySlateStore(recordingCustody(), {
                     ...forkSnapshot,
                     slates: [
                         ...forkSnapshot.slates,
@@ -201,11 +202,11 @@ describe("MemorySlateStore mutation kills", () => {
     test("names every dangling graph reference exactly", { tags: "p0" }, () => {
         const workspace = new WorkspaceId("workspace-dangling-exact");
 
-        const publicationStore = new MemorySlateStore();
+        const publicationStore = new MemorySlateStore(recordingCustody());
         const publicationGraph = buildDetachedRecords(publicationStore, workspace, "dangling-pub");
         expect(
             () =>
-                new MemorySlateStore({
+                new MemorySlateStore(recordingCustody(), {
                     ...publicationStore.snapshot(),
                     versions: []
                 })
@@ -217,7 +218,7 @@ describe("MemorySlateStore mutation kills", () => {
         );
         expect(publicationGraph.publication.slateId.value).toBe("slate-dangling-pub");
 
-        const reservationStore = new MemorySlateStore();
+        const reservationStore = new MemorySlateStore(recordingCustody());
         const reservationGraph = buildDetachedRecords(
             reservationStore,
             workspace,
@@ -226,7 +227,7 @@ describe("MemorySlateStore mutation kills", () => {
         reservationStore.reserveDeployment(reservationGraph.reservation);
         expect(
             () =>
-                new MemorySlateStore({
+                new MemorySlateStore(recordingCustody(), {
                     ...reservationStore.snapshot(),
                     publications: []
                 })
@@ -237,7 +238,7 @@ describe("MemorySlateStore mutation kills", () => {
             })
         );
 
-        const mismatchStore = new MemorySlateStore();
+        const mismatchStore = new MemorySlateStore(recordingCustody());
         const mismatch = buildDetachedRecords(mismatchStore, workspace, "reservation-mismatch");
         mismatchStore.reserveDeployment(mismatch.reservation);
         mismatchStore.addDeployment(mismatch.deployment);
@@ -253,7 +254,7 @@ describe("MemorySlateStore mutation kills", () => {
         });
         expect(
             () =>
-                new MemorySlateStore({
+                new MemorySlateStore(recordingCustody(), {
                     ...mismatchStore.snapshot(),
                     deploymentReservations: mismatchStore
                         .snapshot()
@@ -271,7 +272,7 @@ describe("MemorySlateStore mutation kills", () => {
             })
         );
 
-        const resourceStore = new MemorySlateStore();
+        const resourceStore = new MemorySlateStore(recordingCustody());
         const resourceGraph = buildDetachedRecords(resourceStore, workspace, "resource-mismatch");
         resourceStore.reserveDeployment(resourceGraph.reservation);
         resourceStore.addDeployment(resourceGraph.deployment);
@@ -289,7 +290,7 @@ describe("MemorySlateStore mutation kills", () => {
         });
         expect(
             () =>
-                new MemorySlateStore({
+                new MemorySlateStore(recordingCustody(), {
                     ...resourceStore.snapshot(),
                     resourceReservations: resourceStore
                         .snapshot()
@@ -309,7 +310,7 @@ describe("MemorySlateStore mutation kills", () => {
 
         expect(
             () =>
-                new MemorySlateStore({
+                new MemorySlateStore(recordingCustody(), {
                     ...resourceStore.snapshot(),
                     deployments: []
                 })
@@ -322,7 +323,7 @@ describe("MemorySlateStore mutation kills", () => {
     });
 
     test("refuses expectations for slates that do not exist", { tags: "p0" }, () => {
-        const store = new MemorySlateStore();
+        const store = new MemorySlateStore(recordingCustody());
         const workspace = new WorkspaceId("workspace-missing-expectation");
         const phantom = new Slate({
             id: new SlateId("slate-phantom"),
@@ -337,7 +338,7 @@ describe("MemorySlateStore mutation kills", () => {
     });
 
     test("CAS and closure violations carry exact messages", { tags: "p1" }, () => {
-        const store = new MemorySlateStore();
+        const store = new MemorySlateStore(recordingCustody());
         const workspace = new WorkspaceId("workspace-exact-messages");
         const slate = Slate.initial(new SlateId("slate-exact-messages"), workspace, ref("source"));
         expect(store.compareAndSetSlate(undefined, slate)).toBe(true);
@@ -446,7 +447,7 @@ describe("MemorySlateStore mutation kills", () => {
         const snapshot = store.snapshot();
         expect(
             () =>
-                new MemorySlateStore({
+                new MemorySlateStore(recordingCustody(), {
                     ...snapshot,
                     slates: [...snapshot.slates, snapshot.slates[0]!]
                 })
@@ -459,7 +460,7 @@ describe("MemorySlateStore mutation kills", () => {
     });
 
     test("duplicate record snapshots name their record kinds", { tags: "p2" }, () => {
-        const store = new MemorySlateStore();
+        const store = new MemorySlateStore(recordingCustody());
         const workspace = new WorkspaceId("workspace-duplicate-kinds");
         buildGraph(store, workspace, "duplicate-kinds");
         const snapshot = store.snapshot();
@@ -480,7 +481,7 @@ describe("MemorySlateStore mutation kills", () => {
             const rows = snapshot[kind];
             expect(
                 () =>
-                    new MemorySlateStore({
+                    new MemorySlateStore(recordingCustody(), {
                         ...snapshot,
                         [kind]: [...rows, rows[0]!]
                     })
@@ -489,7 +490,7 @@ describe("MemorySlateStore mutation kills", () => {
     });
 
     test("rejects projection drift on workspace and slate columns", { tags: "p1" }, () => {
-        const store = new MemorySlateStore();
+        const store = new MemorySlateStore(recordingCustody());
         const workspace = new WorkspaceId("workspace-projection-drift");
         const slate = Slate.initial(new SlateId("slate-projection-drift"), workspace, ref("one"));
         expect(store.compareAndSetSlate(undefined, slate)).toBe(true);
@@ -508,7 +509,7 @@ describe("MemorySlateStore mutation kills", () => {
 
         expect(
             () =>
-                new MemorySlateStore({
+                new MemorySlateStore(recordingCustody(), {
                     ...snapshot,
                     versions: snapshot.versions.map((row) => ({
                         ...row,
@@ -518,7 +519,7 @@ describe("MemorySlateStore mutation kills", () => {
         ).toThrowError(error);
         expect(
             () =>
-                new MemorySlateStore({
+                new MemorySlateStore(recordingCustody(), {
                     ...snapshot,
                     versions: snapshot.versions.map((row) => ({
                         ...row,
@@ -529,7 +530,7 @@ describe("MemorySlateStore mutation kills", () => {
     });
 
     test("lists records sorted by ID regardless of insertion order", { tags: "p1" }, () => {
-        const store = new MemorySlateStore();
+        const store = new MemorySlateStore(recordingCustody());
         const workspace = new WorkspaceId("workspace-insertion-order");
         const slate = Slate.initial(new SlateId("slate-insertion-order"), workspace, ref("one"));
         expect(store.compareAndSetSlate(undefined, slate)).toBe(true);
@@ -557,7 +558,7 @@ describe("MemorySlateStore mutation kills", () => {
     });
 
     test("snapshots reorder scrambled slate history rows by revision", { tags: "p1" }, () => {
-        const store = new MemorySlateStore();
+        const store = new MemorySlateStore(recordingCustody());
         const workspace = new WorkspaceId("workspace-scrambled-history");
         const slate = Slate.initial(new SlateId("slate-scrambled-history"), workspace, ref("r0"));
         expect(store.compareAndSetSlate(undefined, slate)).toBe(true);
@@ -566,7 +567,7 @@ describe("MemorySlateStore mutation kills", () => {
         expect(store.compareAndSetSlate(second.revision, second.update(ref("r2")))).toBe(true);
         const snapshot = store.snapshot();
 
-        const restored = new MemorySlateStore({
+        const restored = new MemorySlateStore(recordingCustody(), {
             ...snapshot,
             slates: [...snapshot.slates].reverse()
         });
@@ -575,7 +576,7 @@ describe("MemorySlateStore mutation kills", () => {
     });
 
     test("refuses resources that were never reserved", { tags: "p0" }, () => {
-        const store = new MemorySlateStore();
+        const store = new MemorySlateStore(recordingCustody());
         const workspace = new WorkspaceId("workspace-unreserved-resource");
         const graph = buildGraph(store, workspace, "unreserved-resource");
         const resource = new SlateResource(
@@ -600,7 +601,7 @@ describe("MemorySlateStore mutation kills", () => {
     });
 
     test("refuses replays that change the stored record bytes", { tags: "p0" }, () => {
-        const store = new MemorySlateStore();
+        const store = new MemorySlateStore(recordingCustody());
         const workspace = new WorkspaceId("workspace-changed-replay");
         const graph = buildGraph(store, workspace, "changed-replay");
         const conflicting = new SlateVersion(
@@ -617,7 +618,7 @@ describe("MemorySlateStore mutation kills", () => {
     });
 
     test("deployments must match every reserved field exactly", { tags: "p0" }, () => {
-        const store = new MemorySlateStore();
+        const store = new MemorySlateStore(recordingCustody());
         const workspace = new WorkspaceId("workspace-deployment-fields");
         const graph = buildGraph(store, workspace, "deployment-fields");
         const other = Slate.initial(
@@ -685,7 +686,7 @@ describe("MemorySlateStore mutation kills", () => {
     });
 
     test("resources must match every reserved field exactly", { tags: "p0" }, () => {
-        const store = new MemorySlateStore();
+        const store = new MemorySlateStore(recordingCustody());
         const workspace = new WorkspaceId("workspace-resource-fields");
         const graph = buildGraph(store, workspace, "resource-fields");
         const other = Slate.initial(
@@ -774,7 +775,7 @@ describe("MemorySlateStore mutation kills", () => {
     });
 
     test("rejects slate rows whose key column drifts from their bytes", { tags: "p1" }, () => {
-        const store = new MemorySlateStore();
+        const store = new MemorySlateStore(recordingCustody());
         const workspace = new WorkspaceId("workspace-row-alias");
         const slate = Slate.initial(new SlateId("slate-row-alias"), workspace, ref("aliased"));
         expect(store.compareAndSetSlate(undefined, slate)).toBe(true);
@@ -782,7 +783,7 @@ describe("MemorySlateStore mutation kills", () => {
 
         expect(
             () =>
-                new MemorySlateStore({
+                new MemorySlateStore(recordingCustody(), {
                     ...snapshot,
                     slates: snapshot.slates.map((row) => ({
                         ...row,
@@ -793,7 +794,7 @@ describe("MemorySlateStore mutation kills", () => {
     });
 
     test("refuses attaching a fork origin to an existing slate", { tags: "p0" }, () => {
-        const store = new MemorySlateStore();
+        const store = new MemorySlateStore(recordingCustody());
         const workspace = new WorkspaceId("workspace-fork-attach");
         const origin = Slate.initial(
             new SlateId("slate-fork-attach-origin"),
@@ -829,7 +830,7 @@ describe("MemorySlateStore mutation kills", () => {
     });
 
     test("record rows must carry branded workspace and slate columns", { tags: "p2" }, () => {
-        const store = new MemorySlateStore();
+        const store = new MemorySlateStore(recordingCustody());
         const workspace = new WorkspaceId("workspace-branded-columns");
         const slate = Slate.initial(new SlateId("slate-branded-columns"), workspace, ref("one"));
         expect(store.compareAndSetSlate(undefined, slate)).toBe(true);
@@ -846,7 +847,7 @@ describe("MemorySlateStore mutation kills", () => {
 
         expect(
             () =>
-                new MemorySlateStore({
+                new MemorySlateStore(recordingCustody(), {
                     ...snapshot,
                     versions: snapshot.versions.map((row) => ({ ...row, workspaceId: forged }))
                 })

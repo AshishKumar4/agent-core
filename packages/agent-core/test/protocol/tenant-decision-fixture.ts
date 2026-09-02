@@ -65,6 +65,7 @@ import {
     faultBoundaries,
     type FaultBoundary
 } from "./counter-fixture";
+import { CodecDeclaration } from "../../src/core";
 
 /**
  * The two hosts a Tenant-decision traversal must decide identically on: the memory
@@ -212,6 +213,7 @@ class PermitDecisionCommand<Transaction> implements ProtocolCommand<
     PermitDecisionReply,
     BridgedDecision
 > {
+    public readonly declaration = CodecDeclaration.empty;
     public readonly command = permitDecisionCommand;
     public readonly caller = CommandCallerPolicy.principal();
     public readonly expectedRevision: ExpectedRevisionPolicy = "required";
@@ -273,6 +275,7 @@ class AppliedEffectCommand<Transaction> implements ProtocolCommand<
     AppliedEffectReply,
     never
 > {
+    public readonly declaration = CodecDeclaration.empty;
     public readonly command = applyEffectCommand;
     public readonly caller = CommandCallerPolicy.actor("tenant");
     public readonly expectedRevision: ExpectedRevisionPolicy = "required";

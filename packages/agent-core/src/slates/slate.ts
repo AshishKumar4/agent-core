@@ -1,4 +1,13 @@
-import { ContentRef, Digest, RecordCodec, Revision, type JsonValue, TextId } from "../core";
+import {
+    ContentRef,
+    type ContentRetentionField,
+    contentRetentionFields,
+    Digest,
+    type JsonValue,
+    RecordCodec,
+    Revision,
+    TextId
+} from "../core";
 import { AgentCoreError } from "../errors";
 import { WorkspaceId } from "../identity";
 import {
@@ -272,4 +281,13 @@ function nextSlateRevision(revision_: Revision): Revision {
         throw new AgentCoreError("protocol.invalid-state", "Slate revision is exhausted");
     }
     return revision_.next();
+}
+
+/**
+ * The Slate head's working source (§8.4). Every revision of a Slate is kept, so a head
+ * that advances retains its new source without releasing the source the prior revision
+ * still names.
+ */
+export function slateContentRetention(value: Slate): readonly ContentRetentionField[] {
+    return contentRetentionFields([["source", value.source]]);
 }

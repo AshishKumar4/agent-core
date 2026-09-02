@@ -1,10 +1,24 @@
 import type { Digest, SemVer } from "../core";
+import type { ContentCustodyPort } from "../content";
 import { AgentCoreError } from "../errors";
 import { PackageId } from "./id";
 import { PackageLock } from "./package-lock";
-import { MetadataSnapshot, PackageRelease } from "./package";
+import {
+    MetadataSnapshot,
+    metadataSnapshotContentRetention,
+    PackageRelease,
+    packageReleaseContentRetention
+} from "./package";
 import { compareText } from "./order";
 import { invalidDefinitionState } from "./error";
+
+/**
+ * The custody seam the Tenant's package plane registers release and snapshot content
+ * through (§8.4). Both records are immutable and Tenant-owned, so the store retains on
+ * write and never releases: the store itself is the token, because a package write is one
+ * call rather than a transaction the content plane can join.
+ */
+export type PackageContentCustody = ContentCustodyPort<PackageStore>;
 
 export interface StoredPackageRelease {
     readonly packageId: PackageId;
@@ -39,10 +53,21 @@ export abstract class PackageStore {
 }
 
 export abstract class ProjectedPackageStore extends PackageStore {
+    protected constructor(private readonly custody: PackageContentCustody) {
+        super();
+    }
+
     public add(release: PackageRelease): void {
         const bytes = PackageRelease.encode(release);
         const canonical = PackageRelease.decode(bytes);
         const expected = projectRelease(canonical, bytes);
+        // §8.4: the module bytes this release names are held before the row lands, so a
+        // release never becomes readable naming content its Tenant does not retain.
+        this.custody.retain(this, {
+            kind: PackageRelease.codec.kind,
+            key: releaseKey(canonical),
+            fields: packageReleaseContentRetention(canonical)
+        });
         const stored = this.insertRelease(expected);
         this.decodeRelease(stored, canonical.id, canonical.version);
         if (!equalBytes(stored.bytes, bytes)) {
@@ -73,6 +98,11 @@ export abstract class ProjectedPackageStore extends PackageStore {
         const bytes = MetadataSnapshot.encode(snapshot);
         const canonical = MetadataSnapshot.decode(bytes);
         const expected = projectSnapshot(canonical, bytes);
+        this.custody.retain(this, {
+            kind: MetadataSnapshot.codec.kind,
+            key: canonical.digest.value,
+            fields: metadataSnapshotContentRetention(canonical)
+        });
         const stored = this.insertSnapshot(expected);
         this.decodeSnapshot(stored, canonical.digest);
         if (!equalBytes(stored.bytes, bytes)) {

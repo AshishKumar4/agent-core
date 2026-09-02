@@ -662,7 +662,7 @@ class SqliteCausalProfileEffects extends ProfileRuntimeEffectsPort<Receipt> {
     private persistence(actor: ActorRef): WorkspacePersistence<TestSqlite> {
         return new WorkspacePersistence(
             () => this.#records,
-            { verify: () => true, release() {}, discard() {} },
+            { verify: () => true, retain() {}, release() {}, discard() {} },
             actor,
             tenant
         );

@@ -1,5 +1,10 @@
 import { AgentCoreError } from "../../../errors";
-import { isObjectRecord, type RecordCodec } from "../../../core";
+import {
+    isObjectRecord,
+    type ContentRetentionField,
+    type RecordCodec
+} from "../../../core";
+import type { ContentCustodyPort } from "../../../content";
 import { TransactionalSqlite, isSqliteNumber, isSqliteText, type SqliteRow } from "../sqlite";
 import { InvocationError } from "../../../invocations";
 
@@ -66,6 +71,8 @@ export interface SqliteInvocationCodecs<Prepared, Approval, Claim, Attempt, Rece
     projectAttempt(record: Attempt): AttemptProjection;
     projectReceipt(record: Receipt): ReceiptProjection;
     projectContinuation(record: Continuation): ContinuationProjection;
+    /** The ContentRefs a Receipt names, projected for §8.4 retention on append. */
+    projectReceiptContent(record: Receipt): readonly ContentRetentionField[];
 }
 
 const CREATE_PREPARED = `CREATE TABLE IF NOT EXISTS invocation_prepared_records (
@@ -153,7 +160,8 @@ export class SqliteInvocationPersistence<
             Attempt,
             Receipt,
             Continuation
-        >
+        >,
+        private readonly custody: ContentCustodyPort<TransactionalSqlite>
     ) {
         database.transaction(() => {
             for (const statement of [
@@ -431,6 +439,11 @@ export class SqliteInvocationPersistence<
             .map((row) => this.decodeReceipt(transaction, row));
     }
 
+    /**
+     * §8.4: the result bytes an attempt produced are retained in the same transaction that
+     * appends the Receipt naming them. An audited Receipt is append-only, so this store owes
+     * retention on write and never a release.
+     */
     public appendReceipt(transaction: TransactionalSqlite, record: Receipt): void {
         const projection = this.codecs.projectReceipt(record);
         let invocation: string;
@@ -466,6 +479,11 @@ export class SqliteInvocationPersistence<
                 this.codecs.receipt.encode(record)
             ]
         );
+        this.custody.retain(transaction, {
+            kind: this.codecs.receipt.kind,
+            key: projection.id,
+            fields: this.codecs.projectReceiptContent(record)
+        });
     }
 
     private decodeApproval(row: SqliteRow): Approval {

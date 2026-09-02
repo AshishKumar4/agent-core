@@ -22,6 +22,7 @@ import {
 } from "../../src/definition";
 import { MemoryPackageStore } from "../../src/definition/memory";
 import { TenantId } from "../../src/identity";
+import { recordingCustody } from "../helpers/custody";
 
 const packageRoot = resolve(import.meta.dirname, "../..");
 
@@ -91,7 +92,7 @@ describe("W4 error taxonomy", () => {
         );
         expectOperational(
             () =>
-                new MemoryPackageStore({
+                new MemoryPackageStore(recordingCustody(), {
                     releases: [
                         {
                             packageId: forgedPackageId(""),

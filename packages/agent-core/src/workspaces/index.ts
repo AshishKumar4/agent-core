@@ -108,7 +108,11 @@ export type {
     TargetAuthorityDecision,
     TargetRouteAuthorityPort
 } from "./ports";
-export { ContentRetentionReference, RetainedRecordKind } from "./retention";
+export {
+    ContentRetentionReference,
+    RetainedRecordKind,
+    WorkspaceContentRetention
+} from "./retention";
 export type { ContentRetentionPort, ContentRetentionReferenceInit } from "./retention";
 export {
     AuthenticatedRouteProjection,

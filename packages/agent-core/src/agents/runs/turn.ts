@@ -1,10 +1,12 @@
 import {
     ContentRef,
+    type ContentRetentionField,
+    contentRetentionFields,
     Digest,
+    type JsonValue,
     RecordCodec,
     Revision,
     SemVer,
-    type JsonValue,
     TextId
 } from "../../core";
 import { PackageId, PackagePin } from "../../definition";
@@ -14,7 +16,6 @@ import { RunCommitId, TurnId } from "../../execution-references";
 import { AgentCoreError } from "../../errors";
 import {
     CodecRecord,
-    contentRetentionFields,
     digestFromData,
     requireExactFields,
     requireInteger,
@@ -25,7 +26,6 @@ import {
     revisionData,
     revisionFromData
 } from "../record-data";
-import type { ContentRetentionField } from "../record-data";
 import { AgentId, AgentPolicyId, ModelPolicyId } from "../id";
 import { RunBranchId, RunCheckpointId, RunId, TurnInboxEntryId } from "./id";
 import {

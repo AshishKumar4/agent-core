@@ -1,20 +1,22 @@
 import { Range } from "semver";
 import {
-    ContentRef,
-    isNonempty,
-    type JsonFields,
-    type JsonObject,
     CompatRange,
+    ContentRef,
+    type ContentRetentionField,
+    contentRetentionFields,
     Digest,
-    JsonSchema,
-    RecordCodec,
-    Revision,
-    SemVer,
     encodeCanonicalJson,
     hasExactJsonKeys,
     isJsonObject,
     isJsonValue,
+    isNonempty,
+    type JsonFields,
+    type JsonObject,
+    JsonSchema,
     type JsonValue,
+    RecordCodec,
+    Revision,
+    SemVer,
     TextId
 } from "../core";
 import {
@@ -525,5 +527,41 @@ function isBooleanValue(value: JsonValue): value is boolean {
 function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {
     return (
         left.byteLength === right.byteLength && left.every((value, index) => value === right[index])
+    );
+}
+
+/**
+ * The module bytes one immutable release names (§8.4). The declared field path walks the
+ * release's own code manifest, so the projection and the record registry read the same
+ * shape: one entry per module, in the manifest's canonical specifier order.
+ */
+export function packageReleaseContentRetention(
+    release: PackageRelease
+): readonly ContentRetentionField[] {
+    return contentRetentionFields(
+        release.codeManifest.modules.map(
+            (module, index) => [`codeManifest.modules[${index}].content`, module.content] as const
+        )
+    );
+}
+
+/**
+ * Every module byte range a metadata snapshot reaches through its releases (§8.4). A
+ * snapshot is immutable and Tenant-owned, so it retains on write and releases only when the
+ * Tenant's package plane drops the snapshot itself.
+ */
+export function metadataSnapshotContentRetention(
+    snapshot: MetadataSnapshot
+): readonly ContentRetentionField[] {
+    return contentRetentionFields(
+        snapshot.releases.flatMap((release, releaseIndex) =>
+            release.codeManifest.modules.map(
+                (module, moduleIndex) =>
+                    [
+                        `releases[${releaseIndex}].codeManifest.modules[${moduleIndex}].content`,
+                        module.content
+                    ] as const
+            )
+        )
     );
 }

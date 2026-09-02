@@ -50,6 +50,7 @@ import {
 } from "../../src/slates";
 import { WorkspaceId } from "../../src/workspaces";
 import { malformed, violating } from "../helpers/malformed";
+import { recordingCustody } from "../helpers/custody";
 
 const memoryBinding = new BindingRequirement(
     new BindingName("memory"),
@@ -214,7 +215,7 @@ describe("SlateRuntime", () => {
         expect(reconciledRequest.effectContext.sameItem(invokedRequest.effectContext)).toBe(true);
         expect(reconciledRequest.effectContext.attemptOrdinal).toBe(0);
         expect(reconciledRequest.idempotencyKey).toBe(invokedRequest.idempotencyKey);
-        const replay = new MemorySlateStore(fixture.store.snapshot());
+        const replay = new MemorySlateStore(recordingCustody(), fixture.store.snapshot());
         expect(
             replay.getResource(recovered.resource.id)?.receiptId.equals(recovered.receiptId)
         ).toBe(true);
@@ -595,7 +596,7 @@ describe("SlateRuntime", () => {
     });
 
     test("reports every Slate head CAS loser without replacing the concurrent winner", { tags: "p0" }, async () => {
-        const updateStore = new RejectingSlateStore();
+        const updateStore = new RejectingSlateStore(recordingCustody());
         const update = runtimeFixture("cas-update", updateStore);
         const updateSlate = await update.runtime.create(update.workspace, ref("initial"));
         updateStore.rejectNextCas = true;
@@ -603,7 +604,7 @@ describe("SlateRuntime", () => {
             code: "protocol.revision-conflict"
         });
 
-        const commitStore = new RejectingSlateStore();
+        const commitStore = new RejectingSlateStore(recordingCustody());
         const commit = runtimeFixture("cas-commit", commitStore);
         const commitSlate = await commit.runtime.create(commit.workspace, ref("source"));
         commitStore.rejectNextCas = true;
@@ -611,7 +612,7 @@ describe("SlateRuntime", () => {
             code: "protocol.revision-conflict"
         });
 
-        const publishStore = new RejectingSlateStore();
+        const publishStore = new RejectingSlateStore(recordingCustody());
         const publish = runtimeFixture("cas-publish", publishStore);
         const publishSlate = await publish.runtime.create(publish.workspace, ref("source"));
         const version = await publish.runtime.commit(publishSlate.id);
@@ -622,7 +623,7 @@ describe("SlateRuntime", () => {
             }
         );
 
-        const rollbackStore = new RejectingSlateStore();
+        const rollbackStore = new RejectingSlateStore(recordingCustody());
         const rollback = runtimeFixture("cas-rollback", rollbackStore);
         const { slate, publication } = await publishedSlate(rollback);
         const firstDeployment = await rollback.runtime.deploy(
@@ -1198,7 +1199,7 @@ interface RuntimeFixture {
 
 function runtimeFixture(
     label: string,
-    store: MemorySlateStore = new MemorySlateStore()
+    store: MemorySlateStore = new MemorySlateStore(recordingCustody())
 ): RuntimeFixture {
     const mutations = new TrackingMutationSeam();
     const invocations = new TrackingInvocationSeam();

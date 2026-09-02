@@ -1,4 +1,12 @@
-import { ContentRef, Digest, RecordCodec, type JsonValue, TextId } from "../core";
+import {
+    ContentRef,
+    type ContentRetentionField,
+    contentRetentionFields,
+    Digest,
+    type JsonValue,
+    RecordCodec,
+    TextId
+} from "../core";
 import { WorkspaceId } from "../identity";
 import { InvocationId } from "../interaction-references";
 import { ReceiptId } from "../invocation-references";
@@ -136,4 +144,13 @@ function requireTextValue(value: JsonValue | undefined): string {
 
 function isTextValue(value: JsonValue | undefined): value is string {
     return typeof value === "string";
+}
+
+/**
+ * The materialization a deployment installed (§8.4).
+ */
+export function slateDeploymentContentRetention(
+    value: SlateDeployment
+): readonly ContentRetentionField[] {
+    return contentRetentionFields([["materialization", value.materialization]]);
 }

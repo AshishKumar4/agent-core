@@ -64,6 +64,7 @@ export type { RunInvocationDeliveryInit } from "./invocation-delivery";
 export { MemoryRunStorage } from "./memory";
 export type { MemoryRunStorageSnapshot } from "./memory";
 export {
+    RUN_RECORD_CODECS,
     RunRepository,
     RunStoragePort,
     TargetLeaseEvidenceRecord,

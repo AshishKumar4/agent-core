@@ -10,6 +10,7 @@ import {
 import { digestOf, packageLock, packageRelease } from "./package-store-contract";
 import { MetadataSnapshot } from "../../src/definition/package";
 import { forged } from "./record-data";
+import { recordingCustody } from "../helpers/custody";
 
 describe("ProjectedPackageStore hostile adapter boundaries", () => {
     test("rejects duplicate listed releases and snapshots", { tags: "p1" }, () => {
@@ -148,6 +149,10 @@ describe("ProjectedPackageStore hostile adapter boundaries", () => {
 });
 
 class HostilePackageStore extends ProjectedPackageStore {
+    public constructor() {
+        super(recordingCustody());
+    }
+
     readonly releases: StoredPackageRelease[] = [];
     readonly snapshots: StoredMetadataSnapshot[] = [];
     readonly locks: StoredPackageLock[] = [];

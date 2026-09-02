@@ -29,6 +29,7 @@ import {
     type SnapshotEnvironmentRequest
 } from "../../src/environments";
 import { PrincipalId, PrincipalRef, TenantId } from "../../src/identity";
+import { recordingCustody } from "../helpers/custody";
 
 const environmentId = new EnvironmentId("environment-runtime");
 const lease: LeaseToken = Object.freeze({
@@ -43,7 +44,7 @@ const lease: LeaseToken = Object.freeze({
 describe("EnvironmentController", () => {
     test("codes invalid operation inputs", { tags: "p1" }, async () => {
         const provider = new TestProvider(descriptor("provider-invalid-input", "0"));
-        const store = new MemoryEnvironmentStore();
+        const store = new MemoryEnvironmentStore(recordingCustody());
         const controller = new EnvironmentController(
             store,
             new MemoryEnvironmentProviderRegistry([provider]),
@@ -196,7 +197,7 @@ describe("EnvironmentController", () => {
         { tags: "p1" },
         async () => {
             const provider = new TestProvider(descriptor("provider-turn-owned", "e"));
-            const store = new MemoryEnvironmentStore();
+            const store = new MemoryEnvironmentStore(recordingCustody());
             let live: LeaseToken | undefined = lease;
             const controller = new EnvironmentController(
                 store,
@@ -260,7 +261,7 @@ describe("EnvironmentController", () => {
                 return candidate === lease;
             }
         };
-        const store = new MemoryEnvironmentStore();
+        const store = new MemoryEnvironmentStore(recordingCustody());
         const controller = new EnvironmentController(
             store,
             new MemoryEnvironmentProviderRegistry([provider]),
@@ -1070,7 +1071,7 @@ describe("EnvironmentController", () => {
         ];
 
         for (const changed of changes) {
-            const store = new MemoryEnvironmentStore();
+            const store = new MemoryEnvironmentStore(recordingCustody());
             const controller = new EnvironmentController(
                 store,
                 new MemoryEnvironmentProviderRegistry([]),
@@ -1379,7 +1380,7 @@ describe("EnvironmentController", () => {
         { tags: "p1" },
         async () => {
             const provider = new TestProvider(descriptor("provider-cas-loss", "3"));
-            const store = new RejectingEnvironmentStore();
+            const store = new RejectingEnvironmentStore(recordingCustody());
             const registry = new MemoryEnvironmentProviderRegistry([provider]);
             const controller = new EnvironmentController(store, registry, {
                 permits: (candidate) => candidate === lease
@@ -1497,7 +1498,7 @@ describe("EnvironmentController", () => {
                 fixture.controller.reserveSession(environmentId, restoredId, lease, second.id)
             ).toThrowError(expect.objectContaining({ code: "environment.invalid-session" }));
 
-            const missingRevision = new MissingRevisionEnvironmentStore(
+            const missingRevision = new MissingRevisionEnvironmentStore(recordingCustody(), 
                 fixture.store.exportImage()
             );
             missingRevision.hideRevisions = true;
@@ -1539,7 +1540,7 @@ describe("EnvironmentController", () => {
     );
 
     test("codes a provision conflict when the store refuses an initial CAS", { tags: "p1" }, () => {
-        const store = new RejectingEnvironmentStore();
+        const store = new RejectingEnvironmentStore(recordingCustody());
         store.rejectEnvironment = true;
         const provider = new TestProvider(descriptor("provider-refused-provision", "6"));
         const controller = new EnvironmentController(
@@ -1559,7 +1560,7 @@ describe("EnvironmentController", () => {
     });
 
     test("returns the stored head for an identical provision replay", { tags: "p0" }, () => {
-        const store = new RejectingEnvironmentStore();
+        const store = new RejectingEnvironmentStore(recordingCustody());
         const provider = new TestProvider(descriptor("provider-provision-replay", "7"));
         const controller = new EnvironmentController(
             store,
@@ -1581,7 +1582,7 @@ describe("EnvironmentController", () => {
         "returns the stored reservation for identical replays under a refused CAS",
         { tags: "p0" },
         async () => {
-            const store = new RejectingEnvironmentStore();
+            const store = new RejectingEnvironmentStore(recordingCustody());
             const provider = new TestProvider(descriptor("provider-reserve-replay", "8"));
             const controller = new EnvironmentController(
                 store,
@@ -1632,7 +1633,7 @@ describe("EnvironmentController", () => {
         "codes refused session, snapshot, and exposure CAS without a stored record",
         { tags: "p1" },
         async () => {
-            const store = new RejectingEnvironmentStore();
+            const store = new RejectingEnvironmentStore(recordingCustody());
             const provider = new TestProvider(descriptor("provider-refused-records", "9"));
             const controller = new EnvironmentController(
                 store,
@@ -2044,7 +2045,7 @@ describe("EnvironmentController", () => {
     });
 
     test("close replay while closing persists nothing new", { tags: "p1" }, async () => {
-        const store = new RejectingEnvironmentStore();
+        const store = new RejectingEnvironmentStore(recordingCustody());
         const provider = new TestProvider(descriptor("provider-close-replay-no-cas", "7"));
         const controller = new EnvironmentController(
             store,
@@ -2072,7 +2073,7 @@ describe("EnvironmentController", () => {
     });
 
     test("revoke replay while revoking persists nothing new", { tags: "p1" }, async () => {
-        const store = new RejectingEnvironmentStore();
+        const store = new RejectingEnvironmentStore(recordingCustody());
         const provider = new TestProvider(descriptor("provider-revoke-replay-no-cas", "8"));
         const controller = new EnvironmentController(
             store,
@@ -2434,7 +2435,7 @@ interface EnvironmentFixture {
 function setup(providers: readonly TestProvider[]): EnvironmentFixture {
     const provider = providers[0];
     if (provider === undefined) throw new TypeError("Expected at least one Environment provider");
-    const store = new MemoryEnvironmentStore();
+    const store = new MemoryEnvironmentStore(recordingCustody());
     const registry = new MemoryEnvironmentProviderRegistry(providers);
     const verifier: TurnLeaseVerifier = { permits: (candidate) => candidate === lease };
     const controller = new EnvironmentController(store, registry, verifier);

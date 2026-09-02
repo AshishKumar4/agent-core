@@ -897,7 +897,7 @@ export class WorkspacePersistence<Transaction> {
             event.id.value,
             event.payload.value
         );
-        this.requireDurableRetention(transaction, retention);
+        this.retainNamedContent(transaction, retention);
         const storage = this.storage(transaction);
         if (storage.findUnique("event.idempotency", event.idempotencyKey) !== undefined) {
             throw duplicate("Event idempotency identity is already reserved");
@@ -1217,7 +1217,7 @@ export class WorkspacePersistence<Transaction> {
             reservation.id.value,
             reservation.projectionRef.value
         );
-        this.requireDurableRetention(transaction, retention);
+        this.retainNamedContent(transaction, retention);
         const storage = this.storage(transaction);
         if (
             storage.findUnique(
@@ -1317,7 +1317,7 @@ export class WorkspacePersistence<Transaction> {
             projection.id.value,
             projection.content.value
         );
-        this.requireDurableRetention(transaction, retention);
+        this.retainNamedContent(transaction, retention);
         const storage = this.storage(transaction);
         if (storage.findUnique("route.projection", projection.reservation.value) !== undefined) {
             throw duplicate("Route projection identity is already reserved");
@@ -1585,7 +1585,7 @@ export class WorkspacePersistence<Transaction> {
         const storage = this.storage(transaction);
         for (const retention of retentions) {
             requireRetention(retention, recordKind, recordKey, retention.content.value);
-            this.requireDurableRetention(transaction, retention);
+            this.retainNamedContent(transaction, retention);
             this.append(
                 storage,
                 "contentRetention",
@@ -1766,7 +1766,14 @@ export class WorkspacePersistence<Transaction> {
         storage.insertRecord({ kind, id, bytes });
     }
 
-    private requireDurableRetention(
+    /**
+     * §8.4: a durable record may name content only if this Actor's content plane holds it,
+     * and naming it registers the owner edge that keeps collection away from it. Both halves
+     * happen inside the writer's transaction, so a faulted append leaves neither the record
+     * nor the hold. Retirement releases through `releaseRetentions`; withdrawal, which
+     * retires no record, releases nothing.
+     */
+    private retainNamedContent(
         transaction: Transaction,
         reference: ContentRetentionReference
     ): void {
@@ -1782,6 +1789,7 @@ export class WorkspacePersistence<Transaction> {
                 "Content retention proof belongs to another Actor or tenant"
             );
         }
+        this.retention.retain(transaction, reference);
     }
 
     private requireEventIndex(transaction: Transaction, event: Event): void {

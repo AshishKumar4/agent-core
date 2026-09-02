@@ -33,7 +33,7 @@ test("rejects a secondary index pointing to an unrelated valid Event", { tags: "
     });
     const persistence = new WorkspacePersistence<MemoryWorkspaceRecords>(
         (value) => value,
-        { verify: () => true, release: () => {}, discard: () => {} },
+        { verify: () => true, retain: () => {}, release: () => {}, discard: () => {} },
         sourceActor,
         tenant
     );
@@ -54,7 +54,7 @@ function createMemoryHarness(): WorkspacePersistenceHarness<MemoryWorkspaceState
     return {
         persistence: new WorkspacePersistence(
             (state) => state.records,
-            { verify: () => true, release: () => {}, discard: () => {} },
+            { verify: () => true, retain: () => {}, release: () => {}, discard: () => {} },
             sourceActor,
             tenant
         ),

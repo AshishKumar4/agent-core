@@ -1,6 +1,7 @@
 import type { ActorRef } from "../actors";
 import { AgentCoreError } from "../errors";
 import {
+    CodecDeclaration,
     Revision,
     decodeBase64,
     decodeCanonicalJson,
@@ -71,6 +72,17 @@ export interface FacetSlotCommandReply {
     readonly revision: Revision;
 }
 
+/**
+ * §8.3: the record set a Slot command's execution writes. Install and withdraw write the
+ * installed Slot, contribute writes the Slot entry, and every one of the three declares
+ * both, because a reader that cannot decode either cannot serve this Actor's Slot plane at
+ * all. The backend's own revision carrier stays the backend's declaration to make.
+ */
+const FACET_SLOT_RECORD_CODECS: CodecDeclaration = CodecDeclaration.of([
+    InstalledSlot.codec,
+    SlotEntry.codec
+]);
+
 export class FacetSlotInstallCommand<
     Transaction,
     Read,
@@ -83,6 +95,7 @@ export class FacetSlotInstallCommand<
     InstalledSlot
 > {
     readonly #prepared = new WeakMap<CommandEnvelope, PreparedSlotInstall<Stamp>>();
+    public readonly declaration = FACET_SLOT_RECORD_CODECS;
     public readonly command = FACET_SLOT_COMMANDS.install;
     public readonly caller: CommandCallerPolicy;
     public readonly expectedRevision = "required" as const;
@@ -192,6 +205,7 @@ export class FacetSlotWithdrawCommand<Transaction, Read> implements ProtocolComm
     ContributionAttribution,
     FacetSlotCommandReply
 > {
+    public readonly declaration = FACET_SLOT_RECORD_CODECS;
     public readonly command = FACET_SLOT_COMMANDS.withdraw;
     public readonly caller: CommandCallerPolicy;
     public readonly expectedRevision = "required" as const;
@@ -273,6 +287,7 @@ export class FacetSlotContributeCommand<
     SlotEntry
 > {
     readonly #prepared = new WeakMap<CommandEnvelope, PreparedSlotContribution<Stamp>>();
+    public readonly declaration = FACET_SLOT_RECORD_CODECS;
     public readonly command = FACET_SLOT_COMMANDS.contribute;
     public readonly caller: CommandCallerPolicy;
     public readonly expectedRevision = "required" as const;

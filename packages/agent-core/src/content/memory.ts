@@ -232,6 +232,10 @@ export class MemoryContentRetention extends ContentRetention<MemoryContentRetent
         state.relations.set(edge.ref.value, null);
     }
 
+    public holds(transaction: MemoryContentRetentionState, ref: ContentRef): boolean {
+        return this.requireState(transaction).content.get(ref.value) !== undefined;
+    }
+
     public release(
         transaction: MemoryContentRetentionState,
         edge: ContentOwnerEdge,

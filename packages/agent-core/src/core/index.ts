@@ -11,7 +11,8 @@ export {
 export { decodeBase64, encodeBase64 } from "./base64";
 export { Digest } from "./digest";
 export type { DigestAlgorithm } from "./digest";
-export { ContentRef } from "./content-ref";
+export { ContentRef, contentRetentionFields } from "./content-ref";
+export type { ContentRetentionField } from "./content-ref";
 export { Revision } from "./revision";
 export { SecretRef } from "./secret-ref";
 export {

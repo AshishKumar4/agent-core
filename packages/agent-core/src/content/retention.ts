@@ -1,6 +1,7 @@
 import { ActorId, ActorRef, type ActorKind } from "../actors";
 import {
     ContentRef,
+    type ContentRetentionField,
     Digest,
     RecordCodec,
     hasExactJsonKeys,
@@ -108,6 +109,115 @@ export class ContentOwnerEdge {
 
 const contentOwnerEdgeCodecInstance = new ContentOwnerEdgeCodec();
 
+
+/**
+ * The owner-key namespace one record kind holds its content under. A store verifies its
+ * whole custody against exactly the namespaces of the kinds it owns, so the prefix and the
+ * key below are written once, here, and never spelled out at a call site.
+ */
+export function contentOwnerNamespace(kind: string): string {
+    return `record:${kind}:`;
+}
+
+/**
+ * The owner key one durable record's field holds its ContentRef under. The key length
+ * prefix keeps a record identity that itself contains the separator from colliding with
+ * another record's key, and the kind namespace keeps one Actor's record families apart
+ * inside the single custody namespace §8.4 gives it.
+ */
+export function contentOwnerKey(kind: string, key: string, field: string): string {
+    return `${contentOwnerNamespace(kind)}${key.length}:${key}:${field}`;
+}
+
+/**
+ * A durable record as the custody plane sees it: its wire kind, the identity its store
+ * keys it under, and the ContentRefs its fields name right now.
+ */
+export interface RetainedContentRecord {
+    readonly kind: string;
+    readonly key: string;
+    readonly fields: readonly ContentRetentionField[];
+}
+
+/**
+ * The seam a record store calls on every durable write of a content-bearing record. It is
+ * deliberately narrower than `ContentRetention`: a store registers and releases the records
+ * it owns and never collects, and it names records rather than owner edges, so the Tenant,
+ * the Actor and the owner key stay the custody plane's to decide.
+ */
+export interface ContentCustodyPort<Transaction> {
+    /**
+     * Registers every ContentRef `record` names and releases every one the stored record
+     * named before and no longer does, inside the writer's own transaction.
+     */
+    retain(
+        transaction: Transaction,
+        record: RetainedContentRecord,
+        previous?: RetainedContentRecord
+    ): void;
+
+    /** Releases every ContentRef `record` names, for a removal path that drops the record. */
+    release(transaction: Transaction, record: RetainedContentRecord): void;
+}
+
+/**
+ * The one implementation of that seam: it derives each record's owner edges and reconciles
+ * them through a `ContentRetention`, so a store's write path and the collection sweep read
+ * the same custody state. Retention is idempotent, so re-registering an unchanged record is
+ * a no-op rather than a conflict, and a field whose ContentRef moved releases the old edge
+ * before it retains the new one — the swap the §8.4 custody contract requires.
+ */
+export class ContentRecordCustody<Transaction> implements ContentCustodyPort<Transaction> {
+    public constructor(
+        private readonly retention: ContentRetention<Transaction>,
+        private readonly now: () => Date = () => new Date()
+    ) {
+        Object.freeze(this);
+    }
+
+    public retain(
+        transaction: Transaction,
+        record: RetainedContentRecord,
+        previous?: RetainedContentRecord
+    ): void {
+        const after = this.edges(record);
+        const before = previous === undefined ? [] : this.edges(previous);
+        if (before.length === 0 && after.length === 0) return;
+        const operationAt = this.operationTime();
+        for (const edge of before) {
+            if (!after.some((candidate) => candidate.equals(edge))) {
+                this.retention.release(transaction, edge, operationAt);
+            }
+        }
+        for (const edge of after) this.retention.retain(transaction, edge, operationAt);
+    }
+
+    public release(transaction: Transaction, record: RetainedContentRecord): void {
+        const edges = this.edges(record);
+        if (edges.length === 0) return;
+        const operationAt = this.operationTime();
+        for (const edge of edges) this.retention.release(transaction, edge, operationAt);
+    }
+
+    private edges(record: RetainedContentRecord): readonly ContentOwnerEdge[] {
+        return record.fields.map(
+            ({ field, ref }) =>
+                new ContentOwnerEdge(
+                    this.retention.tenant,
+                    this.retention.actor,
+                    contentOwnerKey(record.kind, record.key, field),
+                    ref
+                )
+        );
+    }
+
+    private operationTime(): Date {
+        return requireOperationTime(this.now(), "Content custody time");
+    }
+}
+Object.freeze(ContentRecordCustody.prototype);
+Object.freeze(ContentRecordCustody);
+
 export interface ContentCollectionCandidate {
     readonly tenant: TenantId;
     readonly actor: ActorRef;
@@ -140,6 +250,14 @@ export abstract class ContentRetention<TTransaction> {
         edge: ContentOwnerEdge,
         operationAt: Date
     ): void;
+
+    /**
+     * Whether this Actor's content plane holds the bytes `ref` names, read inside the
+     * caller's own transaction. A record may name only content its Actor already holds, and
+     * `retain` refuses the rest; this is the same question asked before the record is built,
+     * so a write path can reject with its own protocol error instead of a custody fault.
+     */
+    public abstract holds(transaction: TTransaction, ref: ContentRef): boolean;
 
     public abstract collect(
         transaction: TTransaction,

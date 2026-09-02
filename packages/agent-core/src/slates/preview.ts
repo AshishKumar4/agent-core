@@ -1,4 +1,13 @@
-import { ContentRef, Digest, RecordCodec, Revision, type JsonValue, TextId } from "../core";
+import {
+    ContentRef,
+    type ContentRetentionField,
+    contentRetentionFields,
+    Digest,
+    type JsonValue,
+    RecordCodec,
+    Revision,
+    TextId
+} from "../core";
 import {
     EnvironmentId,
     EnvironmentSessionCapability,
@@ -169,3 +178,12 @@ export class SlatePreview {
 }
 
 const slatePreviewCodecInstance = new SlatePreviewCodecV1();
+
+/**
+ * The exact source a preview was built from (§8.4).
+ */
+export function slatePreviewContentRetention(
+    value: SlatePreview
+): readonly ContentRetentionField[] {
+    return contentRetentionFields([["source", value.source]]);
+}

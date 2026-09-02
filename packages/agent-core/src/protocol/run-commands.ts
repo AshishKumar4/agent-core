@@ -1,5 +1,6 @@
 import type { ActorRef } from "../actors";
 import { RunBranchId, RunCommitId, RunId, TurnId } from "../agents";
+import { RUN_RECORD_CODECS } from "../agents";
 import {
     type JsonObject,
     type JsonFields,
@@ -281,6 +282,13 @@ class RunPortCommand<Transaction, Read, Reply, Observation> implements ProtocolC
     Reply,
     Observation
 > {
+    /**
+     * §8.3: every Run protocol command commits through one Run record set, so each declares
+     * that whole set rather than the subset its own request kind happens to touch. A reader
+     * that cannot decode any Run record refuses the Actor at activation instead of at the
+     * first commit it fails to read.
+     */
+    public readonly declaration = RUN_RECORD_CODECS;
     public readonly command: string;
     public readonly caller: CommandCallerPolicy;
     public readonly expectedRevision: "required" | "forbidden";

@@ -13,20 +13,20 @@
   },
   "expectedCounters": {
     "statements": {
-      "covered": 4001,
-      "total": 4042
+      "covered": 4013,
+      "total": 4054
     },
     "branches": {
       "covered": 2196,
       "total": 2250
     },
     "functions": {
-      "covered": 1298,
-      "total": 1302
+      "covered": 1304,
+      "total": 1308
     },
     "lines": {
-      "covered": 3784,
-      "total": 3819
+      "covered": 3796,
+      "total": 3831
     }
   }
 }

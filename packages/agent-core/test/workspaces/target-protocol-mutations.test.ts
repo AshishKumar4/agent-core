@@ -105,6 +105,8 @@ class RecordingRetention implements ContentRetentionPort<MemoryWorkspaceRecords>
         return this.durable;
     }
 
+    public retain(): void {}
+
     public release(): void {}
 
     public discard(reference: ContentRetentionReference): void {

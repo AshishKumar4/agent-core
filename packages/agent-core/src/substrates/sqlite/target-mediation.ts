@@ -18,16 +18,19 @@ import {
     type AuthorityPermitReference,
     type MediationPersistence
 } from "../../composition";
+import { ContentRecordCustody } from "../../content";
 import { AgentCoreError } from "../../errors";
 import type { PrincipalRef, TenantId } from "../../identity";
 import {
     AttemptReceipt,
     PreEffectReceipt,
+    receiptContentRetention,
     type InvocationEvidencePersistence,
     type InvocationReplayPersistence,
     type Receipt
 } from "../../invocations";
 import { SqliteActorStore } from "./actor";
+import { SqliteContentRetention } from "./content-retention";
 import { SqliteInvocationMediationPersistence, SqliteInvocationPersistence } from "./invocations";
 import { SqliteAuthorityPermitStore } from "./permit";
 import { SqliteProtocolPersistence } from "./protocol";
@@ -71,7 +74,7 @@ export class SqliteTargetPermitMediationAggregate extends TargetPermitMediationA
         this.#actors.bindActor(actor);
         const permits = new SqliteAuthorityPermitStore(database, actor);
         const protocol = new SqliteProtocolPersistence(database);
-        this.persistence = createTargetInvocationPersistence(database);
+        this.persistence = createTargetInvocationPersistence(database, tenant, actor);
         this.evidence = new SqliteInvocationMediationPersistence(database, protocol);
         this.#watermarks = new SqliteInvalidationWatermarkStore(database, tenant, actor);
         const requireActive = (transaction: TransactionalSqlite): void =>
@@ -231,34 +234,44 @@ class TargetAdmissionView implements AuthorityPermitTargetAdmissionStore<Transac
 }
 
 function createTargetInvocationPersistence(
-    database: TransactionalSqlite
+    database: TransactionalSqlite,
+    tenant: TenantId,
+    actor: ActorRef
 ): MediationPersistence<TransactionalSqlite, AuthorityPermitReference> {
     const codecs = mediationInvocationCodecs(authorityPermitReferenceCodec);
-    return new SqliteInvocationPersistence(database, {
-        ...codecs,
-        projectPrepared: (record) => ({ id: record.header.id.value }),
-        projectApproval: (record) => ({
-            id: record.id.value,
-            invocation: record.invocation.value,
-            revision: record.revision.value,
-            phase: record.state.kind
-        }),
-        projectClaim: (record) => ({
-            id: record.id.value,
-            invocation: record.invocation.value,
-            itemIndex: record.itemIndex,
-            ordinal: record.attemptOrdinal
-        }),
-        projectAttempt: (record) => ({
-            id: record.id.value,
-            invocation: record.invocation.value,
-            itemIndex: record.itemIndex,
-            ordinal: record.ordinal,
-            claim: record.claim.value
-        }),
-        projectReceipt: projectReceipt,
-        projectContinuation: (record) => ({ invocation: record.invocation.value })
-    });
+    // §8.4: the Receipt store and the content it names share one owning Actor, so the
+    // retention this custody writes commits inside the same transaction as the Receipt row.
+    const custody = new ContentRecordCustody(new SqliteContentRetention(database, tenant, actor));
+    return new SqliteInvocationPersistence(
+        database,
+        {
+            ...codecs,
+            projectPrepared: (record) => ({ id: record.header.id.value }),
+            projectApproval: (record) => ({
+                id: record.id.value,
+                invocation: record.invocation.value,
+                revision: record.revision.value,
+                phase: record.state.kind
+            }),
+            projectClaim: (record) => ({
+                id: record.id.value,
+                invocation: record.invocation.value,
+                itemIndex: record.itemIndex,
+                ordinal: record.attemptOrdinal
+            }),
+            projectAttempt: (record) => ({
+                id: record.id.value,
+                invocation: record.invocation.value,
+                itemIndex: record.itemIndex,
+                ordinal: record.ordinal,
+                claim: record.claim.value
+            }),
+            projectReceipt: projectReceipt,
+            projectReceiptContent: receiptContentRetention,
+            projectContinuation: (record) => ({ invocation: record.invocation.value })
+        },
+        custody
+    );
 }
 
 function projectReceipt(record: Receipt) {

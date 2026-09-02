@@ -963,6 +963,8 @@ class RetentionPort implements ContentRetentionPort<ProtocolState> {
         return true;
     }
 
+    public retain(): void {}
+
     public release(): void {}
 
     public discard(reference: Parameters<ContentRetentionPort<ProtocolState>["discard"]>[0]): void {

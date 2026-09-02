@@ -161,7 +161,10 @@ export class CommandPreparationUnavailableError extends AgentCoreError {
 
 /**
  * The codec versions a dispatcher owns besides the stable recovery carrier. Actor adds that
- * carrier itself, so no subclass can omit or manually version bootstrap state.
+ * carrier itself, so no subclass can omit or manually version bootstrap state. Every
+ * registered command adds the kinds its own execution writes, so the declaration a reader
+ * compares against covers the whole record set the §8.3 gate protects — not just the write
+ * and audit records the dispatcher writes itself.
  */
 const DISPATCHER_CODECS: CodecDeclaration = CodecDeclaration.of([
     AuditRecord.codec,
@@ -194,7 +197,14 @@ export class CommandDispatcher<
         }
         validateLimit(init.limits.envelopeBytes, "envelope");
         validateLimit(init.limits.payloadBytes, "payload");
-        super(context, DISPATCHER_CODECS, (transaction) => init.persistence.repair?.(transaction));
+        super(
+            context,
+            CodecDeclaration.merge([
+                DISPATCHER_CODECS,
+                ...init.commands.map((command) => command.declaration)
+            ]),
+            (transaction) => init.persistence.repair?.(transaction)
+        );
         this.#store = init.store;
         this.#persistence = init.persistence;
         this.#ids = init.ids;

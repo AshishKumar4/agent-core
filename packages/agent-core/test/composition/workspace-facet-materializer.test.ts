@@ -78,6 +78,8 @@ class DurableRetention implements ContentRetentionPort<TransactionalSqlite> {
         return true;
     }
 
+    public retain(): void {}
+
     public release(): void {}
 
     public discard(): void {}

@@ -442,7 +442,7 @@ describe("authority resolves downward along the Scope chain", () => {
 });
 
 /** Content retention is not what this proves; the store is. */
-const routingRetention = { verify: () => true, release: () => {}, discard: () => {} };
+const routingRetention = { verify: () => true, retain: () => {}, release: () => {}, discard: () => {} };
 
 interface WorkspaceRecords {
     readonly records: MemoryWorkspaceRecords;

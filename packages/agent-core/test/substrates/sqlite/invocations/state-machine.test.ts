@@ -49,6 +49,7 @@ import {
     type TestPersistence
 } from "../../../invocations/fixture";
 import { createSqliteInvocationPersistence, runSynchronousSqliteTransaction } from "./fixture";
+import { recordingCustody } from "../../../helpers/custody";
 
 type TestLedger<Transaction> = InvocationLedger<
     Transaction,
@@ -300,7 +301,7 @@ abstract class Runtime<Transaction> implements InvocationRuntime {
 }
 
 class MemoryRuntime extends Runtime<MemoryState> {
-    protected persistence = new MemoryInvocationPersistence(invocationCodecs);
+    protected persistence = new MemoryInvocationPersistence(invocationCodecs, recordingCustody());
     protected evidence = new MemoryInvocationMediationPersistence();
     protected ledger: TestLedger<MemoryState> = createLedger(this.persistence);
     #state = createMemoryState();
@@ -314,7 +315,7 @@ class MemoryRuntime extends Runtime<MemoryState> {
 
     public restart(): void {
         this.#state = cloneMemoryState(this.#state);
-        this.persistence = new MemoryInvocationPersistence(invocationCodecs);
+        this.persistence = new MemoryInvocationPersistence(invocationCodecs, recordingCustody());
         this.evidence = new MemoryInvocationMediationPersistence();
         this.ledger = createLedger(this.persistence);
     }

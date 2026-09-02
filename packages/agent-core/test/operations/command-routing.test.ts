@@ -274,6 +274,8 @@ class RetentionPort implements ContentRetentionPort<ProtocolState> {
     public verify(): boolean {
         return true;
     }
+    public retain(): void {}
+
     public release(): void {}
     public discard(): void {}
 }

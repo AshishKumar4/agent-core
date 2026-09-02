@@ -99,6 +99,7 @@ import { createLedger, invocationCodecs, prepared } from "../invocations/fixture
 import { reaching } from "../composition/fixture";
 import { attribution, contribute, declarerSlot, entry } from "./slot-store-contract";
 import { activationFacet } from "./facet-activation-fixture";
+import { recordingCustody } from "../helpers/custody";
 type CorrespondentFacet = ValidatedFacetRuntime["facets"][number];
 
 interface TestWorkspaceTransaction {
@@ -1545,6 +1546,7 @@ function crossPlaneHarness(
         () => records,
         {
             verify: () => true,
+            retain: () => undefined,
             release: (_transaction, reference) => released.push(reference.id.value),
             discard: () => undefined
         },
@@ -1652,7 +1654,7 @@ interface InvocationPlaneHarness {
  */
 function invocationPlane(): InvocationPlaneHarness {
     const state = createInvocationMemoryState();
-    const persistence = new MemoryInvocationPersistence(invocationCodecs);
+    const persistence = new MemoryInvocationPersistence(invocationCodecs, recordingCustody());
     const ledger = createLedger<InvocationMemoryState>(persistence);
     const query = new InvocationDrainQuery(persistence, persistence, ledger);
     return {

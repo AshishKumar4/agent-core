@@ -1,5 +1,19 @@
-import { ContentRef, Digest, type JsonValue, RecordCodec, Revision, TextId, compareCanonicalText } from "../core";
+import {
+    ContentRef,
+    contentRetentionFields,
+    type ContentRetentionField,
+    Digest,
+    type JsonValue,
+    RecordCodec,
+    Revision,
+    TextId,
+    compareCanonicalText
+} from "../core";
 import { requireSynchronousResult } from "../actors";
+import {
+    type ContentCustodyPort,
+    type RetainedContentRecord
+} from "../content";
 import { AgentCoreError } from "../errors";
 import { WorkspaceId } from "../identity";
 import { InvocationId } from "../interaction-references";
@@ -16,13 +30,13 @@ import {
     requireStringValue,
     workspaceId
 } from "./codec";
-import { SlateDeployment } from "./deployment";
+import { SlateDeployment, slateDeploymentContentRetention } from "./deployment";
 import { SlateDeploymentId, SlateId, SlatePublicationId, SlateResourceId } from "./id";
-import { SlatePreview } from "./preview";
-import { SlatePublication } from "./publication";
-import { SlateResource } from "./resource";
-import { Slate } from "./slate";
-import { SlateVersion } from "./version";
+import { SlatePreview, slatePreviewContentRetention } from "./preview";
+import { SlatePublication, slatePublicationContentRetention } from "./publication";
+import { SlateResource, slateResourceContentRetention } from "./resource";
+import { Slate, slateContentRetention } from "./slate";
+import { SlateVersion, slateVersionContentRetention } from "./version";
 
 export interface SlateDeploymentReservationInit {
     readonly id: SlateDeploymentId;
@@ -349,6 +363,15 @@ const EMPTY_SNAPSHOT: MemorySlateSnapshot = {
     resourceReservations: []
 };
 
+/**
+ * The custody seam the Slate Actor's store registers its content through (§8.4). The Slate
+ * plane has no transaction of its own to join — a write is one call — so the store is the
+ * token a custody implementation receives, and registration happens before the row is
+ * installed: a refused registration must leave no row behind, while a refused row install
+ * may leave a hold nothing names, which collection tolerates and lost content does not.
+ */
+export type SlateContentCustody = ContentCustodyPort<SlateStore>;
+
 export abstract class SlateStore {
     public abstract transaction<Result>(operation: (store: SlateStore) => Result): Result;
     public abstract getSlate(id: SlateId): Slate | undefined;
@@ -395,15 +418,27 @@ export class MemorySlateStore extends SlateStore {
     readonly #deploymentReservations = new Map<string, StoredSlateReservation>();
     readonly #resourceReservations = new Map<string, StoredSlateReservation>();
 
-    public constructor(snapshot: MemorySlateSnapshot = EMPTY_SNAPSHOT) {
+    readonly #custody: SlateContentCustody;
+
+    public constructor(
+        custody: SlateContentCustody,
+        snapshot: MemorySlateSnapshot = EMPTY_SNAPSHOT
+    ) {
         super();
+        this.#custody = custody;
         this.install(snapshot);
     }
 
+    /**
+     * A draft holds its custody registrations back until the draft's records commit, so a
+     * faulted operation leaves neither a Slate row nor an owner edge behind.
+     */
     public transaction<Result>(operation: (store: SlateStore) => Result): Result {
-        const draft = new MemorySlateStore(this.snapshot());
+        const buffered = new BufferedSlateCustody();
+        const draft = new MemorySlateStore(buffered, this.snapshot());
         const result = requireSynchronousResult(operation(draft));
         this.restore(draft.snapshot());
+        buffered.flush(this.#custody, this);
         return result;
     }
 
@@ -471,6 +506,9 @@ export class MemorySlateStore extends SlateStore {
         const canonical = Slate.decode(bytes);
         const row = projectSlate(canonical, bytes);
         const key = slateRevisionKey(row.id, row.revision);
+        // Every Slate revision stays readable, so each revision holds its own source under
+        // its own owner key and a head that advances releases nothing.
+        this.register(Slate.codec.kind, key, slateContentRetention(canonical));
         const existing = this.#slates.get(key);
         if (existing !== undefined) requireSameBytes(existing.bytes, row.bytes, `Slate ${key}`);
         else this.#slates.set(key, copySlateRow(row));
@@ -490,6 +528,11 @@ export class MemorySlateStore extends SlateStore {
                 throw invalidVersion("Slate version parent must exist in the same Slate");
             }
         }
+        this.register(
+            SlateVersion.codec.kind,
+            version.id.value,
+            slateVersionContentRetention(version)
+        );
         putRecord(this.#versions, version.id.value, version, SlateVersion.codec);
     }
 
@@ -509,6 +552,11 @@ export class MemorySlateStore extends SlateStore {
         if (version === undefined || !version.slateId.equals(publication.slateId)) {
             throw invalidVersion("Slate publication version must exist in the same Slate");
         }
+        this.register(
+            SlatePublication.codec.kind,
+            publication.id.value,
+            slatePublicationContentRetention(publication)
+        );
         putRecord(this.#publications, publication.id.value, publication, SlatePublication.codec);
     }
 
@@ -528,6 +576,11 @@ export class MemorySlateStore extends SlateStore {
         if (reservation === undefined || !sameDeploymentReservation(reservation, deployment)) {
             throw invalidState("Slate deployment must match its frozen reservation");
         }
+        this.register(
+            SlateDeployment.codec.kind,
+            deployment.id.value,
+            slateDeploymentContentRetention(deployment)
+        );
         putRecord(this.#deployments, deployment.id.value, deployment, SlateDeployment.codec);
     }
 
@@ -550,6 +603,11 @@ export class MemorySlateStore extends SlateStore {
         if (this.getDeployment(resource.deploymentId) === undefined) {
             throw invalidState("Slate resource deployment must exist");
         }
+        this.register(
+            SlateResource.codec.kind,
+            resource.id.value,
+            slateResourceContentRetention(resource)
+        );
         putRecord(this.#resources, resource.id.value, resource, SlateResource.codec);
     }
 
@@ -582,6 +640,11 @@ export class MemorySlateStore extends SlateStore {
                 throw invalidVersion("Versioned Slate preview must reference its exact source");
             }
         }
+        this.register(
+            SlatePreview.codec.kind,
+            preview.id.value,
+            slatePreviewContentRetention(preview)
+        );
         putRecord(this.#previews, preview.id.value, preview, SlatePreview.codec);
     }
 
@@ -608,6 +671,13 @@ export class MemorySlateStore extends SlateStore {
                 "Slate deployment publication must exist in the same Slate"
             );
         }
+        this.register(
+            SlateDeploymentReservation.codec.kind,
+            reservation.id.value,
+            contentRetentionFields([
+                ["publicationMaterialization", reservation.publicationMaterialization]
+            ])
+        );
         putReservation(
             this.#deploymentReservations,
             reservation.id.value,
@@ -644,6 +714,14 @@ export class MemorySlateStore extends SlateStore {
         ) {
             throw invalidState("Slate resource deployment must exist in the same Slate");
         }
+        this.register(
+            SlateResourceReservation.codec.kind,
+            reservation.id.value,
+            contentRetentionFields([
+                ["deploymentMaterialization", reservation.deploymentMaterialization],
+                ["source", reservation.source]
+            ])
+        );
         putReservation(
             this.#resourceReservations,
             reservation.id.value,
@@ -675,8 +753,22 @@ export class MemorySlateStore extends SlateStore {
         });
     }
 
+    /**
+     * A clone reads the same durable state and therefore holds the same custody: a copy is
+     * a second reader of one Slate Actor's records, never a second retainer.
+     */
     public clone(): MemorySlateStore {
-        return new MemorySlateStore(this.snapshot());
+        return new MemorySlateStore(this.#custody, this.snapshot());
+    }
+
+    /**
+     * Registers a record's ContentRefs before its row is installed. Slate records are
+     * immutable once written and every revision is kept, so this store never releases:
+     * a superseded head keeps the source its own revision still names.
+     */
+    private register(kind: string, key: string, fields: readonly ContentRetentionField[]): void {
+        if (fields.length === 0) return;
+        this.#custody.retain(this, { kind, key, fields });
     }
 
     private restore(snapshot: MemorySlateSnapshot): void {
@@ -884,6 +976,39 @@ export class MemorySlateStore extends SlateStore {
         }
     }
 }
+
+/**
+ * A draft's custody, held until the draft's records commit. The Slate store's transaction
+ * is a draft copy that the caller's store adopts only on success, so registrations made
+ * against the draft reach the real custody at exactly the moment the records do, and a
+ * faulted operation discards both together.
+ */
+class BufferedSlateCustody implements SlateContentCustody {
+    readonly #retained: {
+        record: RetainedContentRecord;
+        previous: RetainedContentRecord | undefined;
+    }[] = [];
+    readonly #released: RetainedContentRecord[] = [];
+
+    public retain(
+        _store: SlateStore,
+        record: RetainedContentRecord,
+        previous?: RetainedContentRecord
+    ): void {
+        this.#retained.push({ record, previous });
+    }
+
+    public release(_store: SlateStore, record: RetainedContentRecord): void {
+        this.#released.push(record);
+    }
+
+    public flush(custody: SlateContentCustody, store: SlateStore): void {
+        for (const { record, previous } of this.#retained) custody.retain(store, record, previous);
+        for (const record of this.#released) custody.release(store, record);
+    }
+}
+Object.freeze(BufferedSlateCustody.prototype);
+Object.freeze(BufferedSlateCustody);
 
 function verifySlateTransition(previous: Slate, next: Slate): void {
     if (

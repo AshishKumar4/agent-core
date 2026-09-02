@@ -34,6 +34,7 @@ import {
 } from "./materialization-store";
 import {
     ProjectedPackageStore,
+    type PackageContentCustody,
     type StoredMetadataSnapshot,
     type StoredPackageLock,
     type StoredPackageRelease
@@ -50,10 +51,14 @@ export class MemoryPackageStore extends ProjectedPackageStore {
     readonly #snapshots = new Map<string, StoredMetadataSnapshot>();
     readonly #locks = new Map<string, StoredPackageLock>();
 
+    readonly #custody: PackageContentCustody;
+
     public constructor(
+        custody: PackageContentCustody,
         snapshot: MemoryPackageSnapshot = { releases: [], snapshots: [], locks: [] }
     ) {
-        super();
+        super(custody);
+        this.#custody = custody;
         for (const release of snapshot.releases) {
             const copied = copyRelease(release);
             const key = releaseKey(copied.packageId, copied.version);
@@ -90,7 +95,7 @@ export class MemoryPackageStore extends ProjectedPackageStore {
     }
 
     public clone(): MemoryPackageStore {
-        return new MemoryPackageStore(this.snapshot());
+        return new MemoryPackageStore(this.#custody, this.snapshot());
     }
 
     public snapshot(): MemoryPackageSnapshot {

@@ -57,6 +57,7 @@ export {
 export { RunCheckpointId } from "./runs/id";
 export {
     ownRunStorageBackend,
+    RUN_RECORD_CODECS,
     RUN_RECORD_KINDS,
     TargetLeaseEvidenceRecord,
     targetLeaseEvidenceRecordCodec

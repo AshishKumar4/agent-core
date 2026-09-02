@@ -1,4 +1,13 @@
-import { CompatRange, ContentRef, Digest, RecordCodec, TextId, type JsonValue } from "../core";
+import {
+    CompatRange,
+    ContentRef,
+    type ContentRetentionField,
+    contentRetentionFields,
+    Digest,
+    type JsonValue,
+    RecordCodec,
+    TextId
+} from "../core";
 import { BindingName, BindingRequirement, FacetPackageId } from "../facets";
 import { WorkspaceId } from "../identity";
 import {
@@ -117,3 +126,12 @@ export class SlatePublication {
 }
 
 const slatePublicationCodecInstance = new SlatePublicationCodecV1();
+
+/**
+ * The immutable publication bundle a deployment is cut from (§8.4).
+ */
+export function slatePublicationContentRetention(
+    value: SlatePublication
+): readonly ContentRetentionField[] {
+    return contentRetentionFields([["materialization", value.materialization]]);
+}

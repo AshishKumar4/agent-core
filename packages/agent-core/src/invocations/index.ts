@@ -209,7 +209,8 @@ export {
     AttemptReceipt,
     PreEffectReceipt,
     Receipt,
-    ReceiptCodec
+    ReceiptCodec,
+    receiptContentRetention
 } from "./receipt";
 export type {
     AttemptFailureKindName,

@@ -6,15 +6,15 @@ export {
     SlateResourceId,
     SlateVersionId
 } from "./id";
-export { Slate } from "./slate";
+export { Slate, slateContentRetention } from "./slate";
 export type { SlateForkRef, SlateInit } from "./slate";
-export { SlateVersion } from "./version";
+export { SlateVersion, slateVersionContentRetention } from "./version";
 export type { SlateVersionInit } from "./version";
-export { SlatePublication } from "./publication";
+export { SlatePublication, slatePublicationContentRetention } from "./publication";
 export { SlateSkeleton } from "./skeleton";
-export { SlateDeployment } from "./deployment";
-export { SlateResource } from "./resource";
-export { SlatePreview } from "./preview";
+export { SlateDeployment, slateDeploymentContentRetention } from "./deployment";
+export { SlateResource, slateResourceContentRetention } from "./resource";
+export { SlatePreview, slatePreviewContentRetention } from "./preview";
 export {
     SlateEffectContext,
     SlateInvocationSeam,
@@ -64,6 +64,7 @@ export {
 } from "./store";
 export type {
     MemorySlateSnapshot,
+    SlateContentCustody,
     SlateDeploymentReservationInit,
     SlateResourceReservationInit,
     StoredSlate,
@@ -71,8 +72,4 @@ export type {
     StoredSlateReservation
 } from "./store";
 export { MemorySlateIdSource, SlateIdSource, SlateRuntime } from "./runtime";
-export type {
-    SlateDeploymentOutcome,
-    SlateInstantiation,
-    SlateResourceOutcome
-} from "./runtime";
+export type { SlateDeploymentOutcome, SlateInstantiation, SlateResourceOutcome } from "./runtime";

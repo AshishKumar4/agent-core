@@ -1,10 +1,12 @@
 import {
     ContentRef,
+    type ContentRetentionField,
+    contentRetentionFields,
     Digest,
-    RecordCodec,
-    Revision,
     type JsonValue,
+    RecordCodec,
     type RecordVersion,
+    Revision,
     TextId
 } from "../core";
 import { AgentCoreError } from "../errors";
@@ -235,4 +237,15 @@ function decodeSnapshotState(value: string): EnvironmentSnapshotState {
 function freezeState<State>(state: State): State {
     Object.freeze(state);
     return state;
+}
+
+/**
+ * The captured state bytes a snapshot holds (§8.4). A snapshot advances through its record
+ * revisions in place, so a capture that replaces earlier content releases the ContentRef the
+ * stored revision named before retaining the new one.
+ */
+export function environmentSnapshotContentRetention(
+    value: EnvironmentSnapshot
+): readonly ContentRetentionField[] {
+    return contentRetentionFields([["content", value.content]]);
 }

@@ -21,8 +21,10 @@ export {
 export type { PlatformCompatibilityInit } from "./compatibility";
 export {
     MetadataSnapshot,
+    metadataSnapshotContentRetention,
     PackageDependency,
     PackageRelease,
+    packageReleaseContentRetention,
     canonicalPackageRange
 } from "./package";
 export type { MetadataSnapshotInit, PackageProvenance, PackageReleaseInit } from "./package";

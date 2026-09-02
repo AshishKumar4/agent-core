@@ -1,11 +1,13 @@
 import {
     ContentRef,
+    type ContentRetentionField,
+    contentRetentionFields,
     Digest,
-    RecordCodec,
     encodeCanonicalJson,
     isMember,
     type JsonObject,
     type JsonValue,
+    RecordCodec,
     Revision,
     SemVer,
     TextId
@@ -21,14 +23,12 @@ import { AttemptReceipt, type AttemptFailureKind, type Receipt } from "../../inv
 import { AuditRecordId, InvocationId, RouteReservationId } from "../../interaction-references";
 import {
     CodecRecord,
-    contentRetentionFields,
     requireArray,
     requireExactFields,
     requireObject,
     requireOptionalString,
     requireString
 } from "../record-data";
-import type { ContentRetentionField } from "../record-data";
 import { AgentId, AgentPolicyId, ModelPolicyId } from "../id";
 import { RunBranchId, RunId } from "./id";
 import { leaseTokenFromData, leaseTokenToData, leaseTokensEqual, type LeaseToken } from "./lease";

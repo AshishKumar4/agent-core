@@ -13,6 +13,7 @@ import {
     validateAuditAppend
 } from "../../src/invocations";
 import { invocationCodecs, prepared } from "./fixture";
+import { recordingCustody } from "../helpers/custody";
 
 describe("invocation operational error taxonomy", () => {
     test(
@@ -20,7 +21,7 @@ describe("invocation operational error taxonomy", () => {
         { tags: "p1" },
         () => {
             const state = createInvocationMemoryState();
-            const persistence = new MemoryInvocationPersistence(invocationCodecs);
+            const persistence = new MemoryInvocationPersistence(invocationCodecs, recordingCustody());
             const invocation = prepared("duplicate-error");
             persistence.insertPrepared(state, invocation);
             expectFailure(

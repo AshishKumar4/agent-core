@@ -7,6 +7,12 @@ import {
     type RecordVersion,
     TextId
 } from "../core";
+import {
+    ContentOwnerEdge,
+    ContentRetention,
+    contentOwnerKey,
+    requireOperationTime
+} from "../content";
 import { TenantId } from "../identity";
 import {
     decodeActor,
@@ -192,11 +198,87 @@ export class ContentRetentionReference {
 
 const contentRetentionReferenceCodecInstance = new ContentRetentionReferenceCodecV1();
 
+/**
+ * The workspaces plane's window onto content custody (§8.4). `verify` asks whether the
+ * named bytes are durably present before a record may name them; `retain` registers the
+ * owner edge for the record that now names them, inside the same transaction as that
+ * record; `release` drops the edge when the naming record is retired; `discard` reclaims
+ * bytes a rejected write left behind.
+ */
 export interface ContentRetentionPort<Transaction> {
     verify(transaction: Transaction, reference: ContentRetentionReference): boolean;
+    retain(transaction: Transaction, reference: ContentRetentionReference): void;
     release(transaction: Transaction, reference: ContentRetentionReference): void;
     discard(reference: ContentRetentionReference): void;
 }
+
+/**
+ * The one implementation of that port over the §8.4 seam: the retained reference names its
+ * own record kind and identity, so its owner key is the same shape every other plane's
+ * custody derives, and the retention it writes is the retention the collection sweep reads.
+ */
+export class WorkspaceContentRetention<Transaction> implements ContentRetentionPort<Transaction> {
+    public constructor(
+        private readonly retention: ContentRetention<Transaction>,
+        private readonly now: () => Date = () => new Date()
+    ) {
+        Object.freeze(this);
+    }
+
+    public verify(transaction: Transaction, reference: ContentRetentionReference): boolean {
+        return (
+            reference.tenant.equals(this.retention.tenant) &&
+            reference.actor.equals(this.retention.actor) &&
+            this.retention.holds(transaction, reference.content)
+        );
+    }
+
+    public retain(transaction: Transaction, reference: ContentRetentionReference): void {
+        this.retention.retain(transaction, this.edge(reference), this.operationTime());
+    }
+
+    public release(transaction: Transaction, reference: ContentRetentionReference): void {
+        this.retention.release(transaction, this.edge(reference), this.operationTime());
+    }
+
+    public discard(_reference: ContentRetentionReference): void {
+        // Bytes a rejected write left unnamed are reclaimed by the collection sweep, which
+        // never offers content no owner edge and no lease holds. There is nothing to undo
+        // here that the sweep does not already do, and nothing to delete that a concurrent
+        // writer may not have named in the meantime.
+    }
+
+    private edge(reference: ContentRetentionReference): ContentOwnerEdge {
+        return new ContentOwnerEdge(
+            reference.tenant,
+            reference.actor,
+            contentOwnerKey(
+                RETAINED_RECORD_KINDS[reference.recordKind.kind],
+                reference.record.value,
+                "content"
+            ),
+            reference.content
+        );
+    }
+
+    private operationTime(): Date {
+        return requireOperationTime(this.now(), "Workspace content retention time");
+    }
+}
+Object.freeze(WorkspaceContentRetention.prototype);
+Object.freeze(WorkspaceContentRetention);
+
+/**
+ * The wire kind each retained record family is registered under, so one owner namespace per
+ * record kind matches what the record registry declares for that kind.
+ */
+const RETAINED_RECORD_KINDS: Readonly<Record<RetainedRecordKind["kind"], string>> = Object.freeze({
+    event: "workspace.event",
+    routeReservation: "workspace.route-reservation",
+    routeProjection: "workspace.route-projection",
+    view: "workspace.view",
+    viewDelta: "workspace.view-delta"
+});
 
 function decodeRecordKind(value: JsonValue | undefined): RetainedRecordKind {
     if (value === "event") return RetainedRecordKind.event();

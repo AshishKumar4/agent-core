@@ -1,5 +1,6 @@
 import type { ActorRef } from "../actors";
 import {
+    CodecDeclaration,
     Digest,
     Revision,
     decodeCanonicalJson,
@@ -25,6 +26,18 @@ export interface MaterializationApplyLocalPayload {
     readonly planId: Digest;
 }
 
+/**
+ * §8.3: the record this command's own execution decodes and commits against — the plan it
+ * canonicalizes before applying. The records a local apply writes behind
+ * `MaterializationCommandBackend` belong to the applying Actor's own store, which declares
+ * them itself; what a reader of *this* command must be able to decode is the plan. W4's
+ * treeMerge cutover moved definition.materialization-plan from major 1 to 2, and a store
+ * written before it is now refused at this declaration rather than at first decode.
+ */
+const MATERIALIZATION_RECORD_CODECS: CodecDeclaration = CodecDeclaration.of([
+    MaterializationPlan.codec
+]);
+
 export interface MaterializationCommandBackend<Transaction, Read> {
     loadPlan(read: Read, planId: Digest): MaterializationPlan | undefined;
     loadPlanForApply(transaction: Transaction, planId: Digest): MaterializationPlan | undefined;
@@ -43,6 +56,7 @@ export class MaterializationApplyLocalCommand<Transaction, Read> implements Prot
     Read,
     MaterializationApplyLocalPayload
 > {
+    public readonly declaration = MATERIALIZATION_RECORD_CODECS;
     public readonly command = MATERIALIZATION_COMMANDS.applyLocal;
     public readonly caller: CommandCallerPolicy;
     public readonly expectedRevision = "required" as const;

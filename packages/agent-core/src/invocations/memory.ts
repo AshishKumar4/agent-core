@@ -6,8 +6,14 @@ import { ApprovalId, EffectAttemptId, ItemClaimId, ReceiptId } from "./id";
 import { InvocationId } from "../interaction-references";
 import type { InvocationPersistence } from "./persistence";
 import type { PreparedInvocation } from "./prepared";
-import { AttemptReceipt, PreEffectReceipt, type Receipt } from "./receipt";
+import {
+    AttemptReceipt,
+    PreEffectReceipt,
+    receiptContentRetention,
+    type Receipt
+} from "./receipt";
 import { compareCanonicalText, type RecordCodec } from "../core";
+import type { ContentCustodyPort } from "../content";
 import { AgentCoreError } from "../errors";
 import { invocationError } from "./error";
 
@@ -84,7 +90,8 @@ export class MemoryInvocationPersistence<
             Domain,
             PathEpochs,
             Admission
-        >
+        >,
+        private readonly custody: ContentCustodyPort<InvocationMemoryState>
     ) {}
 
     public prepared(
@@ -323,9 +330,18 @@ export class MemoryInvocationPersistence<
             );
     }
 
+    /**
+     * §8.4: the Receipt's own result bytes are retained in the transaction that appends it.
+     * An audited Receipt is append-only, so this store never releases what it retained here.
+     */
     public appendReceipt(transaction: InvocationMemoryState, record: Receipt): void {
         insert(transaction.receipts, record.id.value, this.codecs.receipt.encode(record));
         transaction.receiptOrder.push(record.id.value);
+        this.custody.retain(transaction, {
+            kind: this.codecs.receipt.kind,
+            key: record.id.value,
+            fields: receiptContentRetention(record)
+        });
     }
 }
 

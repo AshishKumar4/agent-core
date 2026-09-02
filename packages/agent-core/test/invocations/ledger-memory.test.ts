@@ -37,6 +37,7 @@ import {
     preparedCodec
 } from "./fixture";
 import { invocationLedgerContract } from "./ledger-contract";
+import { recordingCustody } from "../helpers/custody";
 
 function rejects<Failure>(
     operation: () => void,
@@ -52,7 +53,7 @@ function rejects<Failure>(
 }
 
 class MemoryHarness implements InvocationHarness<InvocationMemoryState> {
-    public readonly persistence = new MemoryInvocationPersistence(invocationCodecs);
+    public readonly persistence = new MemoryInvocationPersistence(invocationCodecs, recordingCustody());
     public readonly ledger = createLedger(this.persistence);
     private state = createInvocationMemoryState();
 
@@ -77,7 +78,7 @@ test(
     { tags: "p0" },
     () => {
         const state = createInvocationMemoryState();
-        const persistence = new MemoryInvocationPersistence(invocationCodecs);
+        const persistence = new MemoryInvocationPersistence(invocationCodecs, recordingCustody());
         const invocation = prepared("memory-duplicates");
         persistence.insertPrepared(state, invocation);
         expect(() => persistence.insertPrepared(state, invocation)).toThrow();
@@ -159,7 +160,7 @@ test(
     { tags: "p0" },
     () => {
         const state = createInvocationMemoryState();
-        const persistence = new MemoryInvocationPersistence(invocationCodecs);
+        const persistence = new MemoryInvocationPersistence(invocationCodecs, recordingCustody());
         const requested = prepared("memory-approval-prefix-requested");
         const foreign = prepared("memory-approval-prefix-foreign");
         const requestedApproval = Approval.pending(
@@ -188,7 +189,7 @@ test(
     { tags: "p0" },
     () => {
         const state = createInvocationMemoryState();
-        const persistence = new MemoryInvocationPersistence(invocationCodecs);
+        const persistence = new MemoryInvocationPersistence(invocationCodecs, recordingCustody());
         const left = prepared("memory-index-left");
         const right = prepared("memory-index-right");
         state.prepared.set(left.header.id.value, preparedCodec.encode(right));
@@ -201,7 +202,7 @@ test(
     { tags: "p0" },
     () => {
         const state = createInvocationMemoryState();
-        const persistence = new MemoryInvocationPersistence(invocationCodecs);
+        const persistence = new MemoryInvocationPersistence(invocationCodecs, recordingCustody());
         const invocation = prepared("memory-indexes");
         const claim = new ItemClaim<string>(
             new ItemClaimId("memory-indexes-claim"),
@@ -255,7 +256,7 @@ test(
         // Bytes only a writer that bypassed the codec could produce: the store's own read
         // path must still refuse them, so the exact-key codec check is not the only guard.
         const state = createInvocationMemoryState();
-        const persistence = new MemoryInvocationPersistence(invocationCodecs);
+        const persistence = new MemoryInvocationPersistence(invocationCodecs, recordingCustody());
         const hostile = encodeCanonicalJson({
             kind: "invocation.receipt",
             version: { major: 2, minor: 0 },
@@ -290,7 +291,7 @@ test(
     () => {
         const make = () => {
             const state = createInvocationMemoryState();
-            const persistence = new MemoryInvocationPersistence(invocationCodecs);
+            const persistence = new MemoryInvocationPersistence(invocationCodecs, recordingCustody());
             const ledger = createLedger(persistence);
             const invocation = prepared("memory-lineage");
             const attempt = new EffectAttempt<string, string>(
@@ -389,11 +390,11 @@ test(
                     `${approval.id.value}\u00000`,
                     invocationCodecs.approval.encode(otherApproval)
                 );
-                new MemoryInvocationPersistence(invocationCodecs).approval(state, approval.id);
+                new MemoryInvocationPersistence(invocationCodecs, recordingCustody()).approval(state, approval.id);
             },
             (state) => {
                 state.approvalByInvocation.set(invocation.header.id.value, approval.id.value);
-                new MemoryInvocationPersistence(invocationCodecs).approvalForInvocation(
+                new MemoryInvocationPersistence(invocationCodecs, recordingCustody()).approvalForInvocation(
                     state,
                     invocation.header.id
                 );
@@ -419,7 +420,7 @@ test(
                     invocation.header.id.value,
                     invocationCodecs.continuation.encode(continuation)
                 );
-                new MemoryInvocationPersistence(invocationCodecs).continuation(
+                new MemoryInvocationPersistence(invocationCodecs, recordingCustody()).continuation(
                     state,
                     invocation.header.id
                 );
@@ -441,7 +442,7 @@ test(
                     "memory-substitution-requested-claim",
                     invocationCodecs.claim.encode(claim)
                 );
-                new MemoryInvocationPersistence(invocationCodecs).claim(
+                new MemoryInvocationPersistence(invocationCodecs, recordingCustody()).claim(
                     state,
                     new ItemClaimId("memory-substitution-requested-claim")
                 );
@@ -460,7 +461,7 @@ test(
                     invocationCodecs.receipt.encode(receipt)
                 );
                 state.receiptOrder.push("memory-substitution-requested-receipt");
-                new MemoryInvocationPersistence(invocationCodecs).receipt(
+                new MemoryInvocationPersistence(invocationCodecs, recordingCustody()).receipt(
                     state,
                     new ReceiptId("memory-substitution-requested-receipt")
                 );
@@ -477,7 +478,7 @@ test(
     "[invocation-persistence] memory Approval revision reads fail closed on id and revision drift",
     { tags: "p0" },
     () => {
-        const persistence = new MemoryInvocationPersistence(invocationCodecs);
+        const persistence = new MemoryInvocationPersistence(invocationCodecs, recordingCustody());
         const invocation = prepared("memory-approval-revision");
         const approval = Approval.pending(
             new ApprovalId("memory-approval-revision-a"),
@@ -528,7 +529,7 @@ test(
     "[invocation-persistence] memory reads the latest Approval revision from any map order",
     { tags: "p0" },
     () => {
-        const persistence = new MemoryInvocationPersistence(invocationCodecs);
+        const persistence = new MemoryInvocationPersistence(invocationCodecs, recordingCustody());
         const invocation = prepared("memory-approval-order");
         const pending = Approval.pending(
             new ApprovalId("memory-approval-order-a"),
@@ -564,7 +565,7 @@ test(
     "[invocation-persistence] memory EffectAttempt indexes fail closed on size, key, and claim drift",
     { tags: "p0" },
     () => {
-        const persistence = new MemoryInvocationPersistence(invocationCodecs);
+        const persistence = new MemoryInvocationPersistence(invocationCodecs, recordingCustody());
         const invocation = prepared("memory-attempt-index");
         const attempt = new EffectAttempt<string, string>(
             new EffectAttemptId("memory-attempt-index-attempt"),
@@ -604,7 +605,7 @@ test(
     "[invocation-persistence] memory claim lookup fails closed on an unprojected EffectAttempt",
     { tags: "p0" },
     () => {
-        const persistence = new MemoryInvocationPersistence(invocationCodecs);
+        const persistence = new MemoryInvocationPersistence(invocationCodecs, recordingCustody());
         const invocation = prepared("memory-attempt-scan");
         const attempt = new EffectAttempt<string, string>(
             new EffectAttemptId("memory-attempt-scan-attempt"),
@@ -636,7 +637,7 @@ test(
     "[invocation-persistence] memory orders item EffectAttempts by ordinal from either append order",
     { tags: "p1" },
     () => {
-        const persistence = new MemoryInvocationPersistence(invocationCodecs);
+        const persistence = new MemoryInvocationPersistence(invocationCodecs, recordingCustody());
         const invocation = prepared("memory-attempt-ordinal");
         const attemptAt = (ordinal: number): EffectAttempt<string, string> =>
             new EffectAttempt<string, string>(
@@ -671,7 +672,7 @@ test(
     "[invocation-persistence] memory item Receipts exclude EffectAttempts of other items",
     { tags: "p0" },
     () => {
-        const persistence = new MemoryInvocationPersistence(invocationCodecs);
+        const persistence = new MemoryInvocationPersistence(invocationCodecs, recordingCustody());
         const invocation = prepared("memory-receipt-scope", [
             { value: "first" },
             { value: "second" }
@@ -734,7 +735,7 @@ test(
     "[invocation-persistence] memory claim order rejects duplicate and dangling entries",
     { tags: "p0" },
     () => {
-        const persistence = new MemoryInvocationPersistence(invocationCodecs);
+        const persistence = new MemoryInvocationPersistence(invocationCodecs, recordingCustody());
         const invocation = prepared("memory-claim-order");
         const claimAt = (suffix: string): ItemClaim<string> =>
             new ItemClaim<string>(
@@ -777,7 +778,7 @@ test(
     "[invocation-persistence] memory append-only guards report the duplicate-record failure",
     { tags: "p0" },
     () => {
-        const persistence = new MemoryInvocationPersistence(invocationCodecs);
+        const persistence = new MemoryInvocationPersistence(invocationCodecs, recordingCustody());
         const invocation = prepared("memory-duplicate-failure");
         const state = createInvocationMemoryState();
         persistence.insertPrepared(state, invocation);
@@ -842,7 +843,7 @@ test(
     "[invocation-persistence] cloned memory state does not alias durable record bytes",
     { tags: "p0" },
     () => {
-        const persistence = new MemoryInvocationPersistence(invocationCodecs);
+        const persistence = new MemoryInvocationPersistence(invocationCodecs, recordingCustody());
         const invocation = prepared("memory-clone-aliasing");
         const state = createInvocationMemoryState();
         persistence.insertPrepared(state, invocation);
@@ -863,7 +864,7 @@ test(
     { tags: "p0" },
     () => {
         const state = createInvocationMemoryState();
-        const persistence = new MemoryInvocationPersistence(invocationCodecs);
+        const persistence = new MemoryInvocationPersistence(invocationCodecs, recordingCustody());
         const ledger = createLedger(persistence);
         const invocation = prepared("memory-duplicate-pre-effect");
         persistence.insertPrepared(state, invocation);
@@ -893,7 +894,7 @@ test(
     { tags: "p0" },
     () => {
         const state = createInvocationMemoryState();
-        const persistence = new MemoryInvocationPersistence(invocationCodecs);
+        const persistence = new MemoryInvocationPersistence(invocationCodecs, recordingCustody());
         const ledger = createLedger(persistence, {
             timeAdmits: (time) => time.getTime() >= 2000
         });
@@ -924,7 +925,7 @@ test(
     "[invocation-persistence] memory latest-Approval reads fail closed on revision-key drift",
     { tags: "p0" },
     () => {
-        const persistence = new MemoryInvocationPersistence(invocationCodecs);
+        const persistence = new MemoryInvocationPersistence(invocationCodecs, recordingCustody());
         const invocation = prepared("memory-approval-latest-drift");
         const approval = Approval.pending(
             new ApprovalId("memory-approval-latest-drift-approval"),
@@ -967,7 +968,7 @@ test(
     { tags: "p1" },
     () => {
         const state = createInvocationMemoryState();
-        const persistence = new MemoryInvocationPersistence(invocationCodecs);
+        const persistence = new MemoryInvocationPersistence(invocationCodecs, recordingCustody());
         const ledger = createLedger(persistence);
         const evidence = new RecordedAuditEvidence();
         const invocation = prepared("memory-ghost-attempt");

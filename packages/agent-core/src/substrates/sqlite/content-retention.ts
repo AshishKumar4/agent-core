@@ -135,6 +135,11 @@ export class SqliteContentRetention extends ContentRetention<TransactionalSqlite
         if (stored === undefined || !stored.equals(edge)) throw corruptRetention();
     }
 
+    public holds(transaction: TransactionalSqlite, ref: ContentRef): boolean {
+        this.requireTransaction(transaction);
+        return loadSqliteContent(transaction, ref) !== undefined;
+    }
+
     public release(
         transaction: TransactionalSqlite,
         edge: ContentOwnerEdge,

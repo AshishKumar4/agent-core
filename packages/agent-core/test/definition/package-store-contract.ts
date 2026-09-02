@@ -12,6 +12,8 @@ import { PackageLock, PackagePin } from "../../src/definition/package-lock";
 import type { PackageStore } from "../../src/definition/package-store";
 import { MetadataSnapshot, PackageDependency, PackageRelease } from "../../src/definition/package";
 import { Contributions, FacetManifest, FacetPackageId } from "../../src/facets";
+import { MemoryPackageStore } from "../../src/definition/memory";
+import type { PackageContentCustody } from "../../src/definition/package-store";
 
 const encoder = new TextEncoder();
 const compatibilityTarget = new PlatformCompatibility({
@@ -254,4 +256,12 @@ export function digestOf(value: string): Digest {
 
 function releaseKey(release: PackageRelease): string {
     return `${release.id.value}@${release.version.toString()}`;
+}
+
+/**
+ * The in-memory package store behind its plane barrel, so a test outside the definition
+ * context reaches it the way production does.
+ */
+export function memoryPackageStore(custody: PackageContentCustody): MemoryPackageStore {
+    return new MemoryPackageStore(custody);
 }

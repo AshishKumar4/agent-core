@@ -50,6 +50,7 @@ function harness(): Harness {
         (value) => value,
         {
             verify: () => true,
+            retain: () => {},
             release: (_transaction, reference) => released.push(reference.id.value),
             discard: () => {}
         },

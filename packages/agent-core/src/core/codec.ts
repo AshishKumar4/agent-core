@@ -253,6 +253,37 @@ export class CodecDeclaration {
         return new CodecDeclaration([...codecs]);
     }
 
+    /**
+     * One declaration over every reader that shares a record set (§8.3). A dispatcher's own
+     * records and the records its registered commands write belong to one Actor, so the
+     * declaration a reader compares against is their union. Two declarations naming one kind
+     * at the same version are the same claim made twice and merge to one entry; naming it at
+     * two versions is a wiring fault, because §8.4 rule 1 gives each record type exactly one
+     * owning Actor and therefore exactly one writer's version.
+     */
+    public static merge(declarations: Iterable<CodecDeclaration>): CodecDeclaration {
+        const byKind = new Map<string, DeclaredCodecVersion>();
+        for (const declaration of declarations) {
+            for (const entry of requireExactDeclaration(declaration).declared) {
+                const existing = byKind.get(entry.kind);
+                if (existing === undefined) {
+                    byKind.set(entry.kind, entry);
+                    continue;
+                }
+                if (
+                    existing.version.major !== entry.version.major ||
+                    existing.version.minor !== entry.version.minor
+                ) {
+                    throw new AgentCoreError(
+                        "codec.invalid",
+                        `Codec declaration merges two versions of ${entry.kind}`
+                    );
+                }
+            }
+        }
+        return new CodecDeclaration([...byKind.values()]);
+    }
+
     public readonly declared: readonly DeclaredCodecVersion[];
 
     public constructor(declared: readonly DeclaredCodecVersion[]) {

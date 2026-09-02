@@ -2,6 +2,7 @@ import type { ActorRef } from "../actors";
 import {
     AuthorityCheckEvidence,
     AuthorityCheckRequest,
+    AuthorityPermit,
     AuthorityPermitIssuer,
     TenantAuthorityRuntime,
     BindingValidationEvidence,
@@ -9,6 +10,7 @@ import {
     TargetLeaseEvidence,
     type TenantAuthorityPermitStore
 } from "../authority";
+import { CodecDeclaration } from "../core";
 import type { TransientContentAccess } from "../content";
 import { AgentCoreError } from "../errors";
 import type { PrincipalRef, TenantId } from "../identity";
@@ -281,6 +283,13 @@ class BindingValidationCommand<Transaction, Read> implements ProtocolCommandRegi
     BindingValidationReply,
     BindingValidationEvidence
 > {
+    /**
+     * §8.3: a binding validation writes the request it admitted and the evidence it issued.
+     */
+    public readonly declaration = CodecDeclaration.of([
+        BindingValidationRequest.codec,
+        BindingValidationEvidence.codec
+    ]);
     public readonly command = TENANT_AUTHORITY_COMMANDS.validateBinding;
     public readonly caller = anyActorCallerPolicy;
     public readonly expectedRevision = "forbidden" as const;
@@ -343,6 +352,13 @@ class AuthorityCheckCommand<Transaction, Read> implements ProtocolCommandRegistr
     AuthorityCheckReply,
     AuthorityCheckEvidence
 > {
+    /**
+     * §8.3: an authority check writes the request it admitted and the evidence it issued.
+     */
+    public readonly declaration = CodecDeclaration.of([
+        AuthorityCheckRequest.codec,
+        AuthorityCheckEvidence.codec
+    ]);
     public readonly command = TENANT_AUTHORITY_COMMANDS.check;
     public readonly caller = anyActorCallerPolicy;
     public readonly expectedRevision = "forbidden" as const;
@@ -408,13 +424,18 @@ class AuthorityCheckCommand<Transaction, Read> implements ProtocolCommandRegistr
     }
 }
 
-class TargetLeaseEvidenceProjectionCommand<Transaction, Read> implements ProtocolCommandRegistration<
+class TargetLeaseEvidenceProjectionCommand<
+    Transaction,
+    Read
+> implements ProtocolCommandRegistration<
     Transaction,
     Read,
     TargetLeaseEvidence,
     TargetLeaseEvidence,
     TargetLeaseEvidence
 > {
+    /** §8.3: the lease attestation this projection commits under its idempotency key. */
+    public readonly declaration = CodecDeclaration.of([TargetLeaseEvidence.codec]);
     public readonly command = TENANT_AUTHORITY_COMMANDS.projectLeaseEvidence;
     public readonly caller = anyActorCallerPolicy;
     public readonly expectedRevision = "forbidden" as const;
@@ -484,6 +505,13 @@ class AuthorityPermitIssuanceCommand<Transaction, Read> implements ProtocolComma
     AuthorityPermitIssuanceReply,
     AuthorityPermitIssuanceReply
 > {
+    /**
+     * §8.3: a permit issuance writes the request it admitted and the permit it minted.
+     */
+    public readonly declaration = CodecDeclaration.of([
+        AuthorityPermitIssuanceRequest.codec,
+        AuthorityPermit.codec
+    ]);
     public readonly command = TENANT_AUTHORITY_COMMANDS.issuePermit;
     public readonly caller = anyActorCallerPolicy;
     public readonly expectedRevision = "forbidden" as const;
@@ -629,4 +657,3 @@ function requirePermitDecision(
         throw new TypeError("Authority permit issuer returned substituted evidence");
     }
 }
-

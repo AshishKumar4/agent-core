@@ -1,4 +1,12 @@
-import { ContentRef, Digest, RecordCodec, type JsonValue, TextId } from "../core";
+import {
+    ContentRef,
+    type ContentRetentionField,
+    contentRetentionFields,
+    Digest,
+    type JsonValue,
+    RecordCodec,
+    TextId
+} from "../core";
 import { WorkspaceId } from "../identity";
 import { InvocationId } from "../interaction-references";
 import { ReceiptId } from "../invocation-references";
@@ -134,3 +142,16 @@ export class SlateResource {
 }
 
 const slateResourceCodecInstance = new SlateResourceCodecV1();
+
+/**
+ * A provisioned resource's source and its materialization (§8.4). Both are named by the
+ * record, so both are held for as long as the resource row stands.
+ */
+export function slateResourceContentRetention(
+    value: SlateResource
+): readonly ContentRetentionField[] {
+    return contentRetentionFields([
+        ["source", value.source],
+        ["materialization", value.materialization]
+    ]);
+}

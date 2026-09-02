@@ -67,6 +67,7 @@ import { CommandPayloadMalformedError } from "../../src/protocol/payload";
 import { Revision } from "../../src/core";
 import { TurnId } from "../../src/agents";
 import { CommandAuthenticator } from "../../src/protocol/authentication";
+import { CodecDeclaration } from "../../src/core";
 
 /**
  * Every boundary a counter command can be told to fail at. Kept as a value so a fixture that
@@ -212,6 +213,10 @@ export class CounterCommand<TTransaction> implements ProtocolCommand<
     CounterReply,
     CounterObservation
 > {
+    // The counter fixture writes only the dispatcher's own write and audit records, so it
+    // declares nothing of its own: an empty declaration is the explicit claim that this
+    // command owns no record kinds beyond the dispatcher's.
+    public readonly declaration = CodecDeclaration.empty;
     public readonly payload: CounterPayloadCodec;
     public readonly replyCodec: ProtocolValueCodec<CounterReply> = counterReplyCodec;
     public readonly observationCodec: ProtocolValueCodec<CounterObservation> =

@@ -18,6 +18,7 @@ import {
     ProviderDescriptor,
     ProviderId
 } from "../../src/environments";
+import { recordingCustody } from "../helpers/custody";
 
 const environmentId = new EnvironmentId("environment-store-mutation");
 const sessionId = new EnvironmentSessionId("session-store-mutation");
@@ -49,7 +50,7 @@ describe("MemoryEnvironmentStore mutation kills", () => {
     );
 
     test("requires the head and revision to name the same environment", { tags: "p0" }, () => {
-        const store = new MemoryEnvironmentStore();
+        const store = new MemoryEnvironmentStore(recordingCustody());
         const otherHead = new Environment(
             new EnvironmentId("environment-store-other"),
             Revision.initial(),
@@ -243,7 +244,7 @@ describe("MemoryEnvironmentStore mutation kills", () => {
                 (row) => row.kind !== "revision" || row.key !== `${environmentId.value}\u00000`
             );
 
-        expect(() => new MemoryEnvironmentStore({ rows })).toThrowError(
+        expect(() => new MemoryEnvironmentStore(recordingCustody(), { rows })).toThrowError(
             expect.objectContaining({
                 code: "protocol.invalid-state",
                 message: "Environment revisions must form a contiguous generation sequence"
@@ -276,7 +277,7 @@ describe("MemoryEnvironmentStore mutation kills", () => {
                 .filter((row) => row.kind === kind)
                 .map((row) => ({ ...row, key: `wrong-${kind}` }));
             const rows = [...tampered, ...image.rows.filter((row) => row.kind !== kind)];
-            expect(() => new MemoryEnvironmentStore({ rows })).toThrowError(
+            expect(() => new MemoryEnvironmentStore(recordingCustody(), { rows })).toThrowError(
                 expect.objectContaining({ code: "protocol.invalid-state", message })
             );
         }
@@ -288,7 +289,7 @@ describe("MemoryEnvironmentStore mutation kills", () => {
         }
         expect(
             () =>
-                new MemoryEnvironmentStore({
+                new MemoryEnvironmentStore(recordingCustody(), {
                     rows: [{ ...revisionRow, key: "wrong-revision" }, headRow]
                 })
         ).toThrowError(
@@ -304,7 +305,7 @@ describe("MemoryEnvironmentStore mutation kills", () => {
         const head = image.rows.find((row) => row.kind === "head");
         if (head === undefined) throw new TypeError("Missing head row");
 
-        expect(() => new MemoryEnvironmentStore({ rows: [...image.rows, head] })).toThrowError(
+        expect(() => new MemoryEnvironmentStore(recordingCustody(), { rows: [...image.rows, head] })).toThrowError(
             expect.objectContaining({
                 code: "protocol.invalid-state",
                 message: "Environment store image contains a duplicate key"
@@ -319,7 +320,7 @@ describe("MemoryEnvironmentStore mutation kills", () => {
                 row.kind === "head" ? { ...row, recordRevision: row.recordRevision + 1 } : row
             );
 
-        expect(() => new MemoryEnvironmentStore({ rows })).toThrowError(
+        expect(() => new MemoryEnvironmentStore(recordingCustody(), { rows })).toThrowError(
             expect.objectContaining({
                 code: "protocol.invalid-state",
                 message: "Environment store projection does not match codec bytes"
@@ -339,20 +340,20 @@ describe("MemoryEnvironmentStore mutation kills", () => {
                 ? { ...row, projection: ["tampered", ...row.projection.slice(1)] }
                 : row
         );
-        expect(() => new MemoryEnvironmentStore({ rows: tampered })).toThrowError(
+        expect(() => new MemoryEnvironmentStore(recordingCustody(), { rows: tampered })).toThrowError(
             projectionMismatch
         );
 
         const truncated = image.rows.map((row) =>
             row.kind === "head" ? { ...row, projection: row.projection.slice(0, -1) } : row
         );
-        expect(() => new MemoryEnvironmentStore({ rows: truncated })).toThrowError(
+        expect(() => new MemoryEnvironmentStore(recordingCustody(), { rows: truncated })).toThrowError(
             projectionMismatch
         );
     });
 
     test("deletes rolled-back rows after an initial head commit failure", { tags: "p0" }, () => {
-        const store = new ArmedHookEnvironmentStore();
+        const store = new ArmedHookEnvironmentStore(recordingCustody());
         store.armed = true;
 
         expect(() =>
@@ -375,7 +376,7 @@ describe("MemoryEnvironmentStore mutation kills", () => {
             message: "Environment atomic CAS did not persist codec bytes"
         });
 
-        const missing = new UnpersistedHeadEnvironmentStore();
+        const missing = new UnpersistedHeadEnvironmentStore(recordingCustody());
         missing.headResult = () => undefined;
         expect(() =>
             missing.compareAndSetEnvironment(undefined, revisionRecord, environment)
@@ -384,7 +385,7 @@ describe("MemoryEnvironmentStore mutation kills", () => {
         expect(missing.exportImage().rows).toEqual([]);
         expect(missing.getEnvironment(environmentId)).toBeUndefined();
 
-        const lying = new UnpersistedHeadEnvironmentStore();
+        const lying = new UnpersistedHeadEnvironmentStore(recordingCustody());
         lying.headResult = () =>
             new Environment(environmentId, Revision.initial(), 0, new Revision(1));
         expect(() =>
@@ -413,7 +414,7 @@ class UnpersistedHeadEnvironmentStore extends MemoryEnvironmentStore {
 }
 
 function seededStore(): MemoryEnvironmentStore {
-    const store = new MemoryEnvironmentStore();
+    const store = new MemoryEnvironmentStore(recordingCustody());
     expect(store.compareAndSetEnvironment(undefined, revisionRecord, environment)).toBe(true);
     return store;
 }

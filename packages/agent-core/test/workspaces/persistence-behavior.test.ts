@@ -11,6 +11,8 @@ class DurableRetention implements ContentRetentionPort<MemoryWorkspaceRecords> {
         return true;
     }
 
+    public retain(): void {}
+
     public release(): void {}
 
     public discard(): void {}

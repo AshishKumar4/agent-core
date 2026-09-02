@@ -1,10 +1,12 @@
 import {
     ContentRef,
+    type ContentRetentionField,
+    contentRetentionFields,
     Digest,
-    JsonSchema,
-    RecordCodec,
     isMember,
+    JsonSchema,
     type JsonValue,
+    RecordCodec,
     type RecordVersion,
     TextId
 } from "../core";
@@ -320,6 +322,19 @@ export class AttemptReceipt extends Receipt {
     ) {
         super(recordedAt, requireAttemptReceipt(id, attempt, completion, previous, result));
     }
+}
+
+/**
+ * The ContentRef an audited Receipt holds (§8.4). A Receipt is append-only, so its writer
+ * owes retention on write and never a release: the result bytes an attempt produced stay
+ * reachable for as long as the Receipt naming them does. A pre-effect Receipt records a
+ * refusal and names no content, and an indeterminate attempt is refused a result at
+ * construction, so both project nothing rather than an absent field.
+ */
+export function receiptContentRetention(receipt: Receipt): readonly ContentRetentionField[] {
+    return contentRetentionFields([
+        ["result", receipt instanceof AttemptReceipt ? receipt.result : undefined]
+    ]);
 }
 
 interface PreEffectReceiptProperties {

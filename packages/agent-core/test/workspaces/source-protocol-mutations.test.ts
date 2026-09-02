@@ -102,6 +102,8 @@ class MutableRetention implements ContentRetentionPort<State> {
     public verify(): boolean {
         return this.durable;
     }
+    public retain(): void {}
+
     public release(): void {}
     public discard(reference: ContentRetentionReference): void {
         this.discarded.push(reference.id.value);

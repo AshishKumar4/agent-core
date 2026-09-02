@@ -1,10 +1,15 @@
-import { Revision, compareCanonicalText } from "../core";
+import { type ContentRetentionField, Revision, compareCanonicalText } from "../core";
+import { type ContentCustodyPort, type RetainedContentRecord } from "../content";
 import { AgentCoreError } from "../errors";
-import { Environment, EnvironmentRevisionRecord } from "./environment";
+import {
+    Environment,
+    EnvironmentRevisionRecord,
+    environmentRevisionContentRetention
+} from "./environment";
 import { PortExposure } from "./exposure";
 import { EnvironmentId, EnvironmentSessionId, EnvironmentSnapshotId, PortExposureId } from "./id";
 import { EnvironmentSession } from "./session";
-import { EnvironmentSnapshot } from "./snapshot";
+import { EnvironmentSnapshot, environmentSnapshotContentRetention } from "./snapshot";
 
 export type EnvironmentStoredRecordKind = "head" | "revision" | "session" | "snapshot" | "exposure";
 
@@ -19,6 +24,13 @@ export interface EnvironmentStoredRow {
 export interface EnvironmentStoreImage {
     readonly rows: readonly EnvironmentStoredRow[];
 }
+
+/**
+ * The custody seam the Environment Actor's store registers through (§8.4). Like the Slate
+ * plane, an Environment write is one call rather than a transaction the content plane can
+ * join, so the store is the token the custody receives and registration precedes the row.
+ */
+export type EnvironmentContentCustody = ContentCustodyPort<EnvironmentStore>;
 
 export abstract class EnvironmentStore {
     public abstract getEnvironment(id: EnvironmentId): Environment | undefined;
@@ -55,8 +67,11 @@ export abstract class EnvironmentStore {
 export class MemoryEnvironmentStore extends EnvironmentStore {
     readonly #rows = new Map<string, EnvironmentStoredRow>();
 
-    public constructor(image?: EnvironmentStoreImage) {
+    readonly #custody: EnvironmentContentCustody;
+
+    public constructor(custody: EnvironmentContentCustody, image?: EnvironmentStoreImage) {
         super();
+        this.#custody = custody;
         for (const row of image?.rows ?? []) {
             const storageKey = rowKey(row.kind, row.key);
             if (this.#rows.has(storageKey)) {
@@ -65,6 +80,21 @@ export class MemoryEnvironmentStore extends EnvironmentStore {
             this.#rows.set(storageKey, copyRow(row));
         }
         if (image !== undefined) this.validateImage();
+    }
+
+    /**
+     * Registers a record's ContentRefs before its row lands, releasing whatever the stored
+     * revision named and this one does not. An Environment revision is immutable, so only a
+     * snapshot that captures new state ever releases.
+     */
+    private register(
+        kind: string,
+        key: string,
+        fields: readonly ContentRetentionField[],
+        previous?: RetainedContentRecord
+    ): void {
+        if (fields.length === 0 && previous === undefined) return;
+        this.#custody.retain(this, { kind, key, fields }, previous);
     }
 
     public exportImage(): EnvironmentStoreImage {
@@ -180,6 +210,11 @@ export class MemoryEnvironmentStore extends EnvironmentStore {
 
         const previousRevisionRow = currentRevisionRow;
         const previousHeadRow = currentHeadRow;
+        this.register(
+            EnvironmentRevisionRecord.codec.kind,
+            immutableRevisionKey,
+            environmentRevisionContentRetention(canonicalRevision)
+        );
         this.#rows.set(storedRevisionKey, nextRevisionRow);
         try {
             this.beforeEnvironmentHeadCommit();
@@ -243,6 +278,19 @@ export class MemoryEnvironmentStore extends EnvironmentStore {
         snapshot: EnvironmentSnapshot
     ): boolean {
         this.validateSnapshotPin(snapshot);
+        const stored = this.getSnapshot(snapshot.id);
+        this.register(
+            EnvironmentSnapshot.codec.kind,
+            snapshot.id.value,
+            environmentSnapshotContentRetention(snapshot),
+            stored === undefined
+                ? undefined
+                : {
+                      kind: EnvironmentSnapshot.codec.kind,
+                      key: stored.id.value,
+                      fields: environmentSnapshotContentRetention(stored)
+                  }
+        );
         return this.compareAndSet(
             "snapshot",
             snapshot.id.value,

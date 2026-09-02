@@ -32,6 +32,7 @@ import {
     recordCodecCase,
     type RecordCodecCase
 } from "../helpers/record-codec";
+import { recordingCustody } from "../helpers/custody";
 
 const environmentId = new EnvironmentId("environment-records");
 const sessionId = new EnvironmentSessionId("session-records");
@@ -1137,7 +1138,7 @@ describe("MemoryEnvironmentStore", () => {
         "codes CAS progression and immutable revision violations as invalid state",
         { tags: "p0" },
         () => {
-            const empty = new MemoryEnvironmentStore();
+            const empty = new MemoryEnvironmentStore(recordingCustody());
             expect(() =>
                 empty.compareAndSetEnvironment(
                     undefined,
@@ -1220,7 +1221,7 @@ describe("MemoryEnvironmentStore", () => {
     });
 
     test("rolls back a revision when atomic head persistence fails", { tags: "p0" }, () => {
-        const store = new FailingEnvironmentStore();
+        const store = new FailingEnvironmentStore(recordingCustody());
         seedStore(store);
         const nextRevision = revision(1, 1);
         const nextHead = environment.rotate(nextRevision);
@@ -1246,7 +1247,7 @@ describe("MemoryEnvironmentStore", () => {
                 row.kind === "session" ? { ...row, projection: Object.freeze(["tampered"]) } : row
             );
 
-            expect(() => new MemoryEnvironmentStore({ rows })).toThrow(
+            expect(() => new MemoryEnvironmentStore(recordingCustody(), { rows })).toThrow(
                 new AgentCoreError(
                     "protocol.invalid-state",
                     "Environment store projection does not match codec bytes"
@@ -1266,12 +1267,12 @@ describe("MemoryEnvironmentStore", () => {
             const revisionRow = image.rows.find((row) => row.kind === "revision")!;
             const sessionRow = image.rows.find((row) => row.kind === "session")!;
 
-            expect(() => new MemoryEnvironmentStore({ rows: [...image.rows, head] })).toThrowError(
+            expect(() => new MemoryEnvironmentStore(recordingCustody(), { rows: [...image.rows, head] })).toThrowError(
                 expect.objectContaining({ code: "protocol.invalid-state" })
             );
             expect(
                 () =>
-                    new MemoryEnvironmentStore({
+                    new MemoryEnvironmentStore(recordingCustody(), {
                         rows: image.rows.map((row) =>
                             row === sessionRow
                                 ? {
@@ -1285,13 +1286,13 @@ describe("MemoryEnvironmentStore", () => {
             ).toThrowError(expect.objectContaining({ code: "protocol.invalid-state" }));
             expect(
                 () =>
-                    new MemoryEnvironmentStore({
+                    new MemoryEnvironmentStore(recordingCustody(), {
                         rows: image.rows.map((row) =>
                             row === sessionRow ? { ...row, key: "wrong-session" } : row
                         )
                     })
             ).toThrowError(expect.objectContaining({ code: "protocol.invalid-state" }));
-            expect(() => new MemoryEnvironmentStore({ rows: [revisionRow] })).toThrowError(
+            expect(() => new MemoryEnvironmentStore(recordingCustody(), { rows: [revisionRow] })).toThrowError(
                 expect.objectContaining({ code: "protocol.invalid-state" })
             );
         }
@@ -1310,7 +1311,7 @@ describe("MemoryEnvironmentStore", () => {
             for (const kind of ["head", "revision", "session", "snapshot", "exposure"] as const) {
                 expect(
                     () =>
-                        new MemoryEnvironmentStore({
+                        new MemoryEnvironmentStore(recordingCustody(), {
                             rows: image.rows.map((row) =>
                                 row.kind === kind ? { ...row, key: `wrong-${kind}` } : row
                             )
@@ -1320,7 +1321,7 @@ describe("MemoryEnvironmentStore", () => {
             const sessionRow = image.rows.find((row) => row.kind === "session")!;
             expect(
                 () =>
-                    new MemoryEnvironmentStore({
+                    new MemoryEnvironmentStore(recordingCustody(), {
                         rows: image.rows.map((row) =>
                             row === sessionRow
                                 ? {
@@ -1353,7 +1354,7 @@ describe("MemoryEnvironmentStore", () => {
             );
             expect(
                 () =>
-                    new MemoryEnvironmentStore({
+                    new MemoryEnvironmentStore(recordingCustody(), {
                         rows: [
                             {
                                 kind: "head",
@@ -1393,7 +1394,7 @@ describe("MemoryEnvironmentStore", () => {
                 .exportImage()
                 .rows.filter((row) => row.kind !== "head")
                 .concat(initialImage.rows.filter((row) => row.kind === "head"));
-            expect(() => new MemoryEnvironmentStore({ rows })).toThrow(/orphan revision/);
+            expect(() => new MemoryEnvironmentStore(recordingCustody(), { rows })).toThrow(/orphan revision/);
         }
     );
 
@@ -1401,7 +1402,7 @@ describe("MemoryEnvironmentStore", () => {
         "restores the prior image when the head hook throws a typed store error",
         { tags: "p0" },
         () => {
-            const store = new TypedFailingEnvironmentStore();
+            const store = new TypedFailingEnvironmentStore(recordingCustody());
             seedStore(store);
             const nextRevision = revision(1, 1);
             store.failNextHeadCommit = true;
@@ -1420,7 +1421,7 @@ describe("MemoryEnvironmentStore", () => {
 });
 
 function seededStore(): MemoryEnvironmentStore {
-    const store = new MemoryEnvironmentStore();
+    const store = new MemoryEnvironmentStore(recordingCustody());
     seedStore(store);
     return store;
 }

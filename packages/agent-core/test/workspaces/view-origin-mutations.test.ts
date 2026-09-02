@@ -153,7 +153,7 @@ function replayHarness(): ReplayHarness {
     const records = new MemoryWorkspaceRecords();
     const persistence = new WorkspacePersistence<MemoryWorkspaceRecords>(
         (value) => value,
-        { verify: () => true, release: () => {}, discard: () => {} },
+        { verify: () => true, retain: () => {}, release: () => {}, discard: () => {} },
         sourceActor,
         tenant
     );

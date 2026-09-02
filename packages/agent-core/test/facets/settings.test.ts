@@ -75,7 +75,7 @@ describe("SettingsLayer record and composition", () => {
             const records = new MemoryWorkspaceRecords();
             const persistence = new WorkspacePersistence<MemoryWorkspaceRecords>(
                 (transaction) => transaction,
-                { verify: () => true, release: () => {}, discard: () => {} },
+                { verify: () => true, retain: () => {}, release: () => {}, discard: () => {} },
                 sourceActor,
                 tenant
             );

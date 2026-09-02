@@ -1,10 +1,12 @@
 import {
     ContentRef,
+    type ContentRetentionField,
+    contentRetentionFields,
     Digest,
-    RecordCodec,
-    Revision,
     type JsonValue,
+    RecordCodec,
     type RecordVersion,
+    Revision,
     TextId
 } from "../core";
 import { AgentCoreError } from "../errors";
@@ -198,3 +200,14 @@ export class EnvironmentRevisionRecord {
 }
 
 const environmentRevisionRecordCodecInstance = new EnvironmentRevisionCodecV1();
+
+/**
+ * The provider configuration one immutable Environment revision names (§8.4). Revisions are
+ * append-only — a head that advances installs a new revision rather than rewriting one — so
+ * this retention is owed on write and the superseded revision keeps holding its own bytes.
+ */
+export function environmentRevisionContentRetention(
+    value: EnvironmentRevisionRecord
+): readonly ContentRetentionField[] {
+    return contentRetentionFields([["provider.configuration", value.provider.configuration]]);
+}

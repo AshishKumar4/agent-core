@@ -48,6 +48,7 @@ import {
 } from "../../../src/facets";
 import { describe, expect, test } from "vitest";
 import { denyingRuntime, recordingRuntime } from "./harness";
+import { recordingCustody } from "../../helpers/custody";
 
 describe("Environment protected control profile", () => {
     test(
@@ -152,7 +153,7 @@ describe("Environment protected control profile", () => {
         async () => {
             const provider = new ReadyProvider();
             const controller = new EnvironmentController(
-                new MemoryEnvironmentStore(),
+                new MemoryEnvironmentStore(recordingCustody()),
                 new MemoryEnvironmentProviderRegistry([provider]),
                 { permits: (candidate) => candidate === environmentLease }
             );

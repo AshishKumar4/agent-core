@@ -10,11 +10,19 @@ export { ByteRange } from "./range";
 export type { ByteRangeWindow } from "./range";
 export {
     ContentOwnerEdge,
+    ContentRecordCustody,
     ContentRetention,
+    contentOwnerKey,
+    contentOwnerNamespace,
     requireCollectionTime,
     requireOperationTime
 } from "./retention";
-export type { ContentCollectionCandidate, TenantContentPolicyReader } from "./retention";
+export type {
+    ContentCollectionCandidate,
+    ContentCustodyPort,
+    RetainedContentRecord,
+    TenantContentPolicyReader
+} from "./retention";
 export { ContentStat } from "./stat";
 export { ContentStore } from "./store";
 export type { ContentPutResult } from "./store";

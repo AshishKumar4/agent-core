@@ -69,6 +69,7 @@ import {
     invocationCodecs,
     preparedReferenceCodecs
 } from "../invocations/fixture";
+import { recordingCustody } from "../helpers/custody";
 
 export type CanonicalBatchHarnessState = InvocationMemoryState &
     InvocationMediationMemoryState &
@@ -543,7 +544,7 @@ class FinalAdmissions {
 
 export class CanonicalBatchHarness<Authorization = string> {
     public readonly transactions = new CanonicalBatchMemoryTransactions();
-    public readonly persistence = new MemoryInvocationPersistence(invocationCodecs);
+    public readonly persistence = new MemoryInvocationPersistence(invocationCodecs, recordingCustody());
     public readonly detachedExecutions = new MemoryDetachedEffectExecutionPersistence();
     public readonly evidence = new MemoryInvocationMediationPersistence();
     public readonly ledger: InvocationLedger<

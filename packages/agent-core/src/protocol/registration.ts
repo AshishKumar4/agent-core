@@ -1,4 +1,4 @@
-import type { Revision } from "../core";
+import type { CodecDeclaration, Revision } from "../core";
 import type { CommandEnvelope } from "./envelope";
 import type { CommandPayloadCodec } from "./payload";
 import type { CommandCallerPolicy } from "./policy";
@@ -40,6 +40,18 @@ export interface ProtocolCommandRegistration<
     readonly payload: CommandPayloadCodec<Request>;
     readonly replyCodec?: ProtocolValueCodec<Reply>;
     readonly observationCodec?: ProtocolValueCodec<Observation>;
+
+    /**
+     * The record kinds this command's own execution writes, at the codec versions it
+     * writes them under (§8.3). A dispatcher declares the write record and the audit
+     * record it owns itself and the Actor adds the recovery carrier, so without this a
+     * Run commit, a slot entry or a materialization plan sits inside the record set the
+     * §8.3 gate protects and outside the declaration a reader compares against. The
+     * member is required rather than optional: a command that declares nothing would
+     * read as a command that owns no records, which is a claim only an empty
+     * `CodecDeclaration` may make explicitly.
+     */
+    readonly declaration: CodecDeclaration;
 
     authorize(read: Read, envelope: CommandEnvelope, payload: Request): boolean;
     permitsLifecycle(read: Read, envelope: CommandEnvelope, payload: Request): boolean;

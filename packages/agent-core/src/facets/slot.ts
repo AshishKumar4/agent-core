@@ -1,4 +1,4 @@
-import { Digest, JsonSchema, SemVer, TextId } from "../core";
+import { Digest, JsonSchema, type RecordCodec, SemVer, TextId } from "../core";
 import { PackageId, PackagePin } from "../definition-references";
 import { ContributionAttribution } from "./attribution";
 import type { FacetData } from "./data";
@@ -131,6 +131,14 @@ export class InstalledSlot {
             SlotDeclaration.fromData(declaration),
             ContributionAttribution.decodeFields(object, "Installed Slot")
         );
+    }
+
+    /**
+     * The record's own codec, so a reader that must declare the kinds it can decode names
+     * this one from the record rather than restating its version (§8.3).
+     */
+    public static get codec(): RecordCodec<InstalledSlot> {
+        return installedSlotCodec;
     }
 
     public static encode(slot: InstalledSlot): Uint8Array {

@@ -79,6 +79,7 @@ describe("invocation context barrel", () => {
             "deriveBatchOutcome",
             "immutableReference",
             "invocationError",
+            "receiptContentRetention",
             "requireArray",
             "requireCanonicalText",
             "requireDate",

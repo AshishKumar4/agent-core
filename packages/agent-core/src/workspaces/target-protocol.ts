@@ -1,5 +1,5 @@
 import type { ActorRef } from "../actors";
-import type { Revision } from "../core";
+import { CodecDeclaration, type Revision } from "../core";
 import { AgentCoreError } from "../errors";
 import { InvocationId } from "../interaction-references";
 import type {
@@ -14,9 +14,9 @@ import type {
     ProtocolValueCodec
 } from "../protocol";
 import {
+    ContentRetentionReference,
     RetainedRecordKind,
-    type ContentRetentionPort,
-    type ContentRetentionReference
+    type ContentRetentionPort
 } from "./retention";
 import type {
     InteractionAuditPort,
@@ -221,6 +221,15 @@ class TargetProjectionProtocolCommand<Transaction, Read> implements ProtocolComm
     RouteDelivery,
     RouteDelivery
 > {
+    /**
+     * §8.3: admitting a projection writes the projection, the delivery that records its
+     * outcome, and the retention proof that keeps the projected content alive.
+     */
+    public readonly declaration = CodecDeclaration.of([
+        RouteProjection.codec,
+        RouteDelivery.codec,
+        ContentRetentionReference.codec
+    ]);
     public readonly command = TARGET_PROJECTION_COMMAND;
     public readonly caller: CommandCallerPolicy;
     public readonly expectedRevision: ExpectedRevisionPolicy;
