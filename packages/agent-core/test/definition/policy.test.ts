@@ -10,7 +10,8 @@ import {
     evaluatePolicy,
     mergePolicySets,
     type EnforcementTier,
-    type EnforcementTierOverrides
+    type EnforcementTierOverrides,
+    type PolicyEvaluationInput
 } from "../../src/definition/policy";
 import {
     PLACEMENT_PREFERENCE,
@@ -93,6 +94,135 @@ describe("pure policy floors", () => {
                     }
                 }
             }
+        }
+    );
+
+    test(
+        "[C13-POLICY-MEDIATION-FLOOR] admits direct exactly where SPEC §7.2 does over every impact, session, placement, tier, and approval",
+        { tags: "p0" },
+        () => {
+            for (const impact of POLICY_IMPACTS) {
+                for (const turnOwnedSession of [false, true]) {
+                    for (const sessionFilesystemTarget of [false, true]) {
+                        for (const placement of PLACEMENT_PREFERENCE) {
+                            for (const requested of [undefined, "direct", "mediated"] as const) {
+                                for (const approvals of [[], [impact]] as const) {
+                                    const decision = evaluatePolicy({
+                                        impact,
+                                        turnOwnedSession,
+                                        sessionFilesystemTarget,
+                                        placement,
+                                        policies: [
+                                            new PolicySet({
+                                                approvals,
+                                                tiers:
+                                                    requested === undefined
+                                                        ? {}
+                                                        : { [impact]: requested }
+                                            })
+                                        ]
+                                    });
+                                    const approvalRequired = approvals.length > 0;
+                                    expect(decision).toEqual({
+                                        approvalRequired,
+                                        tier:
+                                            specAdmitsDirect(
+                                                impact,
+                                                turnOwnedSession,
+                                                sessionFilesystemTarget
+                                            ) &&
+                                            placement === "bundled" &&
+                                            requested !== "mediated" &&
+                                            !approvalRequired
+                                                ? "direct"
+                                                : "mediated"
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    );
+
+    test(
+        "[C13-POLICY-MEDIATION-FLOOR] refuses every hostile attempt to buy a direct mutate off the Session's own filesystem",
+        { tags: "p0" },
+        () => {
+            const ownFilesystem = {
+                impact: "mutate",
+                turnOwnedSession: true,
+                sessionFilesystemTarget: true,
+                placement: "bundled"
+            } as const satisfies PolicyEvaluationInput;
+            const askDirect = new PolicySet({ tiers: { mutate: "direct" } });
+
+            // The one cell §7.2 admits, stated first so no refusal below is vacuous.
+            expect(evaluatePolicy(ownFilesystem)).toEqual({
+                approvalRequired: false,
+                tier: "direct"
+            });
+
+            // Policy raises and never lowers: asking for direct buys nothing once either half
+            // of the attestation is withdrawn, and asking for mediated gives up the one cell.
+            expect(evaluatePolicy({ ...ownFilesystem, policies: [askDirect] }).tier).toBe("direct");
+            for (const withdrawn of [
+                { sessionFilesystemTarget: false },
+                { turnOwnedSession: false },
+                { turnOwnedSession: false, sessionFilesystemTarget: false }
+            ]) {
+                expect(
+                    evaluatePolicy({ ...ownFilesystem, ...withdrawn, policies: [askDirect] }).tier
+                ).toBe("mediated");
+            }
+            expect(
+                evaluatePolicy({
+                    ...ownFilesystem,
+                    policies: [new PolicySet({ tiers: { mutate: "mediated" } })]
+                }).tier
+            ).toBe("mediated");
+
+            // The exception is about `mutate` on that filesystem and carries no other impact:
+            // an unowned execute stays mediated however the filesystem fact is attested, and
+            // the three impacts §7.2 never admits stay mediated in the admitted cell itself.
+            expect(
+                evaluatePolicy({ ...ownFilesystem, impact: "execute", turnOwnedSession: false })
+                    .tier
+            ).toBe("mediated");
+            for (const impact of ["externalSend", "delegate", "administer"] as const) {
+                expect(
+                    evaluatePolicy({ ...ownFilesystem, impact, policies: [askDirect] }).tier
+                ).toBe("mediated");
+            }
+
+            // Co-location governs the exception like every other direct floor (§7.2 line 2824).
+            for (const placement of ["dynamic", "provider"] as const) {
+                expect(evaluatePolicy({ ...ownFilesystem, placement }).tier).toBe("mediated");
+            }
+
+            // An approval raises the admitted cell and stays required there, because §7.2 gives
+            // it nowhere to be recorded on the direct path; an approval on another impact
+            // leaves the cell alone.
+            expect(
+                evaluatePolicy({
+                    ...ownFilesystem,
+                    policies: [new PolicySet({ approvals: ["mutate"] })]
+                })
+            ).toEqual({ approvalRequired: true, tier: "mediated" });
+            expect(
+                evaluatePolicy({
+                    ...ownFilesystem,
+                    policies: [new PolicySet({ approvals: ["observe"] })]
+                })
+            ).toEqual({ approvalRequired: false, tier: "direct" });
+
+            // An impact the vocabulary does not name reaches the direct branch the exception
+            // opened by spelling alone, so the floor answers it mediated rather than falling
+            // through.
+            expect(
+                evaluatePolicy({ ...ownFilesystem, impact: forged<Impact>("mutate.session") })
+            ).toEqual({ approvalRequired: false, tier: "mediated" });
         }
     );
 
@@ -458,6 +588,32 @@ describe("policy declaration codec", () => {
 
 function maximumTier(...tiers: readonly EnforcementTier[]): EnforcementTier {
     return tiers.includes("mediated") ? "mediated" : "direct";
+}
+
+/*
+ * SPEC §7.2 lines 2830-2833 state the floor as a table: "`observe` → direct; on a Turn-owned
+ * Session (§4.5), `execute` and `mutate` whose target is that Session's own filesystem →
+ * direct; every other `execute` and `mutate`, plus `externalSend`, `delegate`, and
+ * `administer` → mediated." Lines 2847-2849 state the `mutate` exception from the other side:
+ * "`mutate` against anything else — a platform record, another facet, a shared or
+ * longer-lived Session — keeps its mediated floor".
+ *
+ * This is that table transcribed, so the sweep above answers to the SPEC rather than to
+ * `enforcementFloor`. An expectation read out of the floor agrees with every mutation of the
+ * floor, including one that widened the own-filesystem exception to every `mutate` — which is
+ * the divergence `AgentCore.Kernel.Facets.mutate_floor_gap` records against the model's
+ * `AgentCore.defaultTier` — or one that narrowed the exception away.
+ */
+function specAdmitsDirect(
+    impact: Impact,
+    turnOwnedSession: boolean,
+    sessionFilesystemTarget: boolean
+): boolean {
+    return (
+        impact === "observe" ||
+        (impact === "execute" && turnOwnedSession) ||
+        (impact === "mutate" && turnOwnedSession && sessionFilesystemTarget)
+    );
 }
 
 function expectCodecError(action: () => void, code: AgentCoreError["code"]): void {

@@ -337,10 +337,14 @@
         "src/definition/policy.ts#mergePolicySets"
       ],
       "testSelectors": [
-        "test/definition/policy.test.ts#monotone policy composition [C13-POLICY-APPROVAL-FLOOR] ORs positive approval requirements and cannot remove package, profile, or ancestor requirements"
+        "test/definition/policy.test.ts#monotone policy composition [C13-POLICY-APPROVAL-FLOOR] ORs positive approval requirements and cannot remove package, profile, or ancestor requirements",
+        "test/definition/policy.test.ts#pure policy floors [C13-POLICY-MEDIATION-FLOOR] refuses every hostile attempt to buy a direct mutate off the Session's own filesystem"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
-      "remainingEvidence": []
+      "remainingEvidence": [],
+      "bounds": [
+        "This rule does not claim an approval can be recorded on the direct path. SPEC.md 7.2 lines 2833-2836 make an added approval a raise instead: 'MAY add approval, which raises it too: an approval has nowhere to be recorded on the direct path', so the one cell 7.2 admits for a Turn-owned Session's own-filesystem mutate is exactly a cell where no policy on the chain requires approval, and a required approval leaves the tier mediated with the requirement intact."
+      ]
     },
     {
       "id": "C13-POLICY-DIRECT-COLOCATION",
@@ -351,7 +355,8 @@
       "prerequisites": [],
       "sourceSymbols": ["src/definition/policy.ts#evaluatePolicy"],
       "testSelectors": [
-        "test/definition/policy.test.ts#pure policy floors [C13-POLICY-DIRECT-COLOCATION] permits direct only for bundled co-location"
+        "test/definition/policy.test.ts#pure policy floors [C13-POLICY-DIRECT-COLOCATION] permits direct only for bundled co-location",
+        "test/definition/policy.test.ts#pure policy floors [C13-POLICY-MEDIATION-FLOOR] admits direct exactly where SPEC §7.2 does over every impact, session, placement, tier, and approval"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
@@ -397,10 +402,17 @@
       "sourceSymbols": ["src/definition/policy.ts#evaluatePolicy"],
       "testSelectors": [
         "test/definition/policy.test.ts#pure policy floors [C13-POLICY-MEDIATION-FLOOR] raises every non-bundled direct call without changing placement",
-        "test/definition/policy.test.ts#pure policy floors [C13-POLICY-MEDIATION-FLOOR] never lowers a floor across every impact, placement, and policy tier"
+        "test/definition/policy.test.ts#pure policy floors [C13-POLICY-MEDIATION-FLOOR] never lowers a floor across every impact, placement, and policy tier",
+        "test/definition/policy.test.ts#pure policy floors [C13-POLICY-MEDIATION-FLOOR] admits direct exactly where SPEC §7.2 does over every impact, session, placement, tier, and approval",
+        "test/definition/policy.test.ts#pure policy floors [C13-POLICY-MEDIATION-FLOOR] refuses every hostile attempt to buy a direct mutate off the Session's own filesystem"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
-      "remainingEvidence": []
+      "remainingEvidence": [],
+      "bounds": [
+        "The floor this rule prohibits lowering is SPEC.md 7.2 lines 2830-2833 read literally: 'observe -> direct; on a Turn-owned Session (4.5), execute and mutate whose target is that Session's own filesystem -> direct; every other execute and mutate, plus externalSend, delegate, and administer -> mediated', with lines 2847-2849 keeping the mediated floor for a mutate against 'a platform record, another facet, a shared or longer-lived Session'. The direct mutate is admitted at exactly that one conjunction and nowhere else.",
+        "This rule does not claim either session fact is true of any call it decides. turnOwnedSession and sessionFilesystemTarget are attestations the resolver supplies and evaluatePolicy weighs without verifying, so a resolver that attests the own-filesystem target falsely is outside what these tests can refuse; the attestation is stated as a required field so no caller can omit it into a default.",
+        "This rule does not claim the abstract model admits the own-filesystem mutate exception. SPEC.md line 4551 records that boundary and AgentCore.Kernel.Facets.mutate_floor_gap names it: AgentCore.defaultTier mediates every mutate while the extracted AgentCore.Facets.enforcementFloor this row's mechanism calls admits the exception, so the differential oracle in test/differential/policy.differential.test.ts pins sessionFilesystemTarget false and the exception's proof is the kernel-checked extraction rather than AgentCore.effectiveTier."
+      ]
     }
   ]
 }

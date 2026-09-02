@@ -6,6 +6,7 @@ import {
     type EnforcementTier,
     type Impact
 } from "../../src/facets/generated/enforcement/AgentCore/Facets/Enforcement";
+import { malformed } from "../helpers/malformed";
 
 /*
  * `src/facets/generated/enforcement/` is what the TSLean compiler lowers from the Lean
@@ -112,5 +113,30 @@ describe("the TSLean-generated enforcement floor", () => {
         expect(claimHonorsEnforcementFloor("mutate", "execute", false)).toBe(true);
         expect(claimHonorsEnforcementFloor("execute", "mutate", true)).toBe(true);
         expect(claimHonorsEnforcementFloor("mutate", "execute", true)).toBe(true);
+    });
+
+    test("fails closed for an impact the vocabulary does not name", { tags: "p0" }, () => {
+        // The lowering ends `admitsDirect` in a bare `return false`, which answers for
+        // `administer` and for every name outside the vocabulary too. The own-filesystem
+        // `mutate` exception is the only conditional direct branch a `mutate`-shaped name
+        // could reach, so a spelling that reached it would buy the tier §7.2 denies.
+        const unnamed = malformed<Impact>("mutate.session");
+        for (const condition of CONDITIONS) {
+            expect(
+                enforcementFloor(
+                    unnamed,
+                    condition.turnOwnedSession,
+                    condition.sessionFilesystemTarget
+                )
+            ).toBe("mediated");
+        }
+
+        // A claim that admits `direct` nowhere honors every floor; a derived impact that
+        // admits it nowhere refuses every claim that does, the own-filesystem `mutate`
+        // included.
+        expect(claimHonorsEnforcementFloor(unnamed, "administer", true)).toBe(true);
+        expect(claimHonorsEnforcementFloor("observe", unnamed, true)).toBe(false);
+        expect(claimHonorsEnforcementFloor("mutate", unnamed, true)).toBe(false);
+        expect(claimHonorsEnforcementFloor("mutate", unnamed, false)).toBe(true);
     });
 });

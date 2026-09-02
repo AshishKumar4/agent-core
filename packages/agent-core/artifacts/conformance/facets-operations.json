@@ -71,7 +71,7 @@
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [
-        "src/facets/generated/AgentCore/Facets/Enforcement.ts#enforcementFloor",
+        "src/facets/generated/enforcement/AgentCore/Facets/Enforcement.ts#enforcementFloor",
         "src/operations/command-runtime.ts#CommandRuntime"
       ],
       "testSelectors": [
@@ -335,14 +335,21 @@
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [
-        "src/facets/generated/AgentCore/Facets/Enforcement.ts#claimHonorsEnforcementFloor",
-        "src/facets/generated/AgentCore/Facets/Enforcement.ts#enforcementFloor"
+        "src/facets/generated/enforcement/AgentCore/Facets/Enforcement.ts#claimHonorsEnforcementFloor",
+        "src/facets/generated/enforcement/AgentCore/Facets/Enforcement.ts#enforcementFloor"
       ],
       "testSelectors": [
-        "test/facets/declarations.test.ts#Impact is derived from the seam, not declared by the callee [C13-FACET-IMPACT-BOUNDARY] admits a claim only where it never buys a tier the derived impact was denied"
+        "test/facets/declarations.test.ts#Impact is derived from the seam, not declared by the callee [C13-FACET-IMPACT-BOUNDARY] admits a claim only where it never buys a tier the derived impact was denied",
+        "test/facets/enforcement.test.ts#the TSLean-generated enforcement floor answers SPEC §7.2's floor over the whole impact and session domain",
+        "test/facets/enforcement.test.ts#the TSLean-generated enforcement floor answers SPEC §7.1's claim admission over the whole claim, derived and target domain",
+        "test/facets/enforcement.test.ts#the TSLean-generated enforcement floor fails closed for an impact the vocabulary does not name"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
-      "remainingEvidence": []
+      "remainingEvidence": [],
+      "bounds": [
+        "The floor a claim is checked against is SPEC.md 7.2 lines 2830-2833: 'observe -> direct; on a Turn-owned Session (4.5), execute and mutate whose target is that Session's own filesystem -> direct; every other execute and mutate, plus externalSend, delegate, and administer -> mediated'. Lines 2844-2849 carry the own-filesystem mutate exception, which is what makes an execute claim over a derived mutate admissible on that one target and refused everywhere else.",
+        "This rule does not claim a seam's own-filesystem fact is known when a claim is recorded. claimHonorsEnforcementFloor weighs both Turn-owned Session conditions at the caller's fixed sessionFilesystemTarget, so a claim stored at discovery or install stays safe at every later call site of that seam; a seam whose target could sometimes be the Session's own filesystem has to be admitted at the true fact rather than at the convenient one, and no check here can tell which was passed."
+      ]
     },
     {
       "id": "C13-FACET-INSTALL-VERIFICATION",
