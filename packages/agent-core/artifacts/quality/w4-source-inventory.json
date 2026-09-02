@@ -15,7 +15,6 @@
     "src/definition/credential-custody.ts",
     "src/definition/declaration.ts",
     "src/definition/error.ts",
-    "src/definition/generated/tree-merge/AgentCore/Extract/TreeMerge.ts",
     "src/definition/generation.ts",
     "src/definition/id.ts",
     "src/definition/index.ts",
@@ -45,5 +44,5 @@
     "src/substrates/sqlite/materialization.ts",
     "src/substrates/sqlite/package.ts"
   ],
-  "sourceSha256": "3a21d7b195cf56fbfccb786656475bbc1c30c47b460181d89af3aa6d21c951a8"
+  "sourceSha256": "12e976d26b636106e1a56b267f54f4d52f98e2bb279a48847329c625c958d9c0"
 }

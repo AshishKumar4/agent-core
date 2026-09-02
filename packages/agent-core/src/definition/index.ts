@@ -146,7 +146,7 @@ export type {
 export {
     DeferredManagedRecord,
     InvocationDrainObligation,
-    ManagedRecordAdoption,
+    AdoptedManagedRecord,
     ManagedResourcePort,
     PackagePinHolder,
     PackageRetentionObligation,

@@ -1127,6 +1127,13 @@
       "occurrence": 1
     },
     {
+      "declarationSha256": "7a33aa19e6d4e0826a60c4b73fba08102c791cb2196c58e1701f0ff4c573e1da",
+      "file": "src/definition/reconciliation.ts",
+      "symbol": "AdoptedManagedRecord.constructor",
+      "statementSha256": "4568ed4f52d3eb611a71c515d6184b2a1c4e97aea873a6a7b193e63955245df3",
+      "occurrence": 1
+    },
+    {
       "declarationSha256": "e1c33022f0cb98ef6c64308f3a07ee0cf538368e4656091a97253c3ae5e02070",
       "file": "src/definition/reconciliation.ts",
       "symbol": "HoldingDeferral.constructor",
@@ -1145,13 +1152,6 @@
       "file": "src/definition/reconciliation.ts",
       "symbol": "InconclusivePinEvidence.constructor",
       "statementSha256": "b22a318d060175fd31f314871a34582d9a19edae900b4ac2c6d1ce0a1cbc4691",
-      "occurrence": 1
-    },
-    {
-      "declarationSha256": "7a33aa19e6d4e0826a60c4b73fba08102c791cb2196c58e1701f0ff4c573e1da",
-      "file": "src/definition/reconciliation.ts",
-      "symbol": "ManagedRecordAdoption.constructor",
-      "statementSha256": "4568ed4f52d3eb611a71c515d6184b2a1c4e97aea873a6a7b193e63955245df3",
       "occurrence": 1
     },
     {

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { ActorId, ActorRef } from "../../src/actors";
 import { RunCommitId } from "../../src/agents";
-import { Digest, Revision, SemVer } from "../../src/core";
+import { Digest, Revision, SemVer, canonicalTupleKey } from "../../src/core";
 import {
     DeferredManagedRecord,
     DeploymentId,
@@ -94,9 +94,14 @@ describe("SPEC 5.2 pin holder retention", () => {
                 expect(deferral.obligations).toHaveLength(1);
                 expect(obligation).toBeInstanceOf(PackageRetentionObligation);
                 expect(obligation.kind).toBe("retention");
-                expect(obligation.record).toBe("acme.deploy@1.4.0");
+                expect(obligation.record).toBe(
+                    canonicalTupleKey("definition.package-retention-record.v1", [
+                        "acme.deploy",
+                        "1.4.0"
+                    ])
+                );
                 expect(obligation.reason).toBe(
-                    `${holderKind} ${holderId} pins that Package release`
+                    `${new PackagePinHolder(holderKind, holderId).key} pins that Package release`
                 );
                 expect(obligation.condition).toBe(
                     "no Run, Turn, Session, tree checkpoint, or Snapshot pins that release or a Run explicitly migrates"
@@ -144,7 +149,7 @@ describe("SPEC 5.2 pin holder retention", () => {
     );
 
     test(
-        "reserves idempotently per holder and answers only the pinned release",
+        "[C13-BLUEPRINT-RUN-PINS] reserves idempotently per holder and answers only the pinned release",
         { tags: "p1" },
         () => {
             const port = new RecordedRunPinsReservationPort<undefined>();
@@ -182,28 +187,32 @@ describe("SPEC 5.2 pin holder retention", () => {
         }
     );
 
-    test("verifies exactly the Run migrations it processed", { tags: "p1" }, () => {
-        const port = new RecordedRunPinsReservationPort<undefined>();
-        const pins = definitionPins();
-        const reservation = port.reserve(undefined, {
-            holder: new PackagePinHolder("run", "run:migrating"),
-            pins,
-            sourceRevision: Revision.initial(),
-            idempotencyKey: "reserve-migrating"
-        });
-        const evidence = migrationEvidence(runActor());
+    test(
+        "[C13-BLUEPRINT-RUN-PINS] verifies exactly the Run migrations it processed",
+        { tags: "p1" },
+        () => {
+            const port = new RecordedRunPinsReservationPort<undefined>();
+            const pins = definitionPins();
+            const reservation = port.reserve(undefined, {
+                holder: new PackagePinHolder("run", "run:migrating"),
+                pins,
+                sourceRevision: Revision.initial(),
+                idempotencyKey: "reserve-migrating"
+            });
+            const evidence = migrationEvidence(runActor());
 
-        expect(port.verifyMigration(undefined, evidence)).toBe(false);
-        expect(
-            port.release(undefined, reservation, {
-                ...evidence,
-                toPinsDigest: evidence.fromPinsDigest
-            })
-        ).toBe(false);
-        expect(port.release(undefined, reservation, evidence)).toBe(true);
-        expect(port.verifyMigration(undefined, evidence)).toBe(true);
-        expect(port.removalEvidence(undefined, pins).kind).toBe("clear");
-    });
+            expect(port.verifyMigration(undefined, evidence)).toBe(false);
+            expect(
+                port.release(undefined, reservation, {
+                    ...evidence,
+                    toPinsDigest: evidence.fromPinsDigest
+                })
+            ).toBe(false);
+            expect(port.release(undefined, reservation, evidence)).toBe(true);
+            expect(port.verifyMigration(undefined, evidence)).toBe(true);
+            expect(port.removalEvidence(undefined, pins).kind).toBe("clear");
+        }
+    );
 });
 
 function heldRecord(): DeferredManagedRecord {

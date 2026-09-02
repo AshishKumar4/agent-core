@@ -37,7 +37,7 @@
         "src/definition/reconciliation.ts#RouteReservationObligation",
         "src/definition/reconciliation.ts#PackageRetentionObligation",
         "src/definition/reconciliation.ts#ReconciliationDeferral",
-        "src/definition/reconciliation.ts#ManagedRecordAdoption",
+        "src/definition/reconciliation.ts#AdoptedManagedRecord",
         "src/definition/reconciliation.ts#planReconciliation",
         "src/definition/materializer.ts#LocalMaterializer"
       ],
@@ -95,8 +95,8 @@
         "test/definition/pins.test.ts#SPEC 5.2 pin holder retention [C13-BLUEPRINT-RUN-PINS] defers removing a release a tree-checkpoint pins with no Run holding it",
         "test/definition/pins.test.ts#SPEC 5.2 pin holder retention [C13-BLUEPRINT-RUN-PINS] defers removing a release a snapshot pins with no Run holding it",
         "test/definition/pins.test.ts#SPEC 5.2 pin holder retention [C13-BLUEPRINT-RUN-PINS] removes only once the last pin holder of any kind releases",
-        "test/definition/pins.test.ts#SPEC 5.2 pin holder retention reserves idempotently per holder and answers only the pinned release",
-        "test/definition/pins.test.ts#SPEC 5.2 pin holder retention verifies exactly the Run migrations it processed"
+        "test/definition/pins.test.ts#SPEC 5.2 pin holder retention [C13-BLUEPRINT-RUN-PINS] reserves idempotently per holder and answers only the pinned release",
+        "test/definition/pins.test.ts#SPEC 5.2 pin holder retention [C13-BLUEPRINT-RUN-PINS] verifies exactly the Run migrations it processed"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []

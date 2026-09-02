@@ -318,10 +318,14 @@ describe("reconciliation ordering and persistence proof", () => {
         expect(plan.pending.ofKind("reliance").map((obligation) => obligation.record)).toEqual([
             "core:dependent"
         ]);
-        expect(plan.pending.ofKind("retention").map((obligation) => obligation.reason)).toEqual([
-            "run run-early pins that Package release",
-            "snapshot snapshot-late pins that Package release"
-        ]);
+        expect(plan.pending.ofKind("retention").map((obligation) => obligation.reason)).toEqual(
+            [
+                new PackagePinHolder("run", "run-early"),
+                new PackagePinHolder("snapshot", "snapshot-late")
+            ]
+                .map((holder) => `${holder.key} pins that Package release`)
+                .toSorted()
+        );
     });
 
     test("applies nothing while any obligation stands", { tags: "p0" }, () => {

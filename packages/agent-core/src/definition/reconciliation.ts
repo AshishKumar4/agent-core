@@ -1,5 +1,5 @@
 import type { ActorRef } from "../actors";
-import { Digest, Revision } from "../core";
+import { Digest, Revision, canonicalTupleKey } from "../core";
 import type { FacetRef } from "../facets";
 import type { TenantId } from "../identity";
 import type { InvocationId, RouteReservationId } from "../interaction-references";
@@ -45,7 +45,7 @@ export class PackagePinHolder {
     }
 
     public get key(): string {
-        return `${this.kind}:${this.id}`;
+        return canonicalTupleKey("definition.package-pin-holder.v1", [this.kind, this.id]);
     }
 
     public equals(other: PackagePinHolder): boolean {
@@ -231,7 +231,10 @@ export class DeferredManagedRecord {
     }
 
     public get key(): string {
-        return `${this.change}:${this.resourceId.value}`;
+        return canonicalTupleKey("definition.deferred-managed-record.v1", [
+            this.change,
+            this.resourceId.value
+        ]);
     }
 }
 
@@ -261,7 +264,11 @@ export abstract class ReconciliationObligation {
     public abstract get condition(): string;
 
     public get key(): string {
-        return `${this.kind}\u0000${this.held.key}\u0000${this.record}`;
+        return canonicalTupleKey("definition.reconciliation-obligation.v1", [
+            this.kind,
+            this.held.key,
+            this.record
+        ]);
     }
 }
 
@@ -365,11 +372,14 @@ export class PackageRetentionObligation extends ReconciliationObligation {
     }
 
     public get record(): string {
-        return `${this.release.id.value}@${this.release.version.toString()}`;
+        return canonicalTupleKey("definition.package-retention-record.v1", [
+            this.release.id.value,
+            this.release.version.toString()
+        ]);
     }
 
     public get reason(): string {
-        return `${this.holder.kind} ${this.holder.id} pins that Package release`;
+        return `${this.holder.key} pins that Package release`;
     }
 
     public get condition(): string {
@@ -382,7 +392,12 @@ export class PackageRetentionObligation extends ReconciliationObligation {
      * down to whichever holder was seen first.
      */
     public override get key(): string {
-        return `${super.key}\u0000${this.holder.key}`;
+        return canonicalTupleKey("definition.package-retention-obligation.v1", [
+            this.kind,
+            this.held.key,
+            this.record,
+            this.holder.key
+        ]);
     }
 }
 
@@ -556,13 +571,13 @@ export type ReconciliationAction =
       };
 
 /**
- * SPEC §9.3: an operator's explicit adoption of one manually created resource. A manual
- * edit is adopted only as a change to the Blueprint, so an adoption names the declaring
+ * SPEC §9.3: one manually created resource the operator explicitly adopted. A manual edit
+ * is adopted only as a change to the Blueprint, so the adopted record names the declaring
  * record's identity and the exact state the operator inspected; an adoption the desired
  * generation does not declare would mark an unattributed record Blueprint-managed and is
  * rejected instead.
  */
-export class ManagedRecordAdoption {
+export class AdoptedManagedRecord {
     public constructor(
         public readonly resourceId: Digest,
         public readonly observed: Digest
@@ -603,7 +618,7 @@ export function planReconciliation<Transaction>(
     owner: ManagedResourceOwner,
     previous: readonly ManagedStateRecord[],
     desired: readonly ManagedStateRecord[],
-    adoptions: readonly ManagedRecordAdoption[] = []
+    adoptions: readonly AdoptedManagedRecord[] = []
 ): ReconciliationPlan {
     const previousByResource = uniqueRecords(previous, "previous generation");
     const desiredByResource = uniqueRecords(desired, "desired generation");
@@ -778,12 +793,12 @@ function uniqueSnapshots(
 }
 
 function uniqueAdoptions(
-    adoptions: readonly ManagedRecordAdoption[],
+    adoptions: readonly AdoptedManagedRecord[],
     declared: ReadonlyMap<string, ManagedStateRecord>
-): Map<string, ManagedRecordAdoption> {
-    const result = new Map<string, ManagedRecordAdoption>();
+): Map<string, AdoptedManagedRecord> {
+    const result = new Map<string, AdoptedManagedRecord>();
     for (const adoption of adoptions) {
-        if (adoption.constructor !== ManagedRecordAdoption) {
+        if (adoption.constructor !== AdoptedManagedRecord) {
             throw invalidDefinitionState("A manual edit is adopted only by an exact adoption");
         }
         if (result.has(adoption.resourceId.value)) {

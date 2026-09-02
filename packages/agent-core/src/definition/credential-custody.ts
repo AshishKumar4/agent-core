@@ -1,4 +1,10 @@
-import { SecretRef, hasExactJsonKeys, isJsonObject, type JsonValue } from "../core";
+import {
+    SecretRef,
+    canonicalTupleKey,
+    hasExactJsonKeys,
+    isJsonObject,
+    type JsonValue
+} from "../core";
 import type { ManagedStateRecord } from "./generation";
 import { invalidDefinition } from "./error";
 
@@ -93,9 +99,12 @@ export class CredentialCustodyFact {
     }
 
     public get key(): string {
-        return [this.secret.source, this.secret.provider, this.secret.id, this.endpoint].join(
-            "\u0000"
-        );
+        return canonicalTupleKey("definition.credential-custody-fact.v1", [
+            this.secret.source,
+            this.secret.provider,
+            this.secret.id,
+            this.endpoint
+        ]);
     }
 }
 

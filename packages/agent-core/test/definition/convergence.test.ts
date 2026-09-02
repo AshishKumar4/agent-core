@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { ActorId, ActorRef } from "../../src/actors";
-import { Digest, Revision, SemVer } from "../../src/core";
+import { Digest, Revision, SemVer, canonicalTupleKey } from "../../src/core";
 import {
     ActorPlan,
     DeferredManagedRecord,
@@ -8,7 +8,7 @@ import {
     DeploymentKey,
     InvocationDrainObligation,
     ManagedOrigin,
-    ManagedRecordAdoption,
+    AdoptedManagedRecord,
     PackageId,
     PackagePin,
     PackagePinHolder,
@@ -197,8 +197,13 @@ describe("Blueprint convergence", () => {
                 { result: materializer.apply(retained(2)), store, held },
                 {
                     kind: "retention",
-                    record: "acme.deploy@1.4.0",
-                    reason: "session environment-session:live pins that Package release",
+                    record: canonicalTupleKey("definition.package-retention-record.v1", [
+                        "acme.deploy",
+                        "1.4.0"
+                    ]),
+                    reason: `${
+                        new PackagePinHolder("session", "environment-session:live").key
+                    } pins that Package release`,
                     condition:
                         "no Run, Turn, Session, tree checkpoint, or Snapshot pins that release or a Run explicitly migrates"
                 }
@@ -246,7 +251,15 @@ describe("Blueprint convergence", () => {
             // can be reached no other way.
             const supplied = forged<PendingObligationSet>({
                 converged: true,
-                obligations: [{ kind: "retention", record: "acme.deploy@1.4.0" }]
+                obligations: [
+                    {
+                        kind: "retention",
+                        record: canonicalTupleKey("definition.package-retention-record.v1", [
+                            "acme.deploy",
+                            "1.4.0"
+                        ])
+                    }
+                ]
             });
             expect(() => new ReconciliationPlan([], supplied)).toThrow(
                 /carries its own pending set/
@@ -292,7 +305,7 @@ describe("Blueprint convergence", () => {
             materializer.apply(subset(1));
             const manual = manualEdit();
             store.writeManualEdit(manual);
-            const adoption = new ManagedRecordAdoption(manual.resourceId, manual.desiredDigest);
+            const adoption = new AdoptedManagedRecord(manual.resourceId, manual.desiredDigest);
 
             // Unadopted, an occupied resource is a record no generation attributes: the
             // reconciliation refuses it rather than absorbing it into the managed set.
@@ -309,7 +322,7 @@ describe("Blueprint convergence", () => {
             // A stale adoption names a state the resource no longer holds.
             expect(() =>
                 materializer.apply(declared(2), [
-                    new ManagedRecordAdoption(manual.resourceId, digest("some-other-state"))
+                    new AdoptedManagedRecord(manual.resourceId, digest("some-other-state"))
                 ])
             ).toThrow(/adoption names a state it no longer holds/);
 

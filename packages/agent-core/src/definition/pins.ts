@@ -1,4 +1,4 @@
-import { Digest, Revision, SemVer } from "../core";
+import { Digest, Revision, SemVer, canonicalTupleKey } from "../core";
 import type { ActorRef } from "../actors";
 import type { RunCommitId } from "../agents";
 import type { AuditRecordId, ReceiptId } from "../invocations";
@@ -134,9 +134,7 @@ export class RecordedRunPinsReservationPort<
             return existing.reference;
         }
         const reference = {
-            id: Digest.sha256(
-                reservationEncoder.encode(`${request.holder.key}\u0000${request.idempotencyKey}`)
-            ),
+            id: Digest.sha256(reservationKey(request.holder.key, request.idempotencyKey)),
             revision: request.sourceRevision
         };
         this.#reservations.set(reference.id.value, {
@@ -186,25 +184,29 @@ export class RecordedRunPinsReservationPort<
     }
 }
 
-const reservationEncoder = new TextEncoder();
+function reservationKey(holderKey: string, idempotencyKey: string): Uint8Array {
+    return new TextEncoder().encode(
+        canonicalTupleKey("definition.run-pin-reservation.v1", [holderKey, idempotencyKey])
+    );
+}
 
 function releaseKey(pin: PackagePin): string {
-    return [
+    return canonicalTupleKey("definition.package-pin-release.v1", [
         pin.id.value,
         pin.version.toString(),
         pin.manifestDigest.value,
         pin.codeDigest.value
-    ].join("\u0000");
+    ]);
 }
 
 function migrationKey(evidence: RunMigrationEvidenceReference): string {
-    return [
+    return canonicalTupleKey("definition.run-pin-migration.v1", [
         evidence.run.id.value,
         evidence.commitId.value,
         evidence.receiptId.value,
         evidence.auditId.value,
         evidence.fromPinsDigest.value,
         evidence.toPinsDigest.value,
-        String(evidence.revision.value)
-    ].join("\u0000");
+        evidence.revision.value
+    ]);
 }

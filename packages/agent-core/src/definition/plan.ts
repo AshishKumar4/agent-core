@@ -8,7 +8,8 @@ import {
     isJsonObject,
     type JsonValue,
     TextId,
-    SemVer
+    SemVer,
+    SecretRef
 } from "../core";
 import {
     Automation,
@@ -51,6 +52,7 @@ import { TenantId } from "../identity";
 import { DeploymentId, DeploymentKey } from "./id";
 import { PackagePin } from "./package-lock";
 import { PackageId } from "../definition-references";
+import { CredentialCustodyFact } from "./credential-custody";
 import { compareText } from "./order";
 import { invalidDefinition } from "./error";
 
@@ -215,7 +217,9 @@ class ActorPlanCodec extends RecordCodec<ActorPlan> {
             [
                 ActorPlan,
                 ActorRef,
+                CredentialCustodyFact,
                 DesiredProjection,
+                SecretRef,
                 TextId,
                 ManagedOrigin,
                 Digest,
@@ -331,6 +335,8 @@ class MaterializationPlanCodec extends RecordCodec<MaterializationPlan> {
         super(
             [
                 MaterializationPlan,
+                CredentialCustodyFact,
+                SecretRef,
                 TextId,
                 ManagedOrigin,
                 ActorPlan,

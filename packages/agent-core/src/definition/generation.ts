@@ -5,13 +5,14 @@ import {
     Digest,
     RecordCodec,
     Revision,
+    SecretRef,
+    SemVer,
+    TextId,
     decodeCanonicalJson,
     encodeCanonicalJson,
     hasExactJsonKeys,
     isJsonObject,
-    type JsonValue,
-    TextId,
-    SemVer
+    type JsonValue
 } from "../core";
 import {
     Automation,
@@ -37,6 +38,7 @@ import {
 import { ManagedOrigin } from "./origin";
 import type { ActorPlan, DesiredProjection } from "./plan";
 import { DeploymentId, MaterializationGenerationId } from "./id";
+import { CredentialCustodyFact } from "./credential-custody";
 import { compareText } from "./order";
 import {
     AuthoredCodeBackingPolicy,
@@ -64,6 +66,8 @@ class ManagedStateRecordCodec extends RecordCodec<ManagedStateRecord> {
             [
                 ManagedStateRecord,
                 ActorRef,
+                CredentialCustodyFact,
+                SecretRef,
                 TextId,
                 ManagedOrigin,
                 Digest,

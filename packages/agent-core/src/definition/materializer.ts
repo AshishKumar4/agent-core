@@ -14,7 +14,7 @@ import {
     PendingObligationSet,
     applyReconciliation,
     planReconciliation,
-    type ManagedRecordAdoption,
+    type AdoptedManagedRecord,
     type ReconciliationAction
 } from "./reconciliation";
 import { corruptDefinition, definitionRevisionConflict, invalidDefinitionState } from "./error";
@@ -116,7 +116,7 @@ export class LocalMaterializer<TTransaction> {
      */
     public apply(
         plan: ActorPlan | MaterializationPlan,
-        adoptions: readonly ManagedRecordAdoption[] = []
+        adoptions: readonly AdoptedManagedRecord[] = []
     ): LocalMaterializationResult {
         return this.#store.transaction((transaction) =>
             this.applyInTransaction(transaction, plan, adoptions)
@@ -126,7 +126,7 @@ export class LocalMaterializer<TTransaction> {
     public applyInTransaction(
         transaction: TTransaction,
         plan: ActorPlan | MaterializationPlan,
-        adoptions: readonly ManagedRecordAdoption[] = []
+        adoptions: readonly AdoptedManagedRecord[] = []
     ): LocalMaterializationResult {
         return this.applyTransaction(transaction, this.materialize(plan), adoptions);
     }
@@ -134,7 +134,7 @@ export class LocalMaterializer<TTransaction> {
     private applyTransaction(
         transaction: TTransaction,
         desired: LocalMaterialization,
-        adoptions: readonly ManagedRecordAdoption[]
+        adoptions: readonly AdoptedManagedRecord[]
     ): LocalMaterializationResult {
         const current = this.#store.loadGenerationPointer(
             transaction,

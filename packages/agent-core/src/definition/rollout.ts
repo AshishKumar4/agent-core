@@ -15,7 +15,8 @@ import {
     isJsonObject,
     type JsonValue,
     TextId,
-    SemVer
+    SemVer,
+    SecretRef
 } from "../core";
 import {
     Automation,
@@ -39,6 +40,7 @@ import { PackageId, PackagePin } from "../definition-references";
 import { ManagedOrigin } from "./origin";
 import type { FacetInstallFailure } from "./install-outcome";
 import { ActorPlan, DesiredProjection, MaterializationPlan } from "./plan";
+import { CredentialCustodyFact } from "./credential-custody";
 import { compareText } from "./order";
 import type { ValidationAttestation } from "./attestation";
 import { definitionRevisionConflict, invalidDefinition, invalidDefinitionState } from "./error";
@@ -242,7 +244,9 @@ class MaterializationRolloutCodec extends RecordCodec<MaterializationRollout> {
                 MaterializationRollout,
                 TextId,
                 ManagedOrigin,
+                CredentialCustodyFact,
                 MaterializationPlan,
+                SecretRef,
                 ActorPlan,
                 DesiredProjection,
                 Digest,

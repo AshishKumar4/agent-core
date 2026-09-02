@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { JsonSchema, SemVer } from "../../src/core";
+import { JsonSchema, SemVer, canonicalTupleKey } from "../../src/core";
 import {
     Blueprint,
     BlueprintMeta,
@@ -108,8 +108,8 @@ describe("definition value boundaries", () => {
         expect(RunPinEvidence.clear().conclusive).toBe(true);
         expect(RunPinEvidence.clear().holders).toEqual([]);
         expect(RunPinEvidence.retained(holders).holders.map((holder) => holder.key)).toEqual([
-            "run:run-a",
-            "turn:turn-b"
+            canonicalTupleKey("definition.package-pin-holder.v1", ["run", "run-a"]),
+            canonicalTupleKey("definition.package-pin-holder.v1", ["turn", "turn-b"])
         ]);
         expect(RunPinEvidence.retained(holders).permitsChange).toBe(false);
         expect(RunPinEvidence.retained(holders).conclusive).toBe(true);
