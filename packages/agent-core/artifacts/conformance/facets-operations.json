@@ -340,9 +340,9 @@
       ],
       "testSelectors": [
         "test/facets/declarations.test.ts#Impact is derived from the seam, not declared by the callee [C13-FACET-IMPACT-BOUNDARY] admits a claim only where it never buys a tier the derived impact was denied",
-        "test/facets/enforcement.test.ts#the TSLean-generated enforcement floor answers SPEC §7.2's floor over the whole impact and session domain",
-        "test/facets/enforcement.test.ts#the TSLean-generated enforcement floor answers SPEC §7.1's claim admission over the whole claim, derived and target domain",
-        "test/facets/enforcement.test.ts#the TSLean-generated enforcement floor fails closed for an impact the vocabulary does not name"
+        "test/facets/enforcement.test.ts#the TSLean-generated enforcement floor [C13-FACET-IMPACT-BOUNDARY] answers SPEC §7.2's floor over the whole impact and session domain",
+        "test/facets/enforcement.test.ts#the TSLean-generated enforcement floor [C13-FACET-IMPACT-BOUNDARY] answers SPEC §7.1's claim admission over the whole claim, derived and target domain",
+        "test/facets/enforcement.test.ts#the TSLean-generated enforcement floor [C13-FACET-IMPACT-BOUNDARY] fails closed for an impact the vocabulary does not name"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": [],

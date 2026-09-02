@@ -98,7 +98,7 @@ describe("pure policy floors", () => {
     );
 
     test(
-        "[C13-POLICY-MEDIATION-FLOOR] admits direct exactly where SPEC §7.2 does over every impact, session, placement, tier, and approval",
+        "[C13-POLICY-MEDIATION-FLOOR] [C13-POLICY-DIRECT-COLOCATION] admits direct exactly where SPEC §7.2 does over every impact, session, placement, tier, and approval",
         { tags: "p0" },
         () => {
             for (const impact of POLICY_IMPACTS) {
@@ -147,7 +147,7 @@ describe("pure policy floors", () => {
     );
 
     test(
-        "[C13-POLICY-MEDIATION-FLOOR] refuses every hostile attempt to buy a direct mutate off the Session's own filesystem",
+        "[C13-POLICY-MEDIATION-FLOOR] [C13-POLICY-APPROVAL-FLOOR] refuses every hostile attempt to buy a direct mutate off the Session's own filesystem",
         { tags: "p0" },
         () => {
             const ownFilesystem = {

@@ -338,7 +338,7 @@
       ],
       "testSelectors": [
         "test/definition/policy.test.ts#monotone policy composition [C13-POLICY-APPROVAL-FLOOR] ORs positive approval requirements and cannot remove package, profile, or ancestor requirements",
-        "test/definition/policy.test.ts#pure policy floors [C13-POLICY-MEDIATION-FLOOR] refuses every hostile attempt to buy a direct mutate off the Session's own filesystem"
+        "test/definition/policy.test.ts#pure policy floors [C13-POLICY-MEDIATION-FLOOR] [C13-POLICY-APPROVAL-FLOOR] refuses every hostile attempt to buy a direct mutate off the Session's own filesystem"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": [],
@@ -356,7 +356,7 @@
       "sourceSymbols": ["src/definition/policy.ts#evaluatePolicy"],
       "testSelectors": [
         "test/definition/policy.test.ts#pure policy floors [C13-POLICY-DIRECT-COLOCATION] permits direct only for bundled co-location",
-        "test/definition/policy.test.ts#pure policy floors [C13-POLICY-MEDIATION-FLOOR] admits direct exactly where SPEC §7.2 does over every impact, session, placement, tier, and approval"
+        "test/definition/policy.test.ts#pure policy floors [C13-POLICY-MEDIATION-FLOOR] [C13-POLICY-DIRECT-COLOCATION] admits direct exactly where SPEC §7.2 does over every impact, session, placement, tier, and approval"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
@@ -403,8 +403,8 @@
       "testSelectors": [
         "test/definition/policy.test.ts#pure policy floors [C13-POLICY-MEDIATION-FLOOR] raises every non-bundled direct call without changing placement",
         "test/definition/policy.test.ts#pure policy floors [C13-POLICY-MEDIATION-FLOOR] never lowers a floor across every impact, placement, and policy tier",
-        "test/definition/policy.test.ts#pure policy floors [C13-POLICY-MEDIATION-FLOOR] admits direct exactly where SPEC §7.2 does over every impact, session, placement, tier, and approval",
-        "test/definition/policy.test.ts#pure policy floors [C13-POLICY-MEDIATION-FLOOR] refuses every hostile attempt to buy a direct mutate off the Session's own filesystem"
+        "test/definition/policy.test.ts#pure policy floors [C13-POLICY-MEDIATION-FLOOR] [C13-POLICY-DIRECT-COLOCATION] admits direct exactly where SPEC §7.2 does over every impact, session, placement, tier, and approval",
+        "test/definition/policy.test.ts#pure policy floors [C13-POLICY-MEDIATION-FLOOR] [C13-POLICY-APPROVAL-FLOOR] refuses every hostile attempt to buy a direct mutate off the Session's own filesystem"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": [],

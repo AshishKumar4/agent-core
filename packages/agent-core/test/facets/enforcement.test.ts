@@ -52,7 +52,7 @@ const specFloor = (impact: Impact, condition: Condition): EnforcementTier =>
 
 describe("the TSLean-generated enforcement floor", () => {
     test(
-        "answers SPEC §7.2's floor over the whole impact and session domain",
+        "[C13-FACET-IMPACT-BOUNDARY] answers SPEC §7.2's floor over the whole impact and session domain",
         { tags: "p0" },
         () => {
             for (const impact of POLICY_IMPACTS) {
@@ -70,7 +70,7 @@ describe("the TSLean-generated enforcement floor", () => {
     );
 
     test(
-        "answers SPEC §7.1's claim admission over the whole claim, derived and target domain",
+        "[C13-FACET-IMPACT-BOUNDARY] answers SPEC §7.1's claim admission over the whole claim, derived and target domain",
         { tags: "p0" },
         () => {
             // A claim may raise the floor the seam derived and never lower it, so it is admissible
@@ -115,28 +115,32 @@ describe("the TSLean-generated enforcement floor", () => {
         expect(claimHonorsEnforcementFloor("mutate", "execute", true)).toBe(true);
     });
 
-    test("fails closed for an impact the vocabulary does not name", { tags: "p0" }, () => {
-        // The lowering ends `admitsDirect` in a bare `return false`, which answers for
-        // `administer` and for every name outside the vocabulary too. The own-filesystem
-        // `mutate` exception is the only conditional direct branch a `mutate`-shaped name
-        // could reach, so a spelling that reached it would buy the tier §7.2 denies.
-        const unnamed = malformed<Impact>("mutate.session");
-        for (const condition of CONDITIONS) {
-            expect(
-                enforcementFloor(
-                    unnamed,
-                    condition.turnOwnedSession,
-                    condition.sessionFilesystemTarget
-                )
-            ).toBe("mediated");
-        }
+    test(
+        "[C13-FACET-IMPACT-BOUNDARY] fails closed for an impact the vocabulary does not name",
+        { tags: "p0" },
+        () => {
+            // The lowering ends `admitsDirect` in a bare `return false`, which answers for
+            // `administer` and for every name outside the vocabulary too. The own-filesystem
+            // `mutate` exception is the only conditional direct branch a `mutate`-shaped name
+            // could reach, so a spelling that reached it would buy the tier §7.2 denies.
+            const unnamed = malformed<Impact>("mutate.session");
+            for (const condition of CONDITIONS) {
+                expect(
+                    enforcementFloor(
+                        unnamed,
+                        condition.turnOwnedSession,
+                        condition.sessionFilesystemTarget
+                    )
+                ).toBe("mediated");
+            }
 
-        // A claim that admits `direct` nowhere honors every floor; a derived impact that
-        // admits it nowhere refuses every claim that does, the own-filesystem `mutate`
-        // included.
-        expect(claimHonorsEnforcementFloor(unnamed, "administer", true)).toBe(true);
-        expect(claimHonorsEnforcementFloor("observe", unnamed, true)).toBe(false);
-        expect(claimHonorsEnforcementFloor("mutate", unnamed, true)).toBe(false);
-        expect(claimHonorsEnforcementFloor("mutate", unnamed, false)).toBe(true);
-    });
+            // A claim that admits `direct` nowhere honors every floor; a derived impact that
+            // admits it nowhere refuses every claim that does, the own-filesystem `mutate`
+            // included.
+            expect(claimHonorsEnforcementFloor(unnamed, "administer", true)).toBe(true);
+            expect(claimHonorsEnforcementFloor("observe", unnamed, true)).toBe(false);
+            expect(claimHonorsEnforcementFloor("mutate", unnamed, true)).toBe(false);
+            expect(claimHonorsEnforcementFloor("mutate", unnamed, false)).toBe(true);
+        }
+    );
 });
