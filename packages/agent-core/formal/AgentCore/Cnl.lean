@@ -1,6 +1,9 @@
 import AgentCore.Cnl.Auth
 import AgentCore.Cnl.Commands
+import AgentCore.Cnl.FacetInstall
 import AgentCore.Cnl.Isolate
+import AgentCore.Cnl.Placement
+import AgentCore.Cnl.RunGraph
 
 /-!
 # Theorems the controlled language needs, grouped by SPEC domain
