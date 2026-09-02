@@ -486,9 +486,14 @@ async function regenerateIntoTree(entry) {
  * digests; bytes are stronger here because the committed artifact is the product, and a
  * regeneration that produced semantically-equal but differently-laid-out bytes would still be a
  * change the repository never accepted.
+ *
+ * The manifest's `leanProjectPath` is the relative path from the emitted root to the Lean
+ * project and is part of the semantic identity, so the scratch root must sit at exactly the
+ * committed root's depth below the package directory; otherwise every regeneration would
+ * differ by geometry alone and the comparison would prove nothing.
  */
 async function regenerateAndCompare(entry) {
-    const scratch = join(reportRoot, "tslean-regeneration", entry.id);
+    const scratch = scratchRootAtCommittedDepth(entry);
     const { root, result } = runCompiler(entry, scratch);
     if (result.error !== undefined || result.status !== 0) {
         issues.push(
@@ -520,6 +525,21 @@ async function regenerateAndCompare(entry) {
             issues.push(`${entry.id}: regeneration is not byte-identical to the committed ${path}`);
         }
     }
+}
+
+const SCRATCH_BASE = ["reports", "quality", "tslean-regeneration"];
+
+function scratchRootAtCommittedDepth(entry) {
+    const committedDepth = relative(packageDir, entry.generatedRoot).split(sep).length;
+    const base = [...SCRATCH_BASE, entry.id];
+    if (committedDepth < base.length) {
+        throw new TypeError(
+            `${entry.id}: generated root ${entry.generatedRoot} sits shallower than the ` +
+                `regeneration scratch can mirror (${committedDepth} < ${base.length} segments)`
+        );
+    }
+    const padding = Array.from({ length: committedDepth - base.length }, () => "_");
+    return join(packageDir, ...base, ...padding);
 }
 
 /** The catalog, with every row resolved to the paths the rest of the gate reads. */
