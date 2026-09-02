@@ -2,11 +2,14 @@ import SpecCnl.Proofs
 import SpecCnl.Proofs.Auth
 import SpecCnl.Proofs.Claims
 import SpecCnl.Proofs.Commands
+import SpecCnl.Proofs.Definition
 import SpecCnl.Proofs.FacetInstall
+import SpecCnl.Proofs.InterceptOrder
 import SpecCnl.Proofs.Isolate
 import SpecCnl.Proofs.ModelInput
 import SpecCnl.Proofs.NoRetry
 import SpecCnl.Proofs.Placement
+import SpecCnl.Proofs.Protocol
 import SpecCnl.Proofs.Receipts
 import SpecCnl.Proofs.RunGraph
 import SpecCnl.Proofs.RunSettle

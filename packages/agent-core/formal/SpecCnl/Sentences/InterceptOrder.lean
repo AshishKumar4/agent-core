@@ -1,0 +1,20 @@
+import SpecCnl.Elab
+
+namespace SpecCnl.Sentences
+
+def cnl_C13_INTERCEPTOR_DOMAIN_CONFINEMENT : Prop :=
+  cnl_unit% "C13_INTERCEPTOR_DOMAIN_CONFINEMENT"
+
+def cnl_C13_INTERCEPTOR_POST_PREPARATION : Prop :=
+  cnl_unit% "C13_INTERCEPTOR_POST_PREPARATION"
+
+def cnl_C13_INTERCEPTOR_MODE_FIDELITY : Prop :=
+  cnl_unit% "C13_INTERCEPTOR_MODE_FIDELITY"
+
+def cnl_C13_INTERCEPTOR_REPLAY : Prop :=
+  cnl_unit% "C13_INTERCEPTOR_REPLAY"
+
+def cnl_C13_INTERCEPTOR_TURN_HOSTED : Prop :=
+  cnl_unit% "C13_INTERCEPTOR_TURN_HOSTED"
+
+end SpecCnl.Sentences

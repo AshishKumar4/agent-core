@@ -4,11 +4,14 @@ import SpecCnl.Negative
 import SpecCnl.Negatives.Auth
 import SpecCnl.Negatives.Claims
 import SpecCnl.Negatives.Commands
+import SpecCnl.Negatives.Definition
 import SpecCnl.Negatives.FacetInstall
+import SpecCnl.Negatives.InterceptOrder
 import SpecCnl.Negatives.Isolate
 import SpecCnl.Negatives.ModelInput
 import SpecCnl.Negatives.NoRetry
 import SpecCnl.Negatives.Placement
+import SpecCnl.Negatives.Protocol
 import SpecCnl.Negatives.Receipts
 import SpecCnl.Negatives.RunGraph
 import SpecCnl.Negatives.RunSettle
@@ -199,7 +202,8 @@ def cases : List Case :=
     Negatives.FacetInstall.cases ++ Negatives.Placement.cases ++ Negatives.RunGraph.cases ++
     Negatives.TrustRoute.cases ++ Negatives.Claims.cases ++ Negatives.Receipts.cases ++
     Negatives.RunSettle.cases ++ Negatives.NoRetry.cases ++ Negatives.ViewPlan.cases ++
-    Negatives.ModelInput.cases
+    Negatives.ModelInput.cases ++ Negatives.InterceptOrder.cases ++ Negatives.Definition.cases ++
+    Negatives.Protocol.cases
 
 /-- Adjacent-token transpositions of a sentence, dropping any that reproduce the input. -/
 def scrambles (sentence : String) : List String :=

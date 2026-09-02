@@ -1,11 +1,14 @@
 import SpecCnl.Entries.Auth
 import SpecCnl.Entries.Claims
 import SpecCnl.Entries.Commands
+import SpecCnl.Entries.Definition
 import SpecCnl.Entries.FacetInstall
+import SpecCnl.Entries.InterceptOrder
 import SpecCnl.Entries.Isolate
 import SpecCnl.Entries.ModelInput
 import SpecCnl.Entries.NoRetry
 import SpecCnl.Entries.Placement
+import SpecCnl.Entries.Protocol
 import SpecCnl.Entries.Receipts
 import SpecCnl.Entries.RunGraph
 import SpecCnl.Entries.RunSettle
@@ -692,7 +695,8 @@ def lexicon : List LexEntry :=
     Entries.FacetInstall.entries ++ Entries.Placement.entries ++ Entries.RunGraph.entries ++
     Entries.TrustRoute.entries ++ Entries.Claims.entries ++ Entries.Receipts.entries ++
     Entries.RunSettle.entries ++ Entries.NoRetry.entries ++ Entries.ViewPlan.entries ++
-    Entries.ModelInput.entries
+    Entries.ModelInput.entries ++ Entries.InterceptOrder.entries ++ Entries.Definition.entries ++
+    Entries.Protocol.entries
 
 /-- An entry id may use lowercase letters, digits, and dots, and must start with a
 letter.

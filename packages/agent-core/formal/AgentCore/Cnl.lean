@@ -1,7 +1,9 @@
 import AgentCore.Cnl.Auth
 import AgentCore.Cnl.Claims
 import AgentCore.Cnl.Commands
+import AgentCore.Cnl.Definition
 import AgentCore.Cnl.FacetInstall
+import AgentCore.Cnl.InterceptOrder
 import AgentCore.Cnl.Isolate
 import AgentCore.Cnl.ModelInput
 import AgentCore.Cnl.NoRetry
