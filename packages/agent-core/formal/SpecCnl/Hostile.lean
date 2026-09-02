@@ -18,7 +18,7 @@ namespace SpecCnl.Hostile
 /-! ## The negative corpus refuses, and refuses for the recorded reason -/
 
 #guard Adversarial.negativeFailures.isEmpty
-#guard Adversarial.cases.length == 93
+#guard Adversarial.cases.length == 113
 
 /-! ## Every adjacent transposition of every corpus sentence is refused
 
@@ -27,7 +27,7 @@ admitted, the exact round trip `compile` enforces would be reproducing a string 
 would have taken in any order. -/
 
 #guard Adversarial.admittedScrambles.isEmpty
-#guard Adversarial.allScrambles.length == 1007
+#guard Adversarial.allScrambles.length == 1200
 
 /-! ## Every admitted sentence linearises back to itself, exactly -/
 
@@ -130,7 +130,7 @@ private theorem ancestry_is_ascribed : True := .intro
 Three entries denote `fun _ => True`. They cannot refuse a wrong noun, and the ledger
 declares them so rather than leaving the weakening implied. -/
 
-#guard (lexicon.filter (fun entry => entry.caveats.contains .typeAsCommonNoun)).length == 5
+#guard (lexicon.filter (fun entry => entry.caveats.contains .typeAsCommonNoun)).length == 6
 #guard (lexicon.filter (fun entry =>
   entry.denotation == "fun _ => True" && !entry.caveats.contains .typeAsCommonNoun)).isEmpty
 

@@ -4,6 +4,7 @@ import AgentCore.Cnl.Commands
 import AgentCore.Cnl.FacetInstall
 import AgentCore.Cnl.Isolate
 import AgentCore.Cnl.Placement
+import AgentCore.Cnl.Receipts
 import AgentCore.Cnl.RunGraph
 import AgentCore.Cnl.TrustRoute
 

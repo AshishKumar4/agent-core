@@ -5,7 +5,9 @@ import SpecCnl.Units.Commands
 import SpecCnl.Units.FacetInstall
 import SpecCnl.Units.Isolate
 import SpecCnl.Units.Placement
+import SpecCnl.Units.Receipts
 import SpecCnl.Units.RunGraph
+import SpecCnl.Units.RunSettle
 import SpecCnl.Units.TrustRoute
 
 /-!
@@ -481,7 +483,8 @@ nowhere else, so adding one is a two-line diff and the gate keeps reading one li
 def units : List RuleUnit :=
   coreUnits ++ Units.Auth.units ++ Units.Isolate.units ++ Units.Commands.units ++
     Units.FacetInstall.units ++ Units.Placement.units ++ Units.RunGraph.units ++
-    Units.TrustRoute.units ++ Units.Claims.units
+    Units.TrustRoute.units ++ Units.Claims.units ++ Units.Receipts.units ++
+    Units.RunSettle.units
 
 /-- The unit with this key, if any. -/
 def find? (key : String) : Option RuleUnit := units.find? (fun unit => unit.key == key)

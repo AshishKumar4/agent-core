@@ -7,7 +7,9 @@ import SpecCnl.Negatives.Commands
 import SpecCnl.Negatives.FacetInstall
 import SpecCnl.Negatives.Isolate
 import SpecCnl.Negatives.Placement
+import SpecCnl.Negatives.Receipts
 import SpecCnl.Negatives.RunGraph
+import SpecCnl.Negatives.RunSettle
 import SpecCnl.Negatives.TrustRoute
 
 /-!
@@ -192,7 +194,8 @@ here and nowhere else. -/
 def cases : List Case :=
   coreCases ++ Negatives.Auth.cases ++ Negatives.Isolate.cases ++ Negatives.Commands.cases ++
     Negatives.FacetInstall.cases ++ Negatives.Placement.cases ++ Negatives.RunGraph.cases ++
-    Negatives.TrustRoute.cases ++ Negatives.Claims.cases
+    Negatives.TrustRoute.cases ++ Negatives.Claims.cases ++ Negatives.Receipts.cases ++
+    Negatives.RunSettle.cases
 
 /-- Adjacent-token transpositions of a sentence, dropping any that reproduce the input. -/
 def scrambles (sentence : String) : List String :=
