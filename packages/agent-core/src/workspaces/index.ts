@@ -142,7 +142,11 @@ export type {
 export { Subscription } from "./subscription";
 export type { SubscriptionInit } from "./subscription";
 export { SurfaceEpoch, surfaceRevisionKey, surfaceStreamKey } from "./surface-epoch";
-export { WITHDRAWN_TARGET_REASON, WorkspaceRoutingWithdrawal } from "./withdrawal";
+export {
+    WITHDRAWN_TARGET_REASON,
+    WithdrawalDrainCapture,
+    WorkspaceRoutingWithdrawal
+} from "./withdrawal";
 export type { RoutingWithdrawal, RoutingWithdrawalAuditPort } from "./withdrawal";
 export {
     TARGET_PROJECTION_COMMAND,

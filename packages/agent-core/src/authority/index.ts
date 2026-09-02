@@ -15,6 +15,7 @@ export { AuthorityMutationService, createTenantControlBootstrapPlan } from "./se
 export type {
     AuthorityMutationStore,
     AuthorityReadStore,
+    FacetAuthorityRetirement,
     MembershipChangeIntent,
     TenantControlBootstrapAnchor,
     TenantControlBootstrapPlan

@@ -1,6 +1,7 @@
 import { ActorId } from "../actors";
 import { Digest, Revision, encodeBase64, encodeCanonicalJson } from "../core";
 import { AgentCoreError } from "../errors";
+import type { ContributionAttribution } from "../facets";
 import {
     Membership,
     MembershipId,
@@ -165,6 +166,19 @@ export interface AuthorityMutationStore extends AuthorityReadStore {
 export interface MembershipChangeIntent {
     readonly role: RoleName;
     readonly state: Exclude<MembershipState, "revoked">;
+}
+
+/**
+ * SPEC §4.1: what the authority Actor retired for one exact contribution, and the Scope
+ * epochs that advanced with it in the same transaction. The Bindings are the records as
+ * retired, so a caller reports the state a later resolution attempt will observe rather
+ * than the state it asked for.
+ */
+export interface FacetAuthorityRetirement {
+    readonly attribution: ContributionAttribution;
+    readonly bindings: readonly Binding[];
+    readonly grants: readonly GrantId[];
+    readonly epochs: readonly ScopeEpoch[];
 }
 
 /** @internal Couples all post-bootstrap resolver-input writes in one Tenant transaction. */
@@ -496,6 +510,56 @@ export class AuthorityMutationService {
     }
 
     /**
+     * SPEC §4.1 (C13-FACET-WITHDRAWAL-EXACT): the authority plane's half of a Facet
+     * withdrawal, keyed on the same `ContributionAttribution` pair the Workspace Actor
+     * retires its own records under. Every Binding naming the withdrawing `FacetRef` goes
+     * inactive, every live Grant whose capability names only that Facet's Operations is
+     * revoked with its delegated closure, and every Scope epoch those writes affect advances
+     * in this same transaction — which is what leaves a retired Binding and a moved path
+     * epoch for the next resolution attempt to observe (§3.4, §8.4).
+     *
+     * This is the authority Actor's own transaction and nothing more: the Workspace records
+     * of the same contribution are retired by the Workspace Actor in its own, because there
+     * is no cross-Actor transaction anywhere (§8.1, §10.1). A withdrawal that names a Facet
+     * this Tenant granted nothing retires nothing and moves no epoch.
+     */
+    public retireFacetContribution(attribution: ContributionAttribution): FacetAuthorityRetirement {
+        return this.store.transaction((store) => {
+            // A Binding already inactive transitions to itself, so a replayed withdrawal
+            // writes no second revision of it and reports nothing it did not retire.
+            const retired = store
+                .bindings()
+                .filter((binding) => binding.facet.equals(attribution.contributor))
+                .flatMap((binding) => {
+                    const inactive = binding.deactivate();
+                    return inactive === binding ? [] : [inactive];
+                });
+            for (const binding of retired) store.putBinding(binding);
+            const solelyNaming = store
+                .grants()
+                .filter(
+                    (grant) =>
+                        grant.isLive && grant.capability.namesOnly(attribution.contributor.value)
+                )
+                .map((grant) => grant.id);
+            const revoked = revokeGrantClosure(store, solelyNaming);
+            const epochs = this.bump(store, [
+                ...closureMutation(
+                    "bindingTransition",
+                    distinctScopes(retired.map((binding) => binding.scope))
+                ),
+                ...revoked.map((grant) => ({ kind: "grant" as const, scope: grant.scope }))
+            ]);
+            return Object.freeze({
+                attribution,
+                bindings: Object.freeze(retired),
+                grants: Object.freeze(revoked.map((grant) => grant.id)),
+                epochs
+            });
+        });
+    }
+
+    /**
      * Issuing an offer is an `administer`-impact act at the offer's Scope, and the
      * Membership a redemption mints is bounded by what the issuer could have assigned
      * directly (§3.3). Nothing is materialized: an offer confers no Grant and resolves no
@@ -639,11 +703,15 @@ export class AuthorityMutationService {
         this.bump(store, closureMutation("guestVerification", [...affected.values()]));
     }
 
-    private bump(store: AuthorityMutationStore, mutations: readonly ResolverInputMutation[]): void {
-        if (mutations.length === 0) return;
-        for (const epoch of this.#planner.plan(store.epochs(), mutations).bumped) {
-            store.putEpoch(epoch);
-        }
+    /** The advanced epochs, so a caller that must report its own epoch move can read it. */
+    private bump(
+        store: AuthorityMutationStore,
+        mutations: readonly ResolverInputMutation[]
+    ): readonly ScopeEpoch[] {
+        if (mutations.length === 0) return Object.freeze([]);
+        const bumped = this.#planner.plan(store.epochs(), mutations).bumped;
+        for (const epoch of bumped) store.putEpoch(epoch);
+        return bumped;
     }
 }
 
@@ -866,7 +934,7 @@ function teamScopes(store: AuthorityMutationStore, teamId: TeamId): readonly Sco
 }
 
 function closureMutation(
-    kind: "guestVerification" | "principalClosure" | "role" | "teamClosure",
+    kind: "bindingTransition" | "guestVerification" | "principalClosure" | "role" | "teamClosure",
     scopes: readonly ScopeEpoch["scope"][]
 ): readonly ResolverInputMutation[] {
     return scopes.length === 0 ? [] : [{ kind, affectedScopes: nonEmpty(scopes) }];

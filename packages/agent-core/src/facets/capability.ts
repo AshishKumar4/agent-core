@@ -131,6 +131,17 @@ export class CapabilitySpec {
         return this.impacts.includes("delegate") || this.impacts.includes("administer");
     }
 
+    /**
+     * SPEC §4.1: true exactly when every Facet this capability reaches is the one named, so
+     * a withdrawal can retire it as one of the withdrawing Facet's own solely-naming Grants.
+     * `'*'` is the only metacharacter and a validated pattern never carries one literally, so
+     * a pattern reaches only the named Facet exactly when it is that Facet's own text; any
+     * wildcard would also reach whatever else the Scope installs.
+     */
+    public namesOnly(facet: string): boolean {
+        return this.facetPattern === facet;
+    }
+
     public equals(other: CapabilitySpec): boolean {
         return other instanceof CapabilitySpec && canonicalJsonEqual(this.toData(), other.toData());
     }
@@ -223,7 +234,6 @@ function valueAtPath(
 function isConstraintPath(path: string): boolean {
     return path.length > 0 && path.split(".").every((segment) => /^[a-zA-Z0-9_-]+$/u.test(segment));
 }
-
 
 function requireImpact(value: JsonValue): Impact {
     if (isMember(impacts, value)) return value;

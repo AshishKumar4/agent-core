@@ -34,6 +34,7 @@ import {
     RouteDeliveryState,
     requireAuthenticatedRouteProjection
 } from "./route";
+import { WITHDRAWN_TARGET_REASON } from "./withdrawal";
 
 export interface TargetProjectionAdmission {
     readonly projection: AuthenticatedRouteProjection;
@@ -144,14 +145,16 @@ export class TargetProjectionProtocol<Transaction> {
             );
 
             const authority = this.authority.authorize(transaction, authenticatedProjection);
+            const stopped = this.withdrawnTarget(transaction, envelope.reservation);
             const invocation =
-                authority.kind === "accepted"
+                stopped ??
+                (authority.kind === "accepted"
                     ? this.invocations.admit(transaction, {
                           reservation: envelope.reservation,
                           projection: persistedProjection,
                           bridgeAudit
                       })
-                    : authority;
+                    : authority);
             if (
                 invocation.kind === "accepted" &&
                 (!("invocation" in invocation) ||
@@ -170,6 +173,37 @@ export class TargetProjectionProtocol<Transaction> {
             this.retention.discard(input.retention);
             throw error;
         }
+    }
+
+    /**
+     * SPEC §4.1 (C13-FACET-WITHDRAWAL-DRAIN): the durable admission stop of a withdrawn
+     * contribution. The transaction that begins a withdrawal retires the Subscriptions the
+     * Facet's `commands` and `automations` contributions materialized and freezes its drain
+     * set in one Workspace-owned capture, so the set is finite at that transaction. A
+     * projection presented afterwards — a reservation the source appended against a view it
+     * had already lost, or an at-least-once retry of one — is refused by reading that
+     * capture rather than admitted as a new Invocation item, which is what keeps the frozen
+     * set from growing across a restart. The reservation then takes the terminal rejected
+     * RouteDelivery the withdrawal set requires instead of resolving an unresolvable target.
+     *
+     * A Subscription no Facet contributed is nobody's withdrawal set (§4.2), so it is
+     * admitted on its own terms.
+     */
+    private withdrawnTarget(
+        transaction: Transaction,
+        reservation: AuthenticatedRouteProjection["envelope"]["reservation"]
+    ): InvocationAdmissionDecision | undefined {
+        const contribution = this.persistence.currentSubscription(
+            transaction,
+            reservation.subscription
+        )?.contribution;
+        if (
+            contribution === undefined ||
+            this.persistence.findWithdrawalDrain(transaction, contribution) === undefined
+        ) {
+            return undefined;
+        }
+        return { kind: "rejected", reason: WITHDRAWN_TARGET_REASON };
     }
 }
 

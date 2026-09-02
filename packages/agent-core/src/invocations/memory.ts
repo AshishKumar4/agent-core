@@ -7,7 +7,7 @@ import { InvocationId } from "../interaction-references";
 import type { InvocationPersistence } from "./persistence";
 import type { PreparedInvocation } from "./prepared";
 import { AttemptReceipt, PreEffectReceipt, type Receipt } from "./receipt";
-import type { RecordCodec } from "../core";
+import { compareCanonicalText, type RecordCodec } from "../core";
 import { AgentCoreError } from "../errors";
 import { invocationError } from "./error";
 
@@ -101,6 +101,27 @@ export class MemoryInvocationPersistence<
         record: PreparedInvocation<Lease, Authority, Domain, PathEpochs>
     ): void {
         insert(transaction.prepared, record.header.id.value, this.codecs.prepared.encode(record));
+    }
+
+    /**
+     * The reference target index: the memory store holds one map of prepared records, so the
+     * index is derived by reading their headers rather than kept beside them (§8.4 rule 2).
+     */
+    public preparedForTarget(
+        transaction: InvocationMemoryState,
+        target: string
+    ): readonly InvocationId[] {
+        return Object.freeze(
+            [...transaction.prepared.entries()]
+                .map(([id, bytes]) => {
+                    const record = this.codecs.prepared.decode(bytes.slice());
+                    if (record.header.id.value !== id) corruptMemory();
+                    return record.header;
+                })
+                .filter((header) => header.operation.target === target)
+                .map((header) => header.id)
+                .sort((left, right) => compareCanonicalText(left.value, right.value))
+        );
     }
 
     public approval(transaction: InvocationMemoryState, id: ApprovalId): Approval | undefined {

@@ -171,6 +171,18 @@
       ]
     },
     {
+      "symbol": "WithdrawalDrainCapture",
+      "kind": "workspace.withdrawal-drain-capture",
+      "durability": "durable",
+      "ownerActor": "workspace",
+      "source": "src/workspaces/withdrawal.ts#WithdrawalDrainCapture",
+      "codec": "src/workspaces/withdrawal.ts#WithdrawalDrainCapture.codec",
+      "store": "src/workspaces/persistence.ts#WorkspacePersistence",
+      "tests": [
+        "test/workspaces/registry.test.ts#[workspace.withdrawal-drain-capture] codec and ownership evidence"
+      ]
+    },
+    {
       "symbol": "InboxEventReference",
       "kind": "workspace.inbox-reference",
       "durability": "value",

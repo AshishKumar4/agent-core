@@ -1,8 +1,9 @@
 import { describe, expect, test } from "vitest";
 import type { SynchronousResultGuard } from "../../src/actors";
-import { Digest } from "../../src/core";
+import { Digest, Revision } from "../../src/core";
 import { AuditRecordId, InvocationId } from "../../src/interaction-references";
 import {
+    CapabilitySpec,
     CatalogEntry,
     CatalogEntryId,
     Contribution,
@@ -47,16 +48,30 @@ import {
 } from "../../src/composition";
 import { FacetCorrespondenceValidator, type ValidatedFacetRuntime } from "../../src/operations";
 import {
+    EventCursor,
     IngressEndpoint,
     IngressEndpointId,
     MemoryWorkspaceRecords,
+    RetainedRecordKind,
     RouteDeliveryState,
     Subscription,
+    SurfaceEpoch,
+    View,
+    ViewReplayProtocol,
     WITHDRAWN_TARGET_REASON,
     WorkspacePersistence,
     WorkspaceRoutingWithdrawal,
+    viewRecordKey,
     type ContentRetentionPort
 } from "../../src/workspaces";
+import {
+    InvocationDrainQuery,
+    MemoryInvocationPersistence,
+    PreEffectReceipt,
+    ReceiptId,
+    createInvocationMemoryState,
+    type InvocationMemoryState
+} from "../../src/invocations";
 import {
     SqliteWorkspaceRecords,
     SqliteWorkspaceSlotStore,
@@ -64,10 +79,13 @@ import {
 } from "../../src/substrates";
 import { TestSqlite } from "../helpers/sqlite";
 import {
+    DeterministicJsonPatchEngine,
     authenticatedProjectionFixture,
+    content,
     projectionRetention,
     reservationFixture,
     reservationRetention,
+    retentionFixture,
     materializeAttributedSubscription,
     sourceActor,
     subscriptionFixture,
@@ -76,6 +94,7 @@ import {
     authenticatedInstallationFixture,
     tenant
 } from "../workspaces/fixtures";
+import { createLedger, invocationCodecs, prepared } from "../invocations/fixture";
 
 import { reaching } from "../composition/fixture";
 import { attribution, contribute, declarerSlot, entry } from "./slot-store-contract";
@@ -94,6 +113,8 @@ class DurableRetention<Transaction> implements ContentRetentionPort<Transaction>
     public verify(): boolean {
         return true;
     }
+
+    public retain(): void {}
 
     public release(): void {}
 
@@ -769,6 +790,11 @@ describe("Facet withdrawal across owning Actors", () => {
                 },
                 retireSurfaceRegistration: () => {
                     retiredRecords.push(surface.value);
+                },
+                findWithdrawalDrain: () => undefined,
+                captureWithdrawalDrain: (_transaction, capture) => {
+                    retiredRecords.push("drain-capture");
+                    return capture;
                 }
             });
             const slots = reaching<WorkspaceSlotStore<TestWorkspaceTransaction>>({
@@ -800,13 +826,16 @@ describe("Facet withdrawal across owning Actors", () => {
                 settingsLayers: [settings],
                 surfaces: [surface]
             });
+            // The capture is written by the same transaction that retired the records, after
+            // the writes that stopped admission rather than before them.
             expect(retiredRecords).toEqual([
                 "slots",
                 catalog.value,
                 ingress.value,
                 prompt.value,
                 settings.value,
-                surface.value
+                surface.value,
+                "drain-capture"
             ]);
         }
     );
@@ -862,6 +891,230 @@ describe("Facet withdrawal across owning Actors", () => {
             expect(() => errorControl.plan(contribution)).toThrow(
                 /Workspace Actor transaction: control failed/
             );
+        }
+    );
+});
+
+describe("Facet withdrawal across the planes it does not own", () => {
+    test(
+        "[C13-FACET-WITHDRAWAL-EXACT] retires the Surface it registered by terminating that registration's View stream",
+        { tags: "p0" },
+        () => {
+            const harness = crossPlaneHarness();
+            const withdrawn = attribution("workspace:surface");
+            const surface = new SurfaceId("surface-withdrawn");
+            const rendered = publishSurface(harness, withdrawn, surface);
+
+            const result = retired(harness.withdrawal.withdraw(withdrawn));
+
+            expect(result.records.surfaces.map((id) => id.value)).toEqual([surface.value]);
+            // The stream of the retired registration's own epoch ends in a terminal View, and
+            // the registration that authorized it is gone.
+            const terminal = harness.persistence.currentView(
+                harness.records,
+                surface.value,
+                SurfaceEpoch.first()
+            );
+            expect(terminal?.terminal).toBe(true);
+            expect(terminal?.revision.value).toBe(rendered.revision.value + 1);
+            expect(terminal?.cursor.value).toBe(rendered.cursor.value);
+            expect(
+                harness.persistence.findSurfaceRegistration(harness.records, surface)
+            ).toBeUndefined();
+
+            // A later PackagePin registering the same static SurfaceId opens the next epoch,
+            // and the retired stream stays terminal at the revision it ended on.
+            const reinstalled = attribution("workspace:surface", "2.0.0");
+            harness.database.transaction(() =>
+                harness.persistence.putSurfaceRegistration(
+                    harness.records,
+                    new SurfaceRegistration(
+                        new SurfaceDescriptor(surface, `${surface.value} board`),
+                        reinstalled
+                    )
+                )
+            );
+            expect(
+                harness.persistence
+                    .currentSurfaceEpoch(harness.records, surface.value)
+                    .equals(SurfaceEpoch.first().next())
+            ).toBe(true);
+            expect(
+                harness.persistence.currentView(
+                    harness.records,
+                    surface.value,
+                    SurfaceEpoch.first()
+                )?.terminal
+            ).toBe(true);
+        }
+    );
+
+    test(
+        "[C13-FACET-WITHDRAWAL-EXACT] releases no ContentRef: the retired stream's retention evidence survives on its terminal View",
+        { tags: "p0" },
+        () => {
+            const harness = crossPlaneHarness();
+            const withdrawn = attribution("workspace:surface");
+            const surface = new SurfaceId("surface-retained");
+            const rendered = publishSurface(harness, withdrawn, surface);
+            const retainedContent = content("surface-retained-body");
+
+            retired(harness.withdrawal.withdraw(withdrawn));
+
+            // Retiring a record drops that record's own retainer edge and no other, so the
+            // content the terminal View still names stays retained: the base revision's
+            // evidence was re-issued against the terminal revision rather than released.
+            const terminal = harness.persistence.currentView(
+                harness.records,
+                surface.value,
+                SurfaceEpoch.first()
+            );
+            if (terminal === undefined) throw new TypeError("Expected a terminal View");
+            expect(
+                harness.persistence
+                    .listRetentionsFor(
+                        harness.records,
+                        RetainedRecordKind.view(),
+                        viewRecordKey(terminal)
+                    )
+                    .map((reference) => reference.content.value)
+            ).toEqual([retainedContent.ref.value]);
+            expect(
+                harness.persistence
+                    .listRetentionsFor(
+                        harness.records,
+                        RetainedRecordKind.view(),
+                        viewRecordKey(rendered)
+                    )
+                    .map((reference) => reference.content.value)
+            ).toEqual([retainedContent.ref.value]);
+            expect(harness.released).toEqual([]);
+        }
+    );
+
+    test(
+        "[C13-FACET-WITHDRAWAL-DRAIN] freezes the drain set in the withdrawal transaction and answers every later completion attempt from it",
+        { tags: "p0" },
+        () => {
+            const harness = crossPlaneHarness();
+            const withdrawn = attribution("workspace:draining");
+            contribute(harness.slots, entry("workspace:draining", 1, { title: "Draining" }));
+            const settling = new InvocationId("invocation-settling");
+            const live = new InvocationId("invocation-live");
+            harness.drain.admittedItems = [settling, live];
+
+            const result = retired(harness.withdrawal.withdraw(withdrawn));
+            expect(result.obligations).toEqual([
+                { kind: "drain", item: settling },
+                { kind: "drain", item: live }
+            ]);
+
+            // The frozen set is durable, so a completion attempt in a later transaction reads
+            // the same two items rather than whatever the port answers then.
+            const capture = harness.database.transaction(() =>
+                harness.persistence.findWithdrawalDrain(harness.records, withdrawn)
+            );
+            // The captured set is canonical, so its order is the order every later reader
+            // sees no matter which order the freezing transaction named the items in.
+            expect(capture?.items.map((item) => item.value)).toEqual([live.value, settling.value]);
+
+            // An item admitted after admission stopped cannot hold the withdrawal open, and a
+            // captured item that settled is never reported again.
+            harness.drain.admittedItems = [
+                settling,
+                live,
+                new InvocationId("invocation-admitted-after")
+            ];
+            harness.drain.terminalItems = [settling];
+            expect(harness.withdrawal.completion(withdrawn)).toEqual({
+                kind: "draining",
+                attribution: withdrawn,
+                obligations: [{ kind: "drain", item: live }]
+            });
+
+            harness.drain.terminalItems = [settling, live];
+            expect(harness.withdrawal.completion(withdrawn)).toEqual({
+                kind: "complete",
+                attribution: withdrawn
+            });
+        }
+    );
+
+    test(
+        "[C13-FACET-WITHDRAWAL-DRAIN] refuses a completion attempt for a withdrawal that never began",
+        { tags: "p1" },
+        () => {
+            const harness = crossPlaneHarness();
+            expect(() => harness.withdrawal.completion(attribution("workspace:unbegun"))).toThrow(
+                /has not begun/
+            );
+        }
+    );
+
+    test(
+        "[C13-FACET-WITHDRAWAL-DRAIN] answers the drain gate from the Invocation plane's prepared headers and current Receipts",
+        { tags: "p0" },
+        () => {
+            const plane = invocationPlane();
+            const facet = new FacetRef("workspace:draining");
+            const other = new FacetRef("workspace:retained");
+            const settled = plane.prepare("invocation-settled", facet);
+            const live = plane.prepare("invocation-live", facet);
+            const foreign = plane.prepare("invocation-foreign", other);
+
+            // The query names exactly the items whose frozen OperationPin target is the Facet.
+            expect(plane.query.admitted(plane.state, facet).map((item) => item.value)).toEqual([
+                live.value,
+                settled.value
+            ]);
+            expect(plane.query.admitted(plane.state, other).map((item) => item.value)).toEqual([
+                foreign.value
+            ]);
+
+            // Terminality is the item's current Receipt, so an item without one drains.
+            expect(plane.query.terminal(plane.state, settled)).toBe(false);
+            plane.settle(settled);
+            expect(plane.query.terminal(plane.state, settled)).toBe(true);
+            expect(plane.query.terminal(plane.state, live)).toBe(false);
+
+            const harness = crossPlaneHarness(plane.port());
+            const withdrawn = attribution("workspace:draining");
+            contribute(harness.slots, entry("workspace:draining", 1, { title: "Draining" }));
+
+            const result = retired(harness.withdrawal.withdraw(withdrawn));
+
+            expect(result.obligations).toEqual([{ kind: "drain", item: live }]);
+            plane.settle(live);
+            expect(harness.withdrawal.completion(withdrawn)).toEqual({
+                kind: "complete",
+                attribution: withdrawn
+            });
+        }
+    );
+
+    test(
+        "[C13-FACET-WITHDRAWAL-EXACT] a capability naming only the Facet is in the withdrawal set, a wildcard reaching it is not",
+        { tags: "p1" },
+        () => {
+            // The set holds the Grants whose capability names only the withdrawing Facet's
+            // Operations, and that membership is the capability's own answer rather than a
+            // pattern test each owning Actor repeats. `'*'` is the only metacharacter and a
+            // validated pattern never carries one literally, so a pattern reaches only the
+            // named Facet exactly when it is that Facet's own text.
+            const withdrawing = new FacetRef("workspace:withdrawn");
+            const solely = new CapabilitySpec({
+                facetPattern: withdrawing.value,
+                impacts: ["execute"]
+            });
+            expect(solely.namesOnly(withdrawing.value)).toBe(true);
+            expect(solely.namesOnly("workspace:retained")).toBe(false);
+            for (const pattern of ["workspace:*", "*", `${withdrawing.value}*`]) {
+                expect(
+                    new CapabilitySpec({ facetPattern: pattern, impacts: ["execute"] }).namesOnly(
+                        withdrawing.value
+                    )
+                ).toBe(false);
+            }
         }
     );
 });
@@ -1269,22 +1522,32 @@ interface CrossPlaneHarness {
     readonly records: TransactionalSqlite;
     readonly storage: SqliteWorkspaceRecords;
     readonly persistence: WorkspacePersistence<TransactionalSqlite>;
+    readonly replay: ViewReplayProtocol<TransactionalSqlite>;
     readonly slots: SqliteWorkspaceSlotStore;
     readonly reliance: TestReliance;
     readonly drain: TestDrain<TransactionalSqlite>;
     readonly evidence: MemoryInstallEvidence;
     readonly withdrawal: FacetWithdrawal<TransactionalSqlite>;
+    /** Every content retention this Workspace Actor released, in order. */
+    readonly released: readonly string[];
     routingFails: boolean;
     /** What the Workspace Actor's control transaction raises when it fails. */
     routingFailure: unknown;
 }
 
-function crossPlaneHarness(): CrossPlaneHarness {
+function crossPlaneHarness(
+    drainPort: FacetInvocationDrainPort<TransactionalSqlite> | undefined = undefined
+): CrossPlaneHarness {
     const database = new TestSqlite();
     const records = new SqliteWorkspaceRecords(database);
+    const released: string[] = [];
     const persistence = new WorkspacePersistence<TransactionalSqlite>(
         () => records,
-        new DurableRetention<TransactionalSqlite>(),
+        {
+            verify: () => true,
+            release: (_transaction, reference) => released.push(reference.id.value),
+            discard: () => undefined
+        },
         sourceActor,
         tenant
     );
@@ -1298,9 +1561,16 @@ function crossPlaneHarness(): CrossPlaneHarness {
         records: database,
         storage: records,
         persistence,
+        replay: new ViewReplayProtocol(
+            persistence,
+            new DeterministicJsonPatchEngine(),
+            sourceActor,
+            tenant
+        ),
         slots,
         reliance,
         drain,
+        released,
         evidence: new MemoryInstallEvidence(),
         withdrawal: new FacetWithdrawal(
             slots,
@@ -1311,12 +1581,126 @@ function crossPlaneHarness(): CrossPlaneHarness {
                 return database.transaction(() => operation(database), ...guard);
             },
             reliance,
-            drain
+            drainPort ?? drain
         ),
         routingFails: false,
         routingFailure: new TypeError("Workspace Actor is unreachable")
     };
     return harness;
+}
+
+/**
+ * Registers one attributed Surface and publishes its first View, whose body names retained
+ * content, so a withdrawal has a live View stream and a retainer edge to act on.
+ */
+function publishSurface(
+    harness: CrossPlaneHarness,
+    contribution: ContributionAttribution,
+    surface: SurfaceId
+): View {
+    const body = content(`${surface.value}-body`);
+    const view = new View({
+        surface,
+        epoch: SurfaceEpoch.first(),
+        revision: Revision.initial(),
+        body: { document: body.ref.value },
+        actions: [],
+        cursor: new EventCursor(`cursor-${surface.value}`)
+    });
+    harness.database.transaction(() => {
+        harness.persistence.putSurfaceRegistration(
+            harness.records,
+            new SurfaceRegistration(
+                new SurfaceDescriptor(surface, `${surface.value} board`),
+                contribution
+            )
+        );
+        harness.replay.publishSnapshot(harness.records, view, [
+            retentionFixture({
+                content: body,
+                id: `retention-${viewRecordKey(view)}`,
+                recordId: viewRecordKey(view),
+                recordKind: "view"
+            })
+        ]);
+    });
+    return view;
+}
+
+interface InvocationPlaneHarness {
+    readonly state: InvocationMemoryState;
+    readonly query: InvocationDrainQuery<
+        InvocationMemoryState,
+        string,
+        string,
+        string,
+        string,
+        string
+    >;
+    /** Prepares one Invocation whose frozen intent targets the named Facet. */
+    prepare(id: string, facet: FacetRef): InvocationId;
+    /** Gives the item a terminal current Receipt, the only thing that discharges a drain. */
+    settle(item: InvocationId): void;
+    /** The production drain port, asked inside the Workspace Actor's own transaction. */
+    port(): FacetInvocationDrainPort<TransactionalSqlite>;
+}
+
+/**
+ * The Invocation plane a withdrawal's drain gate asks: its own memory-backed store, its own
+ * ledger, and the production query over both. The Workspace Actor never shares a transaction
+ * with it (§8.1), so the port answers from this plane's own state.
+ */
+function invocationPlane(): InvocationPlaneHarness {
+    const state = createInvocationMemoryState();
+    const persistence = new MemoryInvocationPersistence(invocationCodecs);
+    const ledger = createLedger<InvocationMemoryState>(persistence);
+    const query = new InvocationDrainQuery(persistence, persistence, ledger);
+    return {
+        state,
+        query,
+        prepare(id, facet) {
+            const record = prepared(id, { value: id }, { target: facet.value });
+            ledger.prepare(state, record);
+            return record.header.id;
+        },
+        settle(item) {
+            ledger.recordPreEffect(
+                state,
+                new PreEffectReceipt(
+                    new ReceiptId(`receipt:${item.value}`),
+                    item,
+                    0,
+                    "deniedPreEffect",
+                    new Date("2026-01-01T00:00:00.000Z"),
+                    "target withdrawn"
+                )
+            );
+        },
+        port() {
+            return new PlaneDrainPort(query, state);
+        }
+    };
+}
+
+/**
+ * The cross-Actor read the drain gate is: the Workspace Actor's transaction asks the
+ * Invocation plane, which answers from its own records rather than joining that transaction.
+ */
+class PlaneDrainPort extends FacetInvocationDrainPort<TransactionalSqlite> {
+    public constructor(
+        private readonly query: InvocationPlaneHarness["query"],
+        private readonly state: InvocationMemoryState
+    ) {
+        super();
+    }
+
+    public admitted(_transaction: TransactionalSqlite, facet: FacetRef): readonly InvocationId[] {
+        return this.query.admitted(this.state, facet);
+    }
+
+    public terminal(_transaction: TransactionalSqlite, item: InvocationId): boolean {
+        return this.query.terminal(this.state, item);
+    }
 }
 
 /** What an activation may install against instead of the plain fixture installation. */

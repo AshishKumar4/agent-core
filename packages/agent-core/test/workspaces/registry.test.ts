@@ -1,6 +1,7 @@
 import { expect, test } from "vitest";
 import { TaskId } from "../../src/facets";
 import { TurnId } from "../../src/execution-references";
+import { InvocationId } from "../../src/interaction-references";
 import {
     ContentRetentionReference,
     ActionDescriptor,
@@ -16,10 +17,12 @@ import {
     Subscription,
     View,
     ViewDelta,
-    ViewMark
+    ViewMark,
+    WithdrawalDrainCapture
 } from "../../src/workspaces";
 import {
     coherenceFindingFixture,
+    contributionAttributionFixture,
     deliveryFixture,
     eventFixture,
     eventRetention,
@@ -131,4 +134,22 @@ test("[workspace.plan-fact] codec and ownership evidence", { tags: "p1" }, () =>
     expect(PlanFact.encode(PlanFact.decode(PlanFact.encode(value)))).toEqual(
         PlanFact.encode(value)
     );
+});
+
+test("[workspace.withdrawal-drain-capture] codec and ownership evidence", { tags: "p1" }, () => {
+    const value = new WithdrawalDrainCapture(contributionAttributionFixture("workspace:drain"), [
+        new InvocationId("invocation-registry-late"),
+        new InvocationId("invocation-registry-early")
+    ]);
+    expect(
+        WithdrawalDrainCapture.encode(
+            WithdrawalDrainCapture.decode(WithdrawalDrainCapture.encode(value))
+        )
+    ).toEqual(WithdrawalDrainCapture.encode(value));
+    // The captured set is canonical, so two hosts that froze the same items in different
+    // orders wrote the same record rather than two records naming one withdrawal.
+    expect(value.items.map((item) => item.value)).toEqual([
+        "invocation-registry-early",
+        "invocation-registry-late"
+    ]);
 });

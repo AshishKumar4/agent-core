@@ -1,5 +1,23 @@
-import type { ContributionAttribution } from "../facets";
-import type { AuditRecordId, RouteReservationId, SubscriptionId } from "../interaction-references";
+import {
+    Digest,
+    RecordCodec,
+    SemVer,
+    TextId,
+    canonicalTupleKey,
+    compareCanonicalText,
+    isJsonObject,
+    type JsonValue,
+    type RecordVersion
+} from "../core";
+import { PackageId, PackagePin } from "../definition-references";
+import { ContributionAttribution, FacetPackageId, FacetRef } from "../facets";
+import {
+    InvocationId,
+    type AuditRecordId,
+    type RouteReservationId,
+    type SubscriptionId
+} from "../interaction-references";
+import { requireArray, requireFields, requireObject, requireString } from "./codec";
 import type { WorkspacePersistence } from "./persistence";
 import type { Subscription } from "./subscription";
 
@@ -71,3 +89,122 @@ export class WorkspaceRoutingWithdrawal<Transaction> {
         });
     }
 }
+
+/**
+ * SPEC §4.1 (C13-FACET-WITHDRAWAL-DRAIN): the Workspace Actor's durable capture of one
+ * withdrawal's drain set. The transaction that begins a withdrawal stops admitting
+ * Invocations against the withdrawing Facet, so the admitted items are finite at that
+ * transaction and never grow; this record is that set, frozen, written in the same
+ * transaction that retires the records. A later completion attempt reads the captured items
+ * rather than querying again — a host can neither report completion by discarding a live
+ * item nor be held open by an item admitted after admission stopped — and a later admission
+ * reads the capture to refuse the release it names, which is what makes the stop survive a
+ * restart instead of living only inside the transaction that froze the set.
+ *
+ * The captured items carry no terminality. Whether an item has reached a terminal current
+ * Receipt is the Invocation plane's answer (§7.4), read at each completion attempt, so this
+ * record holds no second copy of Receipt state (§8.4).
+ */
+export class WithdrawalDrainCapture {
+    public static get codec(): RecordCodec<WithdrawalDrainCapture> {
+        return withdrawalDrainCaptureCodecInstance;
+    }
+
+    public static encode(capture: WithdrawalDrainCapture): Uint8Array {
+        return WithdrawalDrainCapture.codec.encode(capture);
+    }
+
+    public static decode(bytes: Uint8Array): WithdrawalDrainCapture {
+        return WithdrawalDrainCapture.codec.decode(bytes);
+    }
+
+    /** The record key of the withdrawal of one exact contribution: FacetRef and PackagePin. */
+    public static keyFor(attribution: ContributionAttribution): string {
+        return canonicalTupleKey("workspace.withdrawal-drain", [
+            attribution.contributor.value,
+            attribution.package.toData()
+        ]);
+    }
+
+    public readonly attribution: ContributionAttribution;
+    public readonly items: readonly InvocationId[];
+
+    public constructor(attribution: ContributionAttribution, items: readonly InvocationId[]) {
+        if (attribution.constructor !== ContributionAttribution) {
+            throw new TypeError("Withdrawal drain capture names its exact ContributionAttribution");
+        }
+        for (const item of items) {
+            if (item.constructor !== InvocationId) {
+                throw new TypeError("Withdrawal drain capture holds exact InvocationIds");
+            }
+        }
+        this.attribution = attribution;
+        this.items = Object.freeze(
+            [...new Map(items.map((item) => [item.value, item])).values()].sort((left, right) =>
+                compareCanonicalText(left.value, right.value)
+            )
+        );
+        Object.freeze(this);
+    }
+
+    public get key(): string {
+        return WithdrawalDrainCapture.keyFor(this.attribution);
+    }
+
+    /** True exactly when the captured set names this item, so nothing else can drain here. */
+    public captures(item: InvocationId): boolean {
+        return this.items.some((captured) => captured.equals(item));
+    }
+}
+
+class WithdrawalDrainCaptureCodecV1 extends RecordCodec<WithdrawalDrainCapture> {
+    public constructor() {
+        super(
+            [
+                WithdrawalDrainCapture,
+                ContributionAttribution,
+                InvocationId,
+                TextId,
+                FacetRef,
+                FacetPackageId,
+                PackageId,
+                PackagePin,
+                Digest,
+                SemVer
+            ],
+            "workspace.withdrawal-drain-capture",
+            { major: 1, minor: 0 }
+        );
+    }
+
+    protected encodePayload(capture: WithdrawalDrainCapture): JsonValue {
+        return {
+            contribution: {
+                contributor: capture.attribution.contributor.value,
+                package: capture.attribution.package.toData()
+            },
+            items: capture.items.map((item) => item.value)
+        };
+    }
+
+    protected decodePayload(payload: JsonValue, _version: RecordVersion): WithdrawalDrainCapture {
+        const object = requireObject(payload, "Withdrawal drain capture payload");
+        requireFields(object, ["contribution", "items"], "Withdrawal drain capture payload");
+        const contribution = object["contribution"];
+        if (!isJsonObject(contribution)) {
+            throw new TypeError("Withdrawal drain capture contribution must be an object");
+        }
+        return new WithdrawalDrainCapture(
+            ContributionAttribution.decodeFields(
+                contribution,
+                "Withdrawal drain capture contribution"
+            ),
+            requireArray(object["items"], "Withdrawal drain capture items").map(
+                (item, index) =>
+                    new InvocationId(requireString(item, `Withdrawal drain item ${index}`))
+            )
+        );
+    }
+}
+
+const withdrawalDrainCaptureCodecInstance = new WithdrawalDrainCaptureCodecV1();

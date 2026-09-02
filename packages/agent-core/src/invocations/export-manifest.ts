@@ -31,6 +31,7 @@ export const INVOCATION_CONTEXT_EXPORTS = Object.freeze({
         "InvocationCommandPayload",
         "InvocationContinuation",
         "InvocationContinuationCodec",
+        "InvocationDrainQuery",
         "InvocationError",
         "InvocationId",
         "InvocationLedger",

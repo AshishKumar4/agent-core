@@ -30,6 +30,7 @@ export type {
     FacetActivationOutcome,
     FacetInstallEvidencePort,
     FacetRelianceQuery,
+    FacetWithdrawalCompletion,
     FacetWithdrawalDeferral,
     FacetWithdrawalObligation,
     FacetWithdrawalOutcome,

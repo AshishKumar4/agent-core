@@ -68,6 +68,7 @@ import {
     viewFromDocument,
     viewRecordKey
 } from "./view";
+import { WithdrawalDrainCapture } from "./withdrawal";
 
 export const WORKSPACE_RECORD_KINDS = Object.freeze([
     "catalogEntry",
@@ -82,7 +83,8 @@ export const WORKSPACE_RECORD_KINDS = Object.freeze([
     "subscription",
     "surfaceRegistration",
     "view",
-    "viewDelta"
+    "viewDelta",
+    "withdrawalDrainCapture"
 ] as const);
 export type WorkspaceRecordKind = (typeof WORKSPACE_RECORD_KINDS)[number];
 
@@ -106,7 +108,8 @@ type WorkspaceDurableRecord =
     | Subscription
     | SurfaceRegistration
     | View
-    | ViewDelta;
+    | ViewDelta
+    | WithdrawalDrainCapture;
 
 /**
  * A trusted materializer supplies route behavior. The store derives the initial revision,
@@ -593,6 +596,73 @@ export class WorkspacePersistence<Transaction> {
                     ),
                     record
                 })
+        );
+    }
+
+    /**
+     * SPEC §4.1 (C13-FACET-WITHDRAWAL-DRAIN): freezes one withdrawal's drain set durably,
+     * in the caller's own transaction — the transaction that retires the records and stops
+     * admission. The capture is write-once per exact contribution: a replay of the same
+     * withdrawal reads the frozen set back instead of re-freezing a later query, so the set
+     * can never grow, and a replay that offers a different set is a corruption rather than
+     * an update. The stored capture is returned, which is the set every later completion
+     * attempt and every later admission answer from.
+     */
+    public captureWithdrawalDrain(
+        transaction: Transaction,
+        capture: WithdrawalDrainCapture
+    ): WithdrawalDrainCapture {
+        const existing = this.findWithdrawalDrain(transaction, capture.attribution);
+        if (existing !== undefined) return existing;
+        this.append(
+            this.storage(transaction),
+            "withdrawalDrainCapture",
+            capture.key,
+            capture,
+            WithdrawalDrainCapture.codec
+        );
+        return capture;
+    }
+
+    /** The frozen drain set of one exact contribution's withdrawal, or nothing if none began. */
+    public findWithdrawalDrain(
+        transaction: Transaction,
+        attribution: ContributionAttribution
+    ): WithdrawalDrainCapture | undefined {
+        const stored = this.load(
+            transaction,
+            "withdrawalDrainCapture",
+            WithdrawalDrainCapture.keyFor(attribution),
+            WithdrawalDrainCapture.codec
+        );
+        if (stored !== undefined && !stored.attribution.equals(attribution)) {
+            throw corrupt("Withdrawal drain capture names another contribution");
+        }
+        return stored;
+    }
+
+    /**
+     * Every withdrawal a Facet's releases have begun. An admission carries the release its
+     * intent froze rather than the whole attribution, so the gate that refuses a withdrawn
+     * release reads the Facet's captures and matches the pin itself (§4.1, §7.3).
+     */
+    public listWithdrawalDrains(
+        transaction: Transaction,
+        contributor: ContributionAttribution["contributor"]
+    ): readonly WithdrawalDrainCapture[] {
+        return Object.freeze(
+            this.storage(transaction)
+                .listRecords("withdrawalDrainCapture")
+                .map((record) =>
+                    this.decodeStored(
+                        record,
+                        "withdrawalDrainCapture",
+                        record.id,
+                        WithdrawalDrainCapture.codec
+                    )
+                )
+                .filter((capture) => capture.attribution.contributor.equals(contributor))
+                .sort((left, right) => compareCanonicalText(left.key, right.key))
         );
     }
 
@@ -1992,6 +2062,9 @@ function durableRecordId(kind: WorkspaceRecordKind, record: WorkspaceDurableReco
             break;
         case "contentRetention":
             if (record instanceof ContentRetentionReference) return record.id.value;
+            break;
+        case "withdrawalDrainCapture":
+            if (record instanceof WithdrawalDrainCapture) return record.key;
             break;
     }
     throw corrupt("Stored workspace record has the wrong codec kind");

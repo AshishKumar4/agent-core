@@ -158,11 +158,13 @@ export function prepared(
         readonly lease?: string;
         readonly seed?: string;
         readonly approvalRequired?: boolean;
+        /** The Facet the frozen intent names, when a suite reads the drain set of one. */
+        readonly target?: string;
     } = {}
 ): PreparedInvocation<string, string, string, string> {
     const header = {
         id: new InvocationId(id),
-        operation: operationPin(id, options.approvalRequired ?? false),
+        operation: operationPin(id, options.approvalRequired ?? false, options.target),
         domain: `domain:${id}`,
         actor: new ActorRef("run", new ActorId(`actor:${id}`)),
         authority: `authority:${id}`,
@@ -188,7 +190,11 @@ function unpreparedPayload(
     return { kind: "batch", items: requireNonempty(items, "Prepared batch payload") };
 }
 
-export function operationPin(id: string, approvalRequired = false): OperationPin {
+export function operationPin(
+    id: string,
+    approvalRequired = false,
+    target = `target:${id}`
+): OperationPin {
     const placement = new InvocationPlacementPin({
         manifest: ["bundled", "provider"],
         policy: ["bundled", "provider"],
@@ -198,7 +204,7 @@ export function operationPin(id: string, approvalRequired = false): OperationPin
     });
     return OperationPin.create({
         operation: new OperationRef(`operation:${id}`),
-        target: `target:${id}`,
+        target,
         package: new PackageId(`package:${id}`),
         version: new SemVer("1.0.0"),
         manifestDigest: digest(`manifest:${id}`),

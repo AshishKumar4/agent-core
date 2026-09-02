@@ -36,6 +36,7 @@ describe("invocation context barrel", () => {
             "InvocationCommandPayload",
             "InvocationContinuation",
             "InvocationContinuationCodec",
+            "InvocationDrainQuery",
             "InvocationError",
             "InvocationId",
             "InvocationLedger",

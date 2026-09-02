@@ -109,6 +109,8 @@ export {
     RouteProjectionId,
     RouteReservationId
 } from "../interaction-references";
+export { InvocationDrainQuery } from "./drain";
+export type { PreparedInvocationTargetIndex } from "./drain";
 export { InvocationLedger } from "./ledger";
 export type { ReceiptSupersessionEvidence } from "./ledger";
 export {

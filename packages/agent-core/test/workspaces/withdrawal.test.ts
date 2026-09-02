@@ -2,18 +2,28 @@ import { describe, expect, test } from "vitest";
 import { SemVer } from "../../src/core";
 import { PackagePin } from "../../src/definition-references";
 import { ContributionAttribution } from "../../src/facets";
-import { AuditRecordId } from "../../src/interaction-references";
+import {
+    AuditRecordId,
+    InvocationId,
+    RouteProjectionId,
+    RouteReservationId
+} from "../../src/interaction-references";
 import {
     MemoryWorkspaceRecords,
+    TargetProjectionProtocol,
     WITHDRAWN_TARGET_REASON,
+    WithdrawalDrainCapture,
     WorkspacePersistence,
     WorkspaceRoutingWithdrawal,
-    type ContentRetentionPort
+    type ContentRetentionPort,
+    type InteractionIdPort,
+    type MemoryWorkspaceSnapshot
 } from "../../src/workspaces";
 import {
     contributionAttributionFixture,
     authenticatedProjectionFixture,
     deliveryFixture,
+    projectionFixture,
     projectionRetention,
     reservationFixture,
     reservationRetention,
@@ -29,17 +39,52 @@ class DurableRetention implements ContentRetentionPort<MemoryWorkspaceRecords> {
         return true;
     }
 
+    public retain(): void {}
+
     public release(): void {}
 
     public discard(): void {}
 }
 
-class SequentialAudits {
+/** One counter behind every identity the routing surface mints, so ids stay distinguishable. */
+class SequentialAudits implements InteractionIdPort {
     #next = 0;
 
+    public reservation(): RouteReservationId {
+        return new RouteReservationId(this.id("reservation"));
+    }
+
+    public projection(): RouteProjectionId {
+        return new RouteProjectionId(this.id("projection"));
+    }
+
+    public invocation(): InvocationId {
+        return new InvocationId(this.id("invocation"));
+    }
+
+    public eventAudit(): AuditRecordId {
+        return new AuditRecordId(this.id("audit-event"));
+    }
+
+    public reservationAudit(): AuditRecordId {
+        return new AuditRecordId(this.id("audit-reservation"));
+    }
+
+    public projectionAudit(): AuditRecordId {
+        return new AuditRecordId(this.id("audit-projection"));
+    }
+
     public deliveryAudit(): AuditRecordId {
+        return new AuditRecordId(this.id("audit-sweep"));
+    }
+
+    public logicalDelivery(): string {
+        return this.id("delivery");
+    }
+
+    private id(prefix: string): string {
         this.#next += 1;
-        return new AuditRecordId(`audit-sweep-${this.#next}`);
+        return `${prefix}-${this.#next}`;
     }
 }
 
@@ -196,10 +241,7 @@ describe("routing withdrawal sweep", () => {
                     .contributed(harness.records, owner)
                     .map((subscription) => subscription.id.value)
             ).toEqual([contributed.id.value]);
-            for (const attribution of [
-                owner,
-                contributionAttributionFixture("workspace:other")
-            ]) {
+            for (const attribution of [owner, contributionAttributionFixture("workspace:other")]) {
                 expect(
                     harness.routing
                         .contributed(harness.records, attribution)
@@ -291,6 +333,209 @@ describe("routing withdrawal sweep", () => {
         }
     );
 });
+
+describe("routing withdrawal against the Actor that owns RouteDelivery", () => {
+    test(
+        "[C13-FACET-WITHDRAWAL-DRAIN] the target's own admission splits the reservations a withdrawal terminates from the one that drains",
+        { tags: "p0" },
+        () => {
+            const harness = sweepHarness();
+            const withdrawn = contributionAttributionFixture("workspace:withdrawn");
+            for (const suffix of ["admitted", "unadmitted"]) {
+                materializeAttributedSubscription(
+                    harness.source,
+                    harness.records,
+                    withdrawn,
+                    subscriptionFixture(suffix)
+                );
+            }
+            const admitted = reservationFixture("admitted");
+            const unadmitted = reservationFixture("unadmitted");
+            for (const reservation of [admitted, unadmitted]) {
+                harness.source.appendReservation(
+                    harness.records,
+                    reservation,
+                    reservationRetention(reservation)
+                );
+            }
+            const target = targetAdmission(harness);
+
+            // The Actor that owns RouteDelivery admits the first reservation itself, so the
+            // reservation reaches preparation through its own path rather than a hand-written
+            // projection record.
+            const delivered = target.protocol.admit(harness.records, {
+                projection: authenticatedProjectionFixture(admitted),
+                retention: projectionRetention(projectionFixture(admitted), targetActor)
+            });
+            expect(delivered.state.kind).toBe("delivered");
+            expect(target.admissions).toEqual([admitted.invocation.value]);
+
+            const result = harness.routing.retire(harness.records, withdrawn);
+
+            // Exactly the reservation the target never admitted is terminated by the
+            // withdrawal; the admitted one keeps the delivery its own Actor wrote and drains
+            // as an Invocation item instead.
+            expect(result.rejected.map((id) => id.value)).toEqual([unadmitted.id.value]);
+            expect(
+                harness.source.findDelivery(harness.records, unadmitted.id)?.state
+            ).toMatchObject({
+                kind: "rejected",
+                reason: WITHDRAWN_TARGET_REASON
+            });
+            expect(harness.source.findDelivery(harness.records, admitted.id)?.state.kind).toBe(
+                "delivered"
+            );
+            expect(() =>
+                harness.source.appendWithdrawalRejection(
+                    harness.records,
+                    admitted,
+                    new AuditRecordId("audit-forced"),
+                    WITHDRAWN_TARGET_REASON
+                )
+            ).toThrow(/drains as an Invocation item/);
+        }
+    );
+
+    test(
+        "[C13-FACET-WITHDRAWAL-DRAIN] a projection presented after the captured withdrawal is refused by the durable capture across a restart",
+        { tags: "p0" },
+        () => {
+            const harness = sweepHarness();
+            const withdrawn = contributionAttributionFixture("workspace:withdrawn");
+            materializeAttributedSubscription(
+                harness.source,
+                harness.records,
+                withdrawn,
+                subscriptionFixture("late")
+            );
+            harness.routing.retire(harness.records, withdrawn);
+            harness.source.captureWithdrawalDrain(
+                harness.records,
+                new WithdrawalDrainCapture(withdrawn, [new InvocationId("invocation-draining")])
+            );
+            // A source that had already lost its view of the retired Subscription appends one
+            // more reservation, so the withdrawal's own sweep never saw it.
+            const late = reservationFixture("late");
+            harness.source.appendReservation(harness.records, late, reservationRetention(late));
+
+            // Reopen every Actor-local object over the same durable records: the refusal below
+            // can only come from the stored capture.
+            const reopened = reopen(harness.records.snapshot());
+            const target = targetAdmission(reopened);
+            const delivery = target.protocol.admit(reopened.records, {
+                projection: authenticatedProjectionFixture(late),
+                retention: projectionRetention(projectionFixture(late), targetActor)
+            });
+
+            expect(delivery.state).toMatchObject({
+                kind: "rejected",
+                reason: WITHDRAWN_TARGET_REASON
+            });
+            // Admission stopped: the Invocation plane was never asked, so the frozen drain set
+            // could not grow behind the capture.
+            expect(target.admissions).toEqual([]);
+            expect(
+                reopened.source
+                    .findWithdrawalDrain(reopened.records, withdrawn)
+                    ?.items.map((item) => item.value)
+            ).toEqual(["invocation-draining"]);
+        }
+    );
+
+    test(
+        "[C13-FACET-WITHDRAWAL-DRAIN] one withdrawal captures one frozen set, and a replay reads it back instead of freezing a later one",
+        { tags: "p0" },
+        () => {
+            const harness = sweepHarness();
+            const withdrawn = contributionAttributionFixture("workspace:withdrawn");
+            const frozen = harness.source.captureWithdrawalDrain(
+                harness.records,
+                new WithdrawalDrainCapture(withdrawn, [new InvocationId("invocation-frozen")])
+            );
+
+            const replay = harness.source.captureWithdrawalDrain(
+                harness.records,
+                new WithdrawalDrainCapture(withdrawn, [
+                    new InvocationId("invocation-frozen"),
+                    new InvocationId("invocation-later")
+                ])
+            );
+
+            expect(replay.items.map((item) => item.value)).toEqual(["invocation-frozen"]);
+            expect(WithdrawalDrainCapture.encode(replay)).toEqual(
+                WithdrawalDrainCapture.encode(frozen)
+            );
+            // Another release of the same Facet is a different contribution, so it owns a
+            // different capture rather than joining this one.
+            const otherRelease = releaseAttribution(withdrawn.contributor.value, "9.9.9");
+            expect(
+                harness.source.findWithdrawalDrain(harness.records, otherRelease)
+            ).toBeUndefined();
+            expect(
+                harness.source
+                    .listWithdrawalDrains(harness.records, withdrawn.contributor)
+                    .map((capture) => capture.items.length)
+            ).toEqual([1]);
+        }
+    );
+});
+
+/** Reopens the Actor-local objects over one durable snapshot: nothing in-memory survives. */
+function reopen(snapshot: MemoryWorkspaceSnapshot): SweepHarness {
+    const records = new MemoryWorkspaceRecords(snapshot);
+    const source = new WorkspacePersistence<MemoryWorkspaceRecords>(
+        (state) => state,
+        new DurableRetention(),
+        sourceActor,
+        tenant
+    );
+    return {
+        records,
+        source,
+        target: new WorkspacePersistence<MemoryWorkspaceRecords>(
+            (state) => state,
+            new DurableRetention(),
+            targetActor,
+            tenant
+        ),
+        routing: new WorkspaceRoutingWithdrawal(source, new SequentialAudits())
+    };
+}
+
+interface TargetAdmissionHarness {
+    readonly protocol: TargetProjectionProtocol<MemoryWorkspaceRecords>;
+    /** The Invocations the target's own admission port was asked to admit, in order. */
+    readonly admissions: readonly string[];
+}
+
+/**
+ * The invoked Actor's real projection-admission path: it authorizes, admits the Invocation,
+ * and writes the RouteDelivery it owns. Only the Invocation plane beyond the admission seam
+ * is a reference implementation, so the delivery under test is the one this Actor produced.
+ */
+function targetAdmission(harness: SweepHarness): TargetAdmissionHarness {
+    const admissions: string[] = [];
+    const protocol = new TargetProjectionProtocol<MemoryWorkspaceRecords>(
+        targetActor,
+        harness.target,
+        new DurableRetention(),
+        { authorize: () => ({ kind: "accepted" }) },
+        {
+            admit: (_transaction, input) => {
+                admissions.push(input.reservation.invocation.value);
+                return { kind: "accepted", invocation: input.reservation.invocation };
+            }
+        },
+        {
+            appendEvent: () => undefined,
+            appendReservation: () => undefined,
+            appendProjectionRoot: () => undefined,
+            appendDelivery: () => undefined
+        },
+        new SequentialAudits()
+    );
+    return { protocol, admissions };
+}
 
 function releaseAttribution(facet: string, version: string): ContributionAttribution {
     const baseline = contributionAttributionFixture(facet);

@@ -13,11 +13,12 @@ import type {
 } from "../facets";
 import type { ValidatedFacetRuntime } from "../operations";
 import type { InvocationId } from "../invocations";
-import type {
-    IngressEndpointId,
-    RoutingWithdrawal,
-    WorkspacePersistence,
-    WorkspaceRoutingWithdrawal
+import {
+    WithdrawalDrainCapture,
+    type IngressEndpointId,
+    type RoutingWithdrawal,
+    type WorkspacePersistence,
+    type WorkspaceRoutingWithdrawal
 } from "../workspaces";
 import type { ManagedOrigin, PreparedPackageContribution } from "../definition";
 import { FacetInstallFailure, FacetInstallPhase } from "../definition";
@@ -82,6 +83,19 @@ export interface FacetWithdrawalDeferral {
 export type FacetWithdrawalOutcome = FacetWithdrawalResult | FacetWithdrawalDeferral;
 
 /**
+ * SPEC §4.1: where a begun withdrawal stands at a later transaction. `complete` is the one
+ * state a host may act on as finished, and it is reached only when every item of the frozen
+ * drain set has a terminal current Receipt.
+ */
+export type FacetWithdrawalCompletion =
+    | { readonly kind: "complete"; readonly attribution: ContributionAttribution }
+    | {
+          readonly kind: "draining";
+          readonly attribution: ContributionAttribution;
+          readonly obligations: readonly FacetWithdrawalObligation[];
+      };
+
+/**
  * SPEC §4.1: the Facets an active resolved `BindingRequirement` points at this exact
  * provider from. `FacetRuntimeHost` answers it; reliance is keyed on the exact `FacetRef`
  * a dependent reached, never on the capability name it asked for.
@@ -138,27 +152,36 @@ export class FacetWithdrawal<Transaction> {
     public withdraw(attribution: ContributionAttribution): FacetWithdrawalOutcome {
         try {
             return this.transaction((transaction) => {
-                const planned = this.planInTransaction(transaction, attribution);
-                const held = planned.obligations.filter(
-                    (obligation) => obligation.kind === "reliance"
-                );
+                const contributed = this.contributedSets(transaction, attribution);
+                const held = this.relianceObligations(attribution.contributor);
                 if (held.length > 0) {
                     return Object.freeze({
                         kind: "deferred" as const,
                         attribution,
-                        obligations: Object.freeze(held)
+                        obligations: held
                     });
                 }
                 const routing = this.routing.retire(transaction, attribution);
                 this.slots.retireWithdrawalSet(transaction, attribution);
-                this.retireRecords(transaction, planned.records);
+                this.retireRecords(transaction, contributed.records);
+                // The set is frozen by the same transaction that stops admission, and it is
+                // frozen durably: a replay reads the captured set back rather than freezing
+                // a later query, so the drain set of one withdrawal never grows. It is asked
+                // for once, here, because the obligations this reports are that set's.
+                const captured = this.persistence.captureWithdrawalDrain(
+                    transaction,
+                    new WithdrawalDrainCapture(
+                        attribution,
+                        this.drain.admitted(transaction, attribution.contributor)
+                    )
+                );
                 return Object.freeze({
                     kind: "retired" as const,
                     attribution,
-                    records: planned.records,
-                    slots: planned.slots,
+                    records: contributed.records,
+                    slots: contributed.slots,
                     routing,
-                    obligations: planned.obligations
+                    obligations: this.draining(transaction, captured)
                 });
             });
         } catch (error) {
@@ -167,10 +190,69 @@ export class FacetWithdrawal<Transaction> {
         }
     }
 
+    /**
+     * SPEC §4.1: a later transaction's completion attempt. The items are the ones the
+     * withdrawal transaction captured — read from the Workspace-owned record, so the answer
+     * survives a restart — and each one's terminality is the Invocation plane's current
+     * Receipt (§7.4) read now. A host can therefore neither report completion by discarding
+     * a live item nor be held open by an item admitted after admission stopped. A completion
+     * attempt for a withdrawal that never began is refused rather than answered `complete`.
+     */
+    public completion(attribution: ContributionAttribution): FacetWithdrawalCompletion {
+        try {
+            return this.transaction((transaction) => {
+                const captured = this.persistence.findWithdrawalDrain(transaction, attribution);
+                if (captured === undefined) {
+                    throw new AgentCoreError(
+                        "protocol.invalid-state",
+                        `Withdrawal of ${attribution.contributor.value} has not begun, so it has no drain set`
+                    );
+                }
+                const obligations = this.draining(transaction, captured);
+                return obligations.length === 0
+                    ? Object.freeze({ kind: "complete" as const, attribution })
+                    : Object.freeze({ kind: "draining" as const, attribution, obligations });
+            });
+        } catch (error) {
+            if (error instanceof AgentCoreError) throw error;
+            return this.controlFailure(error instanceof Error ? error : String(error));
+        }
+    }
+
+    /** The captured items that have not reached a terminal current Receipt, in capture order. */
+    private draining(
+        transaction: Transaction,
+        captured: WithdrawalDrainCapture
+    ): readonly FacetWithdrawalObligation[] {
+        return Object.freeze(
+            captured.items
+                .filter((item) => !this.drain.terminal(transaction, item))
+                .map((item) => Object.freeze({ kind: "drain" as const, item }))
+        );
+    }
+
     private planInTransaction(
         transaction: Transaction,
         attribution: ContributionAttribution
     ): FacetWithdrawalPlan {
+        const contributed = this.contributedSets(transaction, attribution);
+        return Object.freeze({
+            ...contributed,
+            obligations: this.obligations(transaction, attribution.contributor)
+        });
+    }
+
+    /**
+     * The records one exact contribution materialized, read inside the caller's transaction
+     * and refused as a whole when a plane cannot answer, so a withdrawal never reads one
+     * state and writes against another. It carries no obligation: what stands between a
+     * withdrawal and its completion is asked for separately, because a withdrawal that is
+     * held by reliance never needs the drain set and a begun one reads its frozen capture.
+     */
+    private contributedSets(
+        transaction: Transaction,
+        attribution: ContributionAttribution
+    ): Omit<FacetWithdrawalPlan, "obligations"> {
         try {
             const slots = this.slots.withdrawalSet(transaction, attribution);
             this.slots.requireWithdrawable(transaction, slots);
@@ -179,8 +261,7 @@ export class FacetWithdrawal<Transaction> {
                 attribution,
                 records,
                 slots,
-                subscriptions: this.routing.contributed(transaction, attribution).length,
-                obligations: this.obligations(transaction, attribution.contributor)
+                subscriptions: this.routing.contributed(transaction, attribution).length
             });
         } catch (error) {
             if (error instanceof AgentCoreError) throw error;
@@ -192,22 +273,30 @@ export class FacetWithdrawal<Transaction> {
     }
 
     /**
-     * The pending set, computed inside the caller's transaction so a withdrawal never reads
-     * one state and writes against another. Reliance is listed first because it holds the
-     * withdrawal before it begins, while a drain obligation only stands after it began.
+     * The pending set a withdrawal that has not begun would face, computed inside the
+     * caller's transaction so it never reads one state and writes against another. Reliance
+     * is listed first because it holds the withdrawal before it begins, while a drain
+     * obligation only stands after it began — and once it has begun, the drain half is the
+     * frozen capture's rather than this query's.
      */
     private obligations(
         transaction: Transaction,
         facet: FacetRef
     ): readonly FacetWithdrawalObligation[] {
-        const held = this.reliance
-            .reliedUponBy(facet)
-            .map((dependent) => ({ kind: "reliance" as const, dependent }));
         const draining = this.drain
             .admitted(transaction, facet)
             .filter((item) => !this.drain.terminal(transaction, item))
-            .map((item) => ({ kind: "drain" as const, item }));
-        return Object.freeze([...held, ...draining].map((obligation) => Object.freeze(obligation)));
+            .map((item) => Object.freeze({ kind: "drain" as const, item }));
+        return Object.freeze([...this.relianceObligations(facet), ...draining]);
+    }
+
+    /** What holds a withdrawal before it begins: the exact Facets that reached this one. */
+    private relianceObligations(facet: FacetRef): readonly FacetWithdrawalObligation[] {
+        return Object.freeze(
+            this.reliance
+                .reliedUponBy(facet)
+                .map((dependent) => Object.freeze({ kind: "reliance" as const, dependent }))
+        );
     }
 
     private contributedRecords(
