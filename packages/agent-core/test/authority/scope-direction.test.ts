@@ -1,9 +1,15 @@
 import { describe, expect, test } from "vitest";
 import { ActorId, ActorRef } from "../../src/actors";
 import { Digest, Revision, encodeCanonicalJson } from "../../src/core";
-import { BindingName, CapabilitySpec, FacetRef, ProtectionDomain } from "../../src/facets";
-import { MemoryWorkspaceSlotStore } from "../../src/facets/slot-memory";
-import { WorkspaceSlotCatalog, type SlotQueryAuthorityPort } from "../../src/facets/slot-store";
+import {
+    BindingName,
+    CapabilitySpec,
+    FacetRef,
+    MemoryWorkspaceSlotStore,
+    ProtectionDomain,
+    WorkspaceSlotCatalog,
+    type SlotQueryAuthorityPort
+} from "../../src/facets";
 import { contribute, entry, install, slot } from "../w3/slot-store-contract";
 import {
     MemoryWorkspaceRecords,

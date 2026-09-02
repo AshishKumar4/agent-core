@@ -57,7 +57,13 @@ export type { EnforcementTier, Impact } from "./contribution";
 export { InstalledSlot, SlotAuthorityPolicy, SlotDeclaration } from "./slot";
 export { ContributionAttribution } from "./attribution";
 export { SlotContributionOrigin, SlotEntry } from "./slot-entry";
-export { SlotWithdrawalSet, WorkspaceSlotStore } from "./slot-store";
+export {
+    SlotWithdrawalSet,
+    SlotQueryAuthorityPort,
+    SlotCatalog,
+    WorkspaceSlotCatalog,
+    WorkspaceSlotStore
+} from "./slot-store";
 export { MemoryWorkspaceSlotStore } from "./slot-memory";
 export { CatalogOrigin, CatalogEntry, type CatalogKind } from "./catalog-entry";
 export { SurfaceRegistration } from "./surface";
