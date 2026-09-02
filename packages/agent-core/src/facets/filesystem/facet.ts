@@ -648,7 +648,7 @@ function decodeWriteInput(data: FacetData): FilesystemWriteInput {
     const object = requireDataObject(data, "Filesystem write input");
     return {
         path: requireString(object["path"], "Filesystem write path"),
-        content: decodeBytes(object["content"]!),
+        content: decodeBytes(object["content"]),
         // An absent mode reaches requireWriteMode as `undefined` and is refused there with
         // the profile's own taxonomy: the decoder mints nothing, so the model-facing input
         // admits no undeclared write.
@@ -656,7 +656,7 @@ function decodeWriteInput(data: FacetData): FilesystemWriteInput {
     };
 }
 
-function decodeBytes(data: FacetData): Uint8Array {
+function decodeBytes(data: FacetData | undefined): Uint8Array {
     return requireBytes(data, "Filesystem bytes are invalid");
 }
 
