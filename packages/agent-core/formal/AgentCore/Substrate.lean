@@ -7,6 +7,7 @@ import AgentCore.Substrate.Queue
 import AgentCore.Substrate.Isolate
 import AgentCore.Substrate.Rpc
 import AgentCore.Substrate.Contracts
+import AgentCore.Substrate.Witness
 
 /-!
 # Substrate contracts: every seam a kernel calls, as a named premise with a discharge story
@@ -46,6 +47,9 @@ Two modules hold the parts that are shared rather than per-seam:
   closure.
 * `AgentCore.Substrate.Contracts` — the discharge map: which channel establishes which
   premise, which four remain open gaps, and which host calls inherit them.
+* `AgentCore.Substrate.Witness` — reference implementations proving a law set satisfiable,
+  so no theorem resting on it is vacuous. Two seams are witnessed, four are recorded as
+  owed with the exact proof each one still needs.
 
 ## The discipline
 

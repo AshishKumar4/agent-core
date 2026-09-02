@@ -54,6 +54,7 @@
     "AgentCore.Substrate.LocalStore",
     "AgentCore.Substrate.Queue",
     "AgentCore.Substrate.Rpc",
+    "AgentCore.Substrate.Witness",
     "AgentCore.View"
   ],
   "declarations": [

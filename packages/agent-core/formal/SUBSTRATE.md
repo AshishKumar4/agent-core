@@ -32,7 +32,7 @@ Two rules make this a contract rather than a description. **A law is a premise a
 supplies**: a theorem that needs the store to read back what it wrote says so in its binder
 list, so no conclusion hides an assumption. **A premise is never an axiom**: there is no
 `axiom`, `opaque`, `partial`, `unsafe`, `sorry`, or `native_decide` anywhere in the tree,
-and the axiom union over all 1,513 declarations is `{propext, Quot.sound}` — inside the
+and the axiom union over all 1,537 declarations is `{propext, Quot.sound}` — inside the
 standard three, and `Classical.choice` is unused because no proof here needs it.
 
 ## Wire names
@@ -157,7 +157,7 @@ that avoids them rests on no undischarged premise beyond the SPEC's own non-clai
 ## Findings against the adapter code
 
 Every law above was checked against `packages/agent-core/src` and
-`packages/agent-core-cloudflare/src`. Seven divergences, none of them a law the code
+`packages/agent-core-cloudflare/src`. Eight divergences, none of them a law the code
 silently breaks; full detail with line numbers is in
 `artifacts/substrate-contracts.json#findings`.
 
@@ -204,6 +204,32 @@ while the physical alarm is non-null, so a claim table with a torn-down slot rea
 unarmed rather than armed-but-unsynchronized. The Lean model keeps arbitration over the claim
 table and models `get` as the physical slot, which is why the two agree: the claim table is
 the repair source in both.
+
+**SC-F8 (four seams, gap).** Four law sets have no satisfiability witness yet — see the
+next section.
+
+## Satisfiability
+
+A law set nobody can satisfy makes every theorem resting on it vacuously true, so
+`Witness.lean` carries reference implementations and proves they satisfy their seam's laws
+in full. `AlarmLaws` and `ContentLaws` are witnessed — content's fifteen laws include
+addressing, read verification, both bound directions, stat faithfulness in both directions,
+and the range algebra, so a witness for it is real evidence that the set is consistent.
+
+`LocalStoreLaws`, `QueueLaws`, `IsolateLaws`, and `RpcLaws` are **owed**, recorded with the
+exact proof each still needs rather than closed with a degenerate witness. `LocalStoreLaws`
+needs `list_sorted` and `list_complete` together, so it needs a strict total order on
+`ByteArray` keys: a lexicographic `keyLe` with transitivity and totality (which
+`List.pairwise_mergeSort` then consumes), deduplication, and `byteRank` injectivity, the
+last reachable through `ByteArray.ext`, `Array.toList_inj`, and `UInt8.toNat_inj`. The
+other three are stated against a `View`, so a witness must build the observers too,
+including a fresh-identifier scheme that is fresh in *every* state of the carrier type
+rather than only in reachable ones.
+
+The distinction matters because the cheap version is worthless: a loader that refuses every
+load satisfies `IsolateLaws` with every interesting law vacuous. `check-substrate-contracts`
+enforces the honest version — a claimed witness must exist in `Witness.lean`, and an owed
+one must say what it owes.
 
 ## Claim boundary
 

@@ -191,6 +191,10 @@ function checkPremiseEvidence(premise, rows) {
 function checkSeams(artifact, wireNames) {
     const failures = [];
     const claimed = new Set();
+    const witnessSource = readFileSync(
+        resolve(packageRoot, artifact.leanRoot, relativeLeanPath(artifact.witnessSource)),
+        "utf8"
+    );
     for (const seam of artifact.seams) {
         for (const wire of seam.opcodes) {
             if (!wireNames.has(wire)) {
@@ -208,9 +212,34 @@ function checkSeams(artifact, wireNames) {
                 failures.push(`seam ${seam.seam} has a law entry without law, verdict and code`);
             }
         }
+        failures.push(...checkWitness(seam, witnessSource));
     }
     for (const wire of wireNames) {
         if (!claimed.has(wire)) failures.push(`opcode ${wire} is in Lean and in no seam here`);
+    }
+    return failures;
+}
+
+/**
+ * A claimed satisfiability witness has to exist, and an owed one has to say what it owes.
+ * A law set with no witness could be contradictory and every theorem resting on it vacuous,
+ * so this is the one status that must not be improvable by editing prose.
+ */
+function checkWitness(seam, witnessSource) {
+    const failures = [];
+    if (seam.witness === "owed") {
+        if (!isNonEmptyString(seam.owed)) {
+            failures.push(`seam ${seam.seam} owes a witness and does not say what is missing`);
+        }
+        return failures;
+    }
+    if (!isNonEmptyString(seam.witness)) {
+        failures.push(`seam ${seam.seam} records no witness status`);
+        return failures;
+    }
+    const declaration = seam.witness.split(".").at(-1);
+    if (!witnessSource.includes(`theorem ${declaration}`)) {
+        failures.push(`seam ${seam.seam} claims witness ${seam.witness}, absent from Witness.lean`);
     }
     return failures;
 }

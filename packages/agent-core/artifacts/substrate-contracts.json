@@ -64,7 +64,9 @@
           "code": "no prefix listing exists on ActorLocalStore or on CloudflareSqlite; iteration today is per-store SQL with its own ORDER BY (for example packages/agent-core-cloudflare/src/alarm-claims.ts:12 READ_EARLIEST uses MIN(due_at))",
           "scope": "Deterministic sorted-key iteration is the law an adapter for host.store.list owes. Recorded as finding SC-F2."
         }
-      ]
+      ],
+      "witness": "owed",
+      "owed": "list_sorted and list_complete together need a strict total order on ByteArray keys: a lexicographic keyLe with transitivity and totality (to use List.pairwise_mergeSort), deduplication, and byteRank injectivity through ByteArray.ext, Array.toList_inj and UInt8.toNat_inj."
     },
     {
       "seam": "alarm",
@@ -114,7 +116,8 @@
           "code": "packages/agent-core-cloudflare/src/alarm-claims.ts:89-98 getAlarm reports a claim only while the physical alarm is non-null",
           "scope": "The adapter's read is a two-source join (claim table and physical slot) rather than one slot read; the modelled get is the physical slot. A kernel that reads its own claim table sees the same answer, which is why arbitration in the Lean model is over ClaimTable rather than over the slot."
         }
-      ]
+      ],
+      "witness": "AgentCore.Substrate.Witness.alarm_laws"
     },
     {
       "seam": "content",
@@ -175,9 +178,10 @@
           "law": "head_reports_size, range_is_a_slice on the R2 path",
           "verdict": "unimplemented",
           "code": "packages/agent-core-cloudflare/src/content-object.ts exposes put and get only; no head/stat and no range read exist on the R2 repository, and no class in packages/agent-core-cloudflare extends ContentStore",
-          "scope": "§8.2 declares get(ref, range?) and stat(ref); the deployed R2 path implements neither, and C13-CONTENT-RESOLUTION is verified against the sqlite store. Recorded as finding SC-F3."
+          "scope": "\u00a78.2 declares get(ref, range?) and stat(ref); the deployed R2 path implements neither, and C13-CONTENT-RESOLUTION is verified against the sqlite store. Recorded as finding SC-F3."
         }
-      ]
+      ],
+      "witness": "AgentCore.Substrate.Witness.content_laws"
     },
     {
       "seam": "queue",
@@ -192,7 +196,7 @@
           "verdict": "honored",
           "code": "packages/agent-core-cloudflare/src/queue.ts:87-95 an undecodable body is retried and recorded as poison, never acknowledged, because acknowledging destroys it",
           "atom": "C13-CLOUDFLARE-QUEUE-DISPOSITION",
-          "scope": "The first Lean draft mapped undecodable to no host call at all. The adapter and §10.4 both retry it; the model was corrected to match. Recorded as finding SC-F4."
+          "scope": "The first Lean draft mapped undecodable to no host call at all. The adapter and \u00a710.4 both retry it; the model was corrected to match. Recorded as finding SC-F4."
         },
         {
           "law": "batch_dispositions_are_independent",
@@ -219,7 +223,9 @@
           "atom": "C13-CLOUDFLARE-QUEUE-DISPOSITION",
           "scope": "The live scenario dead-letters through a real queue, so the configuration is exercised where it matters; no adapter symbol carries maxAttempts."
         }
-      ]
+      ],
+      "witness": "owed",
+      "owed": "QueueLaws is stated against a QueueView, so a witness must build the in-flight, attempt and dead-letter observers as well as the state."
     },
     {
       "seam": "isolate",
@@ -262,10 +268,12 @@
         {
           "law": "stop and destroy verbs",
           "verdict": "outside-the-opcode-set",
-          "code": "packages/agent-core-cloudflare/src/facet-host.ts#DurableObjectFacetHost carries open/suspend/retire, which are the abort-preserves and delete-destroys verbs of §10.2",
+          "code": "packages/agent-core-cloudflare/src/facet-host.ts#DurableObjectFacetHost carries open/suspend/retire, which are the abort-preserves and delete-destroys verbs of \u00a710.2",
           "scope": "The pinned kernel opcode set is load and call, so a dynamic domain's lifecycle is the hosting Actor's concern and not a kernel host call. Recorded as finding SC-F5."
         }
-      ]
+      ],
+      "witness": "owed",
+      "owed": "IsolateLaws needs a fresh-identifier scheme that is fresh in every state of the carrier type, not only in reachable ones; a loader that refuses every load would satisfy the laws with every interesting one vacuous and is refused as a witness."
     },
     {
       "seam": "rpc",
@@ -292,7 +300,9 @@
           "code": "no adapter symbol asserts that a call on a promise stub answers as a call on its resolution; AGENTS.md requires pipelining be used, and no conformance row observes its transparency",
           "scope": "Recorded as finding SC-F6."
         }
-      ]
+      ],
+      "witness": "owed",
+      "owed": "RpcLaws needs a resolution observer that is terminal by construction, so that a call on a promise and a call on its resolution agree in every state of the carrier type."
     }
   ],
   "premises": [
@@ -300,7 +310,7 @@
       "premise": "adapterImplementsSeam",
       "kind": "safety",
       "channel": "declaredNonClaim",
-      "declaration": "SPEC §14 NC-TYPESCRIPT-SUBSTRATE-REFINEMENT and NC-CLOUDFLARE-BEHAVIOR: proving that TypeScript, an adapter, or a deployment refines Lean is explicitly not a goal of the formal package"
+      "declaration": "SPEC \u00a714 NC-TYPESCRIPT-SUBSTRATE-REFINEMENT and NC-CLOUDFLARE-BEHAVIOR: proving that TypeScript, an adapter, or a deployment refines Lean is explicitly not a goal of the formal package"
     },
     {
       "premise": "storeSpanExclusive",
@@ -361,14 +371,14 @@
       "premise": "alarmFiresNoEarlierThanArmed",
       "kind": "safety",
       "channel": "declaredAssumption",
-      "declaration": "SPEC §14: trusted monotonic time enforces lease expiry and immutable resolution deadlines",
+      "declaration": "SPEC \u00a714: trusted monotonic time enforces lease expiry and immutable resolution deadlines",
       "owed": "No committed scenario asserts that a firing did not precede its armed time; the alarm-claims live scenario asserts which claim fired, not when."
     },
     {
       "premise": "alarmEventuallyFires",
       "kind": "progress",
       "channel": "declaredAssumption",
-      "declaration": "SPEC §14: invalidation transport, cross-Actor delivery, reconciliation, and provider queries are eventually scheduled only under an explicit fairness/eventual-delivery premise, and no designated liveness theorem is claimed"
+      "declaration": "SPEC \u00a714: invalidation transport, cross-Actor delivery, reconciliation, and provider queries are eventually scheduled only under an explicit fairness/eventual-delivery premise, and no designated liveness theorem is claimed"
     },
     {
       "premise": "contentRetentionUntilReleased",
@@ -386,7 +396,7 @@
       "premise": "contentDigestCollisionResistant",
       "kind": "safety",
       "channel": "declaredNonClaim",
-      "declaration": "SPEC §14 NC-CRYPTOGRAPHIC-COLLISION-RESISTANCE; the assumption is stated as 'codecs are canonical and chosen digests meet their stated collision assumptions'",
+      "declaration": "SPEC \u00a714 NC-CRYPTOGRAPHIC-COLLISION-RESISTANCE; the assumption is stated as 'codecs are canonical and chosen digests meet their stated collision assumptions'",
       "mechanism": "AgentCore.Substrate.content_read_is_determined takes digest injectivity as an explicit parameter, so the conclusion that rests on the assumption names it"
     },
     {
@@ -404,7 +414,7 @@
       "premise": "queueAtLeastOnceDelivery",
       "kind": "progress",
       "channel": "declaredAssumption",
-      "declaration": "SPEC §14: eventual delivery holds only under an explicit fairness premise",
+      "declaration": "SPEC \u00a714: eventual delivery holds only under an explicit fairness premise",
       "mechanism": "the live queue scenario shows one real redelivery, which supports the mechanism and cannot establish a universal progress statement"
     },
     {
@@ -469,7 +479,7 @@
       "premise": "rpcStubLifetimeBoundedByContext",
       "kind": "safety",
       "channel": "gap",
-      "owed": "No §13 atom states a stub's validity window. The nearest citation is packages/agent-core-cloudflare/src/stub-failure.ts#CloudflareStubFailure under C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY, which is about durable work surviving a deployment rather than about when a stub stops answering. What is owed is a scenario that holds a stub across an execution context boundary and observes the failure rather than a reused handle."
+      "owed": "No \u00a713 atom states a stub's validity window. The nearest citation is packages/agent-core-cloudflare/src/stub-failure.ts#CloudflareStubFailure under C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY, which is about durable work surviving a deployment rather than about when a stub stops answering. What is owed is a scenario that holds a stub across an execution context boundary and observes the failure rather than a reused handle."
     },
     {
       "premise": "rpcRedeliveryPreservesIntent",
@@ -486,7 +496,7 @@
       "premise": "rpcDisposalReleasesRemoteResources",
       "kind": "safety",
       "channel": "gap",
-      "owed": "No §13 atom covers callee-side release on disposal. AGENTS.md states the obligation ('RPC stubs must be disposed to prevent resource leaks on the server side') and no conformance row observes a release. What is owed is a scenario that disposes a stub and observes the callee's resource going away."
+      "owed": "No \u00a713 atom covers callee-side release on disposal. AGENTS.md states the obligation ('RPC stubs must be disposed to prevent resource leaks on the server side') and no conformance row observes a release. What is owed is a scenario that disposes a stub and observes the callee's resource going away."
     }
   ],
   "findings": [
@@ -494,7 +504,7 @@
       "id": "SC-F1",
       "severity": "scope",
       "seam": "store",
-      "statement": "C13-CLOUDFLARE-STORAGE-LIMIT requires a write seam to refuse an over-limit payload before opening a transaction. requireStorableBlob does that for blob payloads, but requireExecutableStatement — the bound-parameter and statement-length check — runs inside execute, which is inside storage.transactionSync for a transactional write. The observable rule still holds because a throw inside transactionSync rolls back, so the durable log is unchanged, but the refusal is a rollback rather than a pre-check.",
+      "statement": "C13-CLOUDFLARE-STORAGE-LIMIT requires a write seam to refuse an over-limit payload before opening a transaction. requireStorableBlob does that for blob payloads, but requireExecutableStatement \u2014 the bound-parameter and statement-length check \u2014 runs inside execute, which is inside storage.transactionSync for a transactional write. The observable rule still holds because a throw inside transactionSync rolls back, so the durable log is unchanged, but the refusal is a rollback rather than a pre-check.",
       "code": "packages/agent-core-cloudflare/src/sqlite.ts:82-105,252-264",
       "modelled": "LocalStoreLaws.txn_refuses_over_limit states the observable consequence (refusal with the state untouched), which both mechanisms satisfy."
     },
@@ -510,7 +520,7 @@
       "id": "SC-F3",
       "severity": "gap",
       "seam": "content",
-      "statement": "§8.2 declares get(ref, range?) and stat(ref). The R2 object repository implements neither: it offers whole-object put and get with digest verification and a 32 MiB buffered bound, and no class in packages/agent-core-cloudflare extends ContentStore. Range and stat exist only on the memory and sqlite stores, where a range is a slice of an already-buffered object. C13-CONTENT-RESOLUTION is verified against the sqlite store, so no verified row covers R2 content resolution.",
+      "statement": "\u00a78.2 declares get(ref, range?) and stat(ref). The R2 object repository implements neither: it offers whole-object put and get with digest verification and a 32 MiB buffered bound, and no class in packages/agent-core-cloudflare extends ContentStore. Range and stat exist only on the memory and sqlite stores, where a range is a slice of an already-buffered object. C13-CONTENT-RESOLUTION is verified against the sqlite store, so no verified row covers R2 content resolution.",
       "code": "packages/agent-core-cloudflare/src/content-object.ts:85-143; packages/agent-core/src/content/memory.ts:188-200; packages/agent-core/src/substrates/sqlite/content.ts:84-94",
       "modelled": "ContentLaws models head and range as first-class operations, with range_refuses_outside matching ByteRange.read's refusal rather than R2's clamping."
     },
@@ -518,7 +528,7 @@
       "id": "SC-F4",
       "severity": "model-corrected",
       "seam": "queue",
-      "statement": "The first Lean draft made an undecodable body produce no host call at all. Both §10.4 and the adapter retry it — acknowledging destroys the message, and leaving it undispositioned loses the decision — so Disposition.hostCall now retries and only acceptance acknowledges. The cross-check against the adapter is what caught it.",
+      "statement": "The first Lean draft made an undecodable body produce no host call at all. Both \u00a710.4 and the adapter retry it \u2014 acknowledging destroys the message, and leaving it undispositioned loses the decision \u2014 so Disposition.hostCall now retries and only acceptance acknowledges. The cross-check against the adapter is what caught it.",
       "code": "packages/agent-core-cloudflare/src/queue.ts:87-95",
       "modelled": "AgentCore.Substrate.undecodable_is_retried_never_acknowledged and only_acceptance_acknowledges"
     },
@@ -545,6 +555,15 @@
       "statement": "ClaimedAlarmStorage.getAlarm reports an owner's claim only while the physical alarm is non-null, so a claim table with a torn-down physical alarm reads as unarmed rather than as armed-but-unsynchronized. The Lean model keeps arbitration over the claim table and models get as the physical slot, which is why the two agree: the claim table is the repair source in both.",
       "code": "packages/agent-core-cloudflare/src/alarm-claims.ts:89-98",
       "modelled": "AgentCore.Substrate.arm_tracks_earliest_claim and rebuild_is_idempotent"
+    },
+    {
+      "id": "SC-F8",
+      "severity": "gap",
+      "seam": "store, queue, isolate, rpc",
+      "statement": "Four of the six law sets have no satisfiability witness yet, so a theorem resting on one of them could in principle be vacuous. AlarmLaws and ContentLaws are witnessed in formal/AgentCore/Substrate/Witness.lean; the other four record the exact proof each still needs rather than closing with a degenerate witness whose interesting laws would be vacuous.",
+      "code": "formal/AgentCore/Substrate/Witness.lean documents each owed witness and the missing lemmas",
+      "modelled": "artifacts/substrate-contracts.json#seams[].witness carries the status, and scripts/check-substrate-contracts.mjs fails when a claimed witness theorem is absent from Witness.lean."
     }
-  ]
+  ],
+  "witnessSource": "formal/AgentCore/Substrate/Witness.lean"
 }
