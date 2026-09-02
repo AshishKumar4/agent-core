@@ -87,6 +87,7 @@
     "check:architecture": "node ./scripts/quality/architecture.mjs --stage building",
     "check:coherence": "node ./scripts/quality/coherence.mjs --stage building",
     "check:tslean-consumer": "node ./scripts/quality/tslean-consumer.mjs --stage building",
+    "check:proof-repair-ledger": "node ./scripts/quality/proof-repair-ledger.mjs --stage building",
     "regenerate:tslean": "node ./scripts/quality/tslean-consumer.mjs --stage building --regenerate",
     "regenerate:tslean:write": "node ./scripts/quality/tslean-consumer.mjs --stage building --regenerate-into-tree",
     "check:conformance": "node ./scripts/quality/run.mjs --stage building --target conformance",

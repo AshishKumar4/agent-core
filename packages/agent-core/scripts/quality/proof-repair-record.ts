@@ -41,7 +41,7 @@ const VERSION_PART = /^(?:0|[1-9][0-9]*)$/u;
  * an unknown major is refused, a newer minor is refused, and an older minor within the
  * major is tolerated. */
 const LEDGER_MAJOR = 1;
-const LEDGER_MINOR = 0;
+const LEDGER_MINOR = 1;
 
 const LEDGER_KIND = "proof.repair.ledger";
 
@@ -199,6 +199,31 @@ export class ProofObligation {
     }
 
     /**
+     * Whether this obligation is the same owed thing as another, allowing for the rule
+     * having moved in the SPEC.
+     *
+     * Identity here is the rule unit and the conformance atoms it anchors: the unit
+     * digest is taken over the rule's exact prose, so prose that changed produces a
+     * different unit, while atoms that changed are a different claim about the same
+     * prose. The anchor is neither — it is where the rule currently sits, and inserting a
+     * paragraph above a rule moves every anchor below it without changing one word
+     * anybody proved.
+     *
+     * Regression is asked in these terms rather than through `equals` because a recorded
+     * closure has to survive relocation. A ledger that read a moved anchor as a lost
+     * proof would not merely refuse to re-close that unit: every later report carries the
+     * rule at its new location, so the old closure would be missing from all of them and
+     * every subsequent repair — of any other unit — would be refused as a regression.
+     */
+    public supersedes(other: ProofObligation): boolean {
+        return (
+            this.unit === other.unit &&
+            this.atoms.length === other.atoms.length &&
+            this.atoms.every((atom, index) => atom === other.atoms[index])
+        );
+    }
+
+    /**
      * The one rendering every obligation-bearing feedback shares. The unit digest is part of
      * it because it is part of equality and the only rule-unit identity: two obligations can
      * carry the same atoms and anchor while binding different rule prose, and feedback that
@@ -248,9 +273,34 @@ function assertObligationSet(
  */
 export class ProofRepairObjective {
     public readonly obligations: readonly ProofObligation[];
+    /**
+     * The complete current corpus form, one obligation per rule unit — present only when a
+     * reviewed corpus stands behind the objective. The owed set above is what a repair
+     * attempt is for; the frame is what recorded closures are judged against: a stored
+     * closure whose form the frame carries differently is superseded only by proving the
+     * frame's form. A directly-built objective carries no frame, and without one no
+     * supersession exists at all — preservation is exact — so an objective author cannot
+     * launder a changed claim through the tolerance that exists for corpus revisions.
+     */
+    public readonly frame: readonly ProofObligation[] | undefined;
 
-    public constructor(obligations: readonly ProofObligation[]) {
+    public constructor(
+        obligations: readonly ProofObligation[],
+        frame?: readonly ProofObligation[]
+    ) {
         this.obligations = assertObligationSet(obligations, "A proof repair objective");
+        if (frame === undefined) {
+            this.frame = undefined;
+        } else {
+            this.frame = assertObligationSet(frame, "A proof repair frame");
+            for (const owed of this.obligations) {
+                if (!this.frame.some((entry) => entry.equals(owed))) {
+                    throw new TypeError(
+                        `A proof repair objective owes ${owed.describe()} outside its own frame`
+                    );
+                }
+            }
+        }
         Object.freeze(this);
     }
 
@@ -384,11 +434,16 @@ export class ClosedObligation {
     public readonly obligation: ProofObligation;
     public readonly candidate: string;
     public readonly artifacts: readonly string[];
+    /** The prior recorded form this closure replaced, when the corpus moved the rule's
+     * anchor or atoms between acceptances. Provenance, not a claim: the obligation above is
+     * the one the closing report proved. */
+    public readonly superseded: ProofObligation | undefined;
 
     public constructor(
         obligation: ProofObligation,
         candidate: string,
-        artifacts: readonly string[]
+        artifacts: readonly string[],
+        superseded?: ProofObligation
     ) {
         this.obligation = obligation;
         this.candidate = assertDigest(candidate, "A closed obligation candidate");
@@ -397,24 +452,57 @@ export class ClosedObligation {
         }
         for (const path of artifacts) acceptedProofArtifact(path, "A closing artifact path");
         this.artifacts = assertOrderedUnique(artifacts, "A closing artifact set");
+        if (superseded !== undefined) {
+            if (superseded.unit !== obligation.unit) {
+                throw new TypeError("A superseded form names a different rule unit");
+            }
+            if (superseded.equals(obligation)) {
+                throw new TypeError("A superseded form repeats the closure it was replaced by");
+            }
+        }
+        this.superseded = superseded;
         Object.freeze(this);
     }
 
     public toData(): JsonObject {
+        if (this.superseded === undefined) {
+            return {
+                artifacts: this.artifacts,
+                candidate: this.candidate,
+                obligation: this.obligation.toData()
+            };
+        }
         return {
             artifacts: this.artifacts,
             candidate: this.candidate,
-            obligation: this.obligation.toData()
+            obligation: this.obligation.toData(),
+            superseded: this.superseded.toData()
         };
     }
 
-    public static fromData(value: JsonValue | undefined, owner: string): ClosedObligation {
+    public static fromData(
+        value: JsonValue | undefined,
+        owner: string,
+        schema: { superseded: boolean } = { superseded: true }
+    ): ClosedObligation {
         const record = assertObject(value, owner);
-        requireExactKeys(record, ["artifacts", "candidate", "obligation"], owner);
+        if (!schema.superseded && record["superseded"] !== undefined) {
+            throw new TypeError(
+                `${owner}.superseded is not a field any writer of this record version produced`
+            );
+        }
+        const expected =
+            record["superseded"] === undefined
+                ? ["artifacts", "candidate", "obligation"]
+                : ["artifacts", "candidate", "obligation", "superseded"];
+        requireExactKeys(record, expected, owner);
         return new ClosedObligation(
             ProofObligation.fromData(record["obligation"], `${owner}.obligation`),
             assertString(record["candidate"], `${owner}.candidate`),
-            stringsAt(record, "artifacts", owner)
+            stringsAt(record, "artifacts", owner),
+            record["superseded"] === undefined
+                ? undefined
+                : ProofObligation.fromData(record["superseded"], `${owner}.superseded`)
         );
     }
 }
@@ -564,14 +652,27 @@ export class ProofRepairLedger {
     }
 
     /**
-     * The closed obligations a run no longer proves exactly. A matching unit digest alone is
-     * insufficient evidence: the atom and anchor are part of the obligation this ledger
-     * recorded, so a report that substitutes either has regressed it rather than preserved it.
+     * The closed obligations a run no longer proves under the current trusted frame.
+     *
+     * Preservation is exact: a proved obligation fully equal to the recorded one keeps it. A
+     * recorded closure whose rule unit the frame carries in a different form — the corpus
+     * moved the anchor, or re-anchored the atoms — is superseded rather than lost, but only
+     * by proving the frame's own form: the corpus is the sole trusted claim source, so a
+     * report claiming any third form for that unit is still a regression. A unit the frame
+     * no longer carries at all can only be preserved exactly; the corpus dropping a rule is
+     * a re-review event no candidate may paper over. With no frame there is no supersession:
+     * an objective that no reviewed corpus stands behind defends every record exactly.
      */
-    public regressed(proved: readonly ProofObligation[]): readonly ClosedObligation[] {
-        return this.closed.filter(
-            (entry) => !proved.some((obligation) => obligation.equals(entry.obligation))
-        );
+    public regressed(
+        proved: readonly ProofObligation[],
+        frame: readonly ProofObligation[] | undefined
+    ): readonly ClosedObligation[] {
+        return this.closed.filter((entry) => {
+            if (proved.some((obligation) => obligation.equals(entry.obligation))) return false;
+            const current = frame?.find((obligation) => obligation.unit === entry.obligation.unit);
+            if (current === undefined || current.equals(entry.obligation)) return true;
+            return !proved.some((obligation) => obligation.equals(current));
+        });
     }
 
     /** The accepted artifacts a candidate would replace with different bytes. Rewriting one is
@@ -587,7 +688,8 @@ export class ProofRepairLedger {
     /**
      * The accepted state after one candidate. Monotone by construction and asserted so: a
      * unit this ledger closes is still closed afterwards, whether the candidate re-proved it
-     * or left it alone.
+     * or left it alone. A closure that replaces a differently-formed record for the same
+     * unit keeps the prior form as supersession provenance.
      */
     public accept(
         candidate: ProofRepairCandidate,
@@ -595,9 +697,14 @@ export class ProofRepairLedger {
     ): ProofRepairLedger {
         const entries = new Map(this.closed.map((entry) => [entry.obligation.unit, entry]));
         for (const obligation of closed) {
+            const prior = entries.get(obligation.unit);
+            const replaced =
+                prior !== undefined && !prior.obligation.equals(obligation)
+                    ? prior.obligation
+                    : undefined;
             entries.set(
                 obligation.unit,
-                new ClosedObligation(obligation, candidate.identity, candidate.paths())
+                new ClosedObligation(obligation, candidate.identity, candidate.paths(), replaced)
             );
         }
         const artifacts = new Map(this.artifacts.map((artifact) => [artifact.path, artifact]));
@@ -650,17 +757,23 @@ export class ProofRepairLedgerCodec {
         if (assertString(record["kind"], `${owner}.kind`) !== LEDGER_KIND) {
             throw new TypeError(`${owner}.kind is not ${LEDGER_KIND}`);
         }
-        assertLedgerVersion(assertString(record["version"], `${owner}.version`), owner);
+        const minor = assertLedgerVersion(
+            assertString(record["version"], `${owner}.version`),
+            owner
+        );
         const candidate = record["candidate"];
         const expected =
             candidate === undefined
                 ? ["artifacts", "closed", "kind", "version"]
                 : ["artifacts", "candidate", "closed", "kind", "version"];
         requireExactKeys(record, expected, owner);
+        // Tolerant read within the major, but only of what the declared version can have
+        // written: a 1.0 record carrying a 1.1-only field is a fabrication, not an upgrade.
+        const schema = { superseded: minor >= 1 };
         return new ProofRepairLedger(
             candidate === undefined ? undefined : assertString(candidate, `${owner}.candidate`),
             assertArray(record["closed"], `${owner}.closed`).map((entry, index) =>
-                ClosedObligation.fromData(entry, `${owner}.closed[${index}]`)
+                ClosedObligation.fromData(entry, `${owner}.closed[${index}]`, schema)
             ),
             assertArray(record["artifacts"], `${owner}.artifacts`).map((entry, index) =>
                 AcceptedArtifact.fromData(entry, `${owner}.artifacts[${index}]`)
@@ -669,7 +782,7 @@ export class ProofRepairLedgerCodec {
     }
 }
 
-function assertLedgerVersion(declared: string, owner: string): void {
+function assertLedgerVersion(declared: string, owner: string): number {
     const parts = declared.split(".");
     const major = parts[0];
     const minor = parts[1];
@@ -685,7 +798,9 @@ function assertLedgerVersion(declared: string, owner: string): void {
     if (Number.parseInt(major, 10) !== LEDGER_MAJOR) {
         throw new TypeError(`${owner}.version declares unknown major ${major}`);
     }
-    if (Number.parseInt(minor, 10) > LEDGER_MINOR) {
+    const declaredMinor = Number.parseInt(minor, 10);
+    if (declaredMinor > LEDGER_MINOR) {
         throw new TypeError(`${owner}.version declares newer minor ${minor}`);
     }
+    return declaredMinor;
 }

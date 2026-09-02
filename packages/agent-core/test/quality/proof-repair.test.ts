@@ -67,6 +67,7 @@ import {
     type ProofCommandOutcome
 } from "../../scripts/quality/proof-repair-verification.js";
 import {
+    assertArray,
     assertObject,
     parseCanonicalJson,
     type JsonObject,
@@ -889,14 +890,47 @@ describe("untrusted proof repair", () => {
             ProofRepairLedgerCodec.decode(doctoredLedger(ledger, { version: "2.0" }), "x")
         ).toThrow("declares unknown major 2");
         expect(() =>
-            ProofRepairLedgerCodec.decode(doctoredLedger(ledger, { version: "1.1" }), "x")
-        ).toThrow("declares newer minor 1");
+            ProofRepairLedgerCodec.decode(doctoredLedger(ledger, { version: "1.2" }), "x")
+        ).toThrow("declares newer minor 2");
         expect(() =>
             ProofRepairLedgerCodec.decode(doctoredLedger(ledger, { version: "one" }), "x")
         ).toThrow("is not a record version");
         expect(() =>
             ProofRepairLedgerCodec.decode(doctoredLedger(ledger, { kind: "proof.repair" }), "x")
         ).toThrow("is not proof.repair.ledger");
+    });
+
+    test("refuses a downgraded record whose closure carries a superseded form", () => {
+        // Supersession provenance arrived with minor 1; a record declaring 1.0 cannot have
+        // been written by anything that knew the field. Tolerating an older minor must not
+        // mean tolerating a newer minor's fields under an older minor's name, because that
+        // is how a doctored record smuggles a closure whose stated form nobody proved.
+        const ledger = acceptedLedger();
+        const encoded = assertObject(ProofRepairLedgerCodec.encode(ledger), "the encoded ledger");
+        const closed = assertArray(encoded["closed"], "the encoded closures").map((entry) =>
+            assertObject(entry, "an encoded closure")
+        );
+        const first = closed[0];
+        if (first === undefined) throw new TypeError("The fixture ledger closed nothing");
+        const settled = ProofObligation.fromData(first["obligation"], "the closure obligation");
+        const downgraded = {
+            ...encoded,
+            closed: [
+                {
+                    ...first,
+                    superseded: new ProofObligation(
+                        settled.unit,
+                        [...settled.atoms],
+                        "SPEC.md:1602"
+                    ).toData()
+                }
+            ],
+            version: "1.0"
+        };
+
+        expect(() => ProofRepairLedgerCodec.decode(downgraded, "the ledger")).toThrow(
+            "is not a field any writer of this record version produced"
+        );
     });
 
     test("refuses a ledger record carrying a field the codec does not name", () => {

@@ -167,7 +167,7 @@ export abstract class ProofRepairState {
         const refusals = [
             ...axiomRefusals(candidate, verdict, owners),
             ...designationRefusals(candidate, verdict, audited),
-            ...closureRefusals(ledger, candidate, verdict)
+            ...closureRefusals(ledger, objective, candidate, verdict)
         ];
         if (refusals.length > 0) return new Refused(ledger, refusals);
         return new Accepted(ledger, candidate, verdict);
@@ -282,16 +282,17 @@ export function designationRefusals(
     return [];
 }
 
-/** Zero open obligations, no lost closure, and something actually advanced. */
+/** Zero open obligations, no lost closure under the trusted frame, and real advancement. */
 function closureRefusals(
     ledger: ProofRepairLedger,
+    objective: ProofRepairObjective,
     candidate: ProofRepairCandidate,
     verdict: ProofVerdictView
 ): readonly ProofRepairRefusal[] {
     const refusals: ProofRepairRefusal[] = [];
     const open = candidate.obligations.filter((obligation) => !verdict.proves(obligation));
     if (open.length > 0) refusals.push(ProofRepairRefusal.open(open));
-    const regressed = ledger.regressed(verdict.closed);
+    const regressed = ledger.regressed(verdict.closed, objective.frame);
     if (regressed.length > 0) refusals.push(ProofRepairRefusal.regression(regressed));
     if (
         newlyClosed(ledger, candidate).length === 0 &&

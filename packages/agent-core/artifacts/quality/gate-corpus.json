@@ -378,6 +378,37 @@
           "defect": "One closed vocabulary was declared twice, so neither declaration owned it and a value added to one of them left the other silently accepting a narrower set."
         }
       ]
+    },
+    {
+      "rule": "ACQ-REPAIR",
+      "node": "proof-repair-ledger",
+      "input": "artifacts/quality/proof-repair.json",
+      "mutations": [
+        {
+          "id": "ACQ-REPAIR/ledger-blesses-text-the-reviewed-tree-does-not-carry",
+          "find": "      \"digest\": \"987323073d1397e0bbb7042c8eb49cae5a92f5ca86c7eed4bda20465a96b0be0\",\n      \"path\": \"SpecCnl/Proofs.lean\",\n      \"text\": \"theorem gate_drift_probe : True := trivial\\n\"",
+          "replace": "      \"digest\": \"b5bb745938ab35379541d3f2456691e16030b02dca197de11acc68033a4848c4\",\n      \"path\": \"SpecCnl/Proofs.lean\",\n      \"text\": \"theorem gate_drift_probe : True := trivial -- doctored\\n\"",
+          "expects": "accepted artifact SpecCnl/Proofs.lean is not byte-identical to the reviewed formal tree",
+          "diagnostic": "is not byte-identical to the reviewed ",
+          "defect": "A ledger recorded accepted proof text the reviewed formal tree never carried, so the next candidate would bind its baseline to bytes nobody reviewed and a repair could be credited for a proof the tree does not hold."
+        },
+        {
+          "id": "ACQ-REPAIR/ledger-declares-a-record-version-the-codec-never-produced",
+          "find": "  \"version\": \"1.0\"\n}",
+          "replace": "  \"version\": \"2.0\"\n}",
+          "expects": "declares unknown major 2",
+          "diagnostic": "declares unknown major",
+          "defect": "A committed ledger claimed a record version this codec never produced, so a reader would either refuse every later acceptance or accept a record shape nothing in this tree can write."
+        },
+        {
+          "id": "ACQ-REPAIR/ledger-backdates-a-supersession-to-a-version-that-never-wrote-one",
+          "find": "      \"artifacts\": [\"SpecCnl/Proofs.lean\"],\n      \"candidate\": \"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\n      \"obligation\": {",
+          "replace": "      \"artifacts\": [\"SpecCnl/Proofs.lean\"],\n      \"candidate\": \"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\n      \"superseded\": { \"anchor\": \"SPEC.md:1602\", \"atoms\": [\"C13-RUN-ANCESTRY\"], \"unit\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\" },\n      \"obligation\": {",
+          "expects": "superseded is not a field any writer of this record version produced",
+          "diagnostic": "is not a field any writer of this record version produced",
+          "defect": "A closure carried supersession provenance while its record declared a version written before that field existed, so a doctored ledger could smuggle a superseding form past a reader that tolerates the older minor and claim a closure whose stated form nothing proved."
+        }
+      ]
     }
   ],
   "unregistered": []

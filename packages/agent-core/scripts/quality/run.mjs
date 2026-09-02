@@ -276,6 +276,7 @@ async function execute(node, context) {
         architecture: () => runNode("architecture", context),
         coherence: () => runNode("coherence", context),
         "tslean-consumer": () => runNode("tslean-consumer", context),
+        "proof-repair-ledger": () => runNode("proof-repair-ledger", context),
         "gate-integrity": () => runNode("gate-integrity", context),
         discrimination: () => runNode("discrimination", context),
         ledger: () =>

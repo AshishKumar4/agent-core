@@ -25,7 +25,8 @@
     "architecture": [],
     "coherence": [],
     "tslean-consumer": [],
-    "gate-integrity": ["coherence", "tslean-consumer"],
+    "proof-repair-ledger": [],
+    "gate-integrity": ["coherence", "proof-repair-ledger", "tslean-consumer"],
     "tests": [
       "types",
       "dag",
@@ -54,6 +55,7 @@
       "live-evidence",
       "integration",
       "gate-integrity",
+      "proof-repair-ledger",
       "tslean-consumer"
     ],
     "ledger": ["invariants"],
@@ -126,6 +128,7 @@
     "architecture": true,
     "coherence": true,
     "tslean-consumer": true,
+    "proof-repair-ledger": true,
     "gate-integrity": true,
     "tests": true,
     "test-priorities": true,

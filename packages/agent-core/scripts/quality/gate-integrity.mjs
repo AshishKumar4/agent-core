@@ -24,6 +24,7 @@
 // listed rule that gained a corpus fails until its entry is dropped, and the final stage
 // admits no debt at all.
 import { spawn, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { cp, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { availableParallelism, tmpdir } from "node:os";
 import { basename, dirname, resolve } from "node:path";
@@ -63,6 +64,14 @@ const shared = [
     "packages/agent-core-cloudflare/node_modules",
     "packages/agent-core-harness/node_modules"
 ];
+/**
+ * The constant proof text the ACQ-REPAIR measurements agree on: the seed ledger accepts
+ * it, and the scaffold plants it in the scratch formal tree. Both sides are this module's
+ * own constant, so neither the committed ledger's advancement nor the reviewed formal
+ * tree's own evolution can move the corpus's mutation base.
+ */
+const PROOF_REPAIR_DRIFT_PROBE_TEXT = "theorem gate_drift_probe : True := trivial\n";
+
 const coveredSpan = { start: { line: 1, column: 0 }, end: { line: 1, column: 1 } };
 
 /**
@@ -167,6 +176,33 @@ const harnesses = {
         sources: ["scripts/quality/tslean-consumer.mjs"],
         scaffold: substitute,
         argv: (root) => [script(root, "quality/tslean-consumer.mjs"), "--stage", "building"]
+    },
+    "proof-repair-ledger": {
+        // The gate decodes the committed ledger through the protocol's own record module,
+        // so the codec's refusals are the checker's refusals and a corpus entry may pin
+        // either one: both files are the checker here.
+        sources: [
+            "scripts/quality/proof-repair-ledger.mjs",
+            "scripts/quality/proof-repair-record.ts"
+        ],
+        // The committed ledger is the protocol's own state and advances the moment a
+        // repair is accepted, so a corpus mutation keyed to today's bytes would stop
+        // locating its input the moment this gate did its job. Every measurement —
+        // control and mutation alike — therefore runs against one fixed synthetic
+        // question: `seed` hands runGate the stable accepted ledger the corpus's
+        // find/replace splits, and the scaffold plants that same ledger's artifact text
+        // in the scratch formal tree, so the control is green by construction and only
+        // the mutated defect can turn it red.
+        seed: () => syntheticProofRepairLedger(),
+        async scaffold(root, input) {
+            await writeFile(
+                core(root, "formal/SpecCnl/Proofs.lean"),
+                PROOF_REPAIR_DRIFT_PROBE_TEXT,
+                "utf8"
+            );
+            await substitute(root, input);
+        },
+        argv: (root) => [script(root, "quality/proof-repair-ledger.mjs"), "--stage", "building"]
     },
     coverage: {
         sources: ["scripts/quality/coverage.mjs", "scripts/quality/coverage-policy.mjs"],
@@ -386,7 +422,14 @@ console.log(
  * spawned inside it. Passing no mutation runs the control.
  */
 async function runGate(harness, gate, mutation) {
-    const source = inputs.get(resolve(packageRoot, gate.input));
+    // A harness may seed the measurement from a stable synthetic input rather than the
+    // committed bytes, because the corpus's find/replace has to keep locating its input
+    // while the real file advances. The seed is the base the mutation splits, and the
+    // scaffold — which may need to prepare more than one file — receives the result.
+    const source =
+        harness.seed === undefined
+            ? inputs.get(resolve(packageRoot, gate.input))
+            : await harness.seed();
     let content = source;
     if (mutation !== undefined) {
         const parts = source.split(mutation.find);
@@ -453,6 +496,58 @@ async function inParallel(tasks) {
         })
     );
     return results;
+}
+
+/**
+ * The stable accepted ledger every proof-repair gate measurement runs against.
+ *
+ * The committed ledger is the protocol's own state and advances the moment a repair is
+ * accepted, so a corpus mutation whose `find` is today's committed bytes would stop
+ * locating its input the moment this gate did its job. The synthetic record is therefore
+ * the measurement's fixed question: one accepted closure over the one corpus artifact
+ * the protocol lets a candidate write, carrying the constant probe text the scaffold
+ * also plants in the scratch formal tree — so the control is genuinely green (the gate's
+ * byte-identity comparison succeeds against the planted file) and only a byte drift or a
+ * doctored version can turn it red.
+ *
+ * The record is rendered by hand rather than through the protocol's own store: the
+ * corpus's mutations key into these exact bytes, and the store would re-derive the
+ * digest field from any text change — which is precisely what a mutation must not
+ * depend on.
+ */
+function syntheticProofRepairLedger() {
+    const text = PROOF_REPAIR_DRIFT_PROBE_TEXT;
+    const candidate = "c".repeat(64);
+    return [
+        "{",
+        '  "artifacts": [',
+        "    {",
+        `      "digest": "${sha256Text(text)}",`,
+        '      "path": "SpecCnl/Proofs.lean",',
+        `      "text": ${JSON.stringify(text)}`,
+        "    }",
+        "  ],",
+        `  "candidate": "${candidate}",`,
+        '  "closed": [',
+        "    {",
+        '      "artifacts": ["SpecCnl/Proofs.lean"],',
+        `      "candidate": "${candidate}",`,
+        '      "obligation": {',
+        `        "anchor": "SPEC.md:1601",`,
+        '        "atoms": ["C13-RUN-ANCESTRY"],',
+        `        "unit": "${"a".repeat(64)}"`,
+        "      }",
+        "    }",
+        "  ],",
+        '  "kind": "proof.repair.ledger",',
+        '  "version": "1.0"',
+        "}",
+        ""
+    ].join("\n");
+}
+
+function sha256Text(value) {
+    return createHash("sha256").update(value).digest("hex");
 }
 
 /** The mutated file, at the path it occupies in the package the checkers read. */
