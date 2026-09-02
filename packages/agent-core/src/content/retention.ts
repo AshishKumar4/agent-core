@@ -109,7 +109,6 @@ export class ContentOwnerEdge {
 
 const contentOwnerEdgeCodecInstance = new ContentOwnerEdgeCodec();
 
-
 /**
  * The owner-key namespace one record kind holds its content under. A store verifies its
  * whole custody against exactly the namespaces of the kinds it owns, so the prefix and the

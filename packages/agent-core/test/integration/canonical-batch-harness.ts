@@ -544,7 +544,10 @@ class FinalAdmissions {
 
 export class CanonicalBatchHarness<Authorization = string> {
     public readonly transactions = new CanonicalBatchMemoryTransactions();
-    public readonly persistence = new MemoryInvocationPersistence(invocationCodecs, recordingCustody());
+    public readonly persistence = new MemoryInvocationPersistence(
+        invocationCodecs,
+        recordingCustody()
+    );
     public readonly detachedExecutions = new MemoryDetachedEffectExecutionPersistence();
     public readonly evidence = new MemoryInvocationMediationPersistence();
     public readonly ledger: InvocationLedger<

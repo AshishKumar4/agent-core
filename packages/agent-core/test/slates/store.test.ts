@@ -282,7 +282,9 @@ describe("MemorySlateStore", () => {
                     "Stored Slate reservation invocation does not match its codec bytes"
                 )
             );
-            expect(() => new MemorySlateStore(recordingCustody(), { ...snapshot, deployments: [] })).toThrow(
+            expect(
+                () => new MemorySlateStore(recordingCustody(), { ...snapshot, deployments: [] })
+            ).toThrow(
                 new AgentCoreError(
                     "protocol.invalid-state",
                     "Slate active deployment must be a successful owned deployment"
@@ -817,9 +819,9 @@ describe("MemorySlateStore", () => {
                 )
             );
             const previewSnapshot = previewStore.snapshot();
-            expect(() => new MemorySlateStore(recordingCustody(), { ...previewSnapshot, versions: [] })).toThrow(
-                /preview has a dangling or inexact source/
-            );
+            expect(
+                () => new MemorySlateStore(recordingCustody(), { ...previewSnapshot, versions: [] })
+            ).toThrow(/preview has a dangling or inexact source/);
         }
     );
 
@@ -852,7 +854,10 @@ describe("MemorySlateStore", () => {
             ).toThrowError(expect.objectContaining({ code: "slate.invalid-version" }));
 
             const graph = completeGraph("resource-dependency-loss");
-            const hidden = new HiddenDeploymentSlateStore(recordingCustody(), graph.store.snapshot());
+            const hidden = new HiddenDeploymentSlateStore(
+                recordingCustody(),
+                graph.store.snapshot()
+            );
             hidden.hideDeployments = true;
             expect(() => hidden.addResource(graph.resource)).toThrow(/deployment must exist/);
         }

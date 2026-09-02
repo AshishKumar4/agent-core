@@ -9,10 +9,7 @@ import {
     type ActorContext
 } from "../../../src/actors";
 import { RUN_RECORD_CODECS } from "../../../src/agents";
-import {
-    RunAdmissionRegistry,
-    type RunObligation
-} from "../../../src/agents/runs/admission";
+import { RunAdmissionRegistry, type RunObligation } from "../../../src/agents/runs/admission";
 import { RunId } from "../../../src/agents/runs/id";
 import { SettlementObligation, isSettled } from "../../../src/agents/runs/settlement";
 import { CodecDeclaration } from "../../../src/core";

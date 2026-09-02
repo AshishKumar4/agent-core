@@ -6,12 +6,7 @@ import { ApprovalId, EffectAttemptId, ItemClaimId, ReceiptId } from "./id";
 import { InvocationId } from "../interaction-references";
 import type { InvocationPersistence } from "./persistence";
 import type { PreparedInvocation } from "./prepared";
-import {
-    AttemptReceipt,
-    PreEffectReceipt,
-    receiptContentRetention,
-    type Receipt
-} from "./receipt";
+import { AttemptReceipt, PreEffectReceipt, receiptContentRetention, type Receipt } from "./receipt";
 import { compareCanonicalText, type RecordCodec } from "../core";
 import type { ContentCustodyPort } from "../content";
 import { AgentCoreError } from "../errors";

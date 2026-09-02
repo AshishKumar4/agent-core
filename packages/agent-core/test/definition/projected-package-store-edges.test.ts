@@ -27,28 +27,35 @@ describe("ProjectedPackageStore hostile adapter boundaries", () => {
         expect(() => store.listSnapshots()).toThrow(/duplicate immutable key/);
     });
 
-    test("rejects adapter substitutions for immutable release snapshot and lock writes", { tags: "p0" }, () => {
-        const release = packageRelease("package", "1.0.0");
-        const other = packageRelease("package", "1.0.0", digestOf("other-code"));
-        const releaseStore = new HostilePackageStore();
-        releaseStore.releaseWrite = rowForRelease(other);
-        expect(() => releaseStore.add(release)).toThrow(/immutable|projection/);
+    test(
+        "rejects adapter substitutions for immutable release snapshot and lock writes",
+        { tags: "p0" },
+        () => {
+            const release = packageRelease("package", "1.0.0");
+            const other = packageRelease("package", "1.0.0", digestOf("other-code"));
+            const releaseStore = new HostilePackageStore();
+            releaseStore.releaseWrite = rowForRelease(other);
+            expect(() => releaseStore.add(release)).toThrow(/immutable|projection/);
 
-        const snapshot = new MetadataSnapshot({ revision: new Revision(1), releases: [release] });
-        const otherSnapshot = new MetadataSnapshot({
-            revision: new Revision(2),
-            releases: [release]
-        });
-        const snapshotStore = new HostilePackageStore();
-        snapshotStore.snapshotWrite = rowForSnapshot(otherSnapshot);
-        expect(() => snapshotStore.addSnapshot(snapshot)).toThrow(/immutable|projection/);
+            const snapshot = new MetadataSnapshot({
+                revision: new Revision(1),
+                releases: [release]
+            });
+            const otherSnapshot = new MetadataSnapshot({
+                revision: new Revision(2),
+                releases: [release]
+            });
+            const snapshotStore = new HostilePackageStore();
+            snapshotStore.snapshotWrite = rowForSnapshot(otherSnapshot);
+            expect(() => snapshotStore.addSnapshot(snapshot)).toThrow(/immutable|projection/);
 
-        const lock = packageLock(snapshot.digest, 1, [release]);
-        const otherLock = packageLock(digestOf("other-snapshot"), 2, [release]);
-        const lockStore = new HostilePackageStore();
-        lockStore.lockWrite = rowForLock(otherLock);
-        expect(() => lockStore.addLock(lock)).toThrow(/immutable|projection/);
-    });
+            const lock = packageLock(snapshot.digest, 1, [release]);
+            const otherLock = packageLock(digestOf("other-snapshot"), 2, [release]);
+            const lockStore = new HostilePackageStore();
+            lockStore.lockWrite = rowForLock(otherLock);
+            expect(() => lockStore.addLock(lock)).toThrow(/immutable|projection/);
+        }
+    );
 
     test("rejects lookup aliases and malformed stored bytes", { tags: "p1" }, () => {
         const store = new HostilePackageStore();
@@ -86,57 +93,76 @@ describe("ProjectedPackageStore hostile adapter boundaries", () => {
         );
     });
 
-    test("validates snapshot and lock projections against requested digests", { tags: "p1" }, () => {
-        const release = packageRelease("package", "1.0.0");
-        const snapshot = new MetadataSnapshot({ revision: new Revision(1), releases: [release] });
-        const other = new MetadataSnapshot({ revision: new Revision(2), releases: [release] });
+    test(
+        "validates snapshot and lock projections against requested digests",
+        { tags: "p1" },
+        () => {
+            const release = packageRelease("package", "1.0.0");
+            const snapshot = new MetadataSnapshot({
+                revision: new Revision(1),
+                releases: [release]
+            });
+            const other = new MetadataSnapshot({ revision: new Revision(2), releases: [release] });
 
-        const mangledDigest = new HostilePackageStore();
-        mangledDigest.snapshots.push({
-            ...rowForSnapshot(snapshot),
-            digest: digestOf("mangled").value
-        });
-        expect(() => mangledDigest.listSnapshots()).toThrow(/key or projection/);
+            const mangledDigest = new HostilePackageStore();
+            mangledDigest.snapshots.push({
+                ...rowForSnapshot(snapshot),
+                digest: digestOf("mangled").value
+            });
+            expect(() => mangledDigest.listSnapshots()).toThrow(/key or projection/);
 
-        const mangledRevision = new HostilePackageStore();
-        mangledRevision.snapshots.push({ ...rowForSnapshot(snapshot), revision: 9 });
-        expect(() => mangledRevision.listSnapshots()).toThrow(/key or projection/);
+            const mangledRevision = new HostilePackageStore();
+            mangledRevision.snapshots.push({ ...rowForSnapshot(snapshot), revision: 9 });
+            expect(() => mangledRevision.listSnapshots()).toThrow(/key or projection/);
 
-        const aliasedSnapshot = new HostilePackageStore();
-        aliasedSnapshot.snapshotAlias = rowForSnapshot(other);
-        expect(() => aliasedSnapshot.getSnapshot(snapshot.digest)).toThrow(/key or projection/);
+            const aliasedSnapshot = new HostilePackageStore();
+            aliasedSnapshot.snapshotAlias = rowForSnapshot(other);
+            expect(() => aliasedSnapshot.getSnapshot(snapshot.digest)).toThrow(/key or projection/);
 
-        const lock = packageLock(snapshot.digest, 1, [release]);
-        const aliasedLock = new HostilePackageStore();
-        aliasedLock.lockAlias = { ...rowForLock(lock), lockDigest: digestOf("mangled").value };
-        expect(() => aliasedLock.getLock(lock.digest)).toThrow(/key or projection/);
-    });
+            const lock = packageLock(snapshot.digest, 1, [release]);
+            const aliasedLock = new HostilePackageStore();
+            aliasedLock.lockAlias = { ...rowForLock(lock), lockDigest: digestOf("mangled").value };
+            expect(() => aliasedLock.getLock(lock.digest)).toThrow(/key or projection/);
+        }
+    );
 
-    test("keeps stored codec bytes independent of adapter-scribbled projection buffers", { tags: "p0" }, () => {
-        // kills src/definition/package-store.ts:205,215,224 (projection defensive byte copies)
-        const store = new ScribblingPackageStore();
-        const release = packageRelease("scribble", "1.0.0");
-        const snapshot = new MetadataSnapshot({ revision: new Revision(1), releases: [release] });
-        const lock = packageLock(snapshot.digest, 1, [release]);
+    test(
+        "keeps stored codec bytes independent of adapter-scribbled projection buffers",
+        { tags: "p0" },
+        () => {
+            // kills src/definition/package-store.ts:205,215,224 (projection defensive byte copies)
+            const store = new ScribblingPackageStore();
+            const release = packageRelease("scribble", "1.0.0");
+            const snapshot = new MetadataSnapshot({
+                revision: new Revision(1),
+                releases: [release]
+            });
+            const lock = packageLock(snapshot.digest, 1, [release]);
 
-        store.add(release);
-        store.addSnapshot(snapshot);
-        store.addLock(lock);
+            store.add(release);
+            store.addSnapshot(snapshot);
+            store.addLock(lock);
 
-        expect(PackageRelease.encode(store.get(release.id, release.version)!)).toEqual(
-            PackageRelease.encode(release)
-        );
-        expect(MetadataSnapshot.encode(store.getSnapshot(snapshot.digest)!)).toEqual(
-            MetadataSnapshot.encode(snapshot)
-        );
-        expect(PackageLock.encode(store.getLock(lock.digest)!)).toEqual(PackageLock.encode(lock));
-    });
+            expect(PackageRelease.encode(store.get(release.id, release.version)!)).toEqual(
+                PackageRelease.encode(release)
+            );
+            expect(MetadataSnapshot.encode(store.getSnapshot(snapshot.digest)!)).toEqual(
+                MetadataSnapshot.encode(snapshot)
+            );
+            expect(PackageLock.encode(store.getLock(lock.digest)!)).toEqual(
+                PackageLock.encode(lock)
+            );
+        }
+    );
 
     test("names malformed stored snapshot and lock bytes exactly", { tags: "p2" }, () => {
         const release = packageRelease("package", "1.0.0");
         const snapshot = new MetadataSnapshot({ revision: new Revision(1), releases: [release] });
         const snapshotStore = new HostilePackageStore();
-        snapshotStore.snapshotWrite = { ...rowForSnapshot(snapshot), bytes: forged<Uint8Array>("bad") };
+        snapshotStore.snapshotWrite = {
+            ...rowForSnapshot(snapshot),
+            bytes: forged<Uint8Array>("bad")
+        };
         expect(() => snapshotStore.addSnapshot(snapshot)).toThrow(
             /Stored metadata snapshot bytes are malformed/
         );

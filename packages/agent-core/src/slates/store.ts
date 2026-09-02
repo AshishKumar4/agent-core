@@ -10,10 +10,7 @@ import {
     compareCanonicalText
 } from "../core";
 import { requireSynchronousResult } from "../actors";
-import {
-    type ContentCustodyPort,
-    type RetainedContentRecord
-} from "../content";
+import { type ContentCustodyPort, type RetainedContentRecord } from "../content";
 import { AgentCoreError } from "../errors";
 import { WorkspaceId } from "../identity";
 import { InvocationId } from "../interaction-references";

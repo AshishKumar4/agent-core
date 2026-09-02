@@ -42,8 +42,9 @@ describe("MemoryEnvironmentStore mutation kills", () => {
         () => {
             const store = seededStore();
 
-            expect(store.compareAndSetEnvironment(new Revision(9), revisionRecord, environment))
-                .toBe(true);
+            expect(
+                store.compareAndSetEnvironment(new Revision(9), revisionRecord, environment)
+            ).toBe(true);
             expect(store.getEnvironment(environmentId)?.recordRevision.value).toBe(0);
             expect(store.getEnvironment(environmentId)?.activeRevision.value).toBe(0);
         }
@@ -256,7 +257,10 @@ describe("MemoryEnvironmentStore mutation kills", () => {
         const store = seededStore();
         expect(store.compareAndSetSession(undefined, sessionRecord(sessionId.value))).toBe(true);
         expect(
-            store.compareAndSetSnapshot(undefined, creatingSnapshot("snapshot-key", sessionId.value))
+            store.compareAndSetSnapshot(
+                undefined,
+                creatingSnapshot("snapshot-key", sessionId.value)
+            )
         ).toBe(true);
         expect(
             store.compareAndSetExposure(
@@ -305,7 +309,9 @@ describe("MemoryEnvironmentStore mutation kills", () => {
         const head = image.rows.find((row) => row.kind === "head");
         if (head === undefined) throw new TypeError("Missing head row");
 
-        expect(() => new MemoryEnvironmentStore(recordingCustody(), { rows: [...image.rows, head] })).toThrowError(
+        expect(
+            () => new MemoryEnvironmentStore(recordingCustody(), { rows: [...image.rows, head] })
+        ).toThrowError(
             expect.objectContaining({
                 code: "protocol.invalid-state",
                 message: "Environment store image contains a duplicate key"
@@ -340,16 +346,16 @@ describe("MemoryEnvironmentStore mutation kills", () => {
                 ? { ...row, projection: ["tampered", ...row.projection.slice(1)] }
                 : row
         );
-        expect(() => new MemoryEnvironmentStore(recordingCustody(), { rows: tampered })).toThrowError(
-            projectionMismatch
-        );
+        expect(
+            () => new MemoryEnvironmentStore(recordingCustody(), { rows: tampered })
+        ).toThrowError(projectionMismatch);
 
         const truncated = image.rows.map((row) =>
             row.kind === "head" ? { ...row, projection: row.projection.slice(0, -1) } : row
         );
-        expect(() => new MemoryEnvironmentStore(recordingCustody(), { rows: truncated })).toThrowError(
-            projectionMismatch
-        );
+        expect(
+            () => new MemoryEnvironmentStore(recordingCustody(), { rows: truncated })
+        ).toThrowError(projectionMismatch);
     });
 
     test("deletes rolled-back rows after an initial head commit failure", { tags: "p0" }, () => {

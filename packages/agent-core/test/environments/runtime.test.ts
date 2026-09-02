@@ -1498,7 +1498,8 @@ describe("EnvironmentController", () => {
                 fixture.controller.reserveSession(environmentId, restoredId, lease, second.id)
             ).toThrowError(expect.objectContaining({ code: "environment.invalid-session" }));
 
-            const missingRevision = new MissingRevisionEnvironmentStore(recordingCustody(), 
+            const missingRevision = new MissingRevisionEnvironmentStore(
+                recordingCustody(),
                 fixture.store.exportImage()
             );
             missingRevision.hideRevisions = true;

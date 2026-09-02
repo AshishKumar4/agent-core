@@ -150,22 +150,18 @@ test(
 );
 
 describe("SqliteInvocationPersistence transaction scope", () => {
-    test(
-        "uses the supplied transaction for every operation",
-        { tags: "p0" },
-        () => {
-            const harness = new SqliteHarness();
-            expect(() =>
-                harness.persistence.prepared(
-                    new RejectingSqlite(),
-                    new InvocationId("foreign-transaction")
-                )
-            ).toThrow(/supplied transaction/);
-            expect(() =>
-                harness.persistence.insertPrepared(new RejectingSqlite(), prepared("foreign-write"))
-            ).toThrow(/supplied transaction/);
-        }
-    );
+    test("uses the supplied transaction for every operation", { tags: "p0" }, () => {
+        const harness = new SqliteHarness();
+        expect(() =>
+            harness.persistence.prepared(
+                new RejectingSqlite(),
+                new InvocationId("foreign-transaction")
+            )
+        ).toThrow(/supplied transaction/);
+        expect(() =>
+            harness.persistence.insertPrepared(new RejectingSqlite(), prepared("foreign-write"))
+        ).toThrow(/supplied transaction/);
+    });
 
     test("returns undefined for every missing durable lookup", { tags: "p1" }, () => {
         const harness = new SqliteHarness();
@@ -1124,7 +1120,10 @@ class FaultingSqlite extends TestSqlite {
 class ColumnDroppingSqlite extends TestSqlite {
     public dropped: readonly [table: string, column: string] | undefined;
 
-    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+    protected override query(
+        statement: string,
+        bindings: readonly SqliteValue[]
+    ): readonly SqliteRow[] {
         const rows = super.query(statement, bindings);
         const dropped = this.dropped;
         if (dropped === undefined || !statement.includes(dropped[0])) return rows;
@@ -1137,7 +1136,10 @@ class ColumnDroppingSqlite extends TestSqlite {
 class ColumnSubstitutingSqlite extends TestSqlite {
     public substitute = false;
 
-    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+    protected override query(
+        statement: string,
+        bindings: readonly SqliteValue[]
+    ): readonly SqliteRow[] {
         const rows = super.query(statement, bindings);
         if (!this.substitute) return rows;
         if (statement.includes("FROM invocation_prepared_records")) {

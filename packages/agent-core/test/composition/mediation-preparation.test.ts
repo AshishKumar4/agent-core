@@ -197,7 +197,10 @@ const admissionCodec = structuralCodec(
 
 function preparation() {
     const transactions = new MemoryTransactions();
-    const persistence = new MemoryInvocationPersistence(mediationInvocationCodecs(admissionCodec), recordingCustody());
+    const persistence = new MemoryInvocationPersistence(
+        mediationInvocationCodecs(admissionCodec),
+        recordingCustody()
+    );
     const port = new CanonicalMediationPreparation(
         identities,
         activations,

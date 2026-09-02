@@ -64,344 +64,411 @@ const deployBinding = new BindingRequirement(
 );
 
 describe("SlateRuntime", () => {
-    test("[P11-SLATE-SPECIFICATION] executes the complete section 4.6 source, version, fork, and publication contract", { tags: "p1" }, async () => {
-        const fixture = runtimeFixture("intent");
-        const slate = await fixture.runtime.create(fixture.workspace, ref("draft-one"));
-        const updated = await fixture.runtime.update(slate.id, ref("draft-two"));
-        const version = await fixture.runtime.commit(updated.id);
-        const fork = await fixture.runtime.fork(version.id, fixture.workspace);
-        const publication = await fixture.runtime.publish(version.id, ref("published"), []);
+    test(
+        "[P11-SLATE-SPECIFICATION] executes the complete section 4.6 source, version, fork, and publication contract",
+        { tags: "p1" },
+        async () => {
+            const fixture = runtimeFixture("intent");
+            const slate = await fixture.runtime.create(fixture.workspace, ref("draft-one"));
+            const updated = await fixture.runtime.update(slate.id, ref("draft-two"));
+            const version = await fixture.runtime.commit(updated.id);
+            const fork = await fixture.runtime.fork(version.id, fixture.workspace);
+            const publication = await fixture.runtime.publish(version.id, ref("published"), []);
 
-        expect(fork.forkedFrom?.versionId.equals(version.id)).toBe(true);
-        expect(publication.versionId.equals(version.id)).toBe(true);
-        expect(fixture.mutations.requests.every(Object.isFrozen)).toBe(true);
-        const commit = fixture.mutations.requests.find((request) => request.operation === "commit");
-        expect(commit).toMatchObject({
-            impact: "mutate",
-            slateId: slate.id,
-            versionId: version.id,
-            source: version.source
-        });
-        await expect(
-            fixture.runtime.fork(version.id, new WorkspaceId("workspace-foreign"))
-        ).rejects.toEqual(
-            new AgentCoreError(
-                "operation.invalid-input",
-                "Slate forks must remain in the source Workspace"
-            )
-        );
-    });
-
-    test("replays a reused external effect identity instead of deploying twice", { tags: "p0" }, async () => {
-        const fixture = runtimeFixture("external-idempotency");
-        const { publication } = await publishedSlate(fixture);
-        const first = await fixture.runtime.deploy(publication.id, "production", "external-stable");
-        const replay = await fixture.runtime.deploy(
-            publication.id,
-            "production",
-            "external-stable"
-        );
-        expect(first.outcome).toBe("succeeded");
-        expect(replay.outcome).toBe("succeeded");
-        if (first.outcome === "succeeded" && replay.outcome === "succeeded") {
-            expect(replay.deployment.id.equals(first.deployment.id)).toBe(true);
+            expect(fork.forkedFrom?.versionId.equals(version.id)).toBe(true);
+            expect(publication.versionId.equals(version.id)).toBe(true);
+            expect(fixture.mutations.requests.every(Object.isFrozen)).toBe(true);
+            const commit = fixture.mutations.requests.find(
+                (request) => request.operation === "commit"
+            );
+            expect(commit).toMatchObject({
+                impact: "mutate",
+                slateId: slate.id,
+                versionId: version.id,
+                source: version.source
+            });
+            await expect(
+                fixture.runtime.fork(version.id, new WorkspaceId("workspace-foreign"))
+            ).rejects.toEqual(
+                new AgentCoreError(
+                    "operation.invalid-input",
+                    "Slate forks must remain in the source Workspace"
+                )
+            );
         }
-        expect(fixture.provider.deployRequests).toHaveLength(1);
+    );
 
-        await expect(
-            fixture.runtime.deploy(publication.id, "staging", "external-stable")
-        ).rejects.toEqual(
-            new AgentCoreError(
-                "protocol.invalid-state",
-                "Slate deployment effect identity was reused for a different request"
-            )
-        );
-        expect(fixture.provider.deployRequests).toHaveLength(1);
-    });
+    test(
+        "replays a reused external effect identity instead of deploying twice",
+        { tags: "p0" },
+        async () => {
+            const fixture = runtimeFixture("external-idempotency");
+            const { publication } = await publishedSlate(fixture);
+            const first = await fixture.runtime.deploy(
+                publication.id,
+                "production",
+                "external-stable"
+            );
+            const replay = await fixture.runtime.deploy(
+                publication.id,
+                "production",
+                "external-stable"
+            );
+            expect(first.outcome).toBe("succeeded");
+            expect(replay.outcome).toBe("succeeded");
+            if (first.outcome === "succeeded" && replay.outcome === "succeeded") {
+                expect(replay.deployment.id.equals(first.deployment.id)).toBe(true);
+            }
+            expect(fixture.provider.deployRequests).toHaveLength(1);
 
-    test("[P11-SLATE-MEDIATED-DEPLOY] passes the same frozen deployment intent through prepare, invoke, and reconcile", { tags: "p0" }, async () => {
-        const fixture = runtimeFixture("deploy-reconcile");
-        const { publication } = await publishedSlate(fixture);
-        fixture.invocations.invokeOutcomes.push("indeterminate");
+            await expect(
+                fixture.runtime.deploy(publication.id, "staging", "external-stable")
+            ).rejects.toEqual(
+                new AgentCoreError(
+                    "protocol.invalid-state",
+                    "Slate deployment effect identity was reused for a different request"
+                )
+            );
+            expect(fixture.provider.deployRequests).toHaveLength(1);
+        }
+    );
 
-        const uncertain = await fixture.runtime.deploy(publication.id, "production", "external-1");
-        if (uncertain.outcome === "succeeded") throw new TypeError("Expected indeterminate deploy");
-        const reservation = fixture.store.getDeploymentReservation(uncertain.deploymentId)!;
-        expect(fixture.store.getDeployment(uncertain.deploymentId)).toBeUndefined();
+    test(
+        "[P11-SLATE-MEDIATED-DEPLOY] passes the same frozen deployment intent through prepare, invoke, and reconcile",
+        { tags: "p0" },
+        async () => {
+            const fixture = runtimeFixture("deploy-reconcile");
+            const { publication } = await publishedSlate(fixture);
+            fixture.invocations.invokeOutcomes.push("indeterminate");
 
-        const reconciled = await fixture.runtime.reconcileDeployment(uncertain.deploymentId);
-        if (reconciled.outcome !== "succeeded")
-            throw new TypeError("Expected successful reconcile");
-        expect(reconciled.deployment.id.equals(uncertain.deploymentId)).toBe(true);
-        expect(reconciled.deployment.invocationId.equals(reservation.invocationId)).toBe(true);
-        expect(fixture.invocations.validatedRequests).toBe(2);
-        const invokedRequest = fixture.provider.deployRequests[0]!;
-        const reconciledRequest = fixture.provider.reconcileDeploymentRequests[0]!;
-        expect(reconciledRequest).toMatchObject({
-            deploymentId: uncertain.deploymentId,
-            publicationMaterialization: publication.materialization,
-            target: "production"
-        });
-        expect(invokedRequest.effectContext.invocationId.equals(reservation.invocationId)).toBe(
-            true
-        );
-        expect(invokedRequest.effectContext.itemIndex).toBe(0);
-        expect(invokedRequest.effectContext.attemptOrdinal).toBe(0);
-        expect(Object.isFrozen(invokedRequest.effectContext)).toBe(true);
-        expect(invokedRequest.idempotencyKey).toBe(invokedRequest.effectContext.idempotencyKey);
-        expect(reconciledRequest.effectContext.sameItem(invokedRequest.effectContext)).toBe(true);
-        expect(reconciledRequest.effectContext.attemptOrdinal).toBe(0);
-        expect(reconciledRequest.idempotencyKey).toBe(invokedRequest.idempotencyKey);
-    });
+            const uncertain = await fixture.runtime.deploy(
+                publication.id,
+                "production",
+                "external-1"
+            );
+            if (uncertain.outcome === "succeeded")
+                throw new TypeError("Expected indeterminate deploy");
+            const reservation = fixture.store.getDeploymentReservation(uncertain.deploymentId)!;
+            expect(fixture.store.getDeployment(uncertain.deploymentId)).toBeUndefined();
 
-    test("guards delayed deployment activation with the frozen expected pointer", { tags: "p0" }, async () => {
-        const fixture = runtimeFixture("race");
-        const { slate, publication } = await publishedSlate(fixture);
-        const firstEffect = deferred<SlateProviderDeployment>();
-        const secondEffect = deferred<SlateProviderDeployment>();
-        fixture.provider.pendingDeployments.set("first", firstEffect);
-        fixture.provider.pendingDeployments.set("second", secondEffect);
+            const reconciled = await fixture.runtime.reconcileDeployment(uncertain.deploymentId);
+            if (reconciled.outcome !== "succeeded")
+                throw new TypeError("Expected successful reconcile");
+            expect(reconciled.deployment.id.equals(uncertain.deploymentId)).toBe(true);
+            expect(reconciled.deployment.invocationId.equals(reservation.invocationId)).toBe(true);
+            expect(fixture.invocations.validatedRequests).toBe(2);
+            const invokedRequest = fixture.provider.deployRequests[0]!;
+            const reconciledRequest = fixture.provider.reconcileDeploymentRequests[0]!;
+            expect(reconciledRequest).toMatchObject({
+                deploymentId: uncertain.deploymentId,
+                publicationMaterialization: publication.materialization,
+                target: "production"
+            });
+            expect(invokedRequest.effectContext.invocationId.equals(reservation.invocationId)).toBe(
+                true
+            );
+            expect(invokedRequest.effectContext.itemIndex).toBe(0);
+            expect(invokedRequest.effectContext.attemptOrdinal).toBe(0);
+            expect(Object.isFrozen(invokedRequest.effectContext)).toBe(true);
+            expect(invokedRequest.idempotencyKey).toBe(invokedRequest.effectContext.idempotencyKey);
+            expect(reconciledRequest.effectContext.sameItem(invokedRequest.effectContext)).toBe(
+                true
+            );
+            expect(reconciledRequest.effectContext.attemptOrdinal).toBe(0);
+            expect(reconciledRequest.idempotencyKey).toBe(invokedRequest.idempotencyKey);
+        }
+    );
 
-        const first = fixture.runtime.deploy(publication.id, "first", "external-2");
-        await fixture.provider.called("first");
-        const second = fixture.runtime.deploy(publication.id, "second", "external-3");
-        await fixture.provider.called("second");
-        secondEffect.resolve({ materialization: ref("second-deployment") });
-        const secondResult = await second;
-        if (secondResult.outcome !== "succeeded") throw new TypeError("Expected second success");
-        firstEffect.resolve({ materialization: ref("first-deployment") });
-        const firstResult = await first;
-        if (firstResult.outcome !== "succeeded") throw new TypeError("Expected first success");
+    test(
+        "guards delayed deployment activation with the frozen expected pointer",
+        { tags: "p0" },
+        async () => {
+            const fixture = runtimeFixture("race");
+            const { slate, publication } = await publishedSlate(fixture);
+            const firstEffect = deferred<SlateProviderDeployment>();
+            const secondEffect = deferred<SlateProviderDeployment>();
+            fixture.provider.pendingDeployments.set("first", firstEffect);
+            fixture.provider.pendingDeployments.set("second", secondEffect);
 
-        expect(secondResult.activated).toBe(true);
-        expect(firstResult.activated).toBe(false);
-        expect(
-            fixture.store.getSlate(slate.id)?.activeDeploymentId?.equals(secondResult.deployment.id)
-        ).toBe(true);
-    });
+            const first = fixture.runtime.deploy(publication.id, "first", "external-2");
+            await fixture.provider.called("first");
+            const second = fixture.runtime.deploy(publication.id, "second", "external-3");
+            await fixture.provider.called("second");
+            secondEffect.resolve({ materialization: ref("second-deployment") });
+            const secondResult = await second;
+            if (secondResult.outcome !== "succeeded")
+                throw new TypeError("Expected second success");
+            firstEffect.resolve({ materialization: ref("first-deployment") });
+            const firstResult = await first;
+            if (firstResult.outcome !== "succeeded") throw new TypeError("Expected first success");
 
-    test("reconciles an indeterminate resource from its original reservation", { tags: "p0" }, async () => {
-        const fixture = runtimeFixture("resource-reconcile");
-        const { publication } = await publishedSlate(fixture);
-        const deployed = await fixture.runtime.deploy(publication.id, "production", "external-4");
-        if (deployed.outcome !== "succeeded") throw new TypeError("Expected deployment");
-        fixture.invocations.invokeOutcomes.push("indeterminate");
+            expect(secondResult.activated).toBe(true);
+            expect(firstResult.activated).toBe(false);
+            expect(
+                fixture.store
+                    .getSlate(slate.id)
+                    ?.activeDeploymentId?.equals(secondResult.deployment.id)
+            ).toBe(true);
+        }
+    );
 
-        const uncertain = await fixture.runtime.materializeResource(
-            deployed.deployment.id,
-            "database",
-            ref("schema")
-        );
-        if (uncertain.outcome === "succeeded")
-            throw new TypeError("Expected indeterminate resource");
-        const reservation = fixture.store.getResourceReservation(uncertain.resourceId)!;
-        expect(fixture.store.getResource(uncertain.resourceId)).toBeUndefined();
+    test(
+        "reconciles an indeterminate resource from its original reservation",
+        { tags: "p0" },
+        async () => {
+            const fixture = runtimeFixture("resource-reconcile");
+            const { publication } = await publishedSlate(fixture);
+            const deployed = await fixture.runtime.deploy(
+                publication.id,
+                "production",
+                "external-4"
+            );
+            if (deployed.outcome !== "succeeded") throw new TypeError("Expected deployment");
+            fixture.invocations.invokeOutcomes.push("indeterminate");
 
-        const recovered = await fixture.runtime.reconcileResource(uncertain.resourceId);
-        if (recovered.outcome !== "succeeded") throw new TypeError("Expected recovered resource");
-        expect(recovered.resource.id.equals(reservation.id)).toBe(true);
-        expect(recovered.resource.invocationId.equals(reservation.invocationId)).toBe(true);
-        const invokedRequest = fixture.provider.resourceRequests[0]!;
-        const reconciledRequest = fixture.provider.reconcileResourceRequests[0]!;
-        expect(reconciledRequest).toMatchObject({
-            resourceId: reservation.id,
-            resourceName: reservation.name,
-            resourceSource: reservation.source,
-            deploymentMaterialization: reservation.deploymentMaterialization
-        });
-        expect(invokedRequest.effectContext.invocationId.equals(reservation.invocationId)).toBe(
-            true
-        );
-        expect(reconciledRequest.effectContext.sameItem(invokedRequest.effectContext)).toBe(true);
-        expect(reconciledRequest.effectContext.attemptOrdinal).toBe(0);
-        expect(reconciledRequest.idempotencyKey).toBe(invokedRequest.idempotencyKey);
-        const replay = new MemorySlateStore(recordingCustody(), fixture.store.snapshot());
-        expect(
-            replay.getResource(recovered.resource.id)?.receiptId.equals(recovered.receiptId)
-        ).toBe(true);
-    });
+            const uncertain = await fixture.runtime.materializeResource(
+                deployed.deployment.id,
+                "database",
+                ref("schema")
+            );
+            if (uncertain.outcome === "succeeded")
+                throw new TypeError("Expected indeterminate resource");
+            const reservation = fixture.store.getResourceReservation(uncertain.resourceId)!;
+            expect(fixture.store.getResource(uncertain.resourceId)).toBeUndefined();
 
-    test("persists validated exact preview capability and exposure references", { tags: "p1" }, async () => {
-        const fixture = runtimeFixture("preview");
-        const slate = await fixture.runtime.create(fixture.workspace, ref("working"));
-        const version = await fixture.runtime.commit(slate.id);
-        const capability = sessionCapability("valid", 3, 7);
-        const exposureId = new PortExposureId("exposure-valid");
+            const recovered = await fixture.runtime.reconcileResource(uncertain.resourceId);
+            if (recovered.outcome !== "succeeded")
+                throw new TypeError("Expected recovered resource");
+            expect(recovered.resource.id.equals(reservation.id)).toBe(true);
+            expect(recovered.resource.invocationId.equals(reservation.invocationId)).toBe(true);
+            const invokedRequest = fixture.provider.resourceRequests[0]!;
+            const reconciledRequest = fixture.provider.reconcileResourceRequests[0]!;
+            expect(reconciledRequest).toMatchObject({
+                resourceId: reservation.id,
+                resourceName: reservation.name,
+                resourceSource: reservation.source,
+                deploymentMaterialization: reservation.deploymentMaterialization
+            });
+            expect(invokedRequest.effectContext.invocationId.equals(reservation.invocationId)).toBe(
+                true
+            );
+            expect(reconciledRequest.effectContext.sameItem(invokedRequest.effectContext)).toBe(
+                true
+            );
+            expect(reconciledRequest.effectContext.attemptOrdinal).toBe(0);
+            expect(reconciledRequest.idempotencyKey).toBe(invokedRequest.idempotencyKey);
+            const replay = new MemorySlateStore(recordingCustody(), fixture.store.snapshot());
+            expect(
+                replay.getResource(recovered.resource.id)?.receiptId.equals(recovered.receiptId)
+            ).toBe(true);
+        }
+    );
 
-        const preview = await fixture.runtime.linkPreview(
-            slate.id,
-            capability,
-            exposureId,
-            version.id
-        );
+    test(
+        "persists validated exact preview capability and exposure references",
+        { tags: "p1" },
+        async () => {
+            const fixture = runtimeFixture("preview");
+            const slate = await fixture.runtime.create(fixture.workspace, ref("working"));
+            const version = await fixture.runtime.commit(slate.id);
+            const capability = sessionCapability("valid", 3, 7);
+            const exposureId = new PortExposureId("exposure-valid");
 
-        expect(preview.environmentId.equals(capability.environmentId)).toBe(true);
-        expect(preview.sessionId.equals(capability.sessionId)).toBe(true);
-        expect(preview.environmentRevision.equals(capability.environmentRevision)).toBe(true);
-        expect(preview.sessionEpoch).toBe(capability.epoch);
-        expect(preview.exposureId.equals(exposureId)).toBe(true);
-        expect(fixture.previews.requests[0]).toBe(fixture.mutations.requests.at(-1));
-    });
+            const preview = await fixture.runtime.linkPreview(
+                slate.id,
+                capability,
+                exposureId,
+                version.id
+            );
+
+            expect(preview.environmentId.equals(capability.environmentId)).toBe(true);
+            expect(preview.sessionId.equals(capability.sessionId)).toBe(true);
+            expect(preview.environmentRevision.equals(capability.environmentRevision)).toBe(true);
+            expect(preview.sessionEpoch).toBe(capability.epoch);
+            expect(preview.exposureId.equals(exposureId)).toBe(true);
+            expect(fixture.previews.requests[0]).toBe(fixture.mutations.requests.at(-1));
+        }
+    );
 
     test.each([
         ["stale", "environment.stale-session"],
         ["invalid", "environment.invalid-session"]
-    ] as const)("denies %s preview references before persistence", { tags: "p1" }, async (_name, code) => {
-        const fixture = runtimeFixture(`preview-${code}`);
-        const slate = await fixture.runtime.create(fixture.workspace, ref("working"));
-        fixture.previews.denial = new AgentCoreError(code, "preview denied");
+    ] as const)(
+        "denies %s preview references before persistence",
+        { tags: "p1" },
+        async (_name, code) => {
+            const fixture = runtimeFixture(`preview-${code}`);
+            const slate = await fixture.runtime.create(fixture.workspace, ref("working"));
+            fixture.previews.denial = new AgentCoreError(code, "preview denied");
 
-        await expect(
-            fixture.runtime.linkPreview(
-                slate.id,
-                sessionCapability(code, 1, 2),
-                new PortExposureId(`exposure-${code}`)
-            )
-        ).rejects.toMatchObject({ code });
-        expect(fixture.store.listPreviews(slate.id)).toEqual([]);
-        expect(
-            fixture.mutations.requests.some((request) => request.operation === "preview.link")
-        ).toBe(false);
-    });
-
-    test("[P11-SLATE-ROLLBACK-POINTER] rolls back by local active-pointer selection without provider or invocation calls", { tags: "p0" }, async () => {
-        const fixture = runtimeFixture("rollback");
-        const { slate, publication } = await publishedSlate(fixture);
-        const first = await fixture.runtime.deploy(publication.id, "first", "external-5");
-        const second = await fixture.runtime.deploy(publication.id, "second", "external-6");
-        if (first.outcome !== "succeeded" || second.outcome !== "succeeded") {
-            throw new TypeError("Expected successful deploys");
+            await expect(
+                fixture.runtime.linkPreview(
+                    slate.id,
+                    sessionCapability(code, 1, 2),
+                    new PortExposureId(`exposure-${code}`)
+                )
+            ).rejects.toMatchObject({ code });
+            expect(fixture.store.listPreviews(slate.id)).toEqual([]);
+            expect(
+                fixture.mutations.requests.some((request) => request.operation === "preview.link")
+            ).toBe(false);
         }
-        const providerCalls = fixture.provider.totalCalls;
-        const prepared = fixture.invocations.prepared.length;
+    );
 
-        const rolledBack = await fixture.runtime.rollback(slate.id, first.deployment.id);
+    test(
+        "[P11-SLATE-ROLLBACK-POINTER] rolls back by local active-pointer selection without provider or invocation calls",
+        { tags: "p0" },
+        async () => {
+            const fixture = runtimeFixture("rollback");
+            const { slate, publication } = await publishedSlate(fixture);
+            const first = await fixture.runtime.deploy(publication.id, "first", "external-5");
+            const second = await fixture.runtime.deploy(publication.id, "second", "external-6");
+            if (first.outcome !== "succeeded" || second.outcome !== "succeeded") {
+                throw new TypeError("Expected successful deploys");
+            }
+            const providerCalls = fixture.provider.totalCalls;
+            const prepared = fixture.invocations.prepared.length;
 
-        expect(rolledBack.activeDeploymentId?.equals(first.deployment.id)).toBe(true);
-        expect(fixture.provider.totalCalls).toBe(providerCalls);
-        expect(fixture.invocations.prepared).toHaveLength(prepared);
-    });
+            const rolledBack = await fixture.runtime.rollback(slate.id, first.deployment.id);
 
-    test("rejects stale mutations and preserves only the concurrent winner", { tags: "p0" }, async () => {
-        const fixture = runtimeFixture("stale-update");
-        const slate = await fixture.runtime.create(fixture.workspace, ref("initial"));
-        fixture.mutations.beforeMutation = (request) => {
-            if (request.operation !== "update") return;
-            const current = fixture.store.getSlate(slate.id)!;
-            fixture.store.compareAndSetSlate(current.revision, current.update(ref("winner")));
-        };
-
-        await expect(
-            fixture.runtime.update(slate.id, ref("loser"), slate.revision)
-        ).rejects.toEqual(
-            new AgentCoreError(
-                "protocol.revision-conflict",
-                `Slate ${slate.id.value} revision or active deployment changed`
-            )
-        );
-        expect(fixture.store.getSlate(slate.id)?.source.equals(ref("winner"))).toBe(true);
-        expect(fixture.store.listSlateHistory(slate.id)).toHaveLength(2);
-        await expect(fixture.runtime.commit(slate.id, Revision.initial())).rejects.toEqual(
-            new AgentCoreError(
-                "protocol.revision-conflict",
-                `Slate ${slate.id.value} revision or active deployment changed`
-            )
-        );
-    });
-
-    test("rejects cross-Slate previews and stale or cross-Slate rollbacks", { tags: "p0" }, async () => {
-        const fixture = runtimeFixture("rollback-validation");
-        const { slate, publication } = await publishedSlate(fixture);
-        const other = await fixture.runtime.create(fixture.workspace, ref("other"));
-        const otherVersion = await fixture.runtime.commit(other.id);
-        await expect(
-            fixture.runtime.linkPreview(
-                slate.id,
-                sessionCapability("foreign-version", 0, 0),
-                new PortExposureId("exposure-foreign-version"),
-                otherVersion.id
-            )
-        ).rejects.toEqual(
-            new AgentCoreError(
-                "slate.invalid-version",
-                "Slate preview version belongs to another Slate"
-            )
-        );
-
-        const first = await fixture.runtime.deploy(publication.id, "first", "external-7");
-        const second = await fixture.runtime.deploy(publication.id, "second", "external-8");
-        if (first.outcome !== "succeeded" || second.outcome !== "succeeded") {
-            throw new TypeError("Expected successful deployments");
+            expect(rolledBack.activeDeploymentId?.equals(first.deployment.id)).toBe(true);
+            expect(fixture.provider.totalCalls).toBe(providerCalls);
+            expect(fixture.invocations.prepared).toHaveLength(prepared);
         }
-        await expect(fixture.runtime.rollback(other.id, first.deployment.id)).rejects.toEqual(
-            new AgentCoreError(
-                "operation.invalid-input",
-                "Rollback deployment belongs to another Slate"
-            )
-        );
-        await expect(
-            fixture.runtime.rollback(slate.id, first.deployment.id, first.deployment.id)
-        ).rejects.toEqual(
-            new AgentCoreError(
-                "protocol.revision-conflict",
-                `Slate ${slate.id.value} revision or active deployment changed`
-            )
-        );
-        expect(
-            fixture.store.getSlate(slate.id)?.activeDeploymentId?.equals(second.deployment.id)
-        ).toBe(true);
-    });
+    );
 
-    test("rejects unknown reconciliation IDs and malformed mediated results", { tags: "p1" }, async () => {
-        const fixture = runtimeFixture("malformed-results");
-        const { publication } = await publishedSlate(fixture);
-        await expect(
-            fixture.runtime.reconcileDeployment(new SlateDeploymentId("deployment-unknown"))
-        ).rejects.toEqual(
-            new AgentCoreError(
-                "operation.invalid-input",
-                "Slate deployment deployment-unknown is unknown"
-            )
-        );
-        await expect(
-            fixture.runtime.reconcileResource(new SlateResourceId("resource-unknown"))
-        ).rejects.toEqual(
-            new AgentCoreError(
-                "operation.invalid-input",
-                "Slate resource resource-unknown is unknown"
-            )
-        );
+    test(
+        "rejects stale mutations and preserves only the concurrent winner",
+        { tags: "p0" },
+        async () => {
+            const fixture = runtimeFixture("stale-update");
+            const slate = await fixture.runtime.create(fixture.workspace, ref("initial"));
+            fixture.mutations.beforeMutation = (request) => {
+                if (request.operation !== "update") return;
+                const current = fixture.store.getSlate(slate.id)!;
+                fixture.store.compareAndSetSlate(current.revision, current.update(ref("winner")));
+            };
 
-        fixture.invocations.resultOverride = null;
-        await expect(
-            fixture.runtime.deploy(publication.id, "invalid-invocation", "external-9")
-        ).rejects.toEqual(
-            new AgentCoreError("invocation.invalid", "Slate invocation result is malformed")
-        );
-        fixture.invocations.resultOverride = {
-            outcome: "failed",
-            receiptId: new ReceiptId("receipt-invalid-shape"),
-            unexpected: true
-        };
-        await expect(
-            fixture.runtime.deploy(publication.id, "invalid-invocation-shape", "external-10")
-        ).rejects.toEqual(
-            new AgentCoreError("invocation.invalid", "Slate invocation result is malformed")
-        );
-        fixture.invocations.resultOverride = undefined;
-        fixture.provider.deploymentResult = {
-            materialization: ref("provider-result"),
-            unexpected: true
-        };
-        await expect(
-            fixture.runtime.deploy(publication.id, "invalid-provider", "external-11")
-        ).rejects.toEqual(
-            new AgentCoreError(
-                "operation.invalid-output",
-                "Slate provider deployment result is malformed"
-            )
-        );
-    });
+            await expect(
+                fixture.runtime.update(slate.id, ref("loser"), slate.revision)
+            ).rejects.toEqual(
+                new AgentCoreError(
+                    "protocol.revision-conflict",
+                    `Slate ${slate.id.value} revision or active deployment changed`
+                )
+            );
+            expect(fixture.store.getSlate(slate.id)?.source.equals(ref("winner"))).toBe(true);
+            expect(fixture.store.listSlateHistory(slate.id)).toHaveLength(2);
+            await expect(fixture.runtime.commit(slate.id, Revision.initial())).rejects.toEqual(
+                new AgentCoreError(
+                    "protocol.revision-conflict",
+                    `Slate ${slate.id.value} revision or active deployment changed`
+                )
+            );
+        }
+    );
+
+    test(
+        "rejects cross-Slate previews and stale or cross-Slate rollbacks",
+        { tags: "p0" },
+        async () => {
+            const fixture = runtimeFixture("rollback-validation");
+            const { slate, publication } = await publishedSlate(fixture);
+            const other = await fixture.runtime.create(fixture.workspace, ref("other"));
+            const otherVersion = await fixture.runtime.commit(other.id);
+            await expect(
+                fixture.runtime.linkPreview(
+                    slate.id,
+                    sessionCapability("foreign-version", 0, 0),
+                    new PortExposureId("exposure-foreign-version"),
+                    otherVersion.id
+                )
+            ).rejects.toEqual(
+                new AgentCoreError(
+                    "slate.invalid-version",
+                    "Slate preview version belongs to another Slate"
+                )
+            );
+
+            const first = await fixture.runtime.deploy(publication.id, "first", "external-7");
+            const second = await fixture.runtime.deploy(publication.id, "second", "external-8");
+            if (first.outcome !== "succeeded" || second.outcome !== "succeeded") {
+                throw new TypeError("Expected successful deployments");
+            }
+            await expect(fixture.runtime.rollback(other.id, first.deployment.id)).rejects.toEqual(
+                new AgentCoreError(
+                    "operation.invalid-input",
+                    "Rollback deployment belongs to another Slate"
+                )
+            );
+            await expect(
+                fixture.runtime.rollback(slate.id, first.deployment.id, first.deployment.id)
+            ).rejects.toEqual(
+                new AgentCoreError(
+                    "protocol.revision-conflict",
+                    `Slate ${slate.id.value} revision or active deployment changed`
+                )
+            );
+            expect(
+                fixture.store.getSlate(slate.id)?.activeDeploymentId?.equals(second.deployment.id)
+            ).toBe(true);
+        }
+    );
+
+    test(
+        "rejects unknown reconciliation IDs and malformed mediated results",
+        { tags: "p1" },
+        async () => {
+            const fixture = runtimeFixture("malformed-results");
+            const { publication } = await publishedSlate(fixture);
+            await expect(
+                fixture.runtime.reconcileDeployment(new SlateDeploymentId("deployment-unknown"))
+            ).rejects.toEqual(
+                new AgentCoreError(
+                    "operation.invalid-input",
+                    "Slate deployment deployment-unknown is unknown"
+                )
+            );
+            await expect(
+                fixture.runtime.reconcileResource(new SlateResourceId("resource-unknown"))
+            ).rejects.toEqual(
+                new AgentCoreError(
+                    "operation.invalid-input",
+                    "Slate resource resource-unknown is unknown"
+                )
+            );
+
+            fixture.invocations.resultOverride = null;
+            await expect(
+                fixture.runtime.deploy(publication.id, "invalid-invocation", "external-9")
+            ).rejects.toEqual(
+                new AgentCoreError("invocation.invalid", "Slate invocation result is malformed")
+            );
+            fixture.invocations.resultOverride = {
+                outcome: "failed",
+                receiptId: new ReceiptId("receipt-invalid-shape"),
+                unexpected: true
+            };
+            await expect(
+                fixture.runtime.deploy(publication.id, "invalid-invocation-shape", "external-10")
+            ).rejects.toEqual(
+                new AgentCoreError("invocation.invalid", "Slate invocation result is malformed")
+            );
+            fixture.invocations.resultOverride = undefined;
+            fixture.provider.deploymentResult = {
+                materialization: ref("provider-result"),
+                unexpected: true
+            };
+            await expect(
+                fixture.runtime.deploy(publication.id, "invalid-provider", "external-11")
+            ).rejects.toEqual(
+                new AgentCoreError(
+                    "operation.invalid-output",
+                    "Slate provider deployment result is malformed"
+                )
+            );
+        }
+    );
 
     test("codes missing Slate operation targets", { tags: "p1" }, async () => {
         const fixture = runtimeFixture("missing-targets");
@@ -456,292 +523,363 @@ describe("SlateRuntime", () => {
         );
     });
 
-    test("[P11-SLATE-SOURCE] preserves content-addressed source and immutable version lineage", { tags: "p0" }, async () => {
-        expect(() => new MemorySlateIdSource(" ")).toThrow(TypeError);
-        const fixture = runtimeFixture("completed-replay");
-        const slate = await fixture.runtime.create(fixture.workspace, ref("first"));
-        const firstVersion = await fixture.runtime.commit(slate.id);
-        await fixture.runtime.update(slate.id, ref("second"));
-        const secondVersion = await fixture.runtime.commit(slate.id);
-        expect(secondVersion.parentVersionId?.equals(firstVersion.id)).toBe(true);
+    test(
+        "[P11-SLATE-SOURCE] preserves content-addressed source and immutable version lineage",
+        { tags: "p0" },
+        async () => {
+            expect(() => new MemorySlateIdSource(" ")).toThrow(TypeError);
+            const fixture = runtimeFixture("completed-replay");
+            const slate = await fixture.runtime.create(fixture.workspace, ref("first"));
+            const firstVersion = await fixture.runtime.commit(slate.id);
+            await fixture.runtime.update(slate.id, ref("second"));
+            const secondVersion = await fixture.runtime.commit(slate.id);
+            expect(secondVersion.parentVersionId?.equals(firstVersion.id)).toBe(true);
 
-        const publication = await fixture.runtime.publish(secondVersion.id, ref("publication"), []);
-        const deployed = await fixture.runtime.deploy(publication.id, "production", "external-12");
-        if (deployed.outcome !== "succeeded") throw new TypeError("Expected successful deployment");
-        const replayedDeployment = await fixture.runtime.reconcileDeployment(
-            deployed.deployment.id
-        );
-        expect(replayedDeployment.outcome).toBe("succeeded");
+            const publication = await fixture.runtime.publish(
+                secondVersion.id,
+                ref("publication"),
+                []
+            );
+            const deployed = await fixture.runtime.deploy(
+                publication.id,
+                "production",
+                "external-12"
+            );
+            if (deployed.outcome !== "succeeded")
+                throw new TypeError("Expected successful deployment");
+            const replayedDeployment = await fixture.runtime.reconcileDeployment(
+                deployed.deployment.id
+            );
+            expect(replayedDeployment.outcome).toBe("succeeded");
 
-        const resource = await fixture.runtime.materializeResource(
-            deployed.deployment.id,
-            "database",
-            ref("schema")
-        );
-        if (resource.outcome !== "succeeded") throw new TypeError("Expected successful resource");
-        const replayedResource = await fixture.runtime.reconcileResource(resource.resource.id);
-        expect(replayedResource.outcome).toBe("succeeded");
+            const resource = await fixture.runtime.materializeResource(
+                deployed.deployment.id,
+                "database",
+                ref("schema")
+            );
+            if (resource.outcome !== "succeeded")
+                throw new TypeError("Expected successful resource");
+            const replayedResource = await fixture.runtime.reconcileResource(resource.resource.id);
+            expect(replayedResource.outcome).toBe("succeeded");
 
-        const fork = await fixture.runtime.fork(secondVersion.id, fixture.workspace);
-        await fixture.runtime.commit(fork.id);
-        expect(fixture.store.getSlate(fork.id)?.forkedFrom).toEqual(fork.forkedFrom);
-    });
-
-    test("retains failed deployment and resource reservations for deterministic replay", { tags: "p0" }, async () => {
-        const fixture = runtimeFixture("failed-effects");
-        const { publication } = await publishedSlate(fixture);
-        fixture.invocations.invokeOutcomes.push("failed");
-        const failedDeployment = await fixture.runtime.deploy(
-            publication.id,
-            "failed-target",
-            "external-13"
-        );
-        expect(failedDeployment.outcome).toBe("failed");
-        if (failedDeployment.outcome === "succeeded")
-            throw new TypeError("Expected failed deployment");
-        expect(fixture.store.getDeploymentReservation(failedDeployment.deploymentId)).toBeDefined();
-        expect(fixture.store.getDeployment(failedDeployment.deploymentId)).toBeUndefined();
-
-        const deployed = await fixture.runtime.deploy(
-            publication.id,
-            "resource-host",
-            "external-14"
-        );
-        if (deployed.outcome !== "succeeded") throw new TypeError("Expected successful deployment");
-        fixture.invocations.invokeOutcomes.push("failed");
-        const failedResource = await fixture.runtime.materializeResource(
-            deployed.deployment.id,
-            "database",
-            ref("schema")
-        );
-        expect(failedResource.outcome).toBe("failed");
-        if (failedResource.outcome === "succeeded") throw new TypeError("Expected failed resource");
-        expect(fixture.store.getResourceReservation(failedResource.resourceId)).toBeDefined();
-        expect(fixture.store.getResource(failedResource.resourceId)).toBeUndefined();
-    });
-
-    test("advances retry ordinal without changing the invocation item key", { tags: "p0" }, async () => {
-        const fixture = runtimeFixture("retry-ordinal");
-        const { publication } = await publishedSlate(fixture);
-        fixture.invocations.invokeOutcomes.push("failed");
-        const failed = await fixture.runtime.deploy(publication.id, "retry-target", "external-15");
-        if (failed.outcome === "succeeded") throw new TypeError("Expected failed deployment");
-        const reservation = fixture.store.getDeploymentReservation(failed.deploymentId)!;
-        const itemKey = fixture.invocations.itemKey(reservation.invocationId);
-        expect(itemKey).toBeDefined();
-        expect(fixture.provider.deployRequests).toHaveLength(0);
-
-        const retried = await fixture.runtime.reconcileDeployment(failed.deploymentId);
-        expect(retried.outcome).toBe("succeeded");
-        const request = fixture.provider.reconcileDeploymentRequests[0]!;
-        expect(request.effectContext.invocationId.equals(reservation.invocationId)).toBe(true);
-        expect(request.effectContext.itemIndex).toBe(0);
-        expect(request.effectContext.attemptOrdinal).toBe(1);
-        expect(request.idempotencyKey).toBe(itemKey);
-    });
-
-    test("rejects missing, changed-key, and wrong-Invocation effect contexts", { tags: "p0" }, async () => {
-        const missing = runtimeFixture("missing-context");
-        const { publication: missingPublication } = await publishedSlate(missing);
-        missing.invocations.nextContextOverride = null;
-        await expect(
-            missing.runtime.deploy(missingPublication.id, "missing-context", "external-16")
-        ).rejects.toEqual(
-            new AgentCoreError(
-                "invocation.invalid",
-                "Slate effect context does not match its Invocation"
-            )
-        );
-        expect(missing.provider.deployRequests).toHaveLength(0);
-
-        const changed = runtimeFixture("changed-context");
-        const { publication } = await publishedSlate(changed);
-        changed.invocations.invokeOutcomes.push("indeterminate");
-        const uncertain = await changed.runtime.deploy(
-            publication.id,
-            "changed-key",
-            "external-17"
-        );
-        if (uncertain.outcome === "succeeded")
-            throw new TypeError("Expected indeterminate deployment");
-        const reservation = changed.store.getDeploymentReservation(uncertain.deploymentId)!;
-        const initial = changed.provider.deployRequests[0]!.effectContext;
-        changed.invocations.nextContextOverride = new SlateEffectContext(
-            reservation.invocationId,
-            initial.itemIndex,
-            initial.attemptOrdinal,
-            `${initial.idempotencyKey}:changed`
-        );
-        await expect(changed.runtime.reconcileDeployment(uncertain.deploymentId)).rejects.toEqual(
-            new AgentCoreError(
-                "invocation.invalid",
-                "Slate effect context changed its invocation item identity"
-            )
-        );
-        expect(changed.provider.reconcileDeploymentRequests).toHaveLength(0);
-
-        changed.invocations.nextContextOverride = new SlateEffectContext(
-            new InvocationId("invocation-wrong-context"),
-            initial.itemIndex,
-            initial.attemptOrdinal,
-            initial.idempotencyKey
-        );
-        await expect(changed.runtime.reconcileDeployment(uncertain.deploymentId)).rejects.toEqual(
-            new AgentCoreError(
-                "invocation.invalid",
-                "Slate effect context does not match its Invocation"
-            )
-        );
-        expect(changed.provider.reconcileDeploymentRequests).toHaveLength(0);
-    });
-
-    test("reports every Slate head CAS loser without replacing the concurrent winner", { tags: "p0" }, async () => {
-        const updateStore = new RejectingSlateStore(recordingCustody());
-        const update = runtimeFixture("cas-update", updateStore);
-        const updateSlate = await update.runtime.create(update.workspace, ref("initial"));
-        updateStore.rejectNextCas = true;
-        await expect(update.runtime.update(updateSlate.id, ref("loser"))).rejects.toMatchObject({
-            code: "protocol.revision-conflict"
-        });
-
-        const commitStore = new RejectingSlateStore(recordingCustody());
-        const commit = runtimeFixture("cas-commit", commitStore);
-        const commitSlate = await commit.runtime.create(commit.workspace, ref("source"));
-        commitStore.rejectNextCas = true;
-        await expect(commit.runtime.commit(commitSlate.id)).rejects.toMatchObject({
-            code: "protocol.revision-conflict"
-        });
-
-        const publishStore = new RejectingSlateStore(recordingCustody());
-        const publish = runtimeFixture("cas-publish", publishStore);
-        const publishSlate = await publish.runtime.create(publish.workspace, ref("source"));
-        const version = await publish.runtime.commit(publishSlate.id);
-        publishStore.rejectNextCas = true;
-        await expect(publish.runtime.publish(version.id, ref("publication"), [])).rejects.toMatchObject(
-            {
-                code: "protocol.revision-conflict"
-            }
-        );
-
-        const rollbackStore = new RejectingSlateStore(recordingCustody());
-        const rollback = runtimeFixture("cas-rollback", rollbackStore);
-        const { slate, publication } = await publishedSlate(rollback);
-        const firstDeployment = await rollback.runtime.deploy(
-            publication.id,
-            "first",
-            "external-18"
-        );
-        const secondDeployment = await rollback.runtime.deploy(
-            publication.id,
-            "second",
-            "external-19"
-        );
-        if (firstDeployment.outcome !== "succeeded" || secondDeployment.outcome !== "succeeded") {
-            throw new TypeError("Expected deployments");
+            const fork = await fixture.runtime.fork(secondVersion.id, fixture.workspace);
+            await fixture.runtime.commit(fork.id);
+            expect(fixture.store.getSlate(fork.id)?.forkedFrom).toEqual(fork.forkedFrom);
         }
-        rollbackStore.rejectNextCas = true;
-        await expect(
-            rollback.runtime.rollback(slate.id, firstDeployment.deployment.id)
-        ).rejects.toMatchObject({ code: "protocol.revision-conflict" });
-    });
+    );
 
-    test("retains effect reservations when deployment and resource providers fail", { tags: "p0" }, async () => {
-        const deployment = runtimeFixture("provider-deployment-failure");
-        const { publication } = await publishedSlate(deployment);
-        deployment.provider.throwDeployment = true;
-        await expect(
-            deployment.runtime.deploy(publication.id, "production", "external-20")
-        ).rejects.toThrow(/deployment provider failed/);
-        expect(deployment.store.snapshot().deploymentReservations).toHaveLength(1);
-        expect(deployment.store.snapshot().deployments).toHaveLength(0);
+    test(
+        "retains failed deployment and resource reservations for deterministic replay",
+        { tags: "p0" },
+        async () => {
+            const fixture = runtimeFixture("failed-effects");
+            const { publication } = await publishedSlate(fixture);
+            fixture.invocations.invokeOutcomes.push("failed");
+            const failedDeployment = await fixture.runtime.deploy(
+                publication.id,
+                "failed-target",
+                "external-13"
+            );
+            expect(failedDeployment.outcome).toBe("failed");
+            if (failedDeployment.outcome === "succeeded")
+                throw new TypeError("Expected failed deployment");
+            expect(
+                fixture.store.getDeploymentReservation(failedDeployment.deploymentId)
+            ).toBeDefined();
+            expect(fixture.store.getDeployment(failedDeployment.deploymentId)).toBeUndefined();
 
-        const resource = runtimeFixture("provider-resource-failure");
-        const published = await publishedSlate(resource);
-        const deployed = await resource.runtime.deploy(
-            published.publication.id,
-            "production",
-            "external-21"
-        );
-        if (deployed.outcome !== "succeeded") throw new TypeError("Expected deployment");
-        resource.provider.throwResource = true;
-        await expect(
-            resource.runtime.materializeResource(deployed.deployment.id, "database", ref("schema"))
-        ).rejects.toThrow(/resource provider failed/);
-        expect(resource.store.snapshot().resourceReservations).toHaveLength(1);
-        expect(resource.store.snapshot().resources).toHaveLength(0);
-    });
+            const deployed = await fixture.runtime.deploy(
+                publication.id,
+                "resource-host",
+                "external-14"
+            );
+            if (deployed.outcome !== "succeeded")
+                throw new TypeError("Expected successful deployment");
+            fixture.invocations.invokeOutcomes.push("failed");
+            const failedResource = await fixture.runtime.materializeResource(
+                deployed.deployment.id,
+                "database",
+                ref("schema")
+            );
+            expect(failedResource.outcome).toBe("failed");
+            if (failedResource.outcome === "succeeded")
+                throw new TypeError("Expected failed resource");
+            expect(fixture.store.getResourceReservation(failedResource.resourceId)).toBeDefined();
+            expect(fixture.store.getResource(failedResource.resourceId)).toBeUndefined();
+        }
+    );
 
-    test("rejects malformed resource output and stale preview persistence", { tags: "p1" }, async () => {
-        const resource = runtimeFixture("malformed-resource");
-        const { publication } = await publishedSlate(resource);
-        const deployed = await resource.runtime.deploy(publication.id, "production", "external-22");
-        if (deployed.outcome !== "succeeded") throw new TypeError("Expected deployment");
-        resource.provider.resourceResult = { materialization: ref("resource"), extra: true };
-        await expect(
-            resource.runtime.materializeResource(deployed.deployment.id, "database", ref("schema"))
-        ).rejects.toMatchObject({ code: "operation.invalid-output" });
+    test(
+        "advances retry ordinal without changing the invocation item key",
+        { tags: "p0" },
+        async () => {
+            const fixture = runtimeFixture("retry-ordinal");
+            const { publication } = await publishedSlate(fixture);
+            fixture.invocations.invokeOutcomes.push("failed");
+            const failed = await fixture.runtime.deploy(
+                publication.id,
+                "retry-target",
+                "external-15"
+            );
+            if (failed.outcome === "succeeded") throw new TypeError("Expected failed deployment");
+            const reservation = fixture.store.getDeploymentReservation(failed.deploymentId)!;
+            const itemKey = fixture.invocations.itemKey(reservation.invocationId);
+            expect(itemKey).toBeDefined();
+            expect(fixture.provider.deployRequests).toHaveLength(0);
 
-        const preview = runtimeFixture("stale-preview");
-        const slate = await preview.runtime.create(preview.workspace, ref("preview"));
-        preview.mutations.beforeMutation = (request) => {
-            if (request.operation !== "preview.link") return;
-            const current = preview.store.getSlate(slate.id)!;
-            preview.store.compareAndSetSlate(current.revision, current.update(ref("winner")));
-        };
-        await expect(
-            preview.runtime.linkPreview(
-                slate.id,
-                sessionCapability("stale-preview", 0, 0),
-                new PortExposureId("exposure-stale-preview")
-            )
-        ).rejects.toMatchObject({ code: "protocol.revision-conflict" });
-        expect(preview.store.listPreviews(slate.id)).toEqual([]);
-    });
+            const retried = await fixture.runtime.reconcileDeployment(failed.deploymentId);
+            expect(retried.outcome).toBe("succeeded");
+            const request = fixture.provider.reconcileDeploymentRequests[0]!;
+            expect(request.effectContext.invocationId.equals(reservation.invocationId)).toBe(true);
+            expect(request.effectContext.itemIndex).toBe(0);
+            expect(request.effectContext.attemptOrdinal).toBe(1);
+            expect(request.idempotencyKey).toBe(itemKey);
+        }
+    );
 
-    test("rejects colliding fork IDs and all malformed invocation result shapes", { tags: "p1" }, async () => {
-        const fixture = runtimeFixture("fork-duplicate");
-        const { version, publication } = await publishedSlate(fixture);
-        await fixture.runtime.create(fixture.workspace, ref("collision"));
-        const ids = new MemorySlateIdSource("fork-duplicate");
-        ids.allocateSlateId();
-        ids.allocateVersionId();
-        ids.allocatePublicationId();
-        const colliding = new SlateRuntime(
-            fixture.store,
-            fixture.provider,
-            fixture.mutations,
-            fixture.invocations,
-            fixture.previews,
-            ids
-        );
-        await expect(colliding.fork(version.id, fixture.workspace)).rejects.toMatchObject({
-            code: "protocol.duplicate"
-        });
-
-        let malformedIndex = 0;
-        for (const malformed of [
-            { outcome: "succeeded", receiptId: new ReceiptId("receipt-missing-value") },
-            {
-                outcome: "failed",
-                receiptId: new ReceiptId("receipt-failed-value"),
-                value: { materialization: ref("unexpected") }
-            },
-            { outcome: "unknown", receiptId: new ReceiptId("receipt-unknown") },
-            { outcome: "failed", receiptId: "not-a-receipt" }
-        ]) {
-            fixture.invocations.resultOverride = malformed;
-            malformedIndex += 1;
+    test(
+        "rejects missing, changed-key, and wrong-Invocation effect contexts",
+        { tags: "p0" },
+        async () => {
+            const missing = runtimeFixture("missing-context");
+            const { publication: missingPublication } = await publishedSlate(missing);
+            missing.invocations.nextContextOverride = null;
             await expect(
-                fixture.runtime.deploy(
-                    publication.id,
-                    "malformed",
-                    `external-malformed-${malformedIndex}`
+                missing.runtime.deploy(missingPublication.id, "missing-context", "external-16")
+            ).rejects.toEqual(
+                new AgentCoreError(
+                    "invocation.invalid",
+                    "Slate effect context does not match its Invocation"
                 )
-            ).rejects.toMatchObject({
-                code: "invocation.invalid"
-            });
+            );
+            expect(missing.provider.deployRequests).toHaveLength(0);
+
+            const changed = runtimeFixture("changed-context");
+            const { publication } = await publishedSlate(changed);
+            changed.invocations.invokeOutcomes.push("indeterminate");
+            const uncertain = await changed.runtime.deploy(
+                publication.id,
+                "changed-key",
+                "external-17"
+            );
+            if (uncertain.outcome === "succeeded")
+                throw new TypeError("Expected indeterminate deployment");
+            const reservation = changed.store.getDeploymentReservation(uncertain.deploymentId)!;
+            const initial = changed.provider.deployRequests[0]!.effectContext;
+            changed.invocations.nextContextOverride = new SlateEffectContext(
+                reservation.invocationId,
+                initial.itemIndex,
+                initial.attemptOrdinal,
+                `${initial.idempotencyKey}:changed`
+            );
+            await expect(
+                changed.runtime.reconcileDeployment(uncertain.deploymentId)
+            ).rejects.toEqual(
+                new AgentCoreError(
+                    "invocation.invalid",
+                    "Slate effect context changed its invocation item identity"
+                )
+            );
+            expect(changed.provider.reconcileDeploymentRequests).toHaveLength(0);
+
+            changed.invocations.nextContextOverride = new SlateEffectContext(
+                new InvocationId("invocation-wrong-context"),
+                initial.itemIndex,
+                initial.attemptOrdinal,
+                initial.idempotencyKey
+            );
+            await expect(
+                changed.runtime.reconcileDeployment(uncertain.deploymentId)
+            ).rejects.toEqual(
+                new AgentCoreError(
+                    "invocation.invalid",
+                    "Slate effect context does not match its Invocation"
+                )
+            );
+            expect(changed.provider.reconcileDeploymentRequests).toHaveLength(0);
         }
-    });
+    );
+
+    test(
+        "reports every Slate head CAS loser without replacing the concurrent winner",
+        { tags: "p0" },
+        async () => {
+            const updateStore = new RejectingSlateStore(recordingCustody());
+            const update = runtimeFixture("cas-update", updateStore);
+            const updateSlate = await update.runtime.create(update.workspace, ref("initial"));
+            updateStore.rejectNextCas = true;
+            await expect(update.runtime.update(updateSlate.id, ref("loser"))).rejects.toMatchObject(
+                {
+                    code: "protocol.revision-conflict"
+                }
+            );
+
+            const commitStore = new RejectingSlateStore(recordingCustody());
+            const commit = runtimeFixture("cas-commit", commitStore);
+            const commitSlate = await commit.runtime.create(commit.workspace, ref("source"));
+            commitStore.rejectNextCas = true;
+            await expect(commit.runtime.commit(commitSlate.id)).rejects.toMatchObject({
+                code: "protocol.revision-conflict"
+            });
+
+            const publishStore = new RejectingSlateStore(recordingCustody());
+            const publish = runtimeFixture("cas-publish", publishStore);
+            const publishSlate = await publish.runtime.create(publish.workspace, ref("source"));
+            const version = await publish.runtime.commit(publishSlate.id);
+            publishStore.rejectNextCas = true;
+            await expect(
+                publish.runtime.publish(version.id, ref("publication"), [])
+            ).rejects.toMatchObject({
+                code: "protocol.revision-conflict"
+            });
+
+            const rollbackStore = new RejectingSlateStore(recordingCustody());
+            const rollback = runtimeFixture("cas-rollback", rollbackStore);
+            const { slate, publication } = await publishedSlate(rollback);
+            const firstDeployment = await rollback.runtime.deploy(
+                publication.id,
+                "first",
+                "external-18"
+            );
+            const secondDeployment = await rollback.runtime.deploy(
+                publication.id,
+                "second",
+                "external-19"
+            );
+            if (
+                firstDeployment.outcome !== "succeeded" ||
+                secondDeployment.outcome !== "succeeded"
+            ) {
+                throw new TypeError("Expected deployments");
+            }
+            rollbackStore.rejectNextCas = true;
+            await expect(
+                rollback.runtime.rollback(slate.id, firstDeployment.deployment.id)
+            ).rejects.toMatchObject({ code: "protocol.revision-conflict" });
+        }
+    );
+
+    test(
+        "retains effect reservations when deployment and resource providers fail",
+        { tags: "p0" },
+        async () => {
+            const deployment = runtimeFixture("provider-deployment-failure");
+            const { publication } = await publishedSlate(deployment);
+            deployment.provider.throwDeployment = true;
+            await expect(
+                deployment.runtime.deploy(publication.id, "production", "external-20")
+            ).rejects.toThrow(/deployment provider failed/);
+            expect(deployment.store.snapshot().deploymentReservations).toHaveLength(1);
+            expect(deployment.store.snapshot().deployments).toHaveLength(0);
+
+            const resource = runtimeFixture("provider-resource-failure");
+            const published = await publishedSlate(resource);
+            const deployed = await resource.runtime.deploy(
+                published.publication.id,
+                "production",
+                "external-21"
+            );
+            if (deployed.outcome !== "succeeded") throw new TypeError("Expected deployment");
+            resource.provider.throwResource = true;
+            await expect(
+                resource.runtime.materializeResource(
+                    deployed.deployment.id,
+                    "database",
+                    ref("schema")
+                )
+            ).rejects.toThrow(/resource provider failed/);
+            expect(resource.store.snapshot().resourceReservations).toHaveLength(1);
+            expect(resource.store.snapshot().resources).toHaveLength(0);
+        }
+    );
+
+    test(
+        "rejects malformed resource output and stale preview persistence",
+        { tags: "p1" },
+        async () => {
+            const resource = runtimeFixture("malformed-resource");
+            const { publication } = await publishedSlate(resource);
+            const deployed = await resource.runtime.deploy(
+                publication.id,
+                "production",
+                "external-22"
+            );
+            if (deployed.outcome !== "succeeded") throw new TypeError("Expected deployment");
+            resource.provider.resourceResult = { materialization: ref("resource"), extra: true };
+            await expect(
+                resource.runtime.materializeResource(
+                    deployed.deployment.id,
+                    "database",
+                    ref("schema")
+                )
+            ).rejects.toMatchObject({ code: "operation.invalid-output" });
+
+            const preview = runtimeFixture("stale-preview");
+            const slate = await preview.runtime.create(preview.workspace, ref("preview"));
+            preview.mutations.beforeMutation = (request) => {
+                if (request.operation !== "preview.link") return;
+                const current = preview.store.getSlate(slate.id)!;
+                preview.store.compareAndSetSlate(current.revision, current.update(ref("winner")));
+            };
+            await expect(
+                preview.runtime.linkPreview(
+                    slate.id,
+                    sessionCapability("stale-preview", 0, 0),
+                    new PortExposureId("exposure-stale-preview")
+                )
+            ).rejects.toMatchObject({ code: "protocol.revision-conflict" });
+            expect(preview.store.listPreviews(slate.id)).toEqual([]);
+        }
+    );
+
+    test(
+        "rejects colliding fork IDs and all malformed invocation result shapes",
+        { tags: "p1" },
+        async () => {
+            const fixture = runtimeFixture("fork-duplicate");
+            const { version, publication } = await publishedSlate(fixture);
+            await fixture.runtime.create(fixture.workspace, ref("collision"));
+            const ids = new MemorySlateIdSource("fork-duplicate");
+            ids.allocateSlateId();
+            ids.allocateVersionId();
+            ids.allocatePublicationId();
+            const colliding = new SlateRuntime(
+                fixture.store,
+                fixture.provider,
+                fixture.mutations,
+                fixture.invocations,
+                fixture.previews,
+                ids
+            );
+            await expect(colliding.fork(version.id, fixture.workspace)).rejects.toMatchObject({
+                code: "protocol.duplicate"
+            });
+
+            let malformedIndex = 0;
+            for (const malformed of [
+                { outcome: "succeeded", receiptId: new ReceiptId("receipt-missing-value") },
+                {
+                    outcome: "failed",
+                    receiptId: new ReceiptId("receipt-failed-value"),
+                    value: { materialization: ref("unexpected") }
+                },
+                { outcome: "unknown", receiptId: new ReceiptId("receipt-unknown") },
+                { outcome: "failed", receiptId: "not-a-receipt" }
+            ]) {
+                fixture.invocations.resultOverride = malformed;
+                malformedIndex += 1;
+                await expect(
+                    fixture.runtime.deploy(
+                        publication.id,
+                        "malformed",
+                        `external-malformed-${malformedIndex}`
+                    )
+                ).rejects.toMatchObject({
+                    code: "invocation.invalid"
+                });
+            }
+        }
+    );
 
     test(
         "[C13-SLATE-SKELETON-CREDENTIAL-FREE] exports a skeleton a foreign Scope can read with no live credential and no resolvable reference",
@@ -794,7 +932,10 @@ describe("SlateRuntime", () => {
         { tags: "p0" },
         async () => {
             const fixture = runtimeFixture("skeleton-instantiate");
-            const slate = await fixture.runtime.create(fixture.workspace, ref("instantiate-source"));
+            const slate = await fixture.runtime.create(
+                fixture.workspace,
+                ref("instantiate-source")
+            );
             const version = await fixture.runtime.commit(slate.id);
             const publication = await fixture.runtime.publish(version.id, ref("published"), [
                 deployBinding,
@@ -847,9 +988,7 @@ describe("SlateRuntime", () => {
                 (request) => request.operation === "instantiate"
             );
             expect(intent).toBeDefined();
-            const canonical = object(
-                decodeCanonicalJson(canonicalSlateMutationRequest(intent!))
-            );
+            const canonical = object(decodeCanonicalJson(canonicalSlateMutationRequest(intent!)));
             expect(Object.keys(canonical)).toEqual([
                 "impact",
                 "operation",
@@ -898,9 +1037,7 @@ describe("SlateRuntime", () => {
             );
 
             // instantiate did not weaken fork: lineage still may not cross a Workspace.
-            await expect(
-                fixture.runtime.fork(version.id, importer.workspace)
-            ).rejects.toEqual(
+            await expect(fixture.runtime.fork(version.id, importer.workspace)).rejects.toEqual(
                 new AgentCoreError(
                     "operation.invalid-input",
                     "Slate forks must remain in the source Workspace"

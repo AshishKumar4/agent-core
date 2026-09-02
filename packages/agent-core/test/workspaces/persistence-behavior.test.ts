@@ -19,68 +19,80 @@ class DurableRetention implements ContentRetentionPort<MemoryWorkspaceRecords> {
 }
 
 describe("workspace persistence behavior", () => {
-    test("restarts from durable records and rejects duplicate and conflicting identities", { tags: "p0" }, () => {
-        const records = new MemoryWorkspaceRecords();
-        const persistence = workspacePersistence();
-        const event = eventFixture("persistence-restart");
-        persistence.appendEvent(records, event, eventRetention(event));
+    test(
+        "restarts from durable records and rejects duplicate and conflicting identities",
+        { tags: "p0" },
+        () => {
+            const records = new MemoryWorkspaceRecords();
+            const persistence = workspacePersistence();
+            const event = eventFixture("persistence-restart");
+            persistence.appendEvent(records, event, eventRetention(event));
 
-        const restartedRecords = new MemoryWorkspaceRecords(records.snapshot());
-        const restarted = workspacePersistence();
-        expect(restarted.findEvent(restartedRecords, event.id)).toEqual(event);
-        expect(restarted.findEventByIdentity(restartedRecords, event.idempotencyKey)).toEqual(
-            event
-        );
+            const restartedRecords = new MemoryWorkspaceRecords(records.snapshot());
+            const restarted = workspacePersistence();
+            expect(restarted.findEvent(restartedRecords, event.id)).toEqual(event);
+            expect(restarted.findEventByIdentity(restartedRecords, event.idempotencyKey)).toEqual(
+                event
+            );
 
-        expect(() =>
-            restarted.appendEvent(
-                restartedRecords,
-                event,
-                eventRetention(event, "duplicate-retention")
-            )
-        ).toThrow(expect.objectContaining({ code: "protocol.duplicate" }));
+            expect(() =>
+                restarted.appendEvent(
+                    restartedRecords,
+                    event,
+                    eventRetention(event, "duplicate-retention")
+                )
+            ).toThrow(expect.objectContaining({ code: "protocol.duplicate" }));
 
-        const conflict = eventWithIdentity(eventFixture("persistence-conflict"), event);
-        expect(() =>
-            restarted.appendEvent(restartedRecords, conflict, eventRetention(conflict))
-        ).toThrow(expect.objectContaining({ code: "protocol.duplicate" }));
-        expect(restarted.findEventByIdentity(restartedRecords, event.idempotencyKey)).toEqual(
-            event
-        );
-    });
+            const conflict = eventWithIdentity(eventFixture("persistence-conflict"), event);
+            expect(() =>
+                restarted.appendEvent(restartedRecords, conflict, eventRetention(conflict))
+            ).toThrow(expect.objectContaining({ code: "protocol.duplicate" }));
+            expect(restarted.findEventByIdentity(restartedRecords, event.idempotencyKey)).toEqual(
+                event
+            );
+        }
+    );
 
-    test("fails closed when authoritative bytes or reciprocal indexes are corrupted", { tags: "p0" }, () => {
-        const records = new MemoryWorkspaceRecords();
-        const persistence = workspacePersistence();
-        const event = eventFixture("persistence-corruption");
-        persistence.appendEvent(records, event, eventRetention(event));
-        const snapshot = records.snapshot();
+    test(
+        "fails closed when authoritative bytes or reciprocal indexes are corrupted",
+        { tags: "p0" },
+        () => {
+            const records = new MemoryWorkspaceRecords();
+            const persistence = workspacePersistence();
+            const event = eventFixture("persistence-corruption");
+            persistence.appendEvent(records, event, eventRetention(event));
+            const snapshot = records.snapshot();
 
-        const corruptBytes = new MemoryWorkspaceRecords({
-            ...snapshot,
-            records: snapshot.records.map((record) =>
-                record.kind === "event" ? { ...record, bytes: Uint8Array.of(0) } : record
-            )
-        });
-        expect(() => persistence.findEvent(corruptBytes, event.id)).toThrow(
-            expect.objectContaining({ code: "codec.invalid" })
-        );
+            const corruptBytes = new MemoryWorkspaceRecords({
+                ...snapshot,
+                records: snapshot.records.map((record) =>
+                    record.kind === "event" ? { ...record, bytes: Uint8Array.of(0) } : record
+                )
+            });
+            expect(() => persistence.findEvent(corruptBytes, event.id)).toThrow(
+                expect.objectContaining({ code: "codec.invalid" })
+            );
 
-        const lostIndex = new MemoryWorkspaceRecords({ ...snapshot, uniques: [] });
-        expect(persistence.findEventByIdentity(lostIndex, event.idempotencyKey)).toBeUndefined();
-        expect(() => persistence.findEvent(lostIndex, event.id)).toThrow(/reciprocal idempotency/);
+            const lostIndex = new MemoryWorkspaceRecords({ ...snapshot, uniques: [] });
+            expect(
+                persistence.findEventByIdentity(lostIndex, event.idempotencyKey)
+            ).toBeUndefined();
+            expect(() => persistence.findEvent(lostIndex, event.id)).toThrow(
+                /reciprocal idempotency/
+            );
 
-        const danglingIndex = new MemoryWorkspaceRecords({
-            ...snapshot,
-            uniques: snapshot.uniques.map((unique) => ({
-                ...unique,
-                recordKey: "event-missing"
-            }))
-        });
-        expect(() => persistence.findEventByIdentity(danglingIndex, event.idempotencyKey)).toThrow(
-            /missing authoritative record/
-        );
-    });
+            const danglingIndex = new MemoryWorkspaceRecords({
+                ...snapshot,
+                uniques: snapshot.uniques.map((unique) => ({
+                    ...unique,
+                    recordKey: "event-missing"
+                }))
+            });
+            expect(() =>
+                persistence.findEventByIdentity(danglingIndex, event.idempotencyKey)
+            ).toThrow(/missing authoritative record/);
+        }
+    );
 });
 
 function workspacePersistence(): WorkspacePersistence<MemoryWorkspaceRecords> {

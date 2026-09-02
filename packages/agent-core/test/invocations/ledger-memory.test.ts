@@ -53,7 +53,10 @@ function rejects<Failure>(
 }
 
 class MemoryHarness implements InvocationHarness<InvocationMemoryState> {
-    public readonly persistence = new MemoryInvocationPersistence(invocationCodecs, recordingCustody());
+    public readonly persistence = new MemoryInvocationPersistence(
+        invocationCodecs,
+        recordingCustody()
+    );
     public readonly ledger = createLedger(this.persistence);
     private state = createInvocationMemoryState();
 
@@ -273,9 +276,9 @@ test(
         });
         state.receipts.set("memory-hostile", hostile);
         state.receiptOrder.push("memory-hostile");
-        expect(() =>
-            persistence.receipt(state, new ReceiptId("memory-hostile"))
-        ).toThrow(/Pre-effect Receipt contains missing or unknown fields/);
+        expect(() => persistence.receipt(state, new ReceiptId("memory-hostile"))).toThrow(
+            /Pre-effect Receipt contains missing or unknown fields/
+        );
         expect(() =>
             persistence.receiptsForItem(state, new InvocationId("memory-hostile-invocation"), 0)
         ).toThrow(/Pre-effect Receipt contains missing or unknown fields/);
@@ -291,7 +294,10 @@ test(
     () => {
         const make = () => {
             const state = createInvocationMemoryState();
-            const persistence = new MemoryInvocationPersistence(invocationCodecs, recordingCustody());
+            const persistence = new MemoryInvocationPersistence(
+                invocationCodecs,
+                recordingCustody()
+            );
             const ledger = createLedger(persistence);
             const invocation = prepared("memory-lineage");
             const attempt = new EffectAttempt<string, string>(
@@ -390,14 +396,17 @@ test(
                     `${approval.id.value}\u00000`,
                     invocationCodecs.approval.encode(otherApproval)
                 );
-                new MemoryInvocationPersistence(invocationCodecs, recordingCustody()).approval(state, approval.id);
+                new MemoryInvocationPersistence(invocationCodecs, recordingCustody()).approval(
+                    state,
+                    approval.id
+                );
             },
             (state) => {
                 state.approvalByInvocation.set(invocation.header.id.value, approval.id.value);
-                new MemoryInvocationPersistence(invocationCodecs, recordingCustody()).approvalForInvocation(
-                    state,
-                    invocation.header.id
-                );
+                new MemoryInvocationPersistence(
+                    invocationCodecs,
+                    recordingCustody()
+                ).approvalForInvocation(state, invocation.header.id);
             },
             (state) => {
                 const continuation = new InvocationContinuation<string>(

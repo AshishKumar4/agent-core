@@ -623,4 +623,3 @@ describe("co-transacted record custody on SQLite", () => {
         }
     );
 });
-

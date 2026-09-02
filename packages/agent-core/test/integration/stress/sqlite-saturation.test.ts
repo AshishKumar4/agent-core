@@ -25,7 +25,12 @@ const ROLLED_BACK_IN = 5;
 const SUBSCRIPTION_SUFFIX = "saturation";
 const PROTOCOL_COMMANDS = 150;
 
-const retentionPort = { verify: () => true, retain: () => {}, release: () => {}, discard: () => {} };
+const retentionPort = {
+    verify: () => true,
+    retain: () => {},
+    release: () => {},
+    discard: () => {}
+};
 
 interface DatabaseFile {
     open(): FileSqlite;

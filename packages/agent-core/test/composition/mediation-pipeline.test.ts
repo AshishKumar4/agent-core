@@ -670,7 +670,10 @@ async function harness(options: HarnessOptions = {}): Promise<Harness> {
     const persistence: MediationPersistence<PipelineState, DemoAdmission> =
         options.persistence ??
         previous?.persistence ??
-        new MemoryInvocationPersistence(mediationInvocationCodecs(admissionCodec), recordingCustody());
+        new MemoryInvocationPersistence(
+            mediationInvocationCodecs(admissionCodec),
+            recordingCustody()
+        );
     const evidence = previous?.evidence ?? new MemoryInvocationMediationPersistence();
     const detachedExecutions =
         previous?.detachedExecutions ?? new MemoryDetachedEffectExecutionPersistence();
@@ -1385,8 +1388,9 @@ describe("the published mediation composition root", () => {
                 worker: new ClaimWorkerId("worker-1"),
                 transactions: new MemoryTransactions(),
                 persistence: new MemoryInvocationPersistence(
-                    mediationInvocationCodecs(admissionCodec)
-                , recordingCustody()),
+                    mediationInvocationCodecs(admissionCodec),
+                    recordingCustody()
+                ),
                 detachedExecutions: new MemoryDetachedEffectExecutionPersistence(),
                 detachedSchedule: new MemorySchedule(),
                 detachedIntervalMilliseconds: DETACHED_INTERVAL_MS,
@@ -1516,7 +1520,10 @@ describe("the published mediation composition root", () => {
             let ordinal = 0;
             for (const [refusal, tamper] of refusals) {
                 ordinal += 1;
-                const records = new ProjectedRecords(mediationInvocationCodecs(admissionCodec), recordingCustody());
+                const records = new ProjectedRecords(
+                    mediationInvocationCodecs(admissionCodec),
+                    recordingCustody()
+                );
                 const value = await harness({ persistence: records });
                 tamper(records);
                 await expect(

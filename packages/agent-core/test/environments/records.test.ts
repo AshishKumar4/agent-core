@@ -1267,9 +1267,10 @@ describe("MemoryEnvironmentStore", () => {
             const revisionRow = image.rows.find((row) => row.kind === "revision")!;
             const sessionRow = image.rows.find((row) => row.kind === "session")!;
 
-            expect(() => new MemoryEnvironmentStore(recordingCustody(), { rows: [...image.rows, head] })).toThrowError(
-                expect.objectContaining({ code: "protocol.invalid-state" })
-            );
+            expect(
+                () =>
+                    new MemoryEnvironmentStore(recordingCustody(), { rows: [...image.rows, head] })
+            ).toThrowError(expect.objectContaining({ code: "protocol.invalid-state" }));
             expect(
                 () =>
                     new MemoryEnvironmentStore(recordingCustody(), {
@@ -1292,9 +1293,9 @@ describe("MemoryEnvironmentStore", () => {
                         )
                     })
             ).toThrowError(expect.objectContaining({ code: "protocol.invalid-state" }));
-            expect(() => new MemoryEnvironmentStore(recordingCustody(), { rows: [revisionRow] })).toThrowError(
-                expect.objectContaining({ code: "protocol.invalid-state" })
-            );
+            expect(
+                () => new MemoryEnvironmentStore(recordingCustody(), { rows: [revisionRow] })
+            ).toThrowError(expect.objectContaining({ code: "protocol.invalid-state" }));
         }
     );
 
@@ -1394,7 +1395,9 @@ describe("MemoryEnvironmentStore", () => {
                 .exportImage()
                 .rows.filter((row) => row.kind !== "head")
                 .concat(initialImage.rows.filter((row) => row.kind === "head"));
-            expect(() => new MemoryEnvironmentStore(recordingCustody(), { rows })).toThrow(/orphan revision/);
+            expect(() => new MemoryEnvironmentStore(recordingCustody(), { rows })).toThrow(
+                /orphan revision/
+            );
         }
     );
 

@@ -1,9 +1,5 @@
 import { AgentCoreError } from "../../../errors";
-import {
-    isObjectRecord,
-    type ContentRetentionField,
-    type RecordCodec
-} from "../../../core";
+import { isObjectRecord, type ContentRetentionField, type RecordCodec } from "../../../core";
 import type { ContentCustodyPort } from "../../../content";
 import { TransactionalSqlite, isSqliteNumber, isSqliteText, type SqliteRow } from "../sqlite";
 import { InvocationError } from "../../../invocations";

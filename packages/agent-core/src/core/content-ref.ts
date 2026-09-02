@@ -52,4 +52,3 @@ export function contentRetentionFields(
         fields.flatMap(([field, ref]) => (ref === undefined ? [] : [Object.freeze({ field, ref })]))
     );
 }
-
