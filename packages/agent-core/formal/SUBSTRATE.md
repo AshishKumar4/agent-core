@@ -17,16 +17,16 @@ one file and not the other.
 
 ## The shape
 
-| Piece | What it is |
-|---|---|
-| `<Seam>Op` | the closed request vocabulary, one constructor per wire tail |
-| `<Seam>Reply` | the closed reply vocabulary — a host failure is a `refused` value, not a throw |
-| `<Seam>Effect σ` | the interface: function fields `args → σ → Reply × σ`, threaded as an explicit parameter |
-| `<Seam>Laws` | the equations a kernel relies on, each a named field of a `Prop` structure |
-| `<Seam>View σ` | model observers a law needs and an opcode does not provide; erased at lowering |
-| `Opcode` | the closed host-call set, with `Opcode.wire` giving `host.<seam>.<op>` and `Opcode.ofWire` decoding it |
-| `Premise` | the closed vocabulary of facts a law cannot state, each with a discharge channel |
-| `Opcode.premises` | the premise closure one host call rests on |
+| Piece             | What it is                                                                                             |
+| ----------------- | ------------------------------------------------------------------------------------------------------ |
+| `<Seam>Op`        | the closed request vocabulary, one constructor per wire tail                                           |
+| `<Seam>Reply`     | the closed reply vocabulary — a host failure is a `refused` value, not a throw                         |
+| `<Seam>Effect σ`  | the interface: function fields `args → σ → Reply × σ`, threaded as an explicit parameter               |
+| `<Seam>Laws`      | the equations a kernel relies on, each a named field of a `Prop` structure                             |
+| `<Seam>View σ`    | model observers a law needs and an opcode does not provide; erased at lowering                         |
+| `Opcode`          | the closed host-call set, with `Opcode.wire` giving `host.<seam>.<op>` and `Opcode.ofWire` decoding it |
+| `Premise`         | the closed vocabulary of facts a law cannot state, each with a discharge channel                       |
+| `Opcode.premises` | the premise closure one host call rests on                                                             |
 
 Two rules make this a contract rather than a description. **A law is a premise a caller
 supplies**: a theorem that needs the store to read back what it wrote says so in its binder
@@ -37,14 +37,14 @@ standard three, and `Classical.choice` is unused because no proof here needs it.
 
 ## Wire names
 
-| Seam | Opcodes |
-|---|---|
-| store | `host.store.get` `host.store.put` `host.store.delete` `host.store.list` `host.store.txn` |
-| alarm | `host.alarm.set` `host.alarm.get` `host.alarm.delete` |
-| content | `host.content.put` `host.content.get` `host.content.head` `host.content.range` |
-| queue | `host.queue.send` `host.queue.ack` `host.queue.retry` |
-| isolate | `host.isolate.load` `host.isolate.call` |
-| rpc | `host.rpc.call` `host.rpc.dispose` |
+| Seam    | Opcodes                                                                                  |
+| ------- | ---------------------------------------------------------------------------------------- |
+| store   | `host.store.get` `host.store.put` `host.store.delete` `host.store.list` `host.store.txn` |
+| alarm   | `host.alarm.set` `host.alarm.get` `host.alarm.delete`                                    |
+| content | `host.content.put` `host.content.get` `host.content.head` `host.content.range`           |
+| queue   | `host.queue.send` `host.queue.ack` `host.queue.retry`                                    |
+| isolate | `host.isolate.load` `host.isolate.call`                                                  |
+| rpc     | `host.rpc.call` `host.rpc.dispose`                                                       |
 
 The absences are deliberate and two of them are provable: `Opcode.isolate_seam_has_no_store_access`
 says the isolate seam offers only a load and a call, which is `C13-CLOUDFLARE-DYNAMIC-STORE-CUSTODY`
@@ -55,7 +55,7 @@ A delivery arriving is not an opcode either, because the kernel does not call it
 
 ## What each contract proves
 
-**Store** (`LocalStore.lean`). A transaction carries a *write plan*, not a callback: a
+**Store** (`LocalStore.lean`). A transaction carries a _write plan_, not a callback: a
 higher-order host call is nothing a registry row can spell, and the §8.5 span reads its
 gate, computes, then commits a finite write set. Fencing is not a store primitive — §10.4
 is explicit that all fencing is the application-level lease epoch — so `guardedCommit` is
@@ -67,7 +67,7 @@ third outcome, so a recovery path has two states to consider rather than a parti
 needs.
 
 **Alarm** (`Alarms.lean`). The single physical slot is one law: `set_arms` constrains the
-reading after a `set` from *any* prior state, so two simultaneously armed due times are
+reading after a `set` from _any_ prior state, so two simultaneously armed due times are
 unrepresentable. Everything §10.4 says about arbitration is then proved over `ClaimTable`
 rather than assumed: the slot tracks the earliest live claim and points at a claim that
 exists, it is at or before every live claim, recording or releasing one owner leaves every
@@ -81,7 +81,7 @@ past schedule that would refire immediately and spin.
 
 **Content** (`Content.lean`). `put_is_content_addressed` and `get_verifies` together make a
 ref an assertion about content rather than a key someone chose — a store that would serve
-the wrong object must refuse instead. What they do not give is that a ref names *one*
+the wrong object must refuse instead. What they do not give is that a ref names _one_
 object; that is `Premise.contentDigestCollisionResistant`, and
 `content_read_is_determined` takes digest injectivity as an explicit parameter so the
 conclusion that rests on the collision assumption names it. Ranges refuse rather than clamp,
@@ -103,7 +103,7 @@ consumer's (`settle` decides each message alone; `undecodable_is_retried_never_a
 — acknowledging destroys the message, so an unidentifiable body is retried and never acked),
 and the kernel's (the inbox above).
 
-**Isolate** (`Isolate.lean`). An unbounded load is refused *by a law*, because §10.2's rule
+**Isolate** (`Isolate.lean`). An unbounded load is refused _by a law_, because §10.2's rule
 that a host which cannot bound a submission must refuse it is a property of the seam the
 host offers. `loads_never_share_an_isolate` and
 `sibling_load_cannot_reach_another_delegation` are `C13-CLOUDFLARE-DYNAMIC-ISOLATE-IDENTITY`'s
@@ -123,29 +123,29 @@ Twenty-one premises. Eight are evidenced today, three of those by the committed
 deployed-account lane; four are cited by a row that still names what it owes; two are SPEC
 §14 non-claims and three are §14 operational assumptions; **four are open gaps**.
 
-| Premise | Channel | Evidence or what is owed |
-|---|---|---|
-| `adapterImplementsSeam` | declared non-claim | §14 `NC-TYPESCRIPT-SUBSTRATE-REFINEMENT`, `NC-CLOUDFLARE-BEHAVIOR` |
-| `storeSpanExclusive` | conformance atom | `C13-OWNERSHIP-ACTOR-CONTRACT` verified, memory and sqlite |
-| `storeCommitAtomic` | conformance atom | `C13-PROTOCOL-ATOMIC-EVIDENCE` verified, memory and sqlite |
-| `storeDeclaredBoundAccepted` | live lane | `C13-CLOUDFLARE-STORAGE-LIMIT` verified on the deployed platform |
-| `storeRestartResumesDurableState` | conformance atom | `C13-OWNERSHIP-ACTOR-CONTRACT` recovery clause |
-| `alarmDurableAcrossInstanceLoss` | row below verified | `C13-CLOUDFLARE-ALARM-DURABILITY` implemented; owes a start that recovers an alarm the platform stopped re-firing |
-| `alarmFiresNoEarlierThanArmed` | declared assumption | §14 trusted monotone time; no scenario asserts a firing did not precede its arming |
-| `alarmEventuallyFires` | declared assumption | §14 fairness; no designated liveness theorem |
-| `contentRetentionUntilReleased` | row below verified | `C13-CONTENT-CUSTODY` implemented with five remaining entries |
-| `contentDigestCollisionResistant` | declared non-claim | §14 `NC-CRYPTOGRAPHIC-COLLISION-RESISTANCE` |
-| `contentBucketIsTenantOwned` | conformance atom | `C13-CONTENT-RESOLUTION` verified |
-| `queueAtLeastOnceDelivery` | declared assumption | §14 fairness; the live redelivery supports the mechanism and cannot establish liveness |
-| `queueAckedNeverRedelivered` | live lane | `C13-CLOUDFLARE-QUEUE-DISPOSITION` verified through a real queue |
-| `queueDeadLetterCustody` | live lane | same scenario, dead-letter half |
-| `isolateNoAmbientEgress` | **gap** | `C13-CLOUDFLARE-DYNAMIC-NO-EGRESS` is planned with no selectors; owes adversarial code in a real isolate of each backing failing an unbound fetch *and* an unbound connect while a passed Binding still answers |
-| `isolateBoundEnforcedByRuntime` | **gap** | `C13-CLOUDFLARE-DYNAMIC-COMPUTE-BOUND`: nothing yet proves the platform enforces the bound; owes a cpuMs spin and a subrequest overrun |
-| `isolatePrivateStoreUnreadable` | row below verified | `C13-CLOUDFLARE-DYNAMIC-STORE-CUSTODY` implemented against a fake; owes the real facet measurement |
-| `isolateFreshLoadPerSubmission` | row below verified | `C13-CLOUDFLARE-DYNAMIC-ISOLATE-IDENTITY` implemented; owes the name-keyed warm-path measurement |
-| `rpcStubLifetimeBoundedByContext` | **gap** | no atom states a stub's validity window |
-| `rpcRedeliveryPreservesIntent` | conformance atom | `C13-ROUTE-DELIVERY-ONCE` and `C13-PROTOCOL-DUPLICATE`, both verified |
-| `rpcDisposalReleasesRemoteResources` | **gap** | no atom observes callee-side release on disposal |
+| Premise                              | Channel             | Evidence or what is owed                                                                                                                                                                                        |
+| ------------------------------------ | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `adapterImplementsSeam`              | declared non-claim  | §14 `NC-TYPESCRIPT-SUBSTRATE-REFINEMENT`, `NC-CLOUDFLARE-BEHAVIOR`                                                                                                                                              |
+| `storeSpanExclusive`                 | conformance atom    | `C13-OWNERSHIP-ACTOR-CONTRACT` verified, memory and sqlite                                                                                                                                                      |
+| `storeCommitAtomic`                  | conformance atom    | `C13-PROTOCOL-ATOMIC-EVIDENCE` verified, memory and sqlite                                                                                                                                                      |
+| `storeDeclaredBoundAccepted`         | live lane           | `C13-CLOUDFLARE-STORAGE-LIMIT` verified on the deployed platform                                                                                                                                                |
+| `storeRestartResumesDurableState`    | conformance atom    | `C13-OWNERSHIP-ACTOR-CONTRACT` recovery clause                                                                                                                                                                  |
+| `alarmDurableAcrossInstanceLoss`     | row below verified  | `C13-CLOUDFLARE-ALARM-DURABILITY` implemented; owes a start that recovers an alarm the platform stopped re-firing                                                                                               |
+| `alarmFiresNoEarlierThanArmed`       | declared assumption | §14 trusted monotone time; no scenario asserts a firing did not precede its arming                                                                                                                              |
+| `alarmEventuallyFires`               | declared assumption | §14 fairness; no designated liveness theorem                                                                                                                                                                    |
+| `contentRetentionUntilReleased`      | row below verified  | `C13-CONTENT-CUSTODY` implemented with five remaining entries                                                                                                                                                   |
+| `contentDigestCollisionResistant`    | declared non-claim  | §14 `NC-CRYPTOGRAPHIC-COLLISION-RESISTANCE`                                                                                                                                                                     |
+| `contentBucketIsTenantOwned`         | conformance atom    | `C13-CONTENT-RESOLUTION` verified                                                                                                                                                                               |
+| `queueAtLeastOnceDelivery`           | declared assumption | §14 fairness; the live redelivery supports the mechanism and cannot establish liveness                                                                                                                          |
+| `queueAckedNeverRedelivered`         | live lane           | `C13-CLOUDFLARE-QUEUE-DISPOSITION` verified through a real queue                                                                                                                                                |
+| `queueDeadLetterCustody`             | live lane           | same scenario, dead-letter half                                                                                                                                                                                 |
+| `isolateNoAmbientEgress`             | **gap**             | `C13-CLOUDFLARE-DYNAMIC-NO-EGRESS` is planned with no selectors; owes adversarial code in a real isolate of each backing failing an unbound fetch _and_ an unbound connect while a passed Binding still answers |
+| `isolateBoundEnforcedByRuntime`      | **gap**             | `C13-CLOUDFLARE-DYNAMIC-COMPUTE-BOUND`: nothing yet proves the platform enforces the bound; owes a cpuMs spin and a subrequest overrun                                                                          |
+| `isolatePrivateStoreUnreadable`      | row below verified  | `C13-CLOUDFLARE-DYNAMIC-STORE-CUSTODY` implemented against a fake; owes the real facet measurement                                                                                                              |
+| `isolateFreshLoadPerSubmission`      | row below verified  | `C13-CLOUDFLARE-DYNAMIC-ISOLATE-IDENTITY` implemented; owes the name-keyed warm-path measurement                                                                                                                |
+| `rpcStubLifetimeBoundedByContext`    | **gap**             | no atom states a stub's validity window                                                                                                                                                                         |
+| `rpcRedeliveryPreservesIntent`       | conformance atom    | `C13-ROUTE-DELIVERY-ONCE` and `C13-PROTOCOL-DUPLICATE`, both verified                                                                                                                                           |
+| `rpcDisposalReleasesRemoteResources` | **gap**             | no atom observes callee-side release on disposal                                                                                                                                                                |
 
 Three theorems make this map falsifiable rather than decorative. `open_gaps_are_exactly`
 lists the four gaps, so promoting one without editing the list fails to elaborate.
@@ -162,7 +162,7 @@ silently breaks; full detail with line numbers is in
 `artifacts/substrate-contracts.json#findings`.
 
 **SC-F1 (store, scope).** `C13-CLOUDFLARE-STORAGE-LIMIT` requires refusing an over-limit
-payload *before* opening a transaction. `requireStorableBlob` does exactly that for blob
+payload _before_ opening a transaction. `requireStorableBlob` does exactly that for blob
 payloads. `requireExecutableStatement` — the statement-length and bound-parameter check —
 runs inside `execute`, hence inside `storage.transactionSync` for a transactional write. The
 observable rule survives because a throw inside `transactionSync` rolls back, so the durable
@@ -184,7 +184,7 @@ only on the memory and sqlite stores, where a range is a slice of an already-buf
 content resolution.
 
 **SC-F4 (queue, model corrected).** The first draft of this library made an undecodable body
-produce no host call at all. §10.4 and `AtLeastOnceQueueAdapter` both *retry* it —
+produce no host call at all. §10.4 and `AtLeastOnceQueueAdapter` both _retry_ it —
 acknowledging destroys the message, and leaving it undispositioned loses the decision — so
 `Disposition.hostCall` retries and `only_acceptance_acknowledges` holds. The cross-check
 against the adapter is what caught it.
@@ -223,7 +223,7 @@ needs `list_sorted` and `list_complete` together, so it needs a strict total ord
 `List.pairwise_mergeSort` then consumes), deduplication, and `byteRank` injectivity, the
 last reachable through `ByteArray.ext`, `Array.toList_inj`, and `UInt8.toNat_inj`. The
 other three are stated against a `View`, so a witness must build the observers too,
-including a fresh-identifier scheme that is fresh in *every* state of the carrier type
+including a fresh-identifier scheme that is fresh in _every_ state of the carrier type
 rather than only in reachable ones.
 
 The distinction matters because the cheap version is worthless: a loader that refuses every
@@ -242,5 +242,5 @@ promotion.
 
 It also claims nothing about any deployment. SPEC §14 places Durable Object transactions and
 storage/RPC failure semantics outside what the formal package models, and this library does
-not move that boundary — `Premise.adapterImplementsSeam` *is* that boundary, named at every
+not move that boundary — `Premise.adapterImplementsSeam` _is_ that boundary, named at every
 single opcode instead of once in a table.
