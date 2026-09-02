@@ -180,7 +180,7 @@ def TargetLocalReady (state : SystemState) (request : AdmissionRequest) : Prop :
   request.prepared.header.placement.Valid ∧
   CallerGate request.prepared.header ∧ RouteGate state request.prepared.header ∧
   effectiveTier request.prepared.header.placement.selected request.prepared.header.impact
-    request.prepared.header.lease.isSome request.intercepted = .mediated ∧
+    request.prepared.header.lease.isSome false request.intercepted = .mediated ∧
   MediatedLeaseGate state request.prepared.header request.now ∧
   RunReservationGate state request
 

@@ -40,8 +40,9 @@ theorem bridge_C13_PLACEMENT_INTERSECTION :
 
 def hand_C13_PLACEMENT_UNTRUSTED_BUNDLED : Prop :=
   ∀ mode : Placement, mode ≠ Placement.bundled →
-    ∀ (impact : InvocationImpact) (sessionScoped intercepted : Bool),
-      effectiveTier mode impact sessionScoped intercepted = EnforcementTier.mediated
+    ∀ (impact : InvocationImpact) (sessionScoped sessionFilesystemTarget intercepted : Bool),
+      effectiveTier mode impact sessionScoped sessionFilesystemTarget intercepted =
+        EnforcementTier.mediated
 
 theorem bridge_C13_PLACEMENT_UNTRUSTED_BUNDLED :
     Sentences.cnl_C13_PLACEMENT_UNTRUSTED_BUNDLED ↔
@@ -87,13 +88,13 @@ theorem bridge_C13_POLICY_MEDIATION_FLOOR :
 def hand_C13_POLICY_EPOCH_RECHECK : Prop :=
   (∀ request : AdmissionRequest,
       effectiveTier request.prepared.header.placement.selected
-          request.prepared.header.impact request.prepared.header.lease.isSome
+          request.prepared.header.impact request.prepared.header.lease.isSome false
           request.intercepted = EnforcementTier.mediated →
         ∀ state : SystemState, MediatedReady state request →
           state.authority.PathEvidenceComplete request.prepared.header request.scope) ∧
   ∀ request : AdmissionRequest,
     effectiveTier request.prepared.header.placement.selected
-        request.prepared.header.impact request.prepared.header.lease.isSome
+        request.prepared.header.impact request.prepared.header.lease.isSome false
         request.intercepted = EnforcementTier.mediated →
       ∀ (state : SystemState) (tenant : TenantId) (run : RunId),
         MediatedReady state request →

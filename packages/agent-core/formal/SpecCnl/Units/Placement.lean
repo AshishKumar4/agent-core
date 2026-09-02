@@ -131,13 +131,16 @@ def units : List RuleUnit :=
            target is that Session's own filesystem → direct'. THE SENTENCE CARRIES ONLY \
            THE REFUSAL HALF OF THE FLOOR. A direct floor is a permission to stay direct, \
            and no sentence form in this corpus asserts that a transition family is \
-           inhabited. AgentCore.defaultTier does floor observe and a Turn-owned execute at \
-           direct, and AgentCore.turn_owned_session_execute_floor_is_direct is that fact",
+           inhabited. AgentCore.defaultTier does floor observe, a Turn-owned execute, and \
+           a Turn-owned own-filesystem mutate at direct, and \
+           AgentCore.turn_owned_session_execute_floor_is_direct and \
+           AgentCore.turn_owned_session_own_filesystem_mutate_floor_is_direct are those \
+           facts",
           "'execute and mutate whose target is that Session's own filesystem → direct' \
-           also fails for a second reason: AgentCore.defaultTier maps every mutate to \
-           mediated whatever the Session fact, which is a raise the SPEC's own 'Policy MAY \
-           raise a direct floor to mediated' permits. The clause is unrepresentable in \
-           this model rather than contradicted by it",
+           carries both halves in the model now — AgentCore.defaultTier admits the \
+           conjunction and refuses either half withdrawn — so what keeps the clause out \
+           of the corpus is only the first reason: no sentence form here asserts that a \
+           transition family is inhabited",
           "'Policy MAY raise a direct floor to mediated, and MAY add approval': a MAY, and \
            the model has no policy-composition operator that could raise a floor. The \
            second clause carries the consequence the SPEC gives for the approval case — an \

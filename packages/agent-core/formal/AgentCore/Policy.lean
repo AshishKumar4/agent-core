@@ -10,16 +10,26 @@ requires lease evidence and is therefore derived later at Event acceptance.
 
 namespace AgentCore
 
-/- The Bool is the §7.2 floor's session fact: the execute targets a Session owned by the
-current Turn. `session_use_is_turn_owned_and_live` grounds when it is true. -/
-def defaultTier : InvocationImpact → Bool → EnforcementTier
-  | .observe, _ => .direct
-  | .execute, turnOwnedSession => if turnOwnedSession then .direct else .mediated
-  | .mutate, _ | .externalSend, _ | .delegate, _ | .administer, _ => .mediated
+/-- The first Bool is the §7.2 floor's session fact: the call targets a Session owned by
+the current Turn. `session_use_is_turn_owned_and_live` grounds when it is true. The second
+is the fact the `mutate` exception of the same §7.2 sentence turns on: the target of the
+mutation is that Session's own filesystem. Everything but a Turn-owned `execute` and that
+one `mutate` is mediated, which is the floor `AgentCore.Facets.enforcementFloor` states
+over the same two facts and `Policy.defaultTier` now states with it. -/
+def defaultTier : InvocationImpact → Bool → Bool → EnforcementTier
+  | .observe, _, _ => .direct
+  | .execute, turnOwnedSession, _ =>
+      if turnOwnedSession then .direct else .mediated
+  | .mutate, turnOwnedSession, sessionFilesystemTarget =>
+      if turnOwnedSession && sessionFilesystemTarget then .direct else .mediated
+  | .externalSend, _, _ | .delegate, _, _ | .administer, _, _ => .mediated
 
+/-- The model's tier decision with the interceptor fact in place: a direct floor survives
+only bundled and un-intercepted (§7.2), and the second session fact is threaded so the
+own-filesystem `mutate` exception is decided where the floor decides it. -/
 def effectiveTier (placement : Placement) (impact : InvocationImpact) (sessionScoped : Bool)
-    (intercepted : Bool) : EnforcementTier :=
-  match defaultTier impact sessionScoped with
+    (sessionFilesystemTarget : Bool) (intercepted : Bool) : EnforcementTier :=
+  match defaultTier impact sessionScoped sessionFilesystemTarget with
   | .direct => if placement = .bundled ∧ intercepted = false then .direct else .mediated
   | .mediated => .mediated
 
@@ -89,21 +99,34 @@ theorem source_asserted_tier_rejected {provenance asserted}
     ¬ acceptsSourceTier provenance asserted := mismatch
 
 theorem turn_owned_session_execute_floor_is_direct :
-    defaultTier .execute true = .direct := rfl
+    defaultTier .execute true true = .direct := rfl
 
 theorem unowned_execute_floor_is_mediated :
-    defaultTier .execute false = .mediated := rfl
+    defaultTier .execute false true = .mediated := rfl
+
+/-- §7.2: on a Turn-owned Session, a `mutate` whose target is that Session's own
+filesystem floors at `direct` — the exception the extraction and the kernel already
+admit, now stated in the model too. -/
+theorem turn_owned_session_own_filesystem_mutate_floor_is_direct :
+    defaultTier .mutate true true = .direct := rfl
+
+/-- §7.2: the exception is exactly the one conjunction — either half withdrawn keeps
+the mediated floor. -/
+theorem other_mutate_floors_are_mediated :
+    defaultTier .mutate true false = .mediated ∧
+      defaultTier .mutate false true = .mediated ∧
+      defaultTier .mutate false false = .mediated := ⟨rfl, rfl, rfl⟩
 
 theorem direct_execute_requires_bundled_colocation (placement : Placement) :
-    effectiveTier placement .execute true false = .direct ↔ placement = .bundled := by
+    effectiveTier placement .execute true true false = .direct ↔ placement = .bundled := by
   cases placement <;> simp [effectiveTier, defaultTier]
 
 /-- §7.2: an applicable `operation.before` or `operation.after` interceptor raises a
 direct floor to mediated, whatever the placement — its rewrite evidence has no direct
 channel to be recorded through. -/
 theorem interception_raises_direct_floor (placement : Placement)
-    (impact : InvocationImpact) (sessionScoped : Bool) :
-    effectiveTier placement impact sessionScoped true = .mediated := by
+    (impact : InvocationImpact) (sessionScoped : Bool) (sessionFilesystemTarget : Bool) :
+    effectiveTier placement impact sessionScoped sessionFilesystemTarget true = .mediated := by
   unfold effectiveTier
   split
   · rw [if_neg]

@@ -105,7 +105,7 @@ def DirectReady (state : SystemState) (request : AdmissionRequest) : Prop :=
   request.prepared.header.impact = .observe ∧
   request.prepared.header.placement.selected = .bundled ∧
   effectiveTier .bundled request.prepared.header.impact request.prepared.header.lease.isSome
-    request.intercepted = .direct ∧
+    false request.intercepted = .direct ∧
   ExactLeaseGate state request.prepared.header request.now ∧
   ∃ resolution token turn,
     state.authority.resolutions request.resolution = some resolution ∧
@@ -118,7 +118,7 @@ def MediatedReady (state : SystemState) (request : AdmissionRequest) : Prop :=
   request.prepared.header.placement.Valid ∧
   CallerGate request.prepared.header ∧ RouteGate state request.prepared.header ∧
   effectiveTier request.prepared.header.placement.selected request.prepared.header.impact
-    request.prepared.header.lease.isSome request.intercepted = .mediated ∧
+    request.prepared.header.lease.isSome false request.intercepted = .mediated ∧
   MediatedLeaseGate state request.prepared.header request.now ∧
   RunReservationGate state request ∧
   ∃ resolution, state.authority.resolutions request.resolution = some resolution ∧

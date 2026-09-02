@@ -4812,15 +4812,19 @@ theorem nonvacuous_preview_exposure_lifecycle :
   subst exposureExact
   exact ingressEq
 
-/-- The §7.2 floor with the Turn-owned Environment Session direct-execute exception,
-computed on both sides: a Turn-owned session execute is direct exactly when bundled,
-and an unowned execute stays mediated. Dropping the exception fails the first
+/-- The §7.2 floor with both its session exceptions, computed on both sides: a
+Turn-owned session execute is direct exactly when bundled, an unowned execute stays
+mediated, and the own-filesystem `mutate` is direct exactly at the one conjunction —
+either session half withdrawn keeps it mediated. Dropping an exception fails its
 conjunct; dropping the bundled co-location requirement fails the middle two. -/
 theorem nonvacuous_turn_owned_execute_tier :
-    effectiveTier .bundled .execute true false = .direct ∧
-    effectiveTier .provider .execute true false = .mediated ∧
-    effectiveTier .dynamic .execute true false = .mediated ∧
-    effectiveTier .bundled .execute false false = .mediated := by decide
+    effectiveTier .bundled .execute true true false = .direct ∧
+    effectiveTier .provider .execute true true false = .mediated ∧
+    effectiveTier .dynamic .execute true true false = .mediated ∧
+    effectiveTier .bundled .execute false true false = .mediated ∧
+    effectiveTier .bundled .mutate true true false = .direct ∧
+    effectiveTier .bundled .mutate true false false = .mediated ∧
+    effectiveTier .bundled .mutate false true false = .mediated := by decide
 
 private def isolateEgressBinding : BindingId := ⟨61⟩
 private def isolateInvokeBinding : BindingId := ⟨62⟩

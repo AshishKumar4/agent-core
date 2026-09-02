@@ -13,12 +13,12 @@ one-directional: policy may raise a floor to `mediated`, never lower a floor to 
 `policy_only_tightens` is that rule as a theorem, and `mergeTier_mediated_absorbs` is the
 same rule for the chain merge.
 
-One divergence inside the existing model is worth naming, because this module has to pick a
-side. `AgentCore.Policy.defaultTier` mediates every `mutate`, while
-`AgentCore.Facets.enforcementFloor` admits a direct `mutate` against a Turn-owned Session's
-own filesystem — the §7.2 exception the SPEC states and the TypeScript implements. The
-kernel follows the SPEC and `Facets`, and `floor_refines_model_outside_mutate` records
-exactly where the two model modules still agree.
+The model no longer diverges from either. `mutate_floor_gap` used to record where it
+did: the abstract `AgentCore.Policy.defaultTier` took one session fact and mediated every
+`mutate`, while the SPEC, the TypeScript, and this kernel admitted the Turn-owned
+own-filesystem exception. The model now threads the second session fact and states the
+same floor (`floor_refines_model`), so the three planes — extraction, kernel, and model —
+decide identically, and the gap theorem is retired rather than weakened.
 -/
 import AgentCore.Facets
 import AgentCore.Policy
@@ -196,10 +196,10 @@ theorem merge_keeps_approval {held next : PolicySet} {impact : Impact}
 /-! ## Refinement against the model's tier policy
 
 `AgentCore.effectiveTier` decides the same question with the interceptor fact in place of
-the kernel's requested-tier-and-approval conjunction, and over
-`AgentCore.Policy.defaultTier` rather than the extracted `Facets` floor. The two floors
-agree on every impact but `mutate`, where `Facets` and the SPEC admit the Turn-owned
-filesystem exception and `Policy.defaultTier` does not. -/
+the kernel's requested-tier-and-approval conjunction. It is decided over
+`AgentCore.Policy.defaultTier`, which now threads both session facts and states the same
+floor the extraction does, so `floor_refines_model` is an equality over every impact and
+session condition. -/
 
 /-- The model's impact vocabulary for the same impact. -/
 def Impact.toModel : Impact → AgentCore.InvocationImpact
@@ -221,48 +221,33 @@ theorem tierToModel_injective {left right : EnforcementTier}
     (same : tierToModel left = tierToModel right) : left = right := by
   cases left <;> cases right <;> simp_all [tierToModel]
 
-/-- **The kernel's floor is the model's floor everywhere the two model modules agree.**
-Outside `mutate`, `Facets.enforcementFloor` and `Policy.defaultTier` decide identically, so
-a theorem proved over either applies to the kernel. -/
-theorem floor_refines_model_outside_mutate (impact : Impact) (turnOwnedSession : Bool)
-    (sessionFilesystemTarget : Bool) (notMutate : impact ≠ .mutate) :
+/-- **The kernel's floor is the model's floor.** `Facets.enforcementFloor` and
+`Policy.defaultTier` decide identically over every impact and both session facts — the
+own-filesystem `mutate` exception included — so a theorem proved over either applies to
+the kernel. -/
+theorem floor_refines_model (impact : Impact) (turnOwnedSession : Bool)
+    (sessionFilesystemTarget : Bool) :
     tierToModel (AgentCore.Facets.enforcementFloor impact turnOwnedSession
         sessionFilesystemTarget) =
-      AgentCore.defaultTier (Impact.toModel impact) turnOwnedSession := by
-  cases impact with
-  | mutate => exact absurd rfl notMutate
-  | observe => rfl
-  | externalSend => rfl
-  | execute => cases turnOwnedSession <;> rfl
-  | delegate => rfl
-  | administer => rfl
-
-/-- **The `mutate` gap is exactly the §7.2 filesystem exception.** Stated rather than
-hidden: for a Turn-owned Session's own filesystem the kernel and `Facets` admit a direct
-floor where `Policy.defaultTier` mediates, and they agree in every other `mutate` case. -/
-theorem mutate_floor_gap :
-    AgentCore.Facets.enforcementFloor .mutate true true = .direct ∧
-      AgentCore.defaultTier (Impact.toModel .mutate) true = .mediated ∧
-      AgentCore.Facets.enforcementFloor .mutate true false = .mediated ∧
-      AgentCore.Facets.enforcementFloor .mutate false true = .mediated :=
-  ⟨rfl, rfl, rfl, rfl⟩
+      AgentCore.defaultTier (Impact.toModel impact) turnOwnedSession
+        sessionFilesystemTarget := by
+  cases impact <;> cases turnOwnedSession <;> cases sessionFilesystemTarget <;> rfl
 
 /-- **A direct decision refines the model's `effectiveTier`.** Where the kernel serves a
 call directly, the model's own tier function serves it directly too, with the interceptor
 fact false — which is the only way the model admits a direct tier. -/
 theorem direct_refines_effectiveTier {evaluation : PolicyEvaluation} {policy : PolicySet}
-    (notMutate : evaluation.impact ≠ .mutate)
     (direct : (evaluatePolicy evaluation policy).tier = .direct) :
     AgentCore.effectiveTier evaluation.placement.toModel (Impact.toModel evaluation.impact)
-        evaluation.turnOwnedSession false = .direct := by
+        evaluation.turnOwnedSession evaluation.sessionFilesystemTarget false = .direct := by
   have colocated : evaluation.placement = .bundled := direct_requires_bundled direct
   have floor : enforcementFloor evaluation = .direct := direct_stands_on_floor direct
   have modelFloor : AgentCore.defaultTier (Impact.toModel evaluation.impact)
-      evaluation.turnOwnedSession = .direct := by
-    rw [← floor_refines_model_outside_mutate evaluation.impact evaluation.turnOwnedSession
-      evaluation.sessionFilesystemTarget notMutate]
+      evaluation.turnOwnedSession evaluation.sessionFilesystemTarget = .direct := by
+    have bridge := floor_refines_model evaluation.impact evaluation.turnOwnedSession
+      evaluation.sessionFilesystemTarget
     unfold enforcementFloor at floor
-    rw [floor]
+    rw [← bridge, floor]
     rfl
   unfold AgentCore.effectiveTier
   rw [modelFloor, colocated]

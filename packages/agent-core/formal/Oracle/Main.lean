@@ -364,9 +364,12 @@ private def oracleOperations : List OracleOperation :=
     ⟨"policy.tier", [`AgentCore.effectiveTier], fun request => do
         let impact ← parseImpact (← (← request.getObjVal? "impact").getStr?)
         let sessionScoped ← (← request.getObjVal? "sessionScoped").getBool?
+        let sessionFilesystemTarget ←
+          (← request.getObjVal? "sessionFilesystemTarget").getBool?
         let placement ← parsePlacement (← (← request.getObjVal? "placement").getStr?)
         let intercepted ← (← request.getObjVal? "intercepted").getBool?
-        let tier := effectiveTier placement impact sessionScoped intercepted
+        let tier := effectiveTier placement impact sessionScoped sessionFilesystemTarget
+          intercepted
         pure (Json.mkObj [("tier", Json.str (match tier with
           | .direct => "direct" | .mediated => "mediated"))])⟩,
     ⟨"capability.matches", [`AgentCore.Capability.matchesBool], fun request => do

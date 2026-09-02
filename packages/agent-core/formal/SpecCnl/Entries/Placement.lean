@@ -88,9 +88,9 @@ def entries : List LexEntry :=
       surface := "yields the mediated tier"
       category := "NP[AgentCore.Placement]\\S"
       denotation :=
-        "fun mode => ∀ impact sessionScoped intercepted, " ++
-        "AgentCore.effectiveTier mode impact sessionScoped intercepted = " ++
-        "AgentCore.EnforcementTier.mediated" },
+        "fun mode => ∀ impact sessionScoped sessionFilesystemTarget intercepted, " ++
+        "AgentCore.effectiveTier mode impact sessionScoped sessionFilesystemTarget " ++
+        "intercepted = AgentCore.EnforcementTier.mediated" },
     { id := "every.direct.admission"
       surface := "every direct admission"
       category := "TR[AgentCore.SystemState,AgentCore.AdmissionRequest]"
@@ -153,6 +153,7 @@ def entries : List LexEntry :=
         "(AgentCore.AdmissionRequest.prepared request))) " ++
         "(Option.isSome (AgentCore.InvocationHeader.lease " ++
         "(AgentCore.PreparedInvocation.header (AgentCore.AdmissionRequest.prepared request)))) " ++
+        "false " ++
         "(AgentCore.AdmissionRequest.intercepted request) = " ++
         "AgentCore.EnforcementTier.mediated" },
     { id := "compares.the.current.path.epochs"

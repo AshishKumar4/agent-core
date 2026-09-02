@@ -111,12 +111,14 @@ theorem provider_choice_excludes_dynamic_mode {snapshot : PlacementSnapshot}
 
 /-- **A mode other than `bundled` never reaches the direct tier.** §7.2: a
 policy-selected direct call whose chosen mode cannot admit it escalates to mediated. The
-statement is uniform in the impact, the Turn-owned-Session fact, and the interception
-fact, because `effectiveTier` reaches `direct` only through the bundled branch. -/
+statement is uniform in the impact, both session facts, and the interception fact,
+because `effectiveTier` reaches `direct` only through the bundled branch — the
+own-filesystem `mutate` exception included. -/
 theorem unbundled_placement_is_never_direct {mode : Placement}
     (unbundled : mode ≠ Placement.bundled) (impact : InvocationImpact)
-    (sessionScoped intercepted : Bool) :
-    effectiveTier mode impact sessionScoped intercepted = EnforcementTier.mediated := by
+    (sessionScoped sessionFilesystemTarget intercepted : Bool) :
+    effectiveTier mode impact sessionScoped sessionFilesystemTarget intercepted =
+      EnforcementTier.mediated := by
   unfold effectiveTier
   split
   · rw [if_neg]

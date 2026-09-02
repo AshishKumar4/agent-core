@@ -9,13 +9,13 @@ import { LeanOracle } from "./oracle";
  * Differential testing of enforcement-tier derivation (SPEC §7.2) and placement
  * selection (SPEC §4.1) against the verified Lean model.
  *
- * The model carries the §7.2 floor with the Turn-owned Environment Session
- * direct-execute exception, so the tier property asserts agreement over the entire
- * (impact, session, placement) domain — any divergence on either side fails the
- * suite. The own-filesystem mutate exception is intentionally outside the model
- * (AC-PLACEMENT-001 boundary), so the sweep pins sessionFilesystemTarget false;
- * the runtime branch is covered by the exhaustive floor tests in
- * test/definition/policy.test.ts and the P11-FILESYSTEM-SESSION-DIRECT profile test.
+ * The model carries the §7.2 floor with both its session exceptions — the Turn-owned
+ * Environment Session direct-execute exception and the own-filesystem direct-mutate
+ * exception — so the tier property asserts agreement over the entire
+ * (impact, session, filesystem-target, placement) domain and any divergence on either
+ * side fails the suite. The floor itself is additionally pinned against the SPEC table
+ * transcribed by hand in test/definition/policy.test.ts and the runtime branch by the
+ * P11-FILESYSTEM-SESSION-DIRECT profile test.
  */
 
 const IMPACTS: readonly Impact[] = [
@@ -38,31 +38,35 @@ describe("enforcement tier agrees with the verified model", () => {
     });
 
     test(
-        "tier agreement over the full (impact, session, placement) domain",
+        "tier agreement over the full (impact, session, filesystem, placement) domain",
         { tags: "p0" },
         async () => {
             for (const impact of IMPACTS) {
                 for (const sessionScoped of [true, false]) {
-                    for (const placement of MODES) {
-                        const implementation = evaluatePolicy({
-                            impact,
-                            turnOwnedSession: sessionScoped,
-                            sessionFilesystemTarget: false,
-                            placement,
-                            policies: []
-                        }).tier;
-                        const model = (
-                            await oracle.ask({
-                                op: "policy.tier",
+                    for (const sessionFilesystemTarget of [true, false]) {
+                        for (const placement of MODES) {
+                            const implementation = evaluatePolicy({
                                 impact,
-                                sessionScoped,
+                                turnOwnedSession: sessionScoped,
+                                sessionFilesystemTarget,
                                 placement,
-                                intercepted: false
-                            })
-                        )["tier"];
-                        expect(implementation, `${impact}/${sessionScoped}/${placement}`).toBe(
-                            model
-                        );
+                                policies: []
+                            }).tier;
+                            const model = (
+                                await oracle.ask({
+                                    op: "policy.tier",
+                                    impact,
+                                    sessionScoped,
+                                    sessionFilesystemTarget,
+                                    placement,
+                                    intercepted: false
+                                })
+                            )["tier"];
+                            expect(
+                                implementation,
+                                `${impact}/${sessionScoped}/${sessionFilesystemTarget}/${placement}`
+                            ).toBe(model);
+                        }
                     }
                 }
             }
@@ -70,7 +74,7 @@ describe("enforcement tier agrees with the verified model", () => {
     );
 
     test(
-        "an applicable interceptor forces mediated for every impact, session, and placement",
+        "an applicable interceptor forces mediated for every impact, session, filesystem, and placement",
         { tags: "p0" },
         async () => {
             // The implementation side of this raise is asserted at its real seam —
@@ -80,17 +84,23 @@ describe("enforcement tier agrees with the verified model", () => {
             // rewrite evidence has no direct channel to be recorded through (SPEC §7.2).
             for (const impact of IMPACTS) {
                 for (const sessionScoped of [true, false]) {
-                    for (const placement of MODES) {
-                        const model = (
-                            await oracle.ask({
-                                op: "policy.tier",
-                                impact,
-                                sessionScoped,
-                                placement,
-                                intercepted: true
-                            })
-                        )["tier"];
-                        expect(model, `${impact}/${sessionScoped}/${placement}`).toBe("mediated");
+                    for (const sessionFilesystemTarget of [true, false]) {
+                        for (const placement of MODES) {
+                            const model = (
+                                await oracle.ask({
+                                    op: "policy.tier",
+                                    impact,
+                                    sessionScoped,
+                                    sessionFilesystemTarget,
+                                    placement,
+                                    intercepted: true
+                                })
+                            )["tier"];
+                            expect(
+                                model,
+                                `${impact}/${sessionScoped}/${sessionFilesystemTarget}/${placement}`
+                            ).toBe("mediated");
+                        }
                     }
                 }
             }
