@@ -22,3 +22,10 @@ lean_lib RuntimeAssurance where
 
 lean_exe oracle where
   root := `Oracle.Main
+
+/-- The executable kernel: the concrete records, state machines, policies, and codecs the
+TypeScript runtime is being replaced by. It imports the abstract model to state its
+refinement theorems against it, and nothing in `AgentCore` imports it, so no designated
+theorem of the model can depend on an executable definition. -/
+lean_lib «AgentCore.Kernel» where
+  roots := #[`AgentCore.Kernel]
