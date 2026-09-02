@@ -1,10 +1,12 @@
 import SpecCnl.Unit
 import SpecCnl.Units.Auth
+import SpecCnl.Units.Claims
 import SpecCnl.Units.Commands
 import SpecCnl.Units.FacetInstall
 import SpecCnl.Units.Isolate
 import SpecCnl.Units.Placement
 import SpecCnl.Units.RunGraph
+import SpecCnl.Units.TrustRoute
 
 /-!
 # The corpus: reviewed controlled-language input
@@ -478,7 +480,8 @@ private def coreUnits : List RuleUnit :=
 nowhere else, so adding one is a two-line diff and the gate keeps reading one list. -/
 def units : List RuleUnit :=
   coreUnits ++ Units.Auth.units ++ Units.Isolate.units ++ Units.Commands.units ++
-    Units.FacetInstall.units ++ Units.Placement.units ++ Units.RunGraph.units
+    Units.FacetInstall.units ++ Units.Placement.units ++ Units.RunGraph.units ++
+    Units.TrustRoute.units ++ Units.Claims.units
 
 /-- The unit with this key, if any. -/
 def find? (key : String) : Option RuleUnit := units.find? (fun unit => unit.key == key)
