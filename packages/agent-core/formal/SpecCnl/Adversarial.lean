@@ -1,6 +1,9 @@
 import SpecCnl.Corpus
 import SpecCnl.Lexicon
 import SpecCnl.Negative
+import SpecCnl.Negatives.Auth
+import SpecCnl.Negatives.Commands
+import SpecCnl.Negatives.Isolate
 
 /-!
 # The adversarial corpus
@@ -182,7 +185,7 @@ private def coreCases : List Case :=
 /-- The whole negative corpus: every reviewed group, concatenated. A group is appended
 here and nowhere else. -/
 def cases : List Case :=
-  coreCases
+  coreCases ++ Negatives.Auth.cases ++ Negatives.Isolate.cases ++ Negatives.Commands.cases
 
 /-- Adjacent-token transpositions of a sentence, dropping any that reproduce the input. -/
 def scrambles (sentence : String) : List String :=

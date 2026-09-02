@@ -1,4 +1,7 @@
 import SpecCnl.Proofs
+import SpecCnl.Proofs.Auth
+import SpecCnl.Proofs.Commands
+import SpecCnl.Proofs.Isolate
 
 /-!
 # Every discharge, assembled

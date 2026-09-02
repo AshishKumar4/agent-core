@@ -1,4 +1,7 @@
 import SpecCnl.Unit
+import SpecCnl.Units.Auth
+import SpecCnl.Units.Commands
+import SpecCnl.Units.Isolate
 
 /-!
 # The corpus: reviewed controlled-language input
@@ -471,7 +474,7 @@ private def coreUnits : List RuleUnit :=
 /-- The whole corpus: every reviewed group, concatenated. A group is appended here and
 nowhere else, so adding one is a two-line diff and the gate keeps reading one list. -/
 def units : List RuleUnit :=
-  coreUnits
+  coreUnits ++ Units.Auth.units ++ Units.Isolate.units ++ Units.Commands.units
 
 /-- The unit with this key, if any. -/
 def find? (key : String) : Option RuleUnit := units.find? (fun unit => unit.key == key)

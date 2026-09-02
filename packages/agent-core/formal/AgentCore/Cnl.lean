@@ -1,3 +1,7 @@
+import AgentCore.Cnl.Auth
+import AgentCore.Cnl.Commands
+import AgentCore.Cnl.Isolate
+
 /-!
 # Theorems the controlled language needs, grouped by SPEC domain
 
