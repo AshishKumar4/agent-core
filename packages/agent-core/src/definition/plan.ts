@@ -28,6 +28,7 @@ import {
     commandAutomation,
     matchesGlob,
     type FacetManifest,
+    PlacementIntersection,
     type IsolationMode
 } from "../facets";
 import { Blueprint } from "./blueprint";
@@ -227,6 +228,7 @@ class ActorPlanCodec extends RecordCodec<ActorPlan> {
                 FacetPackageId,
                 PlacementInput,
                 PlacementSelection,
+                PlacementIntersection,
                 OperationName,
                 OperationRef,
                 AuthoredCodeBackingPolicy,
@@ -344,6 +346,7 @@ class MaterializationPlanCodec extends RecordCodec<MaterializationPlan> {
                 FacetPackageId,
                 PlacementInput,
                 PlacementSelection,
+                PlacementIntersection,
                 OperationName,
                 OperationRef,
                 AuthoredCodeBackingPolicy,

@@ -19,7 +19,11 @@ import type { IsolationMode } from "./generated/placement/AgentCore/Extract/Plac
 // from `formal/AgentCore/Extract/Placement.lean`, the module the Lean kernel checks; the
 // re-export keeps every existing importer of this module unaffected.
 export type { IsolationMode } from "./generated/placement/AgentCore/Extract/Placement";
-export { admitsMode, preferredPlacement } from "./generated/placement/AgentCore/Extract/Placement";
+export {
+    PlacementIntersection,
+    admitsMode,
+    preferredPlacement
+} from "./generated/placement/AgentCore/Extract/Placement";
 
 // The one fixed preference order (SPEC §9.2), as the array decoders validate against and
 // canonical ordering sorts into. The order itself is stated once more, inside the lowered

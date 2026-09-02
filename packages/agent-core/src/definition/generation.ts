@@ -25,7 +25,8 @@ import {
     MappingRecord,
     OperationName,
     OperationRef,
-    PayloadMapping
+    PayloadMapping,
+    PlacementIntersection
 } from "../facets";
 import { TenantId } from "../identity";
 import { PackageId, PackagePin } from "../definition-references";
@@ -76,6 +77,7 @@ class ManagedStateRecordCodec extends RecordCodec<ManagedStateRecord> {
                 FacetPackageId,
                 PlacementInput,
                 PlacementSelection,
+                PlacementIntersection,
                 OperationName,
                 OperationRef,
                 AuthoredCodeBackingPolicy,

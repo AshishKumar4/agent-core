@@ -40,6 +40,7 @@ export {
     BindingRequirement,
     FacetManifest,
     PLACEMENT_PREFERENCE,
+    PlacementIntersection,
     admitsMode,
     canonicalIsolationModes,
     preferredPlacement

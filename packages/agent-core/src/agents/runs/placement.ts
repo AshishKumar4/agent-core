@@ -8,7 +8,7 @@ import {
     SemVer,
     TextId
 } from "../../core";
-import { FacetPackageId, FacetRef, type IsolationMode } from "../../facets";
+import { FacetPackageId, FacetRef, PlacementIntersection, type IsolationMode } from "../../facets";
 import { PackageId, PackagePin, PLACEMENT_PREFERENCE, preferredPlacement } from "../../definition";
 import { EnvironmentId } from "../../environments";
 import { TurnId } from "../../execution-references";
@@ -178,7 +178,8 @@ class PlacementSnapshotCodec extends RecordCodec<TurnPlacementSnapshot> {
                 AgentPolicyId,
                 FacetRef,
                 FacetPackageId,
-                PackageId
+                PackageId,
+                PlacementIntersection
             ],
             "turn.placement-snapshot",
             {

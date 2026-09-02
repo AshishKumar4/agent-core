@@ -15,6 +15,7 @@ import {
     FacetPackageId,
     OperationName,
     OperationRef,
+    PlacementIntersection,
     type FacetData
 } from "../facets";
 import {
@@ -233,7 +234,8 @@ export class PreparedInvocationCodec<Lease, Authority, Domain, PathEpochs> exten
                 FacetPackageId,
                 PreparedInvocationHeader,
                 RouteReservationId,
-                OperationName
+                OperationName,
+                PlacementIntersection
             ],
             "invocation.prepared",
             { major: 1, minor: 0 }

@@ -29,7 +29,8 @@ import {
     MappingRecord,
     OperationName,
     OperationRef,
-    PayloadMapping
+    PayloadMapping,
+    PlacementIntersection
 } from "../facets";
 import type { ContributionAttribution } from "../facets";
 import { TenantId } from "../identity";
@@ -255,6 +256,7 @@ class MaterializationRolloutCodec extends RecordCodec<MaterializationRollout> {
                 FacetPackageId,
                 PlacementInput,
                 PlacementSelection,
+                PlacementIntersection,
                 OperationName,
                 OperationRef,
                 AuthoredCodeBackingPolicy,
