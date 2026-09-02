@@ -94,45 +94,49 @@ describe("Agent and Run records", () => {
         }
     );
 
-    it("[C13-RUN-PINS-VALIDITY] rejects duplicate package IDs and nonpreferred placement", { tags: "p1" }, () => {
-        const value = pins();
-        expect(
-            () => new BlueprintPin(" ", value.blueprint.version, value.blueprint.digest)
-        ).toThrow(/blank/);
-        expect(() => new RunPins({ ...value, packages: [] })).toThrow(/nonempty/);
-        expect(
-            () =>
-                new RunPins({
-                    blueprint: value.blueprint,
-                    packages: [value.packages[0]!, value.packages[0]!],
-                    agent: value.agent,
-                    effectivePolicy: value.effectivePolicy,
-                    modelPolicy: value.modelPolicy,
-                    environment: value.environment
-                })
-        ).toThrow();
-        // SAFETY: the Agent pin types `id` as AgentId, so a policy identifier standing in for
-        // one is unreachable through RunPins. It proves the pin checks the exact identity class
-        // rather than accepting any identifier with a matching string value.
-        expect(
-            () =>
-                new RunPins({
-                    ...value,
-                    agent: { ...value.agent, id: ids.policy as never }
-                })
-        ).toThrow(/canonical ID/);
-        expect(
-            () =>
-                new PlacementPin({
-                    facet: new FacetRef("core:facet-1"),
-                    manifest: ["dynamic", "provider"],
-                    policy: ["dynamic", "provider"],
-                    substrate: ["dynamic", "provider"],
-                    trust: ["dynamic", "provider"],
-                    selected: "provider"
-                })
-        ).toThrow(/preference/);
-    });
+    it(
+        "[C13-RUN-PINS-VALIDITY] rejects duplicate package IDs and nonpreferred placement",
+        { tags: "p1" },
+        () => {
+            const value = pins();
+            expect(
+                () => new BlueprintPin(" ", value.blueprint.version, value.blueprint.digest)
+            ).toThrow(/blank/);
+            expect(() => new RunPins({ ...value, packages: [] })).toThrow(/nonempty/);
+            expect(
+                () =>
+                    new RunPins({
+                        blueprint: value.blueprint,
+                        packages: [value.packages[0]!, value.packages[0]!],
+                        agent: value.agent,
+                        effectivePolicy: value.effectivePolicy,
+                        modelPolicy: value.modelPolicy,
+                        environment: value.environment
+                    })
+            ).toThrow();
+            // SAFETY: the Agent pin types `id` as AgentId, so a policy identifier standing in for
+            // one is unreachable through RunPins. It proves the pin checks the exact identity class
+            // rather than accepting any identifier with a matching string value.
+            expect(
+                () =>
+                    new RunPins({
+                        ...value,
+                        agent: { ...value.agent, id: ids.policy as never }
+                    })
+            ).toThrow(/canonical ID/);
+            expect(
+                () =>
+                    new PlacementPin({
+                        facet: new FacetRef("core:facet-1"),
+                        manifest: ["dynamic", "provider"],
+                        policy: ["dynamic", "provider"],
+                        substrate: ["dynamic", "provider"],
+                        trust: ["dynamic", "provider"],
+                        selected: "provider"
+                    })
+            ).toThrow(/preference/);
+        }
+    );
 
     it(
         "[C13-RUN-PINS-ENVIRONMENT] round-trips exact source identities and does not alias Environment revisions",
@@ -457,9 +461,9 @@ describe("memory Run runtime", () => {
             content: content("c")
         });
         value.runtime.appendTurnCommit(winner, new Revision(0), new Date(1500));
-        expect(() => value.runtime.appendTurnCommit(loser, new Revision(0), new Date(1500))).toThrow(
-            /revision/
-        );
+        expect(() =>
+            value.runtime.appendTurnCommit(loser, new Revision(0), new Date(1500))
+        ).toThrow(/revision/);
         expect(
             value.repository.transaction((tx) => value.repository.loadCommit(tx, loser.id))
         ).toBeUndefined();
@@ -831,9 +835,9 @@ describe("memory Run runtime", () => {
                 proposalDigest: merge.proposalDigest.value
             });
             value.merge.acceptsTree = false;
-            expect(() =>
-                value.runtime.mergeRun(merge, new Revision(0), new Date(1000))
-            ).toThrow(/base, Environment, or conflict/);
+            expect(() => value.runtime.mergeRun(merge, new Revision(0), new Date(1000))).toThrow(
+                /base, Environment, or conflict/
+            );
             value.merge.acceptsTree = true;
             value.runtime.mergeRun(merge, new Revision(0), new Date(1000));
             expect(value.runtime.effectiveCommit(ids.run, ids.branch).equals(merge.id)).toBe(true);
@@ -1183,11 +1187,7 @@ describe("memory Run runtime", () => {
                 content: content("c")
             });
             expect(() =>
-                value.runtime.appendTurnCommit(
-                    postTerminalMessage,
-                    new Revision(1),
-                    new Date(2100)
-                )
+                value.runtime.appendTurnCommit(postTerminalMessage, new Revision(1), new Date(2100))
             ).toThrow(/Terminal Runs reject ordinary commits/);
             expect(() =>
                 value.runtime.createBranch(ids.run, genesis().branch, new Revision(0))

@@ -166,9 +166,7 @@ describe("uniform durable record contract", () => {
                     ids.turn
                 )
             ).toBe(true);
-            expect(objectAt(turn.toData(), "Turn")["lease"]).toEqual(
-                TurnLease.toData(turn.lease)
-            );
+            expect(objectAt(turn.toData(), "Turn")["lease"]).toEqual(TurnLease.toData(turn.lease));
         }
     );
 

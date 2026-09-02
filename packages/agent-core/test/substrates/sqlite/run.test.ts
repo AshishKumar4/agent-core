@@ -101,10 +101,7 @@ class MutatingSqlite extends TransactionalSqlite {
         this.#projection = projection;
     }
 
-    public get mutate(): (
-        statement: string,
-        rows: readonly SqliteRow[]
-    ) => readonly SqliteRow[] {
+    public get mutate(): (statement: string, rows: readonly SqliteRow[]) => readonly SqliteRow[] {
         return this.#projection.mutate;
     }
 

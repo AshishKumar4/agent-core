@@ -9,7 +9,14 @@ import {
     requireOperationTime,
     type ContentPutResult
 } from "../../content";
-import { Revision, type ContentRef, type Digest, RecordCodec, type JsonValue, type JsonObject } from "../../core";
+import {
+    Revision,
+    type ContentRef,
+    type Digest,
+    RecordCodec,
+    type JsonValue,
+    type JsonObject
+} from "../../core";
 import { AgentCoreError } from "../../errors";
 import type { TenantId } from "../../identity";
 import {
@@ -897,7 +904,10 @@ export class TargetLeaseEvidenceRecord extends CodecRecord {
 
 class TargetLeaseEvidenceRecordCodec extends RecordCodec<TargetLeaseEvidenceRecord> {
     public constructor() {
-        super([TargetLeaseEvidenceRecord, CodecRecord], "runs.target-lease-evidence", { major: 1, minor: 0 });
+        super([TargetLeaseEvidenceRecord, CodecRecord], "runs.target-lease-evidence", {
+            major: 1,
+            minor: 0
+        });
     }
 
     protected encodePayload(record: TargetLeaseEvidenceRecord): JsonValue {

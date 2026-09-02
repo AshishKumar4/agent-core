@@ -1348,23 +1348,19 @@ describe("W9 authority permit issuance guards", () => {
         ).toThrow(/non-Tenant Actor/);
     });
 
-    test(
-        "refuses an authority permit denial that no Tenant authenticated",
-        { tags: "p0" },
-        () => {
-            const expected = permitExpectation();
-            const request = targetPermitRequest(expected, "w9-forged-denial", new Date(20));
+    test("refuses an authority permit denial that no Tenant authenticated", { tags: "p0" }, () => {
+        const expected = permitExpectation();
+        const request = targetPermitRequest(expected, "w9-forged-denial", new Date(20));
 
-            expect(
-                () =>
-                    new AuthenticatedAuthorityPermitDenial(
-                        Symbol("w9-forged-denial-authority"),
-                        request,
-                        deniedPermitEvidence(request, expected.pathEpochs, new Date(10))
-                    )
-            ).toThrow(/requires authenticated Tenant evidence/);
-        }
-    );
+        expect(
+            () =>
+                new AuthenticatedAuthorityPermitDenial(
+                    Symbol("w9-forged-denial-authority"),
+                    request,
+                    deniedPermitEvidence(request, expected.pathEpochs, new Date(10))
+                )
+        ).toThrow(/requires authenticated Tenant evidence/);
+    });
 
     test(
         "refuses authenticated denial evidence that belongs to another owner",
@@ -1404,7 +1400,10 @@ describe("W9 authority permit issuance guards", () => {
                 )
             );
 
-            for (const store of [new MemoryAuthorityPermitStore(expected.target.actor), divergent]) {
+            for (const store of [
+                new MemoryAuthorityPermitStore(expected.target.actor),
+                divergent
+            ]) {
                 const port = new TargetAuthorityPermitDenialPort(
                     tenant,
                     expected.target.actor,
@@ -2291,11 +2290,7 @@ async function deniedIssuance(nonce: string) {
     return { denial: issuance.denial, expected, inputs, request };
 }
 
-function rawReplyPort(
-    expected: AuthorityPermitExpectation,
-    nonce: string,
-    reply: Uint8Array
-) {
+function rawReplyPort(expected: AuthorityPermitExpectation, nonce: string, reply: Uint8Array) {
     const store = new MemoryAuthorityPermitStore(expected.target.actor);
     return new IssuedAuthorityPermitPort(
         store,
@@ -2334,9 +2329,7 @@ class UnreadableRetainedRequest extends TargetAuthorityPermitRequest {
     }
 }
 
-class RetainedRequestStore
-    implements AuthorityPermitTargetRequestStore<MemoryAuthorityPermitTransaction>
-{
+class RetainedRequestStore implements AuthorityPermitTargetRequestStore<MemoryAuthorityPermitTransaction> {
     public constructor(
         public readonly owner: ActorRef,
         private readonly retained: TargetAuthorityPermitRequest

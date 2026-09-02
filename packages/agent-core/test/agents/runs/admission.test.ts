@@ -27,6 +27,8 @@ import {
     pins,
     refs,
     seedRunningTurn,
+    mutableData,
+    objectAt,
     settlementAuditKey,
     thrownBy
 } from "./fixture";
@@ -329,13 +331,14 @@ describe("durable Run admission registry", () => {
         () => {
             const registry = RunAdmissionRegistry.initial(ids.run).reserve(item).registry;
             expect(RunAdmissionRegistryCodec.version).toEqual({ major: 2, minor: 0 });
-            const envelope = JSON.parse(
-                new TextDecoder().decode(RunAdmissionRegistryCodec.encode(registry))
-            ) as Record<string, Record<string, unknown>>;
+            const envelope = mutableData(
+                JSON.parse(new TextDecoder().decode(RunAdmissionRegistryCodec.encode(registry)))
+            );
+            const payload = objectAt(envelope["payload"], "payload");
             // SPEC §5.6 spells the flag `open`, so that is the key on the wire and the only
             // one: a payload carrying both spellings would be two answers to one question.
-            expect(envelope["payload"]!["open"]).toBe(true);
-            expect("accepting" in envelope["payload"]!).toBe(false);
+            expect(payload["open"]).toBe(true);
+            expect("accepting" in payload).toBe(false);
 
             // A major-1 record held the same boolean under `accepting`. Nothing is lost by
             // refusing it — the migration rewrites the key — and admitting both spellings in
@@ -348,7 +351,7 @@ describe("durable Run admission registry", () => {
                         accepting: true,
                         completed: [],
                         epoch: 0,
-                        reserved: envelope["payload"]!["reserved"],
+                        reserved: payload["reserved"],
                         run: ids.run.value
                     },
                     version: { major: 1, minor: 0 }
