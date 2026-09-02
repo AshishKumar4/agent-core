@@ -4,6 +4,7 @@ import SpecCnl.Proofs.Claims
 import SpecCnl.Proofs.Commands
 import SpecCnl.Proofs.FacetInstall
 import SpecCnl.Proofs.Isolate
+import SpecCnl.Proofs.NoRetry
 import SpecCnl.Proofs.Placement
 import SpecCnl.Proofs.Receipts
 import SpecCnl.Proofs.RunGraph

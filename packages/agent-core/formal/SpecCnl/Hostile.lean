@@ -18,7 +18,7 @@ namespace SpecCnl.Hostile
 /-! ## The negative corpus refuses, and refuses for the recorded reason -/
 
 #guard Adversarial.negativeFailures.isEmpty
-#guard Adversarial.cases.length == 113
+#guard Adversarial.cases.length == 118
 
 /-! ## Every adjacent transposition of every corpus sentence is refused
 
@@ -27,7 +27,7 @@ admitted, the exact round trip `compile` enforces would be reproducing a string 
 would have taken in any order. -/
 
 #guard Adversarial.admittedScrambles.isEmpty
-#guard Adversarial.allScrambles.length == 1200
+#guard Adversarial.allScrambles.length == 1219
 
 /-! ## Every admitted sentence linearises back to itself, exactly -/
 
