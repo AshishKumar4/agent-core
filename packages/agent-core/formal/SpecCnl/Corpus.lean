@@ -1,3 +1,5 @@
+import SpecCnl.Unit
+
 /-!
 # The corpus: reviewed controlled-language input
 
@@ -22,39 +24,18 @@ A rule unit is rendered by exactly one sentence. Multi-clause units coordinate i
 controlled language with binary `and`, or with the explicitly delimited `and additionally`
 form when exactly three sentence clauses are required. There is no Lean-level glue between
 clauses and every connective a unit depends on is reviewed controlled language.
+
+The records are grouped by SPEC domain, one module per group under `SpecCnl/Units/`, and
+`units` below is their concatenation. Grouping is filing, not meaning: the gate reads
+`units`, every record is the same shape, and a group is only the unit of review and of
+parallel authorship.
 -/
 
 namespace SpecCnl.Corpus
 
-/-- One reviewed pairing of a SPEC rule unit with a controlled-language sentence. -/
-structure RuleUnit where
-  /-- Stable key. Declaration names derive from it. -/
-  key : String
-  /-- Every §13 atom anchored to this rule unit. -/
-  atoms : List String
-  /-- SPEC section the rule unit sits in. -/
-  specSection : String
-  /-- `SPEC.md:<line>` of the atom anchor when the record was reviewed. Advisory: lines
-  move, and the digest is what the gate enforces. -/
-  anchor : String
-  /-- SHA-256 of the digested rule-unit body. -/
-  digest : String
-  /-- The reviewed controlled-language sentence. -/
-  sentence : String
-  /-- Clauses of the rule unit the sentence does not carry, and why. -/
-  dropped : List String
-  deriving Repr, Inhabited
-
-def RuleUnit.proposition (unit : RuleUnit) : String := s!"SpecCnl.Sentences.cnl_{unit.key}"
-def RuleUnit.handProposition (unit : RuleUnit) : String := s!"SpecCnl.Bridge.hand_{unit.key}"
-def RuleUnit.bridge (unit : RuleUnit) : String := s!"SpecCnl.Bridge.bridge_{unit.key}"
-def RuleUnit.discharge (unit : RuleUnit) : String := s!"SpecCnl.Proofs.proved_{unit.key}"
-
-/-- Every audited declaration of a unit, in report order. -/
-def RuleUnit.auditedNames (unit : RuleUnit) : List String :=
-  [unit.proposition, unit.handProposition, unit.bridge, unit.discharge]
-
-def units : List RuleUnit :=
+/-- The first reviewed group: the pairings written while the instrument itself was being
+built. Later groups live in `SpecCnl/Units/`. -/
+private def coreUnits : List RuleUnit :=
   [ { key := "C13_RUN_ANCESTRY"
       atoms := ["C13-RUN-ANCESTRY"]
       specSection := "5.2"
@@ -486,6 +467,11 @@ def units : List RuleUnit :=
            dispatcher control-flow claim",
           "C13-PROTOCOL-OUTCOMES and C13-PROTOCOL-EXACT-ENVELOPE, which share the rule \
            unit but are not claimed by this corpus unit" ] } ]
+
+/-- The whole corpus: every reviewed group, concatenated. A group is appended here and
+nowhere else, so adding one is a two-line diff and the gate keeps reading one list. -/
+def units : List RuleUnit :=
+  coreUnits
 
 /-- The unit with this key, if any. -/
 def find? (key : String) : Option RuleUnit := units.find? (fun unit => unit.key == key)

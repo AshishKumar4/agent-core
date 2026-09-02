@@ -665,7 +665,11 @@ private def definitionEntries : List LexEntry :=
         "AgentCore.MaterializerLedger.installed ledger blueprint name = none" } ]
 
 /-- The whole lexicon. Order is reviewed and stable: the emitted ledger reports entries
-in this order, so a reordering is a visible diff. -/
+in this order, so a reordering is a visible diff.
+
+The sections above are the vocabulary written while the instrument was built. Later
+vocabulary is grouped by SPEC domain, one module per group under `SpecCnl/Entries/`, and
+is appended below and nowhere else. -/
 def lexicon : List LexEntry :=
   grammarEntries ++ runGraphEntries ++ leaseEntries ++ effectEntries ++ eventEntries ++
     authorityEntries ++ secretEntries ++ contentRetentionEntries ++ scopeEntries ++

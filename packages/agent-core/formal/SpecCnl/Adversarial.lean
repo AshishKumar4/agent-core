@@ -1,5 +1,6 @@
 import SpecCnl.Corpus
 import SpecCnl.Lexicon
+import SpecCnl.Negative
 
 /-!
 # The adversarial corpus
@@ -16,34 +17,16 @@ that degrades into "no reading" would mean the ontology stopped rejecting it.
 recomputes surface order from each head's category rather than storing it, so if the
 grammar accepted a scramble the round-trip check would be reproducing a string the parser
 would have taken in any order, and would be worth nothing.
+
+Negative cases are grouped by SPEC domain, one module per group under `SpecCnl/Negatives/`,
+and `cases` below is their concatenation, exactly as the corpus is assembled.
 -/
 
 namespace SpecCnl.Adversarial
 
-/-- How a sentence must be refused. Distinguishing the kinds is the point: "no reading"
-and "two readings" are opposite defects. -/
-inductive Kind where
-  /-- Outside the controlled alphabet. -/
-  | alphabet
-  /-- No reading of the whole span is a sentence. -/
-  | noReading
-  /-- More than one reading is, with this many distinct readings. -/
-  | ambiguous (readings : Nat)
-  deriving DecidableEq, Repr, Inhabited
-
-def Kind.render : Kind → String
-  | .alphabet => "alphabet"
-  | .noReading => "no-reading"
-  | .ambiguous readings => s!"ambiguous({readings})"
-
-structure Case where
-  sentence : String
-  kind : Kind
-  /-- Why this sentence must not be admitted. -/
-  reason : String
-  deriving Repr, Inhabited
-
-def cases : List Case :=
+/-- The first reviewed group of negative cases: the ones written against the instrument's
+own first sentences. Later groups live in `SpecCnl/Negatives/`. -/
+private def coreCases : List Case :=
   [ { sentence := "Every published event has no asserted tier"
       kind := .alphabet
       reason := "capitalisation. The controlled alphabet is lowercase letters and single \
@@ -195,6 +178,11 @@ def cases : List Case :=
         A transition family says which steps exist; a postcondition says what those steps \
         establish. Letting the former stand in for the latter would make the new grammar \
         form tautological, so the category mismatch is refused" } ]
+
+/-- The whole negative corpus: every reviewed group, concatenated. A group is appended
+here and nowhere else. -/
+def cases : List Case :=
+  coreCases
 
 /-- Adjacent-token transpositions of a sentence, dropping any that reproduce the input. -/
 def scrambles (sentence : String) : List String :=

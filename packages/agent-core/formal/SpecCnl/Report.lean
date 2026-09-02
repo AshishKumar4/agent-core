@@ -1,5 +1,6 @@
 import Lean.Data.Json
 import SpecCnl.Adversarial
+import SpecCnl.Discharges
 import SpecCnl.Divergence
 
 /-!
