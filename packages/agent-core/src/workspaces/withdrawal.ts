@@ -130,8 +130,8 @@ export class WithdrawalDrainCapture {
     public readonly items: readonly InvocationId[];
 
     public constructor(attribution: ContributionAttribution, items: readonly InvocationId[]) {
-        if (attribution.constructor !== ContributionAttribution) {
-            throw new TypeError("Withdrawal drain capture names its exact ContributionAttribution");
+        if (!(attribution instanceof ContributionAttribution)) {
+            throw new TypeError("Withdrawal drain capture requires its contribution attribution");
         }
         for (const item of items) {
             if (item.constructor !== InvocationId) {

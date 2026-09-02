@@ -33,6 +33,7 @@ import {
     targetActor,
     tenant
 } from "./fixtures";
+import { malformed } from "../helpers/malformed";
 
 class DurableRetention implements ContentRetentionPort<MemoryWorkspaceRecords> {
     public verify(): boolean {
@@ -476,6 +477,51 @@ describe("routing withdrawal against the Actor that owns RouteDelivery", () => {
                     .listWithdrawalDrains(harness.records, withdrawn.contributor)
                     .map((capture) => capture.items.length)
             ).toEqual([1]);
+        }
+    );
+
+    test(
+        "[C13-FACET-WITHDRAWAL-DRAIN] a capture that cannot carry its attribution is refused rather than recorded unattributed",
+        { tags: "p0" },
+        () => {
+            // A halved or forged attribution is not a withdrawal key: the record cannot
+            // exist without the exact pair the Workspace Actor retired its records under,
+            // so a capture the host cannot attribute is refused at construction, and the
+            // store never sees it. The items beside it are refused on their own terms too.
+            for (const unattributed of [
+                malformed<ContributionAttribution>({
+                    contributor: "workspace:forged",
+                    package: { id: "workspace:forged", version: "1.0.0" }
+                }),
+                malformed<ContributionAttribution>(null),
+                malformed<ContributionAttribution>("workspace:halved")
+            ] as const) {
+                expect(() => new WithdrawalDrainCapture(unattributed, [])).toThrow(
+                    new TypeError("Withdrawal drain capture requires its contribution attribution")
+                );
+            }
+            const withdrawn = contributionAttributionFixture("workspace:withdrawn");
+            expect(
+                () =>
+                    new WithdrawalDrainCapture(withdrawn, [
+                        // SAFETY: a plain string is not an InvocationId; the capture must
+                        // refuse it rather than freeze it into the drain set.
+                        malformed<InvocationId>("not-an-invocation")
+                    ])
+            ).toThrow(new TypeError("Withdrawal drain capture holds exact InvocationIds"));
+            expect(harnessOf(withdrawn).records.listRecords("withdrawalDrainCapture")).toEqual([]);
+
+            function harnessOf(contribution: ContributionAttribution) {
+                const store = new MemoryWorkspaceRecords();
+                const persistence = new WorkspacePersistence<MemoryWorkspaceRecords>(
+                    (state) => state,
+                    new DurableRetention(),
+                    sourceActor,
+                    tenant
+                );
+                expect(persistence.findWithdrawalDrain(store, contribution)).toBeUndefined();
+                return { records: store, persistence };
+            }
         }
     );
 });
