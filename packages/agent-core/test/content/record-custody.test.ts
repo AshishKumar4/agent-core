@@ -621,7 +621,9 @@ describe("co-transacted record custody on SQLite", () => {
                     persistence.appendEvent(database, event, eventRetention(event))
                 )
             ).toThrow(expect.objectContaining({ code: "protocol.invalid-state" }));
-            database.transaction(() => retention.verifyExactNamespace(database, TUPLE_NAMESPACE, []));
+            database.transaction(() =>
+                retention.verifyExactNamespace(database, TUPLE_NAMESPACE, [])
+            );
         }
     );
 });

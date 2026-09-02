@@ -163,14 +163,7 @@ function withCheckpoint(snapshot: MemoryRunStorageSnapshot, checkpoint: RunCheck
         contentOwnerEdge("run.checkpoint", checkpoint.id.value, "state", checkpoint.state),
         ...(checkpoint.tree === undefined
             ? []
-            : [
-                  contentOwnerEdge(
-                      "run.checkpoint",
-                      checkpoint.id.value,
-                      "tree",
-                      checkpoint.tree
-                  )
-              ])
+            : [contentOwnerEdge("run.checkpoint", checkpoint.id.value, "tree", checkpoint.tree)])
     ];
     return testRunRepository(
         memoryRunStorage({

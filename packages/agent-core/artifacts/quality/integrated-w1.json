@@ -1,9 +1,6 @@
 {
   "edition": "1.0.0",
-  "sourceExtensions": [
-    "src/actors/id.ts",
-    "src/core/narrow.ts"
-  ],
+  "sourceExtensions": ["src/actors/id.ts", "src/core/narrow.ts"],
   "testExtensions": [
     "test/content/record-custody.test.ts",
     "test/core/errors.test.ts",
