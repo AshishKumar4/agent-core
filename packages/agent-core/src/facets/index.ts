@@ -60,7 +60,7 @@ export { ContributionAttribution } from "./attribution";
 export { SlotContributionOrigin, SlotEntry } from "./slot-entry";
 export {
     SlotWithdrawalSet,
-    SlotQueryAuthorityPort,
+    type SlotQueryAuthorityPort,
     SlotCatalog,
     WorkspaceSlotCatalog,
     WorkspaceSlotStore
