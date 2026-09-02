@@ -24,7 +24,9 @@ import AgentCore.Kernel.Error
 
 namespace AgentCore.Kernel.Json
 
-/-- The JSON value space the kernel's records live in. -/
+/-- The JSON value space the kernel's records live in. No `Repr` is derived: for a nested
+inductive the derived instance is `partial`, which the normative gate refuses, and nothing in
+the kernel renders a value except through the canonical encoder below. -/
 inductive JsonValue where
   | null
   | bool (value : Bool)
@@ -32,7 +34,7 @@ inductive JsonValue where
   | str (value : String)
   | arr (items : List JsonValue)
   | obj (entries : List (String × JsonValue))
-  deriving Repr, Inhabited
+  deriving Inhabited
 
 /-! ## Decimal rendering
 
