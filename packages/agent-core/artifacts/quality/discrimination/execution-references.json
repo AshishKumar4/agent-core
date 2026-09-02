@@ -1,8 +1,8 @@
 {
   "edition": "1.0.0",
   "area": "execution-references",
-  "measuredAt": "b7d1cb948a2c6bf2c6aaa1acd056cf60f3ea7170",
-  "fingerprint": "sha256:cc49aaa94b10390131e3c6baa2d9185bfd130cb5e3a65a54db67159bff645663",
+  "measuredAt": "38649dcd64e4384fd84ecd2bdde96178b7295063",
+  "fingerprint": "sha256:242031357f7657e1dab9b18e25e230e049023935ae0fc8f3566261f7b7074ddd",
   "files": {
     "src/execution-references/id.ts": {
       "mutants": 6,
@@ -65,6 +65,11 @@
         16
       ]
     },
+    "test/agents/runs/admission-settlement-mutation.test.ts#Run admission registry integrity decodes each obligation kind exactly": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
     "test/agents/runs/admission-settlement-mutation.test.ts#forced Turn cancellation integrity names each cancellation field in decode errors": {
       "src/execution-references/id.ts": [
         4,
@@ -90,11 +95,6 @@
       "src/execution-references/id.ts": [
         4,
         10
-      ]
-    },
-    "test/agents/runs/admission-settlement-mutation.test.ts#Run admission registry integrity decodes each obligation kind exactly": {
-      "src/execution-references/id.ts": [
-        16
       ]
     },
     "test/agents/runs/admission-settlement-mutation.test.ts#settlement obligation integrity binds an exhausted dimension to a cancelled outcome": {
@@ -145,6 +145,13 @@
         16
       ]
     },
+    "test/agents/runs/admission.test.ts#transactional terminal frontier [C13-ADV-POST-TERMINAL-ROUTE] refuses every route admitted after terminalization while the pre-terminal reservation still drains": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
     "test/agents/runs/admission.test.ts#transactional terminal frontier [C13-RUN-FRONTIER-EMPTY] records an honestly empty frontier": {
       "src/execution-references/id.ts": [
         4,
@@ -175,6 +182,13 @@
     },
     "test/agents/runs/adversarial.test.ts#W5 adversarial invariants [C13-RUN-BINARY-TREE-MERGE] rejects arbitrary merge picks and tree sides": {
       "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/agents/runs/adversarial.test.ts#W5 adversarial invariants [C13-RUN-CHECKPOINT-KINDS] permits unary commits to carry an independent tree checkpoint": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
         16
       ]
     },
@@ -251,13 +265,6 @@
         16
       ]
     },
-    "test/agents/runs/adversarial.test.ts#W5 adversarial invariants [C13-RUN-CHECKPOINT-KINDS] permits unary commits to carry an independent tree checkpoint": {
-      "src/execution-references/id.ts": [
-        4,
-        10,
-        16
-      ]
-    },
     "test/agents/runs/adversarial.test.ts#W5 adversarial invariants persists a verified explicit migration snapshot and commit": {
       "src/execution-references/id.ts": [
         4,
@@ -296,6 +303,52 @@
         16
       ]
     },
+    "test/agents/runs/ceiling.test.ts#Run realized cost [C13-RUN-CEILING-COST] accumulates a durable per-Run total and carries it through the codec": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/ceiling.test.ts#Run realized cost [C13-RUN-CEILING-COST] advances the cost total at the same commit point as the token total": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/ceiling.test.ts#Run realized cost [C13-RUN-CEILING-COST] has no estimated form and refuses an unusable amount": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/agents/runs/ceiling.test.ts#Run realized cost [C13-RUN-CEILING-COST] keeps the lineage verdict across a store restart, because it is derived from the Run records": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/ceiling.test.ts#Run realized cost [C13-RUN-CEILING-COST] leaves two siblings free to record in different currencies and refuses the parent that would join them": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/ceiling.test.ts#Run realized cost [C13-RUN-CEILING-COST] reaches the same verdict whichever Run in the lineage recorded first": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/ceiling.test.ts#Run resource ceilings [C13-RUN-CEILING-EXHAUSTION] cancels an exhausted Run through the ordinary terminal rows and refuses to name a dimension with allowance left": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
     "test/agents/runs/ceiling.test.ts#Run resource ceilings [C13-RUN-CEILING-REMAINDER] derives depth and wall time from lineage while model accounting alone advances durable token totals": {
       "src/execution-references/id.ts": [
         4,
@@ -311,13 +364,6 @@
       ]
     },
     "test/agents/runs/ceiling.test.ts#Run resource ceilings [C13-RUN-RESOURCE-CEILING] binds the ceiling to the attenuation content the reservation digests": {
-      "src/execution-references/id.ts": [
-        4,
-        10,
-        16
-      ]
-    },
-    "test/agents/runs/ceiling.test.ts#Run resource ceilings [C13-RUN-CEILING-EXHAUSTION] cancels an exhausted Run through the ordinary terminal rows and refuses to name a dimension with allowance left": {
       "src/execution-references/id.ts": [
         4,
         10,
@@ -377,6 +423,23 @@
         16
       ]
     },
+    "test/agents/runs/commit-exhaustive.test.ts#closed RunCommit shapes [C13-RUN-GRAPH-ARITY] rejects invalid root, merge, and unary arities": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/agents/runs/commit-exhaustive.test.ts#closed RunCommit shapes [C13-TURN-EXECUTOR-WRITER] rejects incomplete invocation, delivery, undo, migration, and Turn commits": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/agents/runs/commit-exhaustive.test.ts#closed RunCommit shapes rejects malformed serialized writer and resolution variants": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
     "test/agents/runs/commit-exhaustive.test.ts#closed commit writer matrix [C13-ADV-UNAUTHORIZED-WRITER] rejects substitution between SystemCause and returned evidence IDs": {
       "src/execution-references/id.ts": [
         16
@@ -405,24 +468,7 @@
         16
       ]
     },
-    "test/agents/runs/commit-exhaustive.test.ts#closed RunCommit shapes [C13-RUN-GRAPH-ARITY] rejects invalid root, merge, and unary arities": {
-      "src/execution-references/id.ts": [
-        16
-      ]
-    },
-    "test/agents/runs/commit-exhaustive.test.ts#closed RunCommit shapes [C13-TURN-EXECUTOR-WRITER] rejects incomplete invocation, delivery, undo, migration, and Turn commits": {
-      "src/execution-references/id.ts": [
-        16
-      ]
-    },
-    "test/agents/runs/commit-exhaustive.test.ts#closed RunCommit shapes rejects malformed serialized writer and resolution variants": {
-      "src/execution-references/id.ts": [
-        4,
-        10,
-        16
-      ]
-    },
-    "test/agents/runs/commit-mutation-codec.test.ts#commit kind decode guard rejects an unknown commit kind before shape validation": {
+    "test/agents/runs/commit-mutation-codec.test.ts#Run commit decode guards [C13-RUN-DISTINCTION-REPRESENTABLE] refuses a stored merge naming one commit twice": {
       "src/execution-references/id.ts": [
         4,
         16
@@ -459,6 +505,18 @@
       "src/execution-references/id.ts": [
         4,
         10,
+        16
+      ]
+    },
+    "test/agents/runs/commit-mutation-codec.test.ts#commit kind decode guard rejects an unknown commit kind before shape validation": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/commit-mutation.test.ts#closed commit shape single violations [C13-RUN-DISTINCTION-REPRESENTABLE] a merge joining one lineage to itself is not a value that exists": {
+      "src/execution-references/id.ts": [
+        4,
         16
       ]
     },
@@ -544,6 +602,368 @@
         16
       ]
     },
+    "test/agents/runs/compaction.test.ts#Compaction as a policy over rewrite [C13-RUN-DISTINCTION-REPRESENTABLE] attributes an abridgement inside a multi-commit section to the commit it withheld, and rebuilds the request without reading it": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/compaction.test.ts#Compaction as a policy over rewrite [C13-RUN-DISTINCTION-REPRESENTABLE] carries a complete attribution over two commits in one section through a restart, and rebuilds bytes the attribution never reaches": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/compaction.test.ts#Compaction as a policy over rewrite [C13-TURN-SURFACE-ACCOUNTED] a compaction is a rewrite, and the call reconstructs the compacted surface rather than the ancestry": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/compaction.test.ts#Compaction as a policy over rewrite [C13-TURN-SURFACE-ACCOUNTED] a surface accounts for history and never for a graph fact or an earlier surface": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/compaction.test.ts#Compaction as a policy over rewrite [C13-TURN-SURFACE-ACCOUNTED] accounts against the effective state of the base rather than its raw commit": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/compaction.test.ts#Compaction as a policy over rewrite [C13-TURN-SURFACE-ACCOUNTED] an abridgement leaves the branch carrying what a compaction removes, so the next call re-expands": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/compaction.test.ts#Compaction as a policy over rewrite [C13-TURN-SURFACE-ACCOUNTED] composes a compaction with an abridgement and rebuilds exactly what was sent": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/compaction.test.ts#Compaction as a policy over rewrite [C13-TURN-SURFACE-ACCOUNTED] refuses a surface that claims a commit its base transcript no longer holds": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/compaction.test.ts#Compaction as a policy over rewrite [C13-TURN-SURFACE-ACCOUNTED] refuses on the way out a surface no seam refused on the way in": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/compaction.test.ts#Compaction as a policy over rewrite [C13-TURN-SURFACE-ACCOUNTED] refuses the same reduction while it lives only in executor memory and admits it once the rewrite is a commit": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/content-custody.test.ts#Run content custody on SQLite cannot commit a partial raw write after catching a custody failure": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/content-custody.test.ts#Run content custody on SQLite poisons a partial replacement when custody throws a non-Error value": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/content-custody.test.ts#Run content custody on SQLite poisons a partial write when custody throws a non-Error value": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/content-custody.test.ts#Run content custody on SQLite raw storage retention ignores public codec redirection": {
+      "src/execution-references/id.ts": [
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/content-custody.test.ts#Run content custody on SQLite raw storage retention ignores public record decoder redirection": {
+      "src/execution-references/id.ts": [
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/content-custody.test.ts#Run content custody on SQLite raw storage writes retain their record content atomically": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/content-custody.test.ts#Run content custody on SQLite record prototype redirection cannot alter projections": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/content-custody.test.ts#Run content custody on SQLite registers every Run record ContentRef from immutable record-adjacent projections": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/content-custody.test.ts#Run content custody on SQLite releases replaced record content before retaining its successor": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/content-custody.test.ts#Run content custody on SQLite restores released custody when replacement retention fails": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/content-custody.test.ts#Run content custody on SQLite rolls back a Turn CAS when its newly named result is missing": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/content-custody.test.ts#Run content custody on SQLite rolls back a commit and its custody when a caught parent conflict follows the record": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/content-custody.test.ts#Run content custody on SQLite rolls back a record and earlier field edges when a later field is missing": {
+      "src/execution-references/id.ts": [
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/content-custody.test.ts#Run content custody on memory cannot commit a partial raw write after catching a custody failure": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/content-custody.test.ts#Run content custody on memory poisons a partial replacement when custody throws a non-Error value": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/content-custody.test.ts#Run content custody on memory poisons a partial write when custody throws a non-Error value": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/content-custody.test.ts#Run content custody on memory raw storage retention ignores public codec redirection": {
+      "src/execution-references/id.ts": [
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/content-custody.test.ts#Run content custody on memory raw storage retention ignores public record decoder redirection": {
+      "src/execution-references/id.ts": [
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/content-custody.test.ts#Run content custody on memory raw storage writes retain their record content atomically": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/content-custody.test.ts#Run content custody on memory record prototype redirection cannot alter projections": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/content-custody.test.ts#Run content custody on memory registers every Run record ContentRef from immutable record-adjacent projections": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/content-custody.test.ts#Run content custody on memory releases replaced record content before retaining its successor": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/content-custody.test.ts#Run content custody on memory restores released custody when replacement retention fails": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/content-custody.test.ts#Run content custody on memory rolls back a Turn CAS when its newly named result is missing": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/content-custody.test.ts#Run content custody on memory rolls back a commit and its custody when a caught parent conflict follows the record": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/content-custody.test.ts#Run content custody on memory rolls back a record and earlier field edges when a later field is missing": {
+      "src/execution-references/id.ts": [
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/content-custody.test.ts#SQLite owner keys reject duplicate custody edges": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/content-custody.test.ts#SQLite reopen rejects duplicate custody rows returned by its substrate": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/content-custody.test.ts#SQLite reopen rejects missing, mismatched, stale, duplicate, or byte-less Run custody": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/content-custody.test.ts#SQLite restart restores records and custody from one database": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/content-custody.test.ts#a retained SQLite database cannot write around Run custody": {
+      "src/execution-references/id.ts": [
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/content-custody.test.ts#memory restart rejects missing, mismatched, stale, duplicate, or byte-less Run custody": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/content-custody.test.ts#memory restart restores records and custody from one aggregate snapshot": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/content-custody.test.ts#record owner keys bind the exact kind, identity, and field": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/convergence.test.ts#swarm convergence [C13-RUN-FOLD-ORDER] folds four equal-pinned parents as exactly the chain its declared items name": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/convergence.test.ts#swarm convergence [C13-RUN-FOLD-ORDER] keeps the merges a fold did not perform outstanding in the Run registry": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/convergence.test.ts#swarm convergence [C13-RUN-FOLD-ORDER] leaves a merge that declares no fold exactly as it was": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/convergence.test.ts#swarm convergence [C13-RUN-FOLD-ORDER] records two orders over the same three members as two different results": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/convergence.test.ts#swarm convergence [C13-RUN-FOLD-ORDER] refuses a repeated source, a changed payload length, and an item outside it": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/convergence.test.ts#swarm convergence [C13-RUN-FOLD-ORDER] refuses a step that does not extend the merge its predecessor appended": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/convergence.test.ts#swarm convergence [C13-RUN-FOLD-ORDER] refuses a step that joins a source its item did not declare": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/convergence.test.ts#swarm convergence [C13-RUN-FOLD-RECONCILIATION] refuses a divergent-pin fold naming the exact divergence, and folds once it is reconciled": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/convergence.test.ts#swarm convergence [C13-RUN-FOLD-RECONCILIATION] refuses a merge commit whose own pins diverge from its parents": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
     "test/agents/runs/executor.test.ts#TurnExecutor seam [C13-AUTH-RESOLUTION-LIFETIME] releases a dynamic resolution before the next invocation": {
       "src/execution-references/id.ts": [
         4,
@@ -621,6 +1041,20 @@
         16
       ]
     },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam [C13-TURN-MODEL-CALL] observes exact takeover cancellation and fences every effectful handle": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam [C13-TURN-MODEL-CALL] rejects wrong-Turn, wrong-holder, and stale-epoch host admission before executor code": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
     "test/agents/runs/executor.test.ts#TurnExecutor seam accepts only the exact immutable bound-tool object for mediated invocation": {
       "src/execution-references/id.ts": [
         4,
@@ -691,7 +1125,7 @@
         16
       ]
     },
-    "test/agents/runs/executor.test.ts#TurnExecutor seam keeps content access owned and rejects a mismatched put identity": {
+    "test/agents/runs/executor.test.ts#TurnExecutor seam keeps content access owned and writes every byte into the Run's own store": {
       "src/execution-references/id.ts": [
         4,
         10,
@@ -706,13 +1140,6 @@
       ]
     },
     "test/agents/runs/executor.test.ts#TurnExecutor seam lets the live lease holder observe a delivered cancellation and settle the Turn itself": {
-      "src/execution-references/id.ts": [
-        4,
-        10,
-        16
-      ]
-    },
-    "test/agents/runs/executor.test.ts#TurnExecutor seam [C13-TURN-MODEL-CALL] observes exact takeover cancellation and fences every effectful handle": {
       "src/execution-references/id.ts": [
         4,
         10,
@@ -817,7 +1244,7 @@
         16
       ]
     },
-    "test/agents/runs/executor.test.ts#TurnExecutor seam rejects a prompt that is absent or reported under another exact content identity": {
+    "test/agents/runs/executor.test.ts#TurnExecutor seam rejects a prompt the Run's own content custody does not hold": {
       "src/execution-references/id.ts": [
         4,
         10,
@@ -922,13 +1349,6 @@
         16
       ]
     },
-    "test/agents/runs/executor.test.ts#TurnExecutor seam [C13-TURN-MODEL-CALL] rejects wrong-Turn, wrong-holder, and stale-epoch host admission before executor code": {
-      "src/execution-references/id.ts": [
-        4,
-        10,
-        16
-      ]
-    },
     "test/agents/runs/executor.test.ts#TurnExecutor seam reports a direct gateway dispatch as the direct tier and carries no evidence": {
       "src/execution-references/id.ts": [
         4,
@@ -982,6 +1402,11 @@
     "test/agents/runs/foundation.test.ts#Agent and Run records enforces the closed writer matrix and complete control proposal binding": {
       "src/execution-references/id.ts": [
         4,
+        16
+      ]
+    },
+    "test/agents/runs/foundation.test.ts#Turn lifecycle [C13-TURN-NO-RETRY-EXPORT] keeps checkpoint and cancellation inbox records distinct": {
+      "src/execution-references/id.ts": [
         16
       ]
     },
@@ -1063,8 +1488,273 @@
         16
       ]
     },
-    "test/agents/runs/foundation.test.ts#Turn lifecycle [C13-TURN-NO-RETRY-EXPORT] keeps checkpoint and cancellation inbox records distinct": {
+    "test/agents/runs/handle-detachment.test.ts#admission as the handle's commit point [C13-TURN-HANDLE-DETACHMENT] issues no handle before admission and freezes the admitted item after it": {
       "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/handle-detachment.test.ts#the cancellation a published item answers to [C13-TURN-HANDLE-DETACHMENT] [C13-TURN-EXACT-LEASE] refuses a TurnId presented where the cancelled Run is required": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/handle-detachment.test.ts#the cancellation a published item answers to [C13-TURN-HANDLE-DETACHMENT] names no failure kind for an item the Turn is still awaiting": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/handle-detachment.test.ts#the cancellation a published item answers to [C13-TURN-HANDLE-DETACHMENT] refuses a cancelled Run that names no cancellation, or one nothing aborted": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/handle-detachment.test.ts#the cancellation a published item answers to [C13-TURN-HANDLE-DETACHMENT] reports `aborted` for a published item when its Run cancels and nothing when its issuing Turn does": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/handle-detachment.test.ts#the cancellation a published item answers to [C13-TURN-HANDLE-DETACHMENT] reports nothing for a child RunRef item a parent's cancellation reaches, while that item is still owed": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/handle-detachment.test.ts#the cancellation a published item answers to [C13-TURN-HANDLE-DETACHMENT] reports nothing for a published item whose Receipt is already terminal": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/handle-detachment.test.ts#the derived ceiling that crosses the boundary [C13-TURN-HANDLE-DETACHMENT] [C13-RUN-CEILING-REMAINDER] [C13-RUN-CEILING-EXHAUSTION] cancels an exhausted child through its own rows and not the ancestor that declared the bound": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/handle-detachment.test.ts#the durable outbox a lost response replays from [C13-TURN-HANDLE-DETACHMENT] [run.invocation-delivery] round-trips its own bytes and refuses every other shape": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/handle-detachment.test.ts#the durable outbox a lost response replays from [C13-TURN-HANDLE-DETACHMENT] owes one admission message per published handle, and refuses a message of another Run": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/handle-detachment.test.ts#the durable outbox a lost response replays from [C13-TURN-HANDLE-DETACHMENT] replays the same cancellation message after a lost response and a restart, and discharges it exactly once": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/handle-detachment.test.ts#the issuing Turn's cancellation and a published handle [C13-TURN-HANDLE-DETACHMENT] records no aborted failure on an item the cancelled Turn published": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/handle-detachment.test.ts#the two owners a published handle detaches to [C13-TURN-HANDLE-DETACHMENT] [C13-RUN-SETTLED-DERIVED] aborts the Run's own outstanding item and leaves a spawned child Run to itself": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/handle-detachment.test.ts#the two owners a published handle detaches to [C13-TURN-HANDLE-DETACHMENT] [C13-TURN-EXACT-LEASE] refuses the parent Turn's lease as authority over a child Run": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/handle.test.ts#Turn admission handle records [turn.admission-handle] round-trips one canonical addressable admission identity": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/agents/runs/handle.test.ts#Turn admission handle records renders each identity kind's own tool position and address": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/agents/runs/handle.test.ts#addressing an admitted item [C13-TURN-ADMISSION-HANDLE] addresses the same Turn after its bytes outlive the process": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/handle.test.ts#addressing an admitted item [C13-TURN-ADMISSION-HANDLE] delivers an outcome to a later Turn and to no Turn outside its Run": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/handle.test.ts#addressing an admitted item [C13-TURN-CANCEL-INBOX] delivers steering and outcomes as ordinary inbox Events, never as cancellation": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/handle.test.ts#addressing an admitted item [C13-TURN-EXACT-LEASE] refuses every write a handle attempts without the Turn's current lease": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/handle.test.ts#addressing an admitted item [C13-TURN-NO-RETRY] cannot address a terminal Turn and offers no way to recreate one": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/handle.test.ts#child admission and the parent ceiling [C13-TURN-ADMISSION-HANDLE] names only a child the parent's remaining ceiling admitted": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/handle.test.ts#distinguishing the admission Receipt shapes [C13-TURN-ADMISSION-FACTS-DISTINCT] refuses a pre-effect denial and an unsuccessful attempt with different reasons": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/handle.test.ts#handle lifetime and Run terminalization [C13-RUN-FRONTIER-EMPTY] settles at once when the handle is released before terminalization": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/handle.test.ts#handle lifetime and Run terminalization [C13-RUN-SETTLED-DERIVED] lets the issuing Turn terminalize while withholding Settled for the outstanding item": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/handle.test.ts#verified admission identities [C13-TURN-ADMISSION-HANDLE] names the child RunRef for a delegate Receipt that carries only that": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/handle.test.ts#verified admission identities [C13-TURN-ADMISSION-HANDLE] names the mediated Invocation and the exact evidence it was built from": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/handle.test.ts#verified admission identities [C13-TURN-ADMISSION-HANDLE] refuses a delegate Receipt carrying the child's output beside its RunRef": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/handle.test.ts#verified admission identities [C13-TURN-ADMISSION-HANDLE] refuses a handle when evidence names no stored Receipt": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/handle.test.ts#verified admission identities [C13-TURN-ADMISSION-HANDLE] refuses a handle when the EffectAttempt attempted and did not succeed": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/handle.test.ts#verified admission identities [C13-TURN-ADMISSION-HANDLE] refuses a handle when the EffectAttempt belongs to another Invocation": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/handle.test.ts#verified admission identities [C13-TURN-ADMISSION-HANDLE] refuses a handle when the item never reached an EffectAttempt": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/handle.test.ts#verified admission identities [C13-TURN-ADMISSION-HANDLE] refuses a handle when the result content is not in canonical form": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/handle.test.ts#verified admission identities [C13-TURN-ADMISSION-HANDLE] refuses a handle when the served bytes do not hash to the Receipt's content": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/handle.test.ts#verified admission identities [C13-TURN-ADMISSION-HANDLE] refuses evidence naming more or fewer than one item Receipt": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/handle.test.ts#verified admission identities [C13-TURN-ADMISSION-HANDLE] treats a delegate result that names no child Run as an ordinary Invocation identity": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/handle.test.ts#verified admission identities [C13-TURN-EXACT-LEASE] refuses a lease token naming another Turn": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/handle.test.ts#verified admission identities [C13-TURN-EXACT-LEASE] refuses an admitted item presented under another Turn's lease": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/handle.test.ts#verified admission identities [C13-TURN-HANDLE-DETACHMENT] builds an Invocation handle from an admitted item and reads no Receipt": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
         16
       ]
     },
@@ -1123,18 +1813,6 @@
         10
       ]
     },
-    "test/agents/runs/lease.test.ts#lease admission trust boundary decoding a token with a null holder reports codec corruption": {
-      "src/execution-references/id.ts": [
-        10
-      ]
-    },
-    "test/agents/runs/lease.test.ts#public Run and Turn values keeps the four identifiers nominally distinct": {
-      "src/execution-references/id.ts": [
-        4,
-        10,
-        16
-      ]
-    },
     "test/agents/runs/lease.test.ts#TurnLease [C13-ADV-STALE-LEASE] rejects a displaced durable lease after epoch advancement": {
       "src/execution-references/id.ts": [
         4,
@@ -1152,6 +1830,18 @@
     "test/agents/runs/lease.test.ts#TurnLease [turn-lease] preserves the tenant-qualified holder through the canonical codec": {
       "src/execution-references/id.ts": [
         10
+      ]
+    },
+    "test/agents/runs/lease.test.ts#lease admission trust boundary decoding a token with a null holder reports codec corruption": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/agents/runs/lease.test.ts#public Run and Turn values keeps the four identifiers nominally distinct": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
       ]
     },
     "test/agents/runs/memory-mutation.test.ts#RunRepository over MemoryRunStorage mutation kills a restored snapshot preserves every table and its commit ancestry": {
@@ -1175,10 +1865,150 @@
         16
       ]
     },
-    "test/agents/runs/record-contract.test.ts#constituent shape validation rejects malformed spawn reservations": {
+    "test/agents/runs/model-input.test.ts#Turn model input [C13-RUN-DISTINCTION-REPRESENTABLE] refuses a multi-commit surface that attributes nothing, one commit short, or nothing an unknown amount reaches": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/agents/runs/model-input.test.ts#Turn model input [C13-RUN-DISTINCTION-REPRESENTABLE] refuses an attribution outside the coverage, a repeated commit, a commit carried whole, and a total its sections contradict": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/agents/runs/model-input.test.ts#Turn model input [C13-RUN-DISTINCTION-REPRESENTABLE] tells a commit carried in fully abridged form from one carried whole, and leaves a surface that attributes nothing byte-identical": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/agents/runs/model-input.test.ts#Turn model input [C13-RUN-DISTINCTION-REPRESENTABLE] writes one record for an attribution stated in any order, and still refuses a commit named twice": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-CANCEL-INBOX] hides a mid-step delivery from the running step and names it in the next step's committed record": {
       "src/execution-references/id.ts": [
         4,
-        10
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-CANCEL-INBOX] stops committing at the step boundary after a mid-step cancellation and keeps what it committed before": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-ABRIDGED] reconstructs exactly the abridged bytes the model observed and states the withheld amount": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-DURABLE-BEFORE-DISPATCH] a fenced Turn's rejected commit prevents dispatch and leaves the branch head where it was": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-DURABLE-BEFORE-DISPATCH] a rebuilt host retrying the step a crash left unrecorded lands that same derived commit": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-DURABLE-BEFORE-DISPATCH] reaches durability on a further attempt at that same commit, and fails without a model call when its attempts are exhausted": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-DURABLE-BEFORE-DISPATCH] refuses to dispatch on a store that is unavailable": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-DURABLE-BEFORE-DISPATCH] refuses to dispatch on a store that rejects the record": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-DURABLE-BEFORE-DISPATCH] refuses to dispatch on an outcome the substrate cannot report": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-DURABLE-BEFORE-DISPATCH] settles an unknown outcome by re-reading that exact commit rather than assuming either branch": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-DURABLE-BEFORE-DISPATCH] the port observes its request already durable on entry, which no after-the-fact record inspection could establish": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-RECONSTRUCTABLE] names every admitted Event's content in the request and leaves an unadmitted Event out of it": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-RECONSTRUCTABLE] re-enters the Turn under the same lease after a crash between steps and loses no accepted work": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-RECONSTRUCTABLE] refuses model-visible content that no committed record carries": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-RECONSTRUCTABLE] replays the exact request bytes from committed records inline, by reference, and across a restart": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-RETENTION-LOSS] fails typed on a no-longer-retained admitted Event and names what is missing": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-RETENTION-LOSS] fails typed on a released prompt section reference and names what is missing": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-RETENTION-LOSS] never yields a shorter prefix, a partial request, or an approximation": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
       ]
     },
     "test/agents/runs/record-contract.test.ts#Run lifecycle record errors reports revision exhaustion with closed domain errors": {
@@ -1192,10 +2022,33 @@
         16
       ]
     },
+    "test/agents/runs/record-contract.test.ts#constituent shape validation rejects malformed spawn reservations": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
     "test/agents/runs/record-contract.test.ts#uniform durable record contract [run.pins] [run.configuration-snapshot] [run.commit] [run.record] [run.branch] [turn.record] [turn.placement-snapshot] [run.checkpoint] [turn.inbox-entry] [run.admission-registry] [run.settlement-obligation] [run.terminal-snapshot] [run.spawn-reservation] provides the same contract for every Run-owned record": {
       "src/execution-references/id.ts": [
         4,
         10,
+        16
+      ]
+    },
+    "test/agents/runs/records-mutation.test.ts#Run lifecycle record names each Run branch field in decode errors": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/records-mutation.test.ts#Run lifecycle record names each Run field in decode errors": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/records-mutation.test.ts#Run lifecycle record reports exact closed codes for terminal transitions": {
+      "src/execution-references/id.ts": [
         16
       ]
     },
@@ -1219,23 +2072,6 @@
         10
       ]
     },
-    "test/agents/runs/records-mutation.test.ts#Run lifecycle record names each Run branch field in decode errors": {
-      "src/execution-references/id.ts": [
-        4,
-        16
-      ]
-    },
-    "test/agents/runs/records-mutation.test.ts#Run lifecycle record names each Run field in decode errors": {
-      "src/execution-references/id.ts": [
-        4,
-        16
-      ]
-    },
-    "test/agents/runs/records-mutation.test.ts#Run lifecycle record reports exact closed codes for terminal transitions": {
-      "src/execution-references/id.ts": [
-        16
-      ]
-    },
     "test/agents/runs/records-mutation.test.ts#spawn reservations accepts epoch zero and rejects malformed token holders": {
       "src/execution-references/id.ts": [
         4,
@@ -1251,6 +2087,12 @@
     "test/agents/runs/records-mutation.test.ts#spawn reservations rejects unknown spawn reservation fields": {
       "src/execution-references/id.ts": [
         4
+      ]
+    },
+    "test/agents/runs/runtime-exhaustive.test.ts#RunRuntime rejection matrix [C13-ADV-NONBINARY-MERGE] rejects every merge arity but two distinct ordered parents": {
+      "src/execution-references/id.ts": [
+        4,
+        16
       ]
     },
     "test/agents/runs/runtime-exhaustive.test.ts#RunRuntime rejection matrix [C13-ADV-NONBINARY-MERGE] rejects missing merge sources and invalid picked content": {
@@ -1557,6 +2399,45 @@
         16
       ]
     },
+    "test/agents/runs/runtime-mutation.test.ts#Run genesis guards rejects each non-canonical genesis record field": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#Run genesis guards rejects each preexisting genesis identifier individually": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#Run graph closure [C13-RUN-GRAPH-CLOSED] a child Run reaches no commit of its parent, whatever either Run appends": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#Turn genesis guards rejects a duplicate Turn identifier": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#Turn genesis guards rejects each non-canonical Turn genesis field individually": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#Turn genesis guards requires exactly one configuration snapshot for the head pins": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
     "test/agents/runs/runtime-mutation.test.ts#admission registry plumbing reports a missing admission registry as corruption": {
       "src/execution-references/id.ts": [
         4,
@@ -1566,6 +2447,13 @@
     "test/agents/runs/runtime-mutation.test.ts#admission registry plumbing reserving the same obligation twice keeps the stored registry": {
       "src/execution-references/id.ts": [
         4,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#append guards [C13-RUN-MIGRATED-TURN-REJECTION] non-migration commits must inherit the parent pins": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
         16
       ]
     },
@@ -1580,7 +2468,7 @@
         16
       ]
     },
-    "test/agents/runs/runtime-mutation.test.ts#append guards [C13-RUN-MIGRATED-TURN-REJECTION] non-migration commits must inherit the parent pins": {
+    "test/agents/runs/runtime-mutation.test.ts#append guards rejects Turn writers outside the commit lineage": {
       "src/execution-references/id.ts": [
         4,
         10,
@@ -1602,13 +2490,6 @@
       ]
     },
     "test/agents/runs/runtime-mutation.test.ts#append guards rejects stale and absent parents with a revision conflict": {
-      "src/execution-references/id.ts": [
-        4,
-        10,
-        16
-      ]
-    },
-    "test/agents/runs/runtime-mutation.test.ts#append guards rejects Turn writers outside the commit lineage": {
       "src/execution-references/id.ts": [
         4,
         10,
@@ -1741,6 +2622,12 @@
         16
       ]
     },
+    "test/agents/runs/runtime-mutation.test.ts#merge validation [C13-RUN-GRAPH-CLOSED] accepts a merge whose source is a distinct branch of the same Run at equal pins": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
     "test/agents/runs/runtime-mutation.test.ts#merge validation accepts exact ours, theirs, and per-path tree resolutions": {
       "src/execution-references/id.ts": [
         4,
@@ -1808,17 +2695,6 @@
         16
       ]
     },
-    "test/agents/runs/runtime-mutation.test.ts#Run genesis guards rejects each non-canonical genesis record field": {
-      "src/execution-references/id.ts": [
-        16
-      ]
-    },
-    "test/agents/runs/runtime-mutation.test.ts#Run genesis guards rejects each preexisting genesis identifier individually": {
-      "src/execution-references/id.ts": [
-        4,
-        16
-      ]
-    },
     "test/agents/runs/runtime-mutation.test.ts#runtime lookup errors effective commits reject a branch of another Run": {
       "src/execution-references/id.ts": [
         4,
@@ -1839,13 +2715,6 @@
       ]
     },
     "test/agents/runs/runtime-mutation.test.ts#spawn reservation guards replays an identical reservation only when the spawned child Run exists": {
-      "src/execution-references/id.ts": [
-        4,
-        10,
-        16
-      ]
-    },
-    "test/agents/runs/runtime-mutation.test.ts#suspension guards names the missing Turn exactly": {
       "src/execution-references/id.ts": [
         4,
         10,
@@ -1873,21 +2742,7 @@
         16
       ]
     },
-    "test/agents/runs/runtime-mutation.test.ts#Turn genesis guards rejects a duplicate Turn identifier": {
-      "src/execution-references/id.ts": [
-        4,
-        10,
-        16
-      ]
-    },
-    "test/agents/runs/runtime-mutation.test.ts#Turn genesis guards rejects each non-canonical Turn genesis field individually": {
-      "src/execution-references/id.ts": [
-        4,
-        10,
-        16
-      ]
-    },
-    "test/agents/runs/runtime-mutation.test.ts#Turn genesis guards requires exactly one configuration snapshot for the head pins": {
+    "test/agents/runs/runtime-mutation.test.ts#suspension guards names the missing Turn exactly": {
       "src/execution-references/id.ts": [
         4,
         10,
@@ -2044,23 +2899,207 @@
         10
       ]
     },
-    "test/agents/runs/turn-exhaustive.test.ts#checkpoint and inbox codecs round-trips ordinary and cancellation inbox entries and rejects every malformed shape": {
+    "test/agents/runs/transcript.test.ts#Run effective transcript, rewrite bracket, and cut balance [C13-RUN-CUT-BALANCE] judges an asymmetric cut on which Invocation is stranded rather than on how many are": {
       "src/execution-references/id.ts": [
-        10
-      ]
-    },
-    "test/agents/runs/turn-exhaustive.test.ts#checkpoint and inbox codecs [C13-RUN-CHECKPOINT-KINDS] round-trips tree and no-tree checkpoints and rejects cursor shape": {
-      "src/execution-references/id.ts": [
+        4,
         10,
         16
       ]
     },
-    "test/agents/runs/turn-exhaustive.test.ts#decode and constructor trust boundaries rejects a negative inbox timestamp on decode": {
+    "test/agents/runs/transcript.test.ts#Run effective transcript, rewrite bracket, and cut balance [C13-RUN-CUT-BALANCE] rejects a rewrite that removes a request while keeping the commit answering it": {
       "src/execution-references/id.ts": [
-        10
+        4,
+        10,
+        16
       ]
     },
-    "test/agents/runs/turn-exhaustive.test.ts#decode and constructor trust boundaries rejects an unknown Turn status on decode": {
+    "test/agents/runs/transcript.test.ts#Run effective transcript, rewrite bracket, and cut balance [C13-RUN-CUT-BALANCE] rejects an undo and a fork that strand an Invocation, and admits ones that do not": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/transcript.test.ts#Run effective transcript, rewrite bracket, and cut balance [C13-RUN-EFFECTIVE-TRANSCRIPT] equals the full ancestry replay when no rewrite exists": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/transcript.test.ts#Run effective transcript, rewrite bracket, and cut balance [C13-RUN-EFFECTIVE-TRANSCRIPT] keeps a shadowed commit reachable, immutable, and named by its content": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/transcript.test.ts#Run effective transcript, rewrite bracket, and cut balance [C13-RUN-EFFECTIVE-TRANSCRIPT] omits exactly the named identities and reads the rewrite where they stood": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/transcript.test.ts#Run effective transcript, rewrite bracket, and cut balance [C13-RUN-EFFECTIVE-TRANSCRIPT] reads a merge's first-parent ancestry before what only its second parent reaches": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/transcript.test.ts#Run effective transcript, rewrite bracket, and cut balance [C13-RUN-EFFECTIVE-TRANSCRIPT] refuses a base commit the branch head does not reach": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/transcript.test.ts#Run effective transcript, rewrite bracket, and cut balance [C13-RUN-EFFECTIVE-TRANSCRIPT] rejects a shadow that is not visible, is repeated, or is already shadowed": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/transcript.test.ts#Run effective transcript, rewrite bracket, and cut balance [C13-RUN-EFFECTIVE-TRANSCRIPT] removes the exact identities a second rewrite names though they are not an interval": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/transcript.test.ts#Run effective transcript, rewrite bracket, and cut balance [C13-RUN-REWRITE-BRACKET] completes exactly the obligation it reserved and excludes a second attempt per branch": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/transcript.test.ts#Run effective transcript, rewrite bracket, and cut balance [C13-RUN-REWRITE-BRACKET] derives every closed failure kind from the attempt's own Receipt": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/transcript.test.ts#Run effective transcript, rewrite bracket, and cut balance [C13-RUN-REWRITE-BRACKET] records an abandoned attempt as the reserved commit on its failed Receipt": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/transcript.test.ts#Run effective transcript, rewrite bracket, and cut balance [C13-RUN-REWRITE-BRACKET] refuses an abandoned attempt whose Receipt records no failed attempt": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/transcript.test.ts#Run effective transcript, rewrite bracket, and cut balance [C13-TURN-TRANSCRIPT-RECONSTRUCTION] derives at the exact base commit, so a later rewrite cannot enter it": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/transcript.test.ts#Run effective transcript, rewrite bracket, and cut balance [C13-TURN-TRANSCRIPT-RECONSTRUCTION] rebuilds an earlier call's request byte for byte across a rewrite that shadows what it read": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/transcript.test.ts#Run effective transcript, rewrite bracket, and cut balance [C13-WRITER-MATRIX] [C13-RUN-REWRITE-BRACKET] admits a rewrite only on the evidence its form requires": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/transcript.test.ts#Run transcript derivation over records the runtime would refuse [C13-RUN-CUT-BALANCE] judges only the Invocations a transcript both asked for and answered": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/agents/runs/transcript.test.ts#Run transcript derivation over records the runtime would refuse [C13-RUN-EFFECTIVE-TRANSCRIPT] follows a chain of rewrites to the one commit read in place of the first and refuses a chain that closes on itself": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/agents/runs/transcript.test.ts#Run transcript derivation over records the runtime would refuse [C13-RUN-EFFECTIVE-TRANSCRIPT] reads a head through its undo selection and refuses every head it cannot resolve": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/agents/runs/transcript.test.ts#Run transcript derivation over records the runtime would refuse [C13-RUN-EFFECTIVE-TRANSCRIPT] refuses an ancestry whose named parent is unreachable or belongs to another Run": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/transcript.test.ts#Run transcript derivation over records the runtime would refuse [C13-RUN-EFFECTIVE-TRANSCRIPT] refuses two rewrites over one commit and a shadow set the rewrite's own ancestry does not reach": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/agents/runs/turn-cut-points.test.ts#Turn-bound interceptor cut points [C13-RUN-DISTINCTION-REPRESENTABLE] refuses a call whose prompt.assemble rewrite withholds more than the host attributed": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/turn-cut-points.test.ts#Turn-bound interceptor cut points [C13-TURN-INPUT-SUBMITTED] refuses a rewrite that changes the delivery identity or names an unresolvable payload": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/turn-cut-points.test.ts#Turn-bound interceptor cut points [C13-TURN-INPUT-SUBMITTED] transforms a submission's payload, refuses one outright, and never offers a cancellation": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/turn-cut-points.test.ts#Turn-bound interceptor cut points [C13-TURN-PROMPT-ASSEMBLE] records and reconstructs the rewritten sections, not the ones the executor assembled": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/turn-cut-points.test.ts#Turn-bound interceptor cut points [C13-TURN-PROMPT-ASSEMBLE] refuses a rewrite that is not a section list and one that leaves no section at all": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/turn-cut-points.test.ts#Turn-bound interceptor cut points [C13-TURN-STEP-STOP] annotates a step, then withdraws the Turn's remaining steps and model calls when a gate requests a stop": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/turn-cut-points.test.ts#Turn-bound interceptor cut points [C13-TURN-STEP-STOP] refuses a step rewrite that restates a host fact, forges another interceptor's annotation, or drops one": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/turn-cut-points.test.ts#Turn-bound interceptor cut points [C13-TURN-STEP-STOP] scopes a step's annotations and its stop to the Turn that fired the cut point": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/turn-cut-points.test.ts#Turn-bound interceptor cut points [C13-TURN-STEP-STOP] scopes the ordinal, the annotations, and the stop to the Turn that fired the cut point, not to its Run": {
       "src/execution-references/id.ts": [
         4,
         10,
@@ -2089,6 +3128,350 @@
         4,
         10,
         16
+      ]
+    },
+    "test/agents/runs/turn-exhaustive.test.ts#checkpoint and inbox codecs [C13-RUN-CHECKPOINT-KINDS] round-trips tree and no-tree checkpoints and rejects cursor shape": {
+      "src/execution-references/id.ts": [
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/turn-exhaustive.test.ts#checkpoint and inbox codecs round-trips ordinary and cancellation inbox entries and rejects every malformed shape": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/agents/runs/turn-exhaustive.test.ts#decode and constructor trust boundaries rejects a negative inbox timestamp on decode": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/agents/runs/turn-exhaustive.test.ts#decode and constructor trust boundaries rejects an unknown Turn status on decode": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/authority/mediated-stale-adversarial.test.ts#the durable target-local denial a stale mediated read commits: memory [C13-AUTH-MEDIATED-STALE] [C13-ADV-MEDIATED-STALE] advances the watermark strictly before it appends the denial": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/authority/mediated-stale-adversarial.test.ts#the durable target-local denial a stale mediated read commits: memory [C13-AUTH-MEDIATED-STALE] a failure afterAudit leaves no Receipt, no AuditRecord and no watermark advance": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/authority/mediated-stale-adversarial.test.ts#the durable target-local denial a stale mediated read commits: memory [C13-AUTH-MEDIATED-STALE] a failure afterReceipt leaves no Receipt, no AuditRecord and no watermark advance": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/authority/mediated-stale-adversarial.test.ts#the durable target-local denial a stale mediated read commits: memory [C13-AUTH-MEDIATED-STALE] commits the Receipt, its AuditRecord and the watermark join in one target-local transaction": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/authority/mediated-stale-adversarial.test.ts#the durable target-local denial a stale mediated read commits: memory [C13-AUTH-MEDIATED-STALE] refuses the denial AuditRecord unless its Receipt is already durable in the same span": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/authority/mediated-stale-adversarial.test.ts#the durable target-local denial a stale mediated read commits: sqlite [C13-AUTH-MEDIATED-STALE] [C13-ADV-MEDIATED-STALE] advances the watermark strictly before it appends the denial": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/authority/mediated-stale-adversarial.test.ts#the durable target-local denial a stale mediated read commits: sqlite [C13-AUTH-MEDIATED-STALE] a failure afterAudit leaves no Receipt, no AuditRecord and no watermark advance": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/authority/mediated-stale-adversarial.test.ts#the durable target-local denial a stale mediated read commits: sqlite [C13-AUTH-MEDIATED-STALE] a failure afterReceipt leaves no Receipt, no AuditRecord and no watermark advance": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/authority/mediated-stale-adversarial.test.ts#the durable target-local denial a stale mediated read commits: sqlite [C13-AUTH-MEDIATED-STALE] commits the Receipt, its AuditRecord and the watermark join in one target-local transaction": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/authority/mediated-stale-adversarial.test.ts#the durable target-local denial a stale mediated read commits: sqlite [C13-AUTH-MEDIATED-STALE] refuses the denial AuditRecord unless its Receipt is already durable in the same span": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#AuthorityPermit SQLite permit storage fails closed on read, write, and projection faults": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#AuthorityPermit SQLite reads reject a substituted owner and malformed permit bytes": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#AuthorityPermit [C13-AUTH-PRINCIPAL-REF] rejects a lease holder with the same PrincipalId from another Tenant": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/authority/permit.test.ts#AuthorityPermit [authority.permit] codec preserves every normative field and immutable dates": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#AuthorityPermit authentication mutation gates admission evidence binds to the exact authenticated permit bytes": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#AuthorityPermit authentication mutation gates authenticates only the canonical issuer record with exact denials": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#AuthorityPermit authentication mutation gates rejects authentications minted without the module issuer": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/authority/permit.test.ts#AuthorityPermit fails closed for substituted bindings and expiry without consuming": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#AuthorityPermit mutation gates decodes only canonical Actor and claim owner kinds": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#AuthorityPermit mutation gates exposes every expectation field through the permit getters": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/authority/permit.test.ts#AuthorityPermit mutation gates is consumable at the exact issuance instant with exact time denials": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/authority/permit.test.ts#AuthorityPermit mutation gates pins the reservation obligation to the exact invocation item": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/authority/permit.test.ts#AuthorityPermit mutation gates rejects blank and non-canonical nonces exactly": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/authority/permit.test.ts#AuthorityPermit mutation gates requires lease tokens to carry exact qualified identities": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/authority/permit.test.ts#AuthorityPermit mutation gates requires the Tenant to qualify the path even when the principal matches": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/authority/permit.test.ts#AuthorityPermit mutation gates validates issuance and expiry times with exact subjects": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/authority/permit.test.ts#AuthorityPermit post-issuance Grant or epoch revocation cannot cancel the admitted permit": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#AuthorityPermit rejects malformed codec variants fail closed": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#AuthorityPermit rejects malformed memory recovery and wrong Actor ownership": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#AuthorityPermit rejects malformed permit identities and times before issuance": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/authority/permit.test.ts#AuthorityPermit rejects reservation obligations that are not invocation items": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/authority/permit.test.ts#AuthorityPermit round-trips delegated system authority and an absent optional lease": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/authority/permit.test.ts#AuthorityPermitIssuer issuance gates refuses an issuance time that is not a safe nonnegative instant": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/authority/permit.test.ts#AuthorityPermitIssuer issuance gates refuses issuance for a request that does not outlive its issuance": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/authority/permit.test.ts#MemoryAuthorityPermitStore mutation gates a consumed nonce retains its exact request and cannot be consumed twice": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#MemoryAuthorityPermitStore mutation gates detects issued records filed under a foreign nonce": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#MemoryAuthorityPermitStore mutation gates issue is idempotent for the exact expectation and denies conflicts": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#MemoryAuthorityPermitStore mutation gates refuses a Tenant denial for a nonce this Actor owner already consumed": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#MemoryAuthorityPermitStore mutation gates refuses a target request for a nonce this Actor owner already issued": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/authority/permit.test.ts#MemoryAuthorityPermitStore mutation gates refuses a target request that targets another Actor owner": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/authority/permit.test.ts#MemoryAuthorityPermitStore mutation gates refuses consuming a nonce this Actor owner already issued": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#MemoryAuthorityPermitStore mutation gates refuses consuming a permit whose target request its Tenant denied": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#MemoryAuthorityPermitStore mutation gates refuses issuing a nonce this Actor owner already consumed": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#MemoryAuthorityPermitStore mutation gates replays the exact recorded Tenant denial and refuses a rewritten one": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#MemoryAuthorityPermitStore mutation gates restore rejects denied and consumed records without their durable target request": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#MemoryAuthorityPermitStore mutation gates restore rejects duplicated requested and denied records": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#MemoryAuthorityPermitStore mutation gates restore rejects requested and denied records filed under a foreign nonce": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#MemoryAuthorityPermitStore mutation gates snapshot bytes stay detached from committed state": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#MemoryAuthorityPermitStore mutation gates snapshots order denied records canonically": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#MemoryAuthorityPermitStore mutation gates snapshots order issued and consumed records canonically": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#MemoryTenantAuthorityPermitStore issues one durable permit beside the Tenant authority view in the same Actor span": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#TargetAuthorityPermitDenial construction gates refuses evidence that is not a timely denial of its exact request": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/authority/permit.test.ts#TargetAuthorityPermitRequest construction gates refuses a blank or untrimmed nonce": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/authority/permit.test.ts#TargetAuthorityPermitRequest construction gates refuses a request whose Tenant issuer is its own target": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/authority/permit.test.ts#TargetAuthorityPermitRequest construction gates refuses a request whose authority Binding is not its own": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/authority/permit.test.ts#TargetAuthorityPermitRequest construction gates refuses a request whose authority input names another nonce": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/authority/permit.test.ts#TargetAuthorityPermitRequest construction gates refuses a request whose authority intent is not its own": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/authority/permit.test.ts#TargetAuthorityPermitRequest construction gates refuses an expiry that is not a safe nonnegative instant": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/authority/permit.test.ts#Tenant issuance requires the exact projected source lease evidence": {
+      "src/execution-references/id.ts": [
+        4,
+        10
       ]
     },
     "test/authority/permit.test.ts#[authority-permit-owner-store] memory [authority-permit-target-store] [authority.target-permit-request] durably records one exact target request across restart": {
@@ -2231,151 +3614,146 @@
         10
       ]
     },
-    "test/authority/permit.test.ts#AuthorityPermit [authority.permit] codec preserves every normative field and immutable dates": {
+    "test/authority/permit.test.ts#cross-Actor authority admission linearizes on permit issuance [C13-AUTH-MEDIATED-ADMISSION] a revocation committed after issuance blocks every not-yet-issued permit and cannot cancel the admitted one": {
       "src/execution-references/id.ts": [
         4,
         10
       ]
     },
-    "test/authority/permit.test.ts#AuthorityPermit authentication mutation gates admission evidence binds to the exact authenticated permit bytes": {
-      "src/execution-references/id.ts": [
-        4,
-        10
-      ]
-    },
-    "test/authority/permit.test.ts#AuthorityPermit authentication mutation gates authenticates only the canonical issuer record with exact denials": {
-      "src/execution-references/id.ts": [
-        4,
-        10
-      ]
-    },
-    "test/authority/permit.test.ts#AuthorityPermit authentication mutation gates rejects authentications minted without the module issuer": {
+    "test/authority/permit.test.ts#cross-Actor authority admission linearizes on permit issuance [C13-AUTH-MEDIATED-ADMISSION] a revocation committed before issuance blocks the permit for each linearized mutation class independently": {
       "src/execution-references/id.ts": [
         4
       ]
     },
-    "test/authority/permit.test.ts#AuthorityPermit fails closed for substituted bindings and expiry without consuming": {
+    "test/authority/permit.test.ts#cross-Actor authority admission linearizes on permit issuance [C13-AUTH-MEDIATED-ADMISSION] the Tenant decision the permit is issued from binds the exact target fence, ordinal, arguments digest, and whole intent": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/authority/permit.test.ts#cross-Actor authority admission linearizes on permit issuance [C13-AUTH-MEDIATED-ADMISSION] the admission expectation is closed over exactly the rule 7 comparison inputs": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/authority/permit.test.ts#cross-Actor authority admission linearizes on permit issuance [C13-AUTH-MEDIATED-ADMISSION] the target's durable request binds the exact claim, reservation epoch, and item key the Tenant decision record cannot witness": {
       "src/execution-references/id.ts": [
         4,
         10
       ]
     },
-    "test/authority/permit.test.ts#AuthorityPermit mutation gates decodes only canonical Actor and claim owner kinds": {
+    "test/authority/permit.test.ts#source lease evidence issuer (memory) [target-lease-evidence-source] records the original current lease deadline and invocation lineage": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/authority/permit.test.ts#source lease evidence issuer (memory) attests nothing for a foreign source owner": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/authority/permit.test.ts#source lease evidence issuer (memory) refuses after intent substitution and detects a substituted same-key request": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/authority/permit.test.ts#source lease evidence issuer (memory) refuses once the runtime reclaims the Turn or the watermark advances": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/authority/permit.test.ts#source lease evidence issuer (memory) replays the original attestation when a renewed lease retries a lost response": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/authority/permit.test.ts#source lease evidence issuer (sqlite) [target-lease-evidence-source] records the original current lease deadline and invocation lineage": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/authority/permit.test.ts#source lease evidence issuer (sqlite) attests nothing for a foreign source owner": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/authority/permit.test.ts#source lease evidence issuer (sqlite) refuses after intent substitution and detects a substituted same-key request": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/authority/permit.test.ts#source lease evidence issuer (sqlite) refuses once the runtime reclaims the Turn or the watermark advances": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/authority/permit.test.ts#source lease evidence issuer (sqlite) replays the original attestation when a renewed lease retries a lost response": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/authority/target-lease-evidence.test.ts#TargetLeaseEvidence [authority.target-lease-evidence] [runs.target-lease-evidence] records one exact source-owned immutable attestation across restart": {
       "src/execution-references/id.ts": [
         4,
         10
       ]
     },
-    "test/authority/permit.test.ts#AuthorityPermit mutation gates exposes every expectation field through the permit getters": {
-      "src/execution-references/id.ts": [
-        4
-      ]
-    },
-    "test/authority/permit.test.ts#AuthorityPermit mutation gates is consumable at the exact issuance instant with exact time denials": {
-      "src/execution-references/id.ts": [
-        4
-      ]
-    },
-    "test/authority/permit.test.ts#AuthorityPermit mutation gates pins the reservation obligation to the exact invocation item": {
-      "src/execution-references/id.ts": [
-        4
-      ]
-    },
-    "test/authority/permit.test.ts#AuthorityPermit mutation gates rejects blank and non-canonical nonces exactly": {
-      "src/execution-references/id.ts": [
-        4
-      ]
-    },
-    "test/authority/permit.test.ts#AuthorityPermit mutation gates requires lease tokens to carry exact qualified identities": {
-      "src/execution-references/id.ts": [
-        4
-      ]
-    },
-    "test/authority/permit.test.ts#AuthorityPermit mutation gates requires the Tenant to qualify the path even when the principal matches": {
-      "src/execution-references/id.ts": [
-        4
-      ]
-    },
-    "test/authority/permit.test.ts#AuthorityPermit mutation gates validates issuance and expiry times with exact subjects": {
-      "src/execution-references/id.ts": [
-        4
-      ]
-    },
-    "test/authority/permit.test.ts#AuthorityPermit post-issuance Grant or epoch revocation cannot cancel the admitted permit": {
+    "test/authority/target-lease-evidence.test.ts#TargetLeaseEvidence [target-lease-evidence-source] answers only its exact owner through one run storage": {
       "src/execution-references/id.ts": [
         4,
         10
       ]
     },
-    "test/authority/permit.test.ts#AuthorityPermit [C13-AUTH-PRINCIPAL-REF] rejects a lease holder with the same PrincipalId from another Tenant": {
-      "src/execution-references/id.ts": [
-        4
-      ]
-    },
-    "test/authority/permit.test.ts#AuthorityPermit rejects malformed codec variants fail closed": {
+    "test/authority/target-lease-evidence.test.ts#TargetLeaseEvidence [target-lease-evidence-store] persists the source-owned record through SQLite restart": {
       "src/execution-references/id.ts": [
         4,
         10
       ]
     },
-    "test/authority/permit.test.ts#AuthorityPermit rejects malformed memory recovery and wrong Actor ownership": {
+    "test/authority/target-lease-evidence.test.ts#TargetLeaseEvidence reads canonical source facts and refuses every missing or substituted input": {
       "src/execution-references/id.ts": [
         4,
         10
       ]
     },
-    "test/authority/permit.test.ts#AuthorityPermit rejects malformed permit identities and times before issuance": {
-      "src/execution-references/id.ts": [
-        4
-      ]
-    },
-    "test/authority/permit.test.ts#AuthorityPermit rejects reservation obligations that are not invocation items": {
-      "src/execution-references/id.ts": [
-        4
-      ]
-    },
-    "test/authority/permit.test.ts#AuthorityPermit round-trips delegated system authority and an absent optional lease": {
-      "src/execution-references/id.ts": [
-        4
-      ]
-    },
-    "test/authority/permit.test.ts#AuthorityPermit SQLite permit storage fails closed on read, write, and projection faults": {
+    "test/authority/target-lease-evidence.test.ts#TargetLeaseEvidence refuses a record whose source differs from its bound owner": {
       "src/execution-references/id.ts": [
         4,
         10
       ]
     },
-    "test/authority/permit.test.ts#AuthorityPermit SQLite recovery rejects a substituted owner and malformed permit bytes": {
+    "test/authority/target-lease-evidence.test.ts#TargetLeaseEvidence validates evidence identity, lease, watermark, fence, and codec enums": {
       "src/execution-references/id.ts": [
         4,
         10
       ]
     },
-    "test/authority/permit.test.ts#MemoryAuthorityPermitStore mutation gates a consumed nonce retains its exact request and cannot be consumed twice": {
+    "test/authority/target-lease-evidence.test.ts#memory Tenant lease-evidence projection is idempotent across restart and refuses a same-key substitution": {
       "src/execution-references/id.ts": [
         4,
         10
       ]
     },
-    "test/authority/permit.test.ts#MemoryAuthorityPermitStore mutation gates detects issued records filed under a foreign nonce": {
-      "src/execution-references/id.ts": [
-        4,
-        10
-      ]
-    },
-    "test/authority/permit.test.ts#MemoryAuthorityPermitStore mutation gates issue is idempotent for the exact expectation and denies conflicts": {
-      "src/execution-references/id.ts": [
-        4,
-        10
-      ]
-    },
-    "test/authority/permit.test.ts#MemoryAuthorityPermitStore mutation gates snapshot bytes stay detached from committed state": {
-      "src/execution-references/id.ts": [
-        4,
-        10
-      ]
-    },
-    "test/authority/permit.test.ts#MemoryAuthorityPermitStore mutation gates snapshots order issued and consumed records canonically": {
+    "test/authority/target-lease-evidence.test.ts#sqlite Tenant lease-evidence projection is idempotent across restart and refuses a same-key substitution": {
       "src/execution-references/id.ts": [
         4,
         10
@@ -2406,6 +3784,11 @@
         4
       ]
     },
+    "test/composition/authority-commands.test.ts#closed Tenant authority command gates a permit decision whose evidence answers another request fails closed": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
     "test/composition/authority-commands.test.ts#closed Tenant authority command gates a substituted issued permit fails closed": {
       "src/execution-references/id.ts": [
         4
@@ -2421,31 +3804,15 @@
         4
       ]
     },
-    "test/composition/authority-commands.test.ts#closed Tenant authority command gates permit issuance requires the envelope lease to equal the expectation lease exactly": {
+    "test/composition/authority-commands.test.ts#closed Tenant authority command gates permit issuance forbids an envelope lease and requires projected source evidence": {
       "src/execution-references/id.ts": [
         4,
         10
       ]
     },
-    "test/composition/authority-commands.test.ts#closed Tenant authority commands (memory) [protocol.authority-permit-issuance-request] [protocol.authority-permit-issuance-reply] issues a source-bound permit only for the current path": {
+    "test/composition/authority-commands.test.ts#closed Tenant authority command gates refuses an envelope naming a revision or a lease no authority command carries": {
       "src/execution-references/id.ts": [
-        4
-      ]
-    },
-    "test/composition/authority-commands.test.ts#closed Tenant authority commands (memory) admits exact current check and permit leases while rejecting stale epochs": {
-      "src/execution-references/id.ts": [
-        4,
         10
-      ]
-    },
-    "test/composition/authority-commands.test.ts#closed Tenant authority commands (memory) replays the original authority denial and cannot later issue under the same identity": {
-      "src/execution-references/id.ts": [
-        4
-      ]
-    },
-    "test/composition/authority-commands.test.ts#closed Tenant authority commands (memory) rolls permit issuance back when linked WriteRecord evidence rejects": {
-      "src/execution-references/id.ts": [
-        4
       ]
     },
     "test/composition/authority-commands.test.ts#closed Tenant authority commands (SQLite) [protocol.authority-permit-issuance-request] [protocol.authority-permit-issuance-reply] issues a source-bound permit only for the current path": {
@@ -2453,7 +3820,7 @@
         4
       ]
     },
-    "test/composition/authority-commands.test.ts#closed Tenant authority commands (SQLite) admits exact current check and permit leases while rejecting stale epochs": {
+    "test/composition/authority-commands.test.ts#closed Tenant authority commands (SQLite) keeps direct check lease validation but forbids permit envelope leases": {
       "src/execution-references/id.ts": [
         4,
         10
@@ -2469,27 +3836,28 @@
         4
       ]
     },
-    "test/composition/authority-commands.test.ts#production Tenant authority permit runtime (memory) authenticates the target ActorRef without a Tenant-side target-fence mirror": {
+    "test/composition/authority-commands.test.ts#closed Tenant authority commands (memory) [protocol.authority-permit-issuance-request] [protocol.authority-permit-issuance-reply] issues a source-bound permit only for the current path": {
       "src/execution-references/id.ts": [
         4
       ]
     },
-    "test/composition/authority-commands.test.ts#production Tenant authority permit runtime (memory) evaluates the target request's full canonical arguments rather than its digest alone": {
+    "test/composition/authority-commands.test.ts#closed Tenant authority commands (memory) keeps direct check lease validation but forbids permit envelope leases": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/composition/authority-commands.test.ts#closed Tenant authority commands (memory) replays the original authority denial and cannot later issue under the same identity": {
       "src/execution-references/id.ts": [
         4
       ]
     },
-    "test/composition/authority-commands.test.ts#production Tenant authority permit runtime (memory) issues only from an authenticated target-owned request after both Actors restart": {
+    "test/composition/authority-commands.test.ts#closed Tenant authority commands (memory) rolls permit issuance back when linked WriteRecord evidence rejects": {
       "src/execution-references/id.ts": [
         4
       ]
     },
-    "test/composition/authority-commands.test.ts#production Tenant authority permit runtime (memory) rechecks current Tenant authority after revocation and restart before issuing": {
-      "src/execution-references/id.ts": [
-        4
-      ]
-    },
-    "test/composition/authority-commands.test.ts#production Tenant authority permit runtime (memory) rolls permit issuance back when durable command evidence cannot commit": {
+    "test/composition/authority-commands.test.ts#production Tenant authority permit runtime (SQLite) [tenant-authority-transaction-port] rechecks current Tenant authority after revocation and restart before issuing": {
       "src/execution-references/id.ts": [
         4
       ]
@@ -2509,14 +3877,46 @@
         4
       ]
     },
-    "test/composition/authority-commands.test.ts#production Tenant authority permit runtime (SQLite) rechecks current Tenant authority after revocation and restart before issuing": {
+    "test/composition/authority-commands.test.ts#production Tenant authority permit runtime (SQLite) rolls permit issuance back when durable command evidence cannot commit": {
       "src/execution-references/id.ts": [
         4
       ]
     },
-    "test/composition/authority-commands.test.ts#production Tenant authority permit runtime (SQLite) rolls permit issuance back when durable command evidence cannot commit": {
+    "test/composition/authority-commands.test.ts#production Tenant authority permit runtime (memory) [tenant-authority-transaction-port] rechecks current Tenant authority after revocation and restart before issuing": {
       "src/execution-references/id.ts": [
         4
+      ]
+    },
+    "test/composition/authority-commands.test.ts#production Tenant authority permit runtime (memory) authenticates the target ActorRef without a Tenant-side target-fence mirror": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/composition/authority-commands.test.ts#production Tenant authority permit runtime (memory) evaluates the target request's full canonical arguments rather than its digest alone": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/composition/authority-commands.test.ts#production Tenant authority permit runtime (memory) issues only from an authenticated target-owned request after both Actors restart": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/composition/authority-commands.test.ts#production Tenant authority permit runtime (memory) rolls permit issuance back when durable command evidence cannot commit": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/composition/authority-commands.test.ts#the Tenant authority runtime command backend continues to validate check leases while permit issuance has no Tenant lease lookup": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/composition/authority-commands.test.ts#the Tenant authority runtime command backend projects source evidence idempotently before issuing the exact permit": {
+      "src/execution-references/id.ts": [
+        4,
+        10
       ]
     },
     "test/composition/authority-membrane.test.ts#Tenant operation authority membrane resolve requires the exact current Turn lease": {
@@ -2660,6 +4060,36 @@
         10
       ]
     },
+    "test/composition/mediation-pipeline.test.ts#the detached execution plane the composition root owns [C13-TURN-HANDLE-DETACHMENT] a cancellation with no live controller writes no terminal failed Receipt": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/composition/mediation-pipeline.test.ts#the detached execution plane the composition root owns [C13-TURN-HANDLE-DETACHMENT] a rebuilt pipeline drives a released record the restart interrupted": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/composition/mediation-pipeline.test.ts#the detached execution plane the composition root owns [C13-TURN-HANDLE-DETACHMENT] aborts the exact live attempt and records aborted from what the target observed": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/composition/mediation-pipeline.test.ts#the detached execution plane the composition root owns [C13-TURN-HANDLE-DETACHMENT] admits durable item facts with no Receipt and runs nothing": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/composition/mediation-pipeline.test.ts#the detached execution plane the composition root owns [C13-TURN-HANDLE-DETACHMENT] executes the released item and answers it with its own Receipt": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/composition/mediation-pipeline.test.ts#the detached execution plane the composition root owns [C13-TURN-HANDLE-DETACHMENT] starts no execution before the Run's admission message arrives": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
     "test/composition/mediation-pipeline.test.ts#the published mediation composition root [C13-AUTH-RESOLUTION-LIFETIME] [C13-FACET-DISPOSAL] releases a dynamic resolution before resolving the next invocation": {
       "src/execution-references/id.ts": [
         16
@@ -2670,10 +4100,38 @@
         16
       ]
     },
+    "test/composition/mediation-pipeline.test.ts#the published mediation composition root [C13-RECEIPT-FAILURE-ORTHOGONAL] projects each stored Receipt shape the admission verifier refuses": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/composition/mediation-pipeline.test.ts#the published mediation composition root [C13-TURN-ADMISSION-HANDLE] carries the child RunRef for a delegate spawn and never the child's result": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/composition/mediation-pipeline.test.ts#the published mediation composition root [C13-TURN-ADMISSION-HANDLE] offers the verified admission identity at the executor boundary without changing admission": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
     "test/composition/mediation-pipeline.test.ts#the published mediation composition root assembles authenticated permit denial over one SQLite target aggregate": {
       "src/execution-references/id.ts": [
         4,
         10,
+        16
+      ]
+    },
+    "test/composition/mediation-pipeline.test.ts#the published mediation composition root classifies an unconfirmed attempt failure against the domain hosting the target": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/composition/mediation-pipeline.test.ts#the published mediation composition root names domainLost once the runtime stops answering for the target Facet": {
+      "src/execution-references/id.ts": [
         16
       ]
     },
@@ -2717,12 +4175,118 @@
         10
       ]
     },
+    "test/composition/target-lease-attestation.test.ts#source-hosted target lease attestation across three distinct hosts attests nothing for a request naming another Tenant": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/composition/target-lease-attestation.test.ts#source-hosted target lease attestation across three distinct hosts commits, self-projects, and returns only an immutable reference to the target": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/composition/target-lease-attestation.test.ts#source-hosted target lease attestation across three distinct hosts keeps issuance closed when a request substitutes the attested binding": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/composition/target-lease-attestation.test.ts#source-hosted target lease attestation across three distinct hosts refuses a projection channel that does not speak as the source": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/composition/target-lease-attestation.test.ts#source-hosted target lease attestation across three distinct hosts replays the committed attestation across a lost projection reply and a renewal": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
     "test/definition/pins.test.ts#RunPins integration ports fails closed when W5 reservation and migration evidence is unavailable": {
       "src/execution-references/id.ts": [
         16
       ]
     },
     "test/environments/runtime.test.ts#EnvironmentController [C13-ENVIRONMENT-TURN-OWNED] rejects use under another Turn's lease and fails closed once the owning lease is fenced": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/integration/conformance/w9-composition.test.ts#W9 authority permit issuance guards always reports a nonblank reason when the retained request cannot be re-digested": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/integration/conformance/w9-composition.test.ts#W9 authority permit issuance guards issues at the exact permit lifetime and refuses a claim one millisecond past it": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/integration/conformance/w9-composition.test.ts#W9 authority permit issuance guards refuses a denial that does not bind its exact retained request": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/integration/conformance/w9-composition.test.ts#W9 authority permit issuance guards refuses a request clock that is not a non-negative safe integer": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/integration/conformance/w9-composition.test.ts#W9 authority permit issuance guards refuses a retained request that does not bind the current claim": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/integration/conformance/w9-composition.test.ts#W9 authority permit issuance guards refuses an authenticated denial that does not bind the expectation of its claim": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/integration/conformance/w9-composition.test.ts#W9 authority permit issuance guards refuses an authority permit denial that no Tenant authenticated": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/integration/conformance/w9-composition.test.ts#W9 authority permit issuance guards refuses authenticated denial evidence that belongs to another owner": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/integration/conformance/w9-composition.test.ts#W9 authority permit issuance guards reports a claim expiring at or before the request time as expired and retains nothing": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/integration/conformance/w9-composition.test.ts#W9 authority permit issuance guards reports an undecodable transport reply as invalid and rethrows an unsupported major": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/integration/conformance/w9-composition.test.ts#W9 authority permit issuance guards round-trips a canonical permit reference and refuses malformed data both ways": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition [C13-AUTH-PRINCIPAL-REF] rejects a same-PrincipalId cross-Tenant lease at resolution, direct, and mediated admission": {
       "src/execution-references/id.ts": [
         10
       ]
@@ -2780,11 +4344,6 @@
         10
       ]
     },
-    "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition [C13-AUTH-PRINCIPAL-REF] rejects a same-PrincipalId cross-Tenant lease at resolution, direct, and mediated admission": {
-      "src/execution-references/id.ts": [
-        10
-      ]
-    },
     "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition rejects invalid permit lifetimes before issuing authority": {
       "src/execution-references/id.ts": [
         4,
@@ -2813,22 +4372,6 @@
         10
       ]
     },
-    "test/integration/e2e/authority-journey.test.ts#closed Tenant authority journey (memory) refuses a check naming a foreign owning Tenant before evaluating authority": {
-      "src/execution-references/id.ts": [
-        10
-      ]
-    },
-    "test/integration/e2e/authority-journey.test.ts#closed Tenant authority journey (memory) replays a duplicate check without re-evaluating authority": {
-      "src/execution-references/id.ts": [
-        10
-      ]
-    },
-    "test/integration/e2e/authority-journey.test.ts#closed Tenant authority journey (memory) validates a Binding, checks the intent, and issues the permit as linked evidence": {
-      "src/execution-references/id.ts": [
-        4,
-        10
-      ]
-    },
     "test/integration/e2e/authority-journey.test.ts#closed Tenant authority journey (SQLite) refuses a check naming a foreign owning Tenant before evaluating authority": {
       "src/execution-references/id.ts": [
         10
@@ -2845,18 +4388,19 @@
         10
       ]
     },
-    "test/integration/e2e/tenant-isolation-journey.test.ts#multi-Tenant isolation (memory) refuses a foreign Tenant Actor caller at authority": {
+    "test/integration/e2e/authority-journey.test.ts#closed Tenant authority journey (memory) refuses a check naming a foreign owning Tenant before evaluating authority": {
       "src/execution-references/id.ts": [
         10
       ]
     },
-    "test/integration/e2e/tenant-isolation-journey.test.ts#multi-Tenant isolation (memory) refuses a foreign Tenant Principal caller at authentication": {
+    "test/integration/e2e/authority-journey.test.ts#closed Tenant authority journey (memory) replays a duplicate check without re-evaluating authority": {
       "src/execution-references/id.ts": [
         10
       ]
     },
-    "test/integration/e2e/tenant-isolation-journey.test.ts#multi-Tenant isolation (memory) reserves the same idempotency key independently per Tenant": {
+    "test/integration/e2e/authority-journey.test.ts#closed Tenant authority journey (memory) validates a Binding, checks the intent, and issues the permit as linked evidence": {
       "src/execution-references/id.ts": [
+        4,
         10
       ]
     },
@@ -2871,6 +4415,21 @@
       ]
     },
     "test/integration/e2e/tenant-isolation-journey.test.ts#multi-Tenant isolation (SQLite) reserves the same idempotency key independently per Tenant": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/integration/e2e/tenant-isolation-journey.test.ts#multi-Tenant isolation (memory) refuses a foreign Tenant Actor caller at authority": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/integration/e2e/tenant-isolation-journey.test.ts#multi-Tenant isolation (memory) refuses a foreign Tenant Principal caller at authentication": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/integration/e2e/tenant-isolation-journey.test.ts#multi-Tenant isolation (memory) reserves the same idempotency key independently per Tenant": {
       "src/execution-references/id.ts": [
         10
       ]
@@ -2905,6 +4464,11 @@
         16
       ]
     },
+    "test/invocations/audit-relation.test.ts#complete local AuditKind relation [C13-AUDIT-EDGE-RELATION] rejects structurally permitted edges with substituted domain evidence": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
     "test/invocations/audit-relation.test.ts#complete local AuditKind relation [C13-AUDIT-RECEIPT-OUTCOMES] admits the exact routed approval, effect, Receipt, Event, route, and commit graph": {
       "src/execution-references/id.ts": [
         16
@@ -2921,11 +4485,6 @@
       ]
     },
     "test/invocations/audit-relation.test.ts#complete local AuditKind relation [C13-AUDIT-SYSTEM-WRITER] admits direct, denied, expired, and Receipt-caused local edges": {
-      "src/execution-references/id.ts": [
-        16
-      ]
-    },
-    "test/invocations/audit-relation.test.ts#complete local AuditKind relation [C13-AUDIT-EDGE-RELATION] rejects structurally permitted edges with substituted domain evidence": {
       "src/execution-references/id.ts": [
         16
       ]
@@ -3120,6 +4679,11 @@
         10
       ]
     },
+    "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [invocation.audit] refuses a permitted audit edge whose evidence it cannot read": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
     "test/operations/direct-authority-gateway.test.ts#direct authority through the protected Operation gateway binds immutable resolution authority and call stamps to descriptor and canonical input": {
       "src/execution-references/id.ts": [
         10
@@ -3146,6 +4710,46 @@
       ]
     },
     "test/operations/direct-authority-gateway.test.ts#direct authority through the protected Operation gateway uses delayed watermark, exact lease, and immutable deadline cutoffs before execution": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/operations/runtime.test.ts#Facet runtime [C13-INTERCEPTOR-DOMAIN-CONFINEMENT] refuses a Turn-bound cut point contributed from another protection domain": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/operations/runtime.test.ts#Facet runtime [C13-INTERCEPTOR-MODE-FIDELITY] polices a rewriting gate at every Turn-bound cut point instead of refusing the declaration it could not police": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/operations/runtime.test.ts#Facet runtime [C13-INTERCEPTOR-TURN-HOSTED] blocks the Turn naming what the interceptor did, whatever it threw or returned": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/operations/runtime.test.ts#Facet runtime [C13-INTERCEPTOR-TURN-HOSTED] consults only what a Facet declared at the requested cut point, and nothing from a Facet that declared none": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/operations/runtime.test.ts#Facet runtime [C13-INTERCEPTOR-TURN-HOSTED] orders two contributing Facets at one Turn-bound cut point by the same banded key as an operation cut point": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/operations/runtime.test.ts#Facet runtime [C13-INTERCEPTOR-TURN-HOSTED] rejects a declared interceptor with no implementation at operation and Turn cut points before activation": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/operations/runtime.test.ts#Facet runtime [C13-INTERCEPTOR-TURN-HOSTED] returns a turn.step refusal as an attributed stop request and blocks the other Turn-bound cut points outright": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/operations/runtime.test.ts#Facet runtime [C13-INTERCEPTOR-TURN-REWRITE] applies the cut point's rewrite rule to each rewriter's own answer rather than to the final value": {
       "src/execution-references/id.ts": [
         10
       ]
@@ -3190,14 +4794,19 @@
         4
       ]
     },
+    "test/protocol/authority-evidence.test.ts#permit issuance decoding refuses a reply whose kind and permit disagree": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
     "test/protocol/authority-evidence.test.ts#permit issuance replies and payload codecs round-trip frozen permits": {
       "src/execution-references/id.ts": [
         4
       ]
     },
-    "test/protocol/bootstrap.test.ts#tenant.bootstrap concrete compositions memory rejects forged caller, revision, lease, and payload records": {
+    "test/protocol/authority-evidence.test.ts#permit issuance replies refuse a decision their permit and evidence do not agree with": {
       "src/execution-references/id.ts": [
-        10
+        4
       ]
     },
     "test/protocol/bootstrap.test.ts#tenant.bootstrap concrete compositions SQLite rejects forged caller, revision, lease, and payload records": {
@@ -3205,7 +4814,7 @@
         10
       ]
     },
-    "test/protocol/codec.test.ts#authentication matching rejects every non-issued value shape": {
+    "test/protocol/bootstrap.test.ts#tenant.bootstrap concrete compositions memory rejects forged caller, revision, lease, and payload records": {
       "src/execution-references/id.ts": [
         10
       ]
@@ -3231,6 +4840,11 @@
       ]
     },
     "test/protocol/codec.test.ts#CommandEnvelope codec rejects long key at construction": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/codec.test.ts#authentication matching rejects every non-issued value shape": {
       "src/execution-references/id.ts": [
         10
       ]
@@ -3320,47 +4934,12 @@
         10
       ]
     },
-    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) [C13-PROTOCOL-FAMILY-ENVELOPE-POLICY] enforces every revision and lease field policy": {
+    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (SQLite) [C13-ADV-COMMAND-REJECTIONS] rejects expired required lease tokens": {
       "src/execution-references/id.ts": [
         10
       ]
     },
-    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) evaluates post-payload gates in deterministic order": {
-      "src/execution-references/id.ts": [
-        10
-      ]
-    },
-    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) [C13-PROTOCOL-EXACT-ENVELOPE] preserves the qualified current lease across restart and rejects its PrincipalId from another Tenant": {
-      "src/execution-references/id.ts": [
-        10
-      ]
-    },
-    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) registration callbacks cannot mutate authenticated envelope state": {
-      "src/execution-references/id.ts": [
-        10
-      ]
-    },
-    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) [C13-ADV-COMMAND-REJECTIONS] rejects expired required lease tokens": {
-      "src/execution-references/id.ts": [
-        10
-      ]
-    },
-    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) rejects missing required lease tokens": {
-      "src/execution-references/id.ts": [
-        10
-      ]
-    },
-    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) rejects wrong epoch required lease tokens": {
-      "src/execution-references/id.ts": [
-        10
-      ]
-    },
-    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) rejects wrong holder required lease tokens": {
-      "src/execution-references/id.ts": [
-        10
-      ]
-    },
-    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) rejects wrong turn required lease tokens": {
+    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (SQLite) [C13-PROTOCOL-EXACT-ENVELOPE] preserves the qualified current lease across restart and rejects its PrincipalId from another Tenant": {
       "src/execution-references/id.ts": [
         10
       ]
@@ -3375,17 +4954,7 @@
         10
       ]
     },
-    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (SQLite) [C13-PROTOCOL-EXACT-ENVELOPE] preserves the qualified current lease across restart and rejects its PrincipalId from another Tenant": {
-      "src/execution-references/id.ts": [
-        10
-      ]
-    },
     "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (SQLite) registration callbacks cannot mutate authenticated envelope state": {
-      "src/execution-references/id.ts": [
-        10
-      ]
-    },
-    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (SQLite) [C13-ADV-COMMAND-REJECTIONS] rejects expired required lease tokens": {
       "src/execution-references/id.ts": [
         10
       ]
@@ -3410,6 +4979,51 @@
         10
       ]
     },
+    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) [C13-ADV-COMMAND-REJECTIONS] rejects expired required lease tokens": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) [C13-PROTOCOL-EXACT-ENVELOPE] preserves the qualified current lease across restart and rejects its PrincipalId from another Tenant": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) [C13-PROTOCOL-FAMILY-ENVELOPE-POLICY] enforces every revision and lease field policy": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) evaluates post-payload gates in deterministic order": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) registration callbacks cannot mutate authenticated envelope state": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) rejects missing required lease tokens": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) rejects wrong epoch required lease tokens": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) rejects wrong holder required lease tokens": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) rejects wrong turn required lease tokens": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
     "test/protocol/dispatcher.test.ts#leases without a current holder, expiry, or record are fenced": {
       "src/execution-references/id.ts": [
         10
@@ -3425,12 +5039,12 @@
         10
       ]
     },
-    "test/protocol/persistence-memory.test.ts#memory reads every hand-seeded codec-representable non-write audit projection": {
+    "test/protocol/persistence-memory.test.ts#ProtocolPersistence (memory) rejects a codec-representable unsupported causal path without persistence": {
       "src/execution-references/id.ts": [
         16
       ]
     },
-    "test/protocol/persistence-memory.test.ts#ProtocolPersistence (memory) rejects a codec-representable unsupported causal path without persistence": {
+    "test/protocol/persistence-memory.test.ts#memory reads every hand-seeded codec-representable non-write audit projection": {
       "src/execution-references/id.ts": [
         16
       ]
@@ -3485,6 +5099,100 @@
         10
       ]
     },
+    "test/protocol/tenant-decision.test.ts#[C13-PROTOCOL-ATOMIC-EVIDENCE] (memory) an effect that lands without its linked evidence is refused": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/tenant-decision.test.ts#[C13-PROTOCOL-ATOMIC-EVIDENCE] (sqlite) an effect that lands without its linked evidence is refused": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/tenant-decision.test.ts#[C13-PROTOCOL-DUPLICATE] (memory) a redelivered cross-Actor command replays the recorded outcome with exactly one effect and a distinguishable audit entry": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/tenant-decision.test.ts#[C13-PROTOCOL-DUPLICATE] (sqlite) a redelivered cross-Actor command replays the recorded outcome with exactly one effect and a distinguishable audit entry": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/tenant-decision.test.ts#[C13-PROTOCOL-OUTCOMES] [actor-local-store] [protocol-persistence] two hosts decide every declared command outcome identically": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/tenant-decision.test.ts#[C13-PROTOCOL-REJECTION-ROOT] (memory) a cross-Actor rejection with no usable caller cause still produces an attributable host root": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/tenant-decision.test.ts#[C13-PROTOCOL-REJECTION-ROOT] (sqlite) a cross-Actor rejection with no usable caller cause still produces an attributable host root": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [invocation.audit] refuses a permitted audit edge whose evidence it cannot read": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/substrates/sqlite/permit.test.ts#SQLite authority permit store exact behavior Tenant permit store issues permits in its own transaction": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/substrates/sqlite/permit.test.ts#SQLite authority permit store exact behavior a consumed row is validated against the exact owner when it is read": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/substrates/sqlite/permit.test.ts#SQLite authority permit store exact behavior a limbo state and a resurrected consumed record are refused when read": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/substrates/sqlite/permit.test.ts#SQLite authority permit store exact behavior a nonce that is both denied and consumed is refused when read": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/substrates/sqlite/permit.test.ts#SQLite authority permit store exact behavior a run of unprunable rows at the head of the ordering never jams the page": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/substrates/sqlite/permit.test.ts#SQLite authority permit store exact behavior consume refuses a nonce another owner already occupies": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/substrates/sqlite/permit.test.ts#SQLite authority permit store exact behavior consume refuses a permit with no durable target request": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/substrates/sqlite/permit.test.ts#SQLite authority permit store exact behavior consume refuses a request its Tenant denied": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/substrates/sqlite/permit.test.ts#SQLite authority permit store exact behavior consume refuses requests that are not its exact admission": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
     "test/substrates/sqlite/permit.test.ts#SQLite authority permit store exact behavior consume replay at a valid time reports exact nonce reuse": {
       "src/execution-references/id.ts": [
         4,
@@ -3503,10 +5211,57 @@
         10
       ]
     },
+    "test/substrates/sqlite/permit.test.ts#SQLite authority permit store exact behavior consumption write failures keep their typed cause": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/substrates/sqlite/permit.test.ts#SQLite authority permit store exact behavior denial write failures keep their typed cause": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/substrates/sqlite/permit.test.ts#SQLite authority permit store exact behavior deny refuses a nonce this Actor already consumed": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/substrates/sqlite/permit.test.ts#SQLite authority permit store exact behavior deny replays one denial and refuses a second for that nonce": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/substrates/sqlite/permit.test.ts#SQLite authority permit store exact behavior deny reports a denial that did not persist exactly": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/substrates/sqlite/permit.test.ts#SQLite authority permit store exact behavior deny requires the exact durable target request": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/substrates/sqlite/permit.test.ts#SQLite authority permit store exact behavior issue and consume refuse permits owned by another Actor": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
     "test/substrates/sqlite/permit.test.ts#SQLite authority permit store exact behavior issue binds each nonce to one exact expectation": {
       "src/execution-references/id.ts": [
         4,
         10
+      ]
+    },
+    "test/substrates/sqlite/permit.test.ts#SQLite authority permit store exact behavior issue write failures keep their typed cause": {
+      "src/execution-references/id.ts": [
+        4
       ]
     },
     "test/substrates/sqlite/permit.test.ts#SQLite authority permit store exact behavior issued and consumed project only their exact states": {
@@ -3527,19 +5282,93 @@
         10
       ]
     },
-    "test/substrates/sqlite/permit.test.ts#SQLite authority permit store exact behavior recovery rejects limbo states and resurrected consumed records": {
+    "test/substrates/sqlite/permit.test.ts#SQLite authority permit store exact behavior permit writes refuse a transaction from another SQLite owner": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/substrates/sqlite/permit.test.ts#SQLite authority permit store exact behavior prune keeps a requested row until its expiry passes the horizon": {
       "src/execution-references/id.ts": [
         4,
         10
       ]
     },
-    "test/substrates/sqlite/permit.test.ts#SQLite authority permit store exact behavior recovery validates consumed rows against the exact owner": {
+    "test/substrates/sqlite/permit.test.ts#SQLite authority permit store exact behavior prune keeps an unsettled issued row until its expiry passes": {
       "src/execution-references/id.ts": [
         4,
         10
+      ]
+    },
+    "test/substrates/sqlite/permit.test.ts#SQLite authority permit store exact behavior prune reads a bounded page and leaves the rest for a later sweep": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/substrates/sqlite/permit.test.ts#SQLite authority permit store exact behavior prune removes a settled row only once its permit expired before the horizon": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/substrates/sqlite/permit.test.ts#SQLite authority permit store exact behavior prune reports a full page as more and a short page as the end": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/substrates/sqlite/permit.test.ts#SQLite authority permit store exact behavior request and deny refuse target records owned by another Actor": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/substrates/sqlite/permit.test.ts#SQLite authority permit store exact behavior request binds each nonce to one exact target request": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/substrates/sqlite/permit.test.ts#SQLite authority permit store exact behavior request refuses a nonce whose durable row never appears": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/substrates/sqlite/permit.test.ts#SQLite authority permit store exact behavior request write failures keep their typed cause": {
+      "src/execution-references/id.ts": [
+        4
       ]
     },
     "test/substrates/sqlite/permit.test.ts#SQLite authority permit store exact behavior requires the active Actor transaction scope even for the same database": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/substrates/sqlite/permit.test.ts#SQLite authority permit store exact behavior restart revalidates and republishes issued and denied rows": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/substrates/sqlite/permit.test.ts#SQLite authority permit store exact behavior stored consumptions must match their row exactly": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/substrates/sqlite/permit.test.ts#SQLite authority permit store exact behavior stored denials must match their row exactly": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/substrates/sqlite/permit.test.ts#SQLite authority permit store exact behavior stored issued permits must match their row exactly": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/substrates/sqlite/permit.test.ts#SQLite authority permit store exact behavior stored target requests must match their row exactly": {
       "src/execution-references/id.ts": [
         4,
         10
@@ -3625,6 +5454,35 @@
         16
       ]
     },
+    "test/substrates/sqlite/target-mediation.test.ts#SQLite target mediation invocation projections a claim and its EffectAttempt store their ordinal columns": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/substrates/sqlite/target-mediation.test.ts#SQLite target mediation invocation projections each stored Receipt variant projects its own discriminated columns": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/substrates/sqlite/target-mediation.test.ts#SQLite target permit mediation aggregate admission consumes a permit exactly once inside its own scope": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/substrates/sqlite/target-mediation.test.ts#SQLite target permit mediation aggregate every permit view answers exactly inside the aggregate's own Actor transaction": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/substrates/sqlite/target-mediation.test.ts#SQLite target permit mediation aggregate resolution invalidation is refused for any other owner": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
     "test/workspaces/codec-id-mutations.test.ts#InboxEventReference mutation coverage decode reports each tampered field with its exact subject label": {
       "src/execution-references/id.ts": [
         10
@@ -3633,6 +5491,16 @@
     "test/workspaces/codec-id-mutations.test.ts#InboxEventReference mutation coverage lease epoch accepts zero and rejects negative values exactly": {
       "src/execution-references/id.ts": [
         10
+      ]
+    },
+    "test/workspaces/coherence.test.ts#[C13-SUBSCRIPTION-COHERENCE-EVIDENCE] refuses a distinct payload whose discriminator digests are equal": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/workspaces/coherence.test.ts#[C13-SUBSCRIPTION-COHERENCE-EVIDENCE] round-trips through its codec and rejects an unknown verdict": {
+      "src/execution-references/id.ts": [
+        4
       ]
     },
     "test/workspaces/coverage-protocols.test.ts#inbox protocol outcomes rejects reference turn and epoch mismatches before calling the run port": {
@@ -3670,6 +5538,16 @@
         10
       ]
     },
+    "test/workspaces/plan.test.ts#[C13-PLAN-FOLD-CLOSED] every fact reports its own kind, and a retraction decodes back into one": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/workspaces/plan.test.ts#[C13-PLAN-PROJECTION] a projection rebuilt from the same Events is byte-identical": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
     "test/workspaces/protocols.test.ts#InboxProtocol accepts only the exact live Turn lease and preserves sequence uniqueness": {
       "src/execution-references/id.ts": [
         10
@@ -3680,7 +5558,17 @@
         10
       ]
     },
+    "test/workspaces/registry.test.ts#[workspace.coherence-finding] codec and ownership evidence": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
     "test/workspaces/registry.test.ts#[workspace.inbox-reference] codec and ownership evidence": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/workspaces/registry.test.ts#[workspace.plan-fact] codec and ownership evidence": {
       "src/execution-references/id.ts": [
         10
       ]
