@@ -35,7 +35,7 @@ export interface RunAdmissionReservation {
 export interface RunAdmissionRegistryInit {
     readonly run: RunId;
     readonly epoch: number;
-    readonly accepting: boolean;
+    readonly open: boolean;
     readonly reserved: readonly RunObligation[];
     readonly completed: readonly RunObligation[];
 }
@@ -52,7 +52,7 @@ export class RunAdmissionRegistry extends CodecRecord {
 
     public readonly run: RunId;
     public readonly epoch: number;
-    public readonly accepting: boolean;
+    public readonly open: boolean;
     public readonly reserved: readonly RunObligation[];
     public readonly completed: readonly RunObligation[];
 
@@ -62,10 +62,10 @@ export class RunAdmissionRegistry extends CodecRecord {
             throw new TypeError("Run admission registry requires an exact Run ID");
         }
         requireEpoch(init.epoch, "Run admission registry epoch");
-        if (init.accepting !== true && init.accepting !== false) {
-            throw new TypeError("Run admission registry accepting state is invalid");
+        if (init.open !== true && init.open !== false) {
+            throw new TypeError("Run admission registry open state is invalid");
         }
-        if (!init.accepting && init.epoch === 0) {
+        if (!init.open && init.epoch === 0) {
             throw new TypeError("Closed Run admission registry must have an advanced epoch");
         }
         const reserved = canonicalObligations(init.reserved, "Reserved Run obligation");
@@ -81,7 +81,7 @@ export class RunAdmissionRegistry extends CodecRecord {
         );
         this.run = init.run;
         this.epoch = init.epoch;
-        this.accepting = init.accepting;
+        this.open = init.open;
         this.reserved = reserved;
         this.completed = Object.freeze(completed);
         Object.freeze(this);
@@ -91,14 +91,14 @@ export class RunAdmissionRegistry extends CodecRecord {
         return new RunAdmissionRegistry({
             run,
             epoch: 0,
-            accepting: true,
+            open: true,
             reserved: [],
             completed: []
         });
     }
 
     public reserve(obligation: RunObligation): RunObligationReservation {
-        if (!this.accepting) {
+        if (!this.open) {
             throw invalid("Run admission registry is closed");
         }
         const candidate = copyRunObligation(obligation);
@@ -109,7 +109,7 @@ export class RunAdmissionRegistry extends CodecRecord {
                 ? new RunAdmissionRegistry({
                       run: this.run,
                       epoch: this.epoch,
-                      accepting: true,
+                      open: true,
                       reserved: [...this.reserved, candidate],
                       completed: this.completed
                   })
@@ -126,7 +126,7 @@ export class RunAdmissionRegistry extends CodecRecord {
 
     public accepts(reservation: RunAdmissionReservation): boolean {
         if (
-            !this.accepting ||
+            !this.open ||
             !this.run.equals(reservation.run) ||
             this.epoch !== reservation.registryEpoch
         ) {
@@ -147,7 +147,7 @@ export class RunAdmissionRegistry extends CodecRecord {
         if (reserved === undefined) return undefined;
         return Object.freeze({
             run: this.run,
-            registryEpoch: this.accepting ? this.epoch : this.epoch - 1,
+            registryEpoch: this.open ? this.epoch : this.epoch - 1,
             obligation: reserved
         });
     }
@@ -162,21 +162,21 @@ export class RunAdmissionRegistry extends CodecRecord {
         return new RunAdmissionRegistry({
             run: this.run,
             epoch: this.epoch,
-            accepting: this.accepting,
+            open: this.open,
             reserved: this.reserved,
             completed: [...this.completed, obligation]
         });
     }
 
     public close(): RunAdmissionRegistry {
-        if (!this.accepting) return this;
+        if (!this.open) return this;
         if (this.epoch === Number.MAX_SAFE_INTEGER) {
             throw invalid("Run admission registry epoch is exhausted");
         }
         return new RunAdmissionRegistry({
             run: this.run,
             epoch: this.epoch + 1,
-            accepting: false,
+            open: false,
             reserved: this.reserved,
             completed: this.completed
         });
@@ -193,9 +193,9 @@ export class RunAdmissionRegistry extends CodecRecord {
 
     public toData(): JsonValue {
         return {
-            accepting: this.accepting,
             completed: this.completed.map(runObligationData),
             epoch: this.epoch,
+            open: this.open,
             reserved: this.reserved.map(runObligationData),
             run: this.run.value
         };
@@ -205,18 +205,18 @@ export class RunAdmissionRegistry extends CodecRecord {
         const object = requireObject(value, "Run admission registry");
         requireExactFields(
             object,
-            ["accepting", "completed", "epoch", "reserved", "run"],
+            ["completed", "epoch", "open", "reserved", "run"],
             [],
             "Run admission registry"
         );
-        const accepting = object["accepting"];
-        if (accepting !== true && accepting !== false) {
-            throw new TypeError("Run admission registry accepting state is invalid");
+        const open = object["open"];
+        if (open !== true && open !== false) {
+            throw new TypeError("Run admission registry open state is invalid");
         }
         return new RunAdmissionRegistry({
             run: new RunId(requireString(object["run"], "Run admission registry Run")),
             epoch: requireInteger(object["epoch"], "Run admission registry epoch"),
-            accepting,
+            open,
             reserved: requireArray(object["reserved"], "Reserved Run obligations").map(
                 decodeRunObligation
             ),
@@ -227,7 +227,7 @@ export class RunAdmissionRegistry extends CodecRecord {
     }
 
     private completionKey(reservation: RunAdmissionReservation): string | undefined {
-        const reservationEpoch = this.accepting ? this.epoch : this.epoch - 1;
+        const reservationEpoch = this.open ? this.epoch : this.epoch - 1;
         if (!this.run.equals(reservation.run) || reservation.registryEpoch !== reservationEpoch) {
             return undefined;
         }
@@ -241,6 +241,13 @@ export class RunAdmissionRegistry extends CodecRecord {
     }
 }
 
+/**
+ * Major 2 spells the open-state key SPEC §5.6's way. A major-1 payload holds the same
+ * boolean under `accepting`, so nothing is lost — but this decoder is exact by construction
+ * (§8.3), and admitting two spellings of one field is a shim that would outlive the rename.
+ * So the old major earns the typed rejection `assertCompatibleRecordVersion` already gives
+ * it, and MIGRATE-RUN-ADMISSION-OPEN owns the rewrite.
+ */
 class RunAdmissionRegistryRecordCodec extends RecordCodec<RunAdmissionRegistry> {
     public constructor() {
         super(
@@ -258,7 +265,7 @@ class RunAdmissionRegistryRecordCodec extends RecordCodec<RunAdmissionRegistry> 
             ],
             "run.admission-registry",
             {
-                major: 1,
+                major: 2,
                 minor: 0
             }
         );

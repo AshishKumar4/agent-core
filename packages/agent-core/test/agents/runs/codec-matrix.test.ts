@@ -197,7 +197,7 @@ function auditKey(audit: SettlementAuditObligation): string {
         case "delivery":
             return `delivery:${audit.reservation.value}`;
         case "commit":
-            return `commit:${audit.commit.value}`;
+            return `commit:${audit.id.value}`;
     }
 }
 

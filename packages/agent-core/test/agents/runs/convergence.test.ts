@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ContentRef, Revision, SemVer } from "../../../src/core";
 import type { ContentStore } from "../../../src/content";
 import { AgentCoreError } from "../../../src/errors";
-import { PackageId, PackagePin } from "../../../src/definition";
+import { PackageId, PackagePin, TreeMergePolicy } from "../../../src/definition";
 import { RunCommitId, TurnId } from "../../../src/execution-references";
 import { InvocationId } from "../../../src/interaction-references";
 import { ReceiptId } from "../../../src/invocations";
@@ -86,6 +86,14 @@ class ConcatMergePort extends RunMergePort<RunTransaction> {
 
     public verifyTree(): boolean {
         return true;
+    }
+
+    /**
+     * This suite's Blueprint declares `perPath`; its folds are about order, not about the
+     * §5.2.1 absence refusal.
+     */
+    public declaredTreeMerge(): TreeMergePolicy {
+        return TreeMergePolicy.perPath;
     }
 
     /** The text a parent contributes; a commit kind carrying no content contributes none. */

@@ -806,7 +806,7 @@ describe("durable Run admission validation", () => {
             const registry = new RunAdmissionRegistry({
                 run,
                 epoch: 0,
-                accepting: true,
+                open: true,
                 reserved: [reservation.obligation],
                 completed: []
             });

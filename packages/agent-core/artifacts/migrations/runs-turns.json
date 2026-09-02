@@ -3,6 +3,21 @@
   "owner": "W5",
   "migrations": [
     {
+      "id": "MIGRATE-RUN-ADMISSION-OPEN",
+      "owner": "W5",
+      "specRequirement": "C13-RUN-ADMISSION-REGISTRY",
+      "status": "verified",
+      "sourceSymbols": [
+        "src/agents/runs/admission.ts#RunAdmissionRegistry",
+        "src/agents/runs/admission.ts#RunAdmissionRegistryCodec",
+        "src/core/codec.ts#assertCompatibleRecordVersion"
+      ],
+      "testSelectors": [
+        "test/agents/runs/admission.test.ts#durable Run admission registry [C13-RUN-ADMISSION-REGISTRY] [MIGRATE-RUN-ADMISSION-OPEN] writes SPEC's `open` key at major 2 and refuses the `accepting` major it replaced"
+      ],
+      "remainingEvidence": []
+    },
+    {
       "id": "MIGRATE-RUN-PINS",
       "owner": "W5",
       "status": "verified",

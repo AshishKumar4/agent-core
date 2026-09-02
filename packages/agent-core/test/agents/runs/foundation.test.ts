@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { Revision } from "../../../src/core";
+import { AgentCoreError } from "../../../src/errors";
+import { TreeMergePolicy } from "../../../src/definition";
 import { PrincipalId, PrincipalRef } from "../../../src/identity";
 import { FacetRef } from "../../../src/facets";
 import { EnvironmentId } from "../../../src/environments";
@@ -48,6 +50,7 @@ import {
     refs,
     settlementAuditKey,
     sourceRecords,
+    thrownBy,
     type Assembled
 } from "./fixture";
 
@@ -834,6 +837,166 @@ describe("memory Run runtime", () => {
             value.merge.acceptsTree = true;
             value.runtime.mergeRun(merge, new Revision(0), new Date(1000));
             expect(value.runtime.effectiveCommit(ids.run, ids.branch).equals(merge.id)).toBe(true);
+        }
+    );
+
+    it(
+        "[C13-RUN-TREE-CONFLICT-EXPLICIT] refuses a merge over one Environment on a platform that declared no treeMerge, including the merge that omits the resolution to evade it",
+        { tags: "p0" },
+        () => {
+            // SPEC §5.2.1: a platform whose branches own disjoint Environments MAY omit
+            // `policies.treeMerge`; one that omitted it and then merges two branches over one
+            // Environment rejects that merge, because no explicit side can be supplied. Each
+            // leg below changes exactly one fact, so the refusal is attributable.
+            const value = harness();
+            value.runtime.createRun(genesis());
+            const sourceBranchId = new RunBranchId("undeclared-source");
+            const runRevision = value.repository.transaction(
+                (tx) => value.repository.loadRun(tx, ids.run)!.revision
+            );
+            value.runtime.createBranch(
+                ids.run,
+                new RunBranch(sourceBranchId, ids.run, "source", ids.root, new Revision(0)),
+                runRevision
+            );
+            value.evidence.receipts.set(`${refs.receipt.value}:${refs.audit.value}`, {
+                kind: "receipt",
+                run: ids.run,
+                receipt: refs.receipt,
+                audit: refs.audit,
+                invocation: refs.invocation
+            });
+            // The source head carries its own tree, so both merge parents stand over one
+            // Environment — the pins are already equal, so they name one — and this merge is
+            // exactly the case the rule is about.
+            const sourceHead = new RunCommit({
+                id: new RunCommitId("undeclared-source-head"),
+                run: ids.run,
+                branch: sourceBranchId,
+                kind: "invocation",
+                parents: [ids.root],
+                pins: pins(),
+                writer: {
+                    kind: "system",
+                    cause: { kind: "receipt", audit: refs.audit, receipt: refs.receipt }
+                },
+                invocation: refs.invocation,
+                receipt: refs.receipt,
+                treeCheckpoint: content("e")
+            });
+            value.runtime.appendSystemEvidenceCommit(sourceHead, new Revision(0), new Date(1000));
+            const control = (commit: RunCommit): void => {
+                value.evidence.controls.set(`${refs.receipt.value}:${refs.audit.value}`, {
+                    kind: "control",
+                    run: ids.run,
+                    receipt: refs.receipt,
+                    audit: refs.audit,
+                    proposalDigest: commit.proposalDigest.value
+                });
+            };
+            const mergeFields = {
+                id: new RunCommitId("undeclared-merge"),
+                run: ids.run,
+                branch: ids.branch,
+                kind: "merge",
+                parents: [ids.root, sourceHead.id],
+                pins: pins(),
+                writer: {
+                    kind: "system",
+                    cause: { kind: "control", audit: refs.audit, receipt: refs.receipt }
+                },
+                content: content("4"),
+                resolution: { kind: "pick", parent: ids.root },
+                receipt: refs.receipt
+            } as const;
+            const resolved = new RunCommit({
+                ...mergeFields,
+                treeCheckpoint: content("e"),
+                treeResolution: {
+                    policy: "ours",
+                    side: ids.root,
+                    base: content("e"),
+                    environment: ids.environment.value
+                }
+            });
+
+            value.merge.declared = undefined;
+            control(resolved);
+            const refusal = thrownBy(AgentCoreError, () =>
+                value.runtime.mergeRun(resolved, new Revision(0), new Date(1000))
+            );
+            expect(refusal.code).toBe("run.invalid-state");
+            expect(refusal.message).toBe(
+                "Merging two branches over one Environment requires a declared policies.treeMerge"
+            );
+
+            // The hostile leg: dropping the resolution does not make the shared tree go away.
+            // A merge that records no side over two trees is the evasion the rule exists to
+            // refuse, and it is refused for the same reason rather than admitted for lack of a
+            // resolution to inspect.
+            const unresolved = new RunCommit(mergeFields);
+            control(unresolved);
+            expect(() =>
+                value.runtime.mergeRun(unresolved, new Revision(0), new Date(1000))
+            ).toThrow(/requires a declared policies.treeMerge/);
+            expect(value.runtime.effectiveCommit(ids.run, ids.branch).equals(ids.root)).toBe(true);
+
+            // The discriminator, both ways. Declaring the policy admits the very merge just
+            // refused, so the refusal was the absent declaration and nothing else…
+            value.merge.declared = TreeMergePolicy.ours;
+            control(resolved);
+            value.runtime.mergeRun(resolved, new Revision(0), new Date(1000));
+            expect(value.runtime.effectiveCommit(ids.run, ids.branch).equals(resolved.id)).toBe(
+                true
+            );
+
+            // …and a platform that declared nothing still merges branches that share no tree,
+            // which is the disjoint-Environment platform §5.2.1 lets omit the policy. Without
+            // this leg, refusing every merge would pass.
+            const disjointBranchId = new RunBranchId("disjoint-source");
+            value.runtime.createBranch(
+                ids.run,
+                new RunBranch(disjointBranchId, ids.run, "disjoint", resolved.id, new Revision(0)),
+                value.repository.transaction(
+                    (tx) => value.repository.loadRun(tx, ids.run)!.revision
+                )
+            );
+            const treelessHead = new RunCommit({
+                id: new RunCommitId("disjoint-head"),
+                run: ids.run,
+                branch: disjointBranchId,
+                kind: "invocation",
+                parents: [resolved.id],
+                pins: pins(),
+                writer: {
+                    kind: "system",
+                    cause: { kind: "receipt", audit: refs.audit, receipt: refs.receipt }
+                },
+                invocation: refs.invocation,
+                receipt: refs.receipt
+            });
+            value.runtime.appendSystemEvidenceCommit(treelessHead, new Revision(0), new Date(1000));
+            const disjointMerge = new RunCommit({
+                id: new RunCommitId("disjoint-merge"),
+                run: ids.run,
+                branch: ids.branch,
+                kind: "merge",
+                parents: [resolved.id, treelessHead.id],
+                pins: pins(),
+                writer: {
+                    kind: "system",
+                    cause: { kind: "control", audit: refs.audit, receipt: refs.receipt }
+                },
+                content: content("4"),
+                resolution: { kind: "pick", parent: resolved.id },
+                receipt: refs.receipt
+            });
+            value.merge.declared = undefined;
+            control(disjointMerge);
+            value.runtime.mergeRun(disjointMerge, new Revision(1), new Date(1000));
+            expect(
+                value.runtime.effectiveCommit(ids.run, ids.branch).equals(disjointMerge.id)
+            ).toBe(true);
         }
     );
 

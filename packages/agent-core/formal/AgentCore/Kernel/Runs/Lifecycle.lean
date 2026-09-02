@@ -20,13 +20,13 @@ repeats:
 * a terminal snapshot belongs to this Run.
 
 Every transition refuses with `run.invalid-state`, which is the whole of this record's
-refusal vocabulary: a terminal Run transitions no further, a delivery of another Run is not
-this Run's to publish or acknowledge, a currency disagreement is not a comparison, and a
-revision at the top of the safe range is exhausted. Note the last one: `Run`'s revision step
-raises `run.invalid-state` where `Revision.next` raises `protocol.revision-conflict`, because
-`nextRunRevision` in `run.ts` intercepts the ceiling before `Revision.next` sees it. That is
-a real divergence between two adjacent code paths in the runtime and is reproduced here
-rather than smoothed over.
+refusal vocabulary for state: a terminal Run transitions no further, a delivery of another
+Run is not this Run's to publish or acknowledge, and a currency disagreement is not a
+comparison. A revision at the top of the safe range is the one refusal that is not about
+state: `run.ts`'s `nextRunRevision` and `Revision.next` now report that ceiling with the same
+`protocol.revision-conflict`, because SPEC §8.5 gives a revision its own rejection outcome
+beside the lifecycle one. `nextRevision` below mirrors that agreement rather than recording a
+divergence between two adjacent runtime paths.
 
 Digests are not derived. `RunInvocationDelivery.id` is a SHA-256 over the record's own
 preimage, and hashing is a host primitive; the kernel carries the id as data and states what
@@ -317,19 +317,22 @@ theorem terminal_exhausted {run : Run} {snapshot : TerminalSnapshot}
   rw [ended]
 
 /-- `nextRunRevision`: one step forward, refusing at the top of the safe range with
-`run.invalid-state`. `Revision.next` refuses the same ceiling with
-`protocol.revision-conflict`; `run.ts` intercepts it first, so a Run's revision ceiling is
-reported as a Run state error. Both codes are stable and the runtime raises this one. -/
+`protocol.revision-conflict` — the exact code `Revision.next` refuses the same ceiling with.
+SPEC §8.5 gives a revision its own rejection outcome (`rejectedRevision`) beside the
+lifecycle one, so a revision that cannot advance is a fact about the revision; `run.ts`'s
+guard exists only to name whose revision ran out. -/
 def nextRevision (revision : Revision) : Outcome Revision :=
-  if revision.value = maxSafeInteger then refuse .runInvalidState
+  if revision.value = maxSafeInteger then refuse .protocolRevisionConflict
   else
     match revision.next with
     | .ok next => .ok next
-    | .error _ => refuse .runInvalidState
+    | .error fault => .error fault
 
-/-- **A Run's revision ceiling is a Run state error.** -/
+/-- **A Run's revision ceiling is a revision conflict.** The guard and the revision's own
+step refuse the same condition with the same code, so no caller can tell which path answered.
+-/
 theorem nextRevision_ceiling {revision : Revision} (ceiling : revision.value = maxSafeInteger) :
-    (nextRevision revision).RefusedWith .runInvalidState := by
+    (nextRevision revision).RefusedWith .protocolRevisionConflict := by
   unfold nextRevision
   simp [ceiling, refuse, Outcome.RefusedWith]
 
@@ -342,7 +345,7 @@ theorem nextRevision_succ {revision next : Revision} (step : nextRevision revisi
     simp [refuse] at step
   · rw [if_neg ceiling] at step
     cases stepped : revision.next with
-    | error fault => rw [stepped] at step; simp [refuse] at step
+    | error fault => rw [stepped] at step; simp at step
     | ok successor =>
         rw [stepped] at step
         rw [← Except.ok.inj step]

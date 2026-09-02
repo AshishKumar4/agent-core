@@ -42,6 +42,7 @@ import {
 import {
     PackageId,
     PackageInstallationProvenancePort,
+    TreeMergePolicy,
     type Blueprint,
     type BlueprintLoader,
     type LoadedBlueprint,
@@ -841,10 +842,15 @@ describe("W9 composition behavior branches", () => {
 
             const merge = new CanonicalRunMergePort({
                 concat: () => (calls.push("concat"), true),
-                tree: () => (calls.push("tree"), true)
+                tree: () => (calls.push("tree"), true),
+                declaredTreeMerge: () => (
+                    calls.push("declared-tree-merge"),
+                    TreeMergePolicy.perPath
+                )
             });
             expect(merge.verifyConcat({}, forwarded(), forwarded(), forwarded())).toBe(true);
             expect(merge.verifyTree({}, forwarded(), forwarded(), forwarded())).toBe(true);
+            expect(merge.declaredTreeMerge({}, forwarded())).toBe(TreeMergePolicy.perPath);
 
             const source = new CanonicalRunSourceRevisionPort({
                 verify: () => (calls.push("source"), true),
@@ -885,6 +891,7 @@ describe("W9 composition behavior branches", () => {
                 "forced-cancellation",
                 "concat",
                 "tree",
+                "declared-tree-merge",
                 "source",
                 "closure"
             ]);

@@ -1,7 +1,7 @@
 import { ActorId, ActorRef } from "@agent-core/core/actors";
 import type { ContentStore } from "@agent-core/core/content";
 import { ContentRef, Digest, JsonSchema, Revision, SemVer } from "@agent-core/core/core";
-import { PackageId, PackagePin } from "@agent-core/core/definition";
+import { PackageId, PackagePin, TreeMergePolicy } from "@agent-core/core/definition";
 import { EnvironmentId } from "@agent-core/core/environment-provider";
 import {
     BindingName,
@@ -192,6 +192,13 @@ class RejectingMergePort extends RunMergePort<MemoryTransaction> {
     }
     public verifyTree(): boolean {
         return false;
+    }
+    /**
+     * The harness Blueprint declares `perPath`, so a merge over a shared tree is admitted far
+     * enough to be refused by the evidence checks this port exists to fail (SPEC §5.2.1).
+     */
+    public declaredTreeMerge(): TreeMergePolicy {
+        return TreeMergePolicy.perPath;
     }
 }
 

@@ -28,6 +28,7 @@ import type {
     RouteReservationId
 } from "../interaction-references";
 import type { ApprovalId, EffectAttemptId, ReceiptId } from "../invocation-references";
+import type { TreeMergePolicy } from "../definition";
 import type { RunCommitId } from "../execution-references";
 
 export interface CanonicalRunEvidenceSource<Transaction> {
@@ -206,6 +207,12 @@ export interface CanonicalMergeSource<Transaction> {
         target: RunCommit,
         source: RunCommit
     ): boolean;
+    /**
+     * The `policies.treeMerge` the merge's own pinned PolicySet declares (SPEC §5.2.1). A
+     * composition whose Blueprint declared none answers nothing, and the Run plane refuses
+     * the merges that would have needed a side.
+     */
+    declaredTreeMerge(transaction: Transaction, commit: RunCommit): TreeMergePolicy | undefined;
 }
 
 export class CanonicalRunMergePort<Transaction> extends RunMergePort<Transaction> {
@@ -227,6 +234,12 @@ export class CanonicalRunMergePort<Transaction> extends RunMergePort<Transaction
         source: RunCommit
     ): boolean {
         return this.source.tree(transaction, commit, target, source);
+    }
+    public declaredTreeMerge(
+        transaction: Transaction,
+        commit: RunCommit
+    ): TreeMergePolicy | undefined {
+        return this.source.declaredTreeMerge(transaction, commit);
     }
 }
 

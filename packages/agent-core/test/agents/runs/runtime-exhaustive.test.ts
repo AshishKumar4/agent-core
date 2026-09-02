@@ -980,7 +980,7 @@ describe("Turn and terminalization rejection matrix", () => {
                 expect(
                     value.repository.transaction((tx) =>
                         value.repository.loadAdmission(tx, ids.run)
-                    )?.accepting
+                    )?.open
                 ).toBe(true);
                 expect(
                     value.repository.transaction((tx) =>
@@ -1153,7 +1153,7 @@ describe("Turn and terminalization rejection matrix", () => {
             expect(unchanged.lease.epoch).toBe(0);
             expect(
                 value.repository.transaction((tx) => value.repository.loadAdmission(tx, ids.run))
-                    ?.accepting
+                    ?.open
             ).toBe(true);
             expect(
                 value.repository.transaction((tx) =>

@@ -427,7 +427,7 @@ describe("Run lifecycle record errors", () => {
         }
     );
 
-    it("reports revision exhaustion with closed domain errors", { tags: "p2" }, () => {
+    it("reports revision exhaustion with the revision's own closed code", { tags: "p2" }, () => {
         const run = new Run({
             id: ids.run,
             agent: ids.agent,
@@ -455,9 +455,15 @@ describe("Run lifecycle record errors", () => {
             input: content("a"),
             revision: new Revision(Number.MAX_SAFE_INTEGER)
         });
+        // SPEC §8.5 gives a revision its own rejection outcome beside the lifecycle one, so a
+        // ceiling on the Run plane reports `protocol.revision-conflict` — the exact code
+        // `Revision.next` raises for the same condition, reached through the shared
+        // `nextRunRevision` guard that only adds whose revision ran out. Turn still reports its
+        // own lifecycle code through `nextTurnRevision`; that is the same divergence one file
+        // over, recorded here rather than decided here.
         for (const [operation, code] of [
-            [() => run.revise(), "run.invalid-state"],
-            [() => branch.advance(new RunCommitId("next")), "run.invalid-state"],
+            [() => run.revise(), "protocol.revision-conflict"],
+            [() => branch.advance(new RunCommitId("next")), "protocol.revision-conflict"],
             [() => turn.revise(), "turn.invalid-state"]
         ] as const) {
             expect(thrownBy(AgentCoreError, operation).code).toBe(code);

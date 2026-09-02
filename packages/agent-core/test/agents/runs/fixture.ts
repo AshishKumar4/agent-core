@@ -7,7 +7,7 @@ import {
     SemVer,
     type JsonValue
 } from "../../../src/core";
-import { PackageId, PackagePin } from "../../../src/definition";
+import { PackageId, PackagePin, TreeMergePolicy } from "../../../src/definition";
 import { PrincipalId, PrincipalRef, TenantId } from "../../../src/identity";
 import { AgentId, AgentPolicyId, AgentProfileId, ModelPolicyId } from "../../../src/agents/id";
 import {
@@ -279,11 +279,20 @@ export function attenuationDigest(attenuation: SpawnAttenuation): Digest {
 export class TestMergePort<Transaction = object> extends RunMergePort<Transaction> {
     public acceptsConcat = true;
     public acceptsTree = true;
+    /**
+     * The Blueprint most of this suite stands for declares `perPath`, which is the setting a
+     * merge over a shared tree needs to be admitted at all (SPEC §5.2.1). A case that wants
+     * the omitted-policy platform sets this to `undefined`.
+     */
+    public declared: TreeMergePolicy | undefined = TreeMergePolicy.perPath;
     public verifyConcat(): boolean {
         return this.acceptsConcat;
     }
     public verifyTree(): boolean {
         return this.acceptsTree;
+    }
+    public declaredTreeMerge(): TreeMergePolicy | undefined {
+        return this.declared;
     }
 }
 
@@ -330,7 +339,7 @@ export function settlementAuditKey(audit: SettlementAuditObligation): string {
         case "delivery":
             return `delivery:${audit.reservation.value}`;
         case "commit":
-            return `commit:${audit.commit.value}`;
+            return `commit:${audit.id.value}`;
     }
 }
 

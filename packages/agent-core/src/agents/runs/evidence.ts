@@ -8,6 +8,7 @@ import type {
     InvocationId,
     RouteReservationId
 } from "../../interaction-references";
+import type { TreeMergePolicy } from "../../definition";
 import type { LeaseToken } from "./lease";
 import type { TurnAdmissionHandle } from "./handle";
 import type { RunBranchId, RunId } from "./id";
@@ -205,4 +206,16 @@ export abstract class RunMergePort<Transaction> {
         target: RunCommit,
         source: RunCommit
     ): boolean;
+
+    /**
+     * The `policies.treeMerge` the merge's own pinned PolicySet declares, or nothing where the
+     * Blueprint declared none (SPEC §5.2.1, §9.2). Absence is not a fourth setting: it says
+     * the platform's branches own disjoint Environments, and a merge that would need a side
+     * is refused rather than guessed. The declaration is read through this seam because a
+     * merge names its effective PolicySet by pin and the Run plane holds no PolicySet store.
+     */
+    public abstract declaredTreeMerge(
+        transaction: Transaction,
+        commit: RunCommit
+    ): TreeMergePolicy | undefined;
 }

@@ -1,6 +1,10 @@
 {
   "edition": "1.0.0",
   "seed": "seed.json",
-  "required": ["MIGRATE-OPERATION-DESCRIPTOR-PRESENCE", "MIGRATE-RUN-PINS"],
+  "required": [
+    "MIGRATE-OPERATION-DESCRIPTOR-PRESENCE",
+    "MIGRATE-RUN-ADMISSION-OPEN",
+    "MIGRATE-RUN-PINS"
+  ],
   "fragments": ["facets-operations.json", "runs-turns.json"]
 }

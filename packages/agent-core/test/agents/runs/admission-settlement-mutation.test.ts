@@ -100,7 +100,7 @@ describe("Run admission registry integrity", () => {
                 new RunAdmissionRegistry({
                     run: ids.run,
                     epoch: 0,
-                    accepting: true,
+                    open: true,
                     // @ts-expect-error Runtime validation must reject a non-array reserved list.
                     reserved: null,
                     completed: []
@@ -113,7 +113,7 @@ describe("Run admission registry integrity", () => {
                 new RunAdmissionRegistry({
                     run: ids.run,
                     epoch: 0,
-                    accepting: true,
+                    open: true,
                     reserved: [],
                     // @ts-expect-error Runtime validation must reject a non-array completed list.
                     completed: null
@@ -122,18 +122,18 @@ describe("Run admission registry integrity", () => {
         );
     });
 
-    test("validates the accepting flag before constructing", { tags: "p1" }, () => {
+    test("validates the open flag before constructing", { tags: "p1" }, () => {
         expectTypeError(
-            "accepting first",
+            "open first",
             () =>
                 RunAdmissionRegistry.fromData({
-                    accepting: "yes",
+                    open: "yes",
                     completed: [],
                     epoch: -1,
                     reserved: [],
                     run: "asm-run"
                 }),
-            "Run admission registry accepting state is invalid"
+            "Run admission registry open state is invalid"
         );
     });
 
@@ -170,7 +170,7 @@ describe("Run admission registry integrity", () => {
             "registry run",
             () =>
                 RunAdmissionRegistry.fromData({
-                    accepting: true,
+                    open: true,
                     completed: [],
                     epoch: 0,
                     reserved: [],

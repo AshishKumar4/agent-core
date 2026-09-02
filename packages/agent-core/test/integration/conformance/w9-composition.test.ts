@@ -1124,8 +1124,8 @@ describe("W9 internal typed composition", () => {
                         seen.add(`audit:delivery:${obligation.reservation.value}`);
                         return obligation.reservation.equals(route);
                     case "commit":
-                        seen.add(`audit:commit:${obligation.commit.value}`);
-                        return obligation.commit.equals(commit);
+                        seen.add(`audit:commit:${obligation.id.value}`);
+                        return obligation.id.equals(commit);
                 }
             }
         });

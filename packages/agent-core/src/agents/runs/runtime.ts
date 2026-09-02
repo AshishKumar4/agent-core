@@ -1640,6 +1640,23 @@ export class RunRuntime<Transaction> {
             throw invalidRun("Concat resolution does not match canonical parent-order content");
         }
         const tree = commit.treeResolution;
+        // SPEC §5.2.1: `policies.treeMerge` is what a merge over a shared tree reads to know
+        // which side answers a path, and a platform whose branches own disjoint Environments
+        // MAY omit it. One that omitted it and then merges two branches over one Environment
+        // rejects that merge, because no explicit side can be supplied. The merge is over one
+        // Environment exactly when there is a shared tree to resolve — the parents' pins are
+        // already equal here, so they name one Environment — and that is the case a resolution
+        // present, or a tree standing on both parents, shows.
+        if (
+            requireSynchronousResult(this.merge.declaredTreeMerge(tx, commit)) === undefined &&
+            (tree !== undefined ||
+                (targetCommit.treeCheckpoint !== undefined &&
+                    sourceCommit.treeCheckpoint !== undefined))
+        ) {
+            throw invalidRun(
+                "Merging two branches over one Environment requires a declared policies.treeMerge"
+            );
+        }
         if (tree !== undefined) {
             if (
                 (tree.policy === "ours" && !tree.side.equals(commit.parents[0]!)) ||

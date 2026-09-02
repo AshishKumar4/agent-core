@@ -578,9 +578,17 @@ function requireTokenUsage(tokens: number): number {
     return tokens;
 }
 
+/**
+ * SPEC §8.5 gives a revision its own rejection outcome (`rejectedRevision`) beside the
+ * lifecycle one, and a revision that cannot advance is a fact about the revision rather than
+ * about the Run's state — so the ceiling is `protocol.revision-conflict`, exactly what
+ * `Revision.next` raises for the same condition. This wrapper exists only to name whose
+ * revision ran out; it never reports the condition differently from the one owner of
+ * revision advancement.
+ */
 function nextRunRevision(revision: Revision): Revision {
     if (revision.value === Number.MAX_SAFE_INTEGER) {
-        throw new AgentCoreError("run.invalid-state", "Run revision is exhausted");
+        throw new AgentCoreError("protocol.revision-conflict", "Run revision is exhausted");
     }
     return revision.next();
 }

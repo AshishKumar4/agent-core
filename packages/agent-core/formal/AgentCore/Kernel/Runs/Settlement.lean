@@ -25,6 +25,20 @@ kernel's key-based frontier is the model's value-based `RunAdmissionRegistry.out
 which is what `CompleteAdmittedFrontier` quantifies over. Two divergences from the model are
 recorded below rather than papered over: the epoch a TypeScript snapshot carries, and the
 width of the terminal-outcome vocabulary.
+
+`SettlementAuditObligation` is a plain mirror of `settlement.ts`, whose commit case now
+carries SPEC §5.6's own field name. It is *not* the full shape §5.6 declares, and the SPEC
+is what says it cannot be: §5.6 declares `{ audit : AuditRecordId; evidence : … }` with the
+receipt case naming a `ReceiptId`, while the same section says the captured set is "admitted
+Invocation items *without* a terminal current Receipt" and that "Receipt, delivery,
+projection, and Audit ids are never reserved". At capture there is therefore no Receipt to
+name and no AuditRecord to point at — the obligation *is* the demand that one come to exist.
+Carrying either identity would mean storing an id nobody has, so both the runtime and this
+module carry the reserved identity §5.6 does hand a capture ("InvocationId plus item index
+and item key") and resolve the audit against evidence when it arrives, which is what
+`AgentCore.ObligationDischarged` existentially quantifies over rather than stores. This is a
+SPEC defect recorded for the alignment lane, not a TypeScript one; it is also the bound on
+C13-RUN-SETTLED-DERIVED.
 -/
 import AgentCore.RunGraph
 import AgentCore.Kernel.Runs.Admission
@@ -37,7 +51,7 @@ namespace AgentCore.Kernel
 inductive SettlementAuditObligation where
   | receipt (invocation : TextId .invocation) (itemIndex : Nat) (itemKey : String)
   | delivery (reservation : TextId .routeReservation)
-  | commit (commit : TextId .runCommit)
+  | commit (id : TextId .runCommit)
   deriving DecidableEq
 
 namespace SettlementAuditObligation

@@ -15,6 +15,7 @@ import {
     TenantId
 } from "@agent-core/core";
 import { type ContentStore } from "@agent-core/core/content";
+import { TreeMergePolicy } from "@agent-core/core/definition";
 import { EnvironmentId } from "@agent-core/core/environment-provider";
 import {
     AgentId,
@@ -313,6 +314,14 @@ export class TestMergePort extends RunMergePort<unknown> {
 
     public verifyTree(): boolean {
         return false;
+    }
+
+    /**
+     * The profile's Blueprint declares `perPath`, so a merge over a shared tree reaches the
+     * evidence checks this port exists to fail rather than the §5.2.1 absence refusal.
+     */
+    public declaredTreeMerge(): TreeMergePolicy {
+        return TreeMergePolicy.perPath;
     }
 }
 

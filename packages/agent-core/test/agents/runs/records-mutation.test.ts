@@ -194,11 +194,21 @@ describe("Run lifecycle record", () => {
             initialBranch: ids.branch,
             revision: new Revision(Number.MAX_SAFE_INTEGER)
         });
+        // SPEC §8.5 gives a revision its own rejection outcome beside the lifecycle one, so a
+        // revision that cannot advance is reported as a revision conflict — and the Run's
+        // ceiling and `Revision.next`'s are the same condition reached by two adjacent paths,
+        // so they report one code.
         expectCode(
             "revision exhaustion",
             () => exhausted.revise(),
-            "run.invalid-state",
+            "protocol.revision-conflict",
             "Run revision is exhausted"
+        );
+        expectCode(
+            "revision ceiling",
+            () => new Revision(Number.MAX_SAFE_INTEGER).next(),
+            "protocol.revision-conflict",
+            "Revision cannot exceed the maximum safe integer"
         );
     });
 

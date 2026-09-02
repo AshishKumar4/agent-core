@@ -1043,7 +1043,7 @@ function assertAdmissionRegistryBehavior<Transaction>(
     const registry = restored.repository.transaction((tx) =>
         restored.repository.loadAdmission(tx, ids.run)
     )!;
-    expect(registry.accepting).toBe(false);
+    expect(registry.open).toBe(false);
     expect(registry.epoch).toBe(1);
     expect(registry.frontier()).toEqual([pending.obligation]);
     const staleEpoch = { ...pending, registryEpoch: pending.registryEpoch + 1 };

@@ -62,7 +62,7 @@ describe("durable Run admission registry", () => {
                     new RunAdmissionRegistry({
                         run: ids.run,
                         epoch: 0,
-                        accepting: true,
+                        open: true,
                         reserved: [],
                         completed: [item]
                     })
@@ -72,7 +72,7 @@ describe("durable Run admission registry", () => {
                     new RunAdmissionRegistry({
                         run: ids.run,
                         epoch: 0,
-                        accepting: true,
+                        open: true,
                         reserved: [item, item],
                         completed: []
                     })
@@ -151,7 +151,7 @@ describe("durable Run admission registry", () => {
             const closed = registry.close();
 
             expect(closed.epoch).toBe(1);
-            expect(closed.accepting).toBe(false);
+            expect(closed.open).toBe(false);
             expect(closed.close()).toBe(closed);
             expect(closed.frontier().map(runObligationKey)).toEqual(
                 [...pending]
@@ -221,7 +221,7 @@ describe("durable Run admission registry", () => {
             const exhausted = new RunAdmissionRegistry({
                 run: ids.run,
                 epoch: Number.MAX_SAFE_INTEGER,
-                accepting: true,
+                open: true,
                 reserved: [],
                 completed: []
             });
@@ -238,7 +238,7 @@ describe("durable Run admission registry", () => {
                     new RunAdmissionRegistry({
                         run: ids.agent,
                         epoch: 0,
-                        accepting: true,
+                        open: true,
                         reserved: [],
                         completed: []
                     })
@@ -248,7 +248,7 @@ describe("durable Run admission registry", () => {
                     new RunAdmissionRegistry({
                         run: ids.run,
                         epoch: -1,
-                        accepting: true,
+                        open: true,
                         reserved: [],
                         completed: []
                     })
@@ -259,36 +259,36 @@ describe("durable Run admission registry", () => {
                         run: ids.run,
                         epoch: 0,
                         // @ts-expect-error Runtime validation must reject a non-boolean admission state.
-                        accepting: "yes",
+                        open: "yes",
                         reserved: [],
                         completed: []
                     })
-            ).toThrow(/accepting state/);
+            ).toThrow(/open state/);
             expect(
                 () =>
                     new RunAdmissionRegistry({
                         run: ids.run,
                         epoch: 0,
-                        accepting: false,
+                        open: false,
                         reserved: [],
                         completed: []
                     })
             ).toThrow(/advanced epoch/);
             expect(() =>
                 RunAdmissionRegistry.fromData({
-                    accepting: "yes",
+                    open: "yes",
                     completed: [],
                     epoch: 0,
                     reserved: [],
                     run: ids.run.value
                 })
-            ).toThrow(/accepting state/);
+            ).toThrow(/open state/);
             expect(
                 () =>
                     new RunAdmissionRegistry({
                         run: ids.run,
                         epoch: 0,
-                        accepting: true,
+                        open: true,
                         // @ts-expect-error Runtime validation must reject a non-array reservation list.
                         reserved: null,
                         completed: []
@@ -320,6 +320,53 @@ describe("durable Run admission registry", () => {
                     obligation: { kind: "approval", approval }
                 })
             ).toThrow(/exact reserved/);
+        }
+    );
+
+    it(
+        "[C13-RUN-ADMISSION-REGISTRY] [MIGRATE-RUN-ADMISSION-OPEN] writes SPEC's `open` key at major 2 and refuses the `accepting` major it replaced",
+        { tags: "p1" },
+        () => {
+            const registry = RunAdmissionRegistry.initial(ids.run).reserve(item).registry;
+            expect(RunAdmissionRegistryCodec.version).toEqual({ major: 2, minor: 0 });
+            const envelope = JSON.parse(
+                new TextDecoder().decode(RunAdmissionRegistryCodec.encode(registry))
+            ) as Record<string, Record<string, unknown>>;
+            // SPEC §5.6 spells the flag `open`, so that is the key on the wire and the only
+            // one: a payload carrying both spellings would be two answers to one question.
+            expect(envelope["payload"]!["open"]).toBe(true);
+            expect("accepting" in envelope["payload"]!).toBe(false);
+
+            // A major-1 record held the same boolean under `accepting`. Nothing is lost by
+            // refusing it — the migration rewrites the key — and admitting both spellings in
+            // this decoder would be a shim that outlived the rename, so the reader earns the
+            // typed rejection instead.
+            const legacy = new TextEncoder().encode(
+                JSON.stringify({
+                    kind: "run.admission-registry",
+                    payload: {
+                        accepting: true,
+                        completed: [],
+                        epoch: 0,
+                        reserved: envelope["payload"]!["reserved"],
+                        run: ids.run.value
+                    },
+                    version: { major: 1, minor: 0 }
+                })
+            );
+            const refused = thrownBy(AgentCoreError, () =>
+                RunAdmissionRegistryCodec.decode(legacy)
+            );
+            expect([refused.code, refused.message]).toEqual([
+                "codec.unknown-major",
+                "Unsupported run.admission-registry codec major 1"
+            ]);
+
+            // The rewritten record is what a migrated store holds, and it decodes to the
+            // registry the writer had.
+            expect(
+                RunAdmissionRegistryCodec.decode(RunAdmissionRegistryCodec.encode(registry))
+            ).toEqual(registry);
         }
     );
 });
@@ -418,7 +465,7 @@ describe("transactional terminal frontier", () => {
                 if (admission === undefined) throw new TypeError("Expected closed admission");
                 return admission;
             });
-            expect(closed.accepting).toBe(false);
+            expect(closed.open).toBe(false);
             expect(
                 thrownBy(AgentCoreError, () =>
                     closed.reserve({

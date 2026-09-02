@@ -19,7 +19,11 @@ statement of either fact anywhere in this file.
 Absence is not a fourth setting. A Blueprint that declares no `treeMerge` describes a
 platform whose branches own disjoint Environments; a merge over a *shared* Environment then
 has no side to supply and is rejected, which is C13-RUN-TREE-CONFLICT-EXPLICIT and is
-`admitDeclaredTreeMerge` below.
+`admitDeclaredTreeMerge` below. `runtime.ts#validateMerge` now enforces exactly that rule:
+it reads the declaration through `RunMergePort.declaredTreeMerge`, whose answer the merge's
+own `pins.effectivePolicy` fixes, and refuses with `run.invalid-state` when nothing is
+declared and the merge stands over a shared tree — which is what a recorded resolution, or a
+tree standing on both parents, shows. This is a mirror, not a kernel-ahead-of-TypeScript gap.
 
 Codes, as the runtime raises them: the shape rules are `TypeError` and so are shape faults
 here; `validateMerge`'s ledger rules are `run.invalid-state` (`invalidRun`), except the

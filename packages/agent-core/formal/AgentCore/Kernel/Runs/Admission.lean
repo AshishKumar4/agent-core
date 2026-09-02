@@ -20,6 +20,12 @@ not carried here, and this module ships no codec for that reason: the ordering i
 observable through the encoded bytes, and a codec whose round-trip law depends on an order
 this record does not fix would be a codec that cannot prove its own law. `Text.insertBy`
 and `Text.insertBy_ordered` are already proved and are what the ordered form needs.
+
+The open-state field is spelled `«open»` because the runtime's field and its serialized key
+are SPEC §5.6's `open` and `open` is a Lean keyword; the escape is the exact name, not a
+rename. That spelling arrived with `run.admission-registry` major 2, which refuses a major-1
+payload (whose key was `accepting`) as `codec.unknown-major` and leaves the rewrite to
+MIGRATE-RUN-ADMISSION-OPEN.
 -/
 import AgentCore.RunGraph
 import AgentCore.Kernel.Core
@@ -192,12 +198,12 @@ structure RunAdmissionReservation where
 structure RunAdmissionRegistry where
   run : TextId .run
   epoch : Nat
-  accepting : Bool
+  «open» : Bool
   reserved : List RunObligation
   completed : List RunObligation
   /-- A closed registry has an advanced epoch, so a reservation taken while it was open is
   recognisably stale afterwards. -/
-  closedAdvanced : accepting = false → 0 < epoch
+  closedAdvanced : «open» = false → 0 < epoch
   /-- No obligation is reserved twice. -/
   reservedUnique : (obligationKeys reserved).Nodup
   /-- No obligation is completed twice. -/
@@ -212,7 +218,7 @@ namespace RunAdmissionRegistry
 def initial (run : TextId .run) : RunAdmissionRegistry where
   run := run
   epoch := 0
-  accepting := true
+  «open» := true
   reserved := []
   completed := []
   closedAdvanced := by intro closed; simp at closed
@@ -268,7 +274,7 @@ theorem nodup_append_single : ∀ (values : List String) (value : String),
 held, and otherwise append it exactly where the abstract model appends it. -/
 def reserve (registry : RunAdmissionRegistry) (obligation : RunObligation) :
     Outcome (RunAdmissionRegistry × RunAdmissionReservation) :=
-  if registry.accepting then
+  if registry.«open» then
     if fresh : registry.holds obligation = false then
       .ok ({ registry with
              reserved := registry.reserved ++ [obligation]
@@ -294,12 +300,12 @@ def reserve (registry : RunAdmissionRegistry) (obligation : RunObligation) :
 /-- The epoch a reservation of this registry carries: the current one while admission is
 open, and the pre-close one afterwards. -/
 def reservationEpoch (registry : RunAdmissionRegistry) : Nat :=
-  if registry.accepting then registry.epoch else registry.epoch - 1
+  if registry.«open» then registry.epoch else registry.epoch - 1
 
 /-- `accepts`: an open registry, the exact Run, the exact epoch, and a held obligation. -/
 def accepts (registry : RunAdmissionRegistry) (reservation : RunAdmissionReservation) :
     Bool :=
-  registry.accepting && registry.run == reservation.run &&
+  registry.«open» && registry.run == reservation.run &&
     registry.epoch == reservation.registryEpoch && registry.holds reservation.obligation
 
 /-- The reserved obligation whose key this one carries, if the registry holds it. The
@@ -349,11 +355,11 @@ def complete (registry : RunAdmissionRegistry) (reservation : RunAdmissionReserv
 
 /-- `close`: closing an open registry advances its epoch; a closed one is already there. -/
 def close (registry : RunAdmissionRegistry) : Outcome RunAdmissionRegistry :=
-  if registry.accepting then
+  if registry.«open» then
     if bound : registry.epoch < maxSafeInteger then
       .ok { registry with
             epoch := registry.epoch + 1
-            accepting := false
+            «open» := false
             closedAdvanced := by
               intro _
               omega }
@@ -367,7 +373,7 @@ def frontier (registry : RunAdmissionRegistry) : List RunObligation :=
 /-- **Reserving on a closed registry is refused.** Terminalization closes admission, and a
 closed registry takes on nothing further. -/
 theorem reserve_refuses_closed {registry : RunAdmissionRegistry} {obligation : RunObligation}
-    (closed : registry.accepting = false) :
+    (closed : registry.«open» = false) :
     (registry.reserve obligation).RefusedWith .runInvalidState := by
   unfold reserve
   simp [closed, refuse, Outcome.RefusedWith]
@@ -375,7 +381,7 @@ theorem reserve_refuses_closed {registry : RunAdmissionRegistry} {obligation : R
 /-- **Reserving an obligation already held changes nothing.** At-least-once delivery makes a
 repeat the ordinary case, so it is idempotent rather than an error. -/
 theorem reserve_idempotent {registry : RunAdmissionRegistry} {obligation : RunObligation}
-    (open' : registry.accepting = true) (held : registry.holds obligation = true) :
+    (open' : registry.«open» = true) (held : registry.holds obligation = true) :
     registry.reserve obligation =
       .ok (registry, ⟨registry.run, registry.epoch, obligation⟩) := by
   unfold reserve
@@ -383,8 +389,8 @@ theorem reserve_idempotent {registry : RunAdmissionRegistry} {obligation : RunOb
 
 /-- **Closing advances the epoch and stops accepting.** -/
 theorem close_advances {registry closed : RunAdmissionRegistry}
-    (open' : registry.accepting = true) (step : registry.close = .ok closed) :
-    closed.epoch = registry.epoch + 1 ∧ closed.accepting = false := by
+    (open' : registry.«open» = true) (step : registry.close = .ok closed) :
+    closed.epoch = registry.epoch + 1 ∧ closed.«open» = false := by
   unfold close at step
   rw [if_pos open'] at step
   by_cases bound : registry.epoch < maxSafeInteger
@@ -396,7 +402,7 @@ theorem close_advances {registry closed : RunAdmissionRegistry}
     simp [refuse] at step
 
 /-- **A closed registry is idempotent under closing.** -/
-theorem close_closed {registry : RunAdmissionRegistry} (closed : registry.accepting = false) :
+theorem close_closed {registry : RunAdmissionRegistry} (closed : registry.«open» = false) :
     registry.close = .ok registry := by
   unfold close
   simp [closed]
@@ -404,7 +410,7 @@ theorem close_closed {registry : RunAdmissionRegistry} (closed : registry.accept
 /-- **A reservation taken while open is not accepted after the close.** The epoch is what
 makes a stale reservation recognisable, and closing moves it. -/
 theorem closed_rejects_open_reservation {registry closed : RunAdmissionRegistry}
-    {reservation : RunAdmissionReservation} (open' : registry.accepting = true)
+    {reservation : RunAdmissionReservation} (open' : registry.«open» = true)
     (step : registry.close = .ok closed) :
     closed.accepts reservation = false := by
   have shape := close_advances open' step
@@ -436,7 +442,9 @@ def obligationToModel (obligation : RunObligation) (idOf : String → Nat)
 def toModel (registry : RunAdmissionRegistry) (idOf : String → Nat)
     (itemKeyOf : String → AgentCore.ItemKey) : AgentCore.RunAdmissionRegistry where
   epoch := registry.epoch
-  accepting := registry.accepting
+  -- The model still calls this flag `accepting`; the runtime and this module call it `open`
+  -- after SPEC §5.6. Same boolean, and the bridge is where the two spellings meet.
+  accepting := registry.«open»
   reserved := registry.reserved.map fun obligation =>
     obligationToModel obligation idOf itemKeyOf
   completed := registry.completed.map fun obligation =>
@@ -448,7 +456,7 @@ one produce the same registry. -/
 theorem reserve_refines_model {registry next : RunAdmissionRegistry}
     {reservation : RunAdmissionReservation} {obligation : RunObligation}
     (idOf : String → Nat) (itemKeyOf : String → AgentCore.ItemKey)
-    (open' : registry.accepting = true) (fresh : registry.holds obligation = false)
+    (open' : registry.«open» = true) (fresh : registry.holds obligation = false)
     (step : registry.reserve obligation = .ok (next, reservation)) :
     next.toModel idOf itemKeyOf =
       (registry.toModel idOf itemKeyOf).reserve
@@ -460,15 +468,15 @@ theorem reserve_refines_model {registry next : RunAdmissionRegistry}
   unfold toModel AgentCore.RunAdmissionRegistry.reserve
   rw [shape]
   have unchangedEpoch : next.epoch = registry.epoch := by rw [← step.1]
-  have unchangedAccepting : next.accepting = registry.accepting := by rw [← step.1]
+  have unchangedOpen : next.«open» = registry.«open» := by rw [← step.1]
   have unchangedCompleted : next.completed = registry.completed := by rw [← step.1]
-  rw [unchangedEpoch, unchangedAccepting, unchangedCompleted]
+  rw [unchangedEpoch, unchangedOpen, unchangedCompleted]
   simp
 
 /-- **Closing is the model's close.** -/
 theorem close_refines_model {registry closed : RunAdmissionRegistry}
     (idOf : String → Nat) (itemKeyOf : String → AgentCore.ItemKey)
-    (open' : registry.accepting = true) (step : registry.close = .ok closed) :
+    (open' : registry.«open» = true) (step : registry.close = .ok closed) :
     closed.toModel idOf itemKeyOf = (registry.toModel idOf itemKeyOf).close := by
   have shape := close_advances open' step
   unfold close at step

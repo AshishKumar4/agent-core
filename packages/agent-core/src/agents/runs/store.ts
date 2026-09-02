@@ -1034,7 +1034,7 @@ function contentOwnerEdges<Transaction>(
 }
 
 function admissionRevision(value: RunAdmissionRegistry): number {
-    return value.reserved.length + value.completed.length + (value.accepting ? 0 : 1);
+    return value.reserved.length + value.completed.length + (value.open ? 0 : 1);
 }
 
 function acceptanceVerdictKey(value: AcceptanceVerdict): string {
