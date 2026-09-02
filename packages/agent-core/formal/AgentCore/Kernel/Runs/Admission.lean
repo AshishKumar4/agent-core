@@ -64,6 +64,117 @@ theorem canonical_toJson (obligation : RunObligation) :
     Json.canonical obligation.toJson = true := by
   cases obligation <;> simp [toJson, Json.canonical, Json.canonicalEntries] <;> decide
 
+/-- `decodeRunObligation`: the discriminant first, then exactly that tag's own fields. A
+tag the union does not name, or a payload of the wrong shape, is a shape violation — the
+codec boundary is what turns it into `codec.invalid`. -/
+def ofJson (value : Json.JsonValue) : Outcome RunObligation :=
+  match Json.asObject value "Run obligation" with
+  | .error fault => .error fault
+  | .ok entries =>
+      match Json.field entries "kind" with
+      | some (.str tag) =>
+          if tag = "approval" then
+            if Json.exactFields entries ["approval", "kind"] then
+              match Json.field entries "approval" with
+              | some (.str text) =>
+                  (TextId.parse .approval text).map RunObligation.approval
+              | _ => unshaped "Approval obligation"
+            else unshaped "Approval obligation"
+          else if tag = "invocationItem" then
+            if Json.exactFields entries ["invocation", "itemIndex", "itemKey", "kind"] then
+              match Json.field entries "invocation", Json.field entries "itemIndex",
+                  Json.field entries "itemKey" with
+              | some (.str invocationText), some (.int index), some (.str itemKey) =>
+                  if index < 0 then unshaped "Invocation item obligation index"
+                  else
+                    (TextId.parse .invocation invocationText).map fun invocation =>
+                      RunObligation.invocationItem invocation index.natAbs itemKey
+              | _, _, _ => unshaped "Invocation item obligation"
+            else unshaped "Invocation item obligation"
+          else if tag = "route" then
+            if Json.exactFields entries ["kind", "reservation"] then
+              match Json.field entries "reservation" with
+              | some (.str text) =>
+                  (TextId.parse .routeReservation text).map RunObligation.route
+              | _ => unshaped "Route obligation"
+            else unshaped "Route obligation"
+          else if tag = "reconciliation" then
+            if Json.exactFields entries ["attempt", "kind"] then
+              match Json.field entries "attempt" with
+              | some (.str text) =>
+                  (TextId.parse .effectAttempt text).map RunObligation.reconciliation
+              | _ => unshaped "Reconciliation obligation"
+            else unshaped "Reconciliation obligation"
+          else if tag = "systemCommit" then
+            if Json.exactFields entries ["commit", "kind"] then
+              match Json.field entries "commit" with
+              | some (.str text) =>
+                  (TextId.parse .runCommit text).map RunObligation.systemCommit
+              | _ => unshaped "System commit obligation"
+            else unshaped "System commit obligation"
+          else if tag = "acceptance" then
+            if Json.exactFields entries ["acceptance", "kind"] then
+              match Json.field entries "acceptance" with
+              | some (.str text) =>
+                  (TextId.parse .acceptance text).map RunObligation.acceptance
+              | _ => unshaped "Acceptance obligation"
+            else unshaped "Acceptance obligation"
+          else unshaped "Run obligation"
+      | _ => unshaped "Run obligation"
+
+theorem ofJson_toJson (obligation : RunObligation) : ofJson obligation.toJson = .ok obligation := by
+  cases obligation with
+  | approval approvalId =>
+      have parsed : TextId.parse .approval approvalId.value = .ok approvalId := by
+        unfold TextId.parse
+        simp [approvalId.valid]
+      simp [toJson, ofJson, Json.asObject, Json.exactFields, Json.keys, Json.field, List.find?,
+        parsed, Except.map]
+  | invocationItem invocationId index itemKey =>
+      have parsed : TextId.parse .invocation invocationId.value = .ok invocationId := by
+        unfold TextId.parse
+        simp [invocationId.valid]
+      have nonneg : ¬ ((index : Int) < 0) := by omega
+      have magnitude : ((index : Int)).natAbs = index := by omega
+      simp [toJson, ofJson, Json.asObject, Json.exactFields, Json.keys, Json.field, List.find?,
+        parsed, nonneg, magnitude, Except.map]
+  | route reservationId =>
+      have parsed : TextId.parse .routeReservation reservationId.value = .ok reservationId := by
+        unfold TextId.parse
+        simp [reservationId.valid]
+      simp [toJson, ofJson, Json.asObject, Json.exactFields, Json.keys, Json.field, List.find?,
+        parsed, Except.map]
+  | reconciliation attemptId =>
+      have parsed : TextId.parse .effectAttempt attemptId.value = .ok attemptId := by
+        unfold TextId.parse
+        simp [attemptId.valid]
+      simp [toJson, ofJson, Json.asObject, Json.exactFields, Json.keys, Json.field, List.find?,
+        parsed, Except.map]
+  | systemCommit commitId =>
+      have parsed : TextId.parse .runCommit commitId.value = .ok commitId := by
+        unfold TextId.parse
+        simp [commitId.valid]
+      simp [toJson, ofJson, Json.asObject, Json.exactFields, Json.keys, Json.field, List.find?,
+        parsed, Except.map]
+  | acceptance acceptanceId =>
+      have parsed : TextId.parse .acceptance acceptanceId.value = .ok acceptanceId := by
+        unfold TextId.parse
+        simp [acceptanceId.valid]
+      simp [toJson, ofJson, Json.asObject, Json.exactFields, Json.keys, Json.field, List.find?,
+        parsed, Except.map]
+
+/-- **The canonical key identifies the obligation.** Two obligations with one key are one
+obligation, so "the registry never holds one twice" — a statement about keys — really is a
+statement about the obligations behind them, and the model's own `outstanding`, which
+filters by value, agrees with the runtime's, which filters by key. -/
+theorem key_injective {left right : RunObligation} (same : left.key = right.key) :
+    left = right := by
+  have trees : left.toJson = right.toJson :=
+    Json.canonicalText_injective (String.ofList_injective same)
+  have decoded := congrArg ofJson trees
+  rw [ofJson_toJson, ofJson_toJson] at decoded
+  exact Except.ok.inj decoded
+
 end RunObligation
 
 /-- The keys a list of obligations holds. -/
@@ -109,22 +220,24 @@ def initial (run : TextId .run) : RunAdmissionRegistry where
   completedUnique := by simp [obligationKeys]
   completedReserved := by intro _ member; simp at member
 
-/-- Whether an obligation with this key is already reserved. The comparison is the canonical
-one, so "already held" means the same thing here as in a digest over the registry. -/
+/-- Whether an obligation with this key is already reserved. The runtime compares keys with
+`===` — canonical text is what identity *is* here, and `compareCanonicalText` is used only
+to sort — so this is string identity, and `RunObligation.key_injective` makes it identity of
+the obligations behind the keys. -/
 def holds (registry : RunAdmissionRegistry) (obligation : RunObligation) : Bool :=
   registry.reserved.any fun existing =>
-    Text.compare existing.key obligation.key == .eq
+    existing.key == obligation.key
 
 /-- Whether an obligation with this key is already completed. -/
 def discharged (registry : RunAdmissionRegistry) (obligation : RunObligation) : Bool :=
   registry.completed.any fun existing =>
-    Text.compare existing.key obligation.key == .eq
+    existing.key == obligation.key
 
 theorem holds_of_mem {registry : RunAdmissionRegistry} {obligation : RunObligation}
     (member : obligation ∈ registry.reserved) : registry.holds obligation = true := by
   unfold holds
   refine List.any_eq_true.mpr ⟨obligation, member, ?_⟩
-  simp [Text.compare_self]
+  simp
 
 theorem key_fresh_of_not_holds {registry : RunAdmissionRegistry} {obligation : RunObligation}
     (fresh : registry.holds obligation = false) :
@@ -133,7 +246,7 @@ theorem key_fresh_of_not_holds {registry : RunAdmissionRegistry} {obligation : R
   have held : registry.holds obligation = true := by
     unfold holds
     refine List.any_eq_true.mpr ⟨existing, member, ?_⟩
-    simp [same, Text.compare_self]
+    simp [same]
   rw [held] at fresh
   simp at fresh
 
@@ -195,7 +308,7 @@ completion never introduces a second copy of an identity the registry already ho
 def reservedFor (registry : RunAdmissionRegistry) (obligation : RunObligation) :
     Option RunObligation :=
   registry.reserved.find? fun existing =>
-    Text.compare existing.key obligation.key == .eq
+    existing.key == obligation.key
 
 /-- `complete`: only an exact reserved obligation of this Run at this registry's reservation
 epoch, and completing twice changes nothing. -/
@@ -220,7 +333,7 @@ def complete (registry : RunAdmissionRegistry) (reservation : RunAdmissionReserv
                   have alreadyDone : registry.discharged held = true := by
                     unfold RunAdmissionRegistry.discharged
                     refine List.any_eq_true.mpr ⟨existing, existingMember, ?_⟩
-                    simp [existingKey, Text.compare_self]
+                    simp [existingKey]
                   rw [alreadyDone] at discharged
                   simp at discharged
                 completedReserved := by

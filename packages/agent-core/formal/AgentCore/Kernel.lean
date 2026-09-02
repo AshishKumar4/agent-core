@@ -6,6 +6,13 @@ import AgentCore.Kernel.Runs.Turn
 import AgentCore.Kernel.Runs.Pins
 import AgentCore.Kernel.Runs.Commit
 import AgentCore.Kernel.Runs.Admission
+import AgentCore.Kernel.Runs.Ceiling
+import AgentCore.Kernel.Runs.Acceptance
+import AgentCore.Kernel.Runs.Source
+import AgentCore.Kernel.Runs.Settlement
+import AgentCore.Kernel.Runs.Spawn
+import AgentCore.Kernel.Runs.TreeMerge
+import AgentCore.Kernel.Runs.Lifecycle
 
 /-!
 # The executable Agent Core kernel
@@ -30,6 +37,15 @@ model:
   and the kernel by text, the abstraction `idOf : String → Nat` and its injectivity are
   explicit parameters of the refinement theorem. Nothing here introduces an axiom, and the
   axiom audit over this library is exactly `{propext, Classical.choice, Quot.sound}`.
+
+A fourth rule governs where a decision lives. Some decisions are already stated once, in
+`AgentCore.Extract` — the modules the TypeScript runtime's own value objects are lowered
+from. The kernel *consumes* those rather than restating them: `Kernel.TurnStatus`'s four
+transitions are `Extract.TurnStatus`'s table read through the refusal channel,
+`Kernel.preferredPlacement` is `Extract.preferredPlacement` taken over `ModeSet.modes`, and
+`Runs.TreeMerge` reads which side a merge records and whether a path is a conflict off
+`Extract.TreeMergePolicy`. Where a decision has one Lean statement, this library points at
+it.
 
 Nothing in `AgentCore` imports this library, so no designated theorem of the model can
 depend on an executable definition.

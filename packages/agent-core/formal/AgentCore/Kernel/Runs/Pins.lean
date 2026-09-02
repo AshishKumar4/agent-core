@@ -91,6 +91,34 @@ theorem eq_of_fields {left right : RunPins} (blueprint : left.blueprint = right.
   simp only [mk.injEq]
   exact ⟨blueprint, packages, agent, effectivePolicy, modelPolicy, environment⟩
 
+/-- `BlueprintPin`'s identity: the name, the version, and the digest. The non-blank proof is
+a `Prop` field and so contributes nothing, which is why this is written out rather than
+derived. -/
+instance : DecidableEq BlueprintPin := fun left right =>
+  if fields : left.name = right.name ∧ left.version = right.version ∧
+      left.digest = right.digest then
+    .isTrue (by
+      cases left
+      cases right
+      simp only [BlueprintPin.mk.injEq]
+      exact ⟨fields.1, fields.2.1, fields.2.2⟩)
+  else .isFalse fun equal => fields ⟨by rw [equal], by rw [equal], by rw [equal]⟩
+
+/-- `RunPins.equals`. The runtime decides it by comparing the two encoded records byte for
+byte; the kernel decides it field by field, and the two agree because the record carries its
+own canonical order — there is no unnormalized pin set whose bytes could differ while its
+fields agree. -/
+instance : DecidableEq RunPins := fun left right =>
+  if fields : left.blueprint = right.blueprint ∧ left.packages = right.packages ∧
+      left.agent = right.agent ∧ left.effectivePolicy = right.effectivePolicy ∧
+      left.modelPolicy = right.modelPolicy ∧ left.environment = right.environment then
+    .isTrue (eq_of_fields fields.1 fields.2.1 fields.2.2.1 fields.2.2.2.1 fields.2.2.2.2.1
+      fields.2.2.2.2.2)
+  else
+    .isFalse fun equal =>
+      fields ⟨by rw [equal], by rw [equal], by rw [equal], by rw [equal], by rw [equal],
+        by rw [equal]⟩
+
 /-! ## Encoding
 
 Field order is the runtime's `toData` order, which is already canonical: `agent`,

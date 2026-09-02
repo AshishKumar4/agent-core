@@ -117,14 +117,17 @@ def algorithm (_ : ContentRef) : DigestAlgorithm := .sha256
 /-- `ContentRef.fromDigest`. -/
 def ofDigest (digest : Digest) : ContentRef := ⟨digest⟩
 
-/-- Parse `sha256:<64 hex>`; anything else is a shape violation, as at runtime. -/
+/-- Parse `sha256:<64 hex>`; anything else is a shape violation, as at runtime. The prefix
+is matched on the character sequence rather than through `startsWith`/`drop`, so the reader
+is the exact inverse of `contentRefText` and `parse_value` below is a proof rather than an
+assumption about string slicing. -/
 def parse (value : String) : Outcome ContentRef :=
-  let prefixText := DigestAlgorithm.sha256.wire ++ ":"
-  if value.startsWith prefixText then
-    match Digest.parse (value.drop prefixText.length).toString with
-    | .ok digest => .ok ⟨digest⟩
-    | .error _ => unshaped "Content reference"
-  else unshaped "Content reference"
+  match value.toList with
+  | 's' :: 'h' :: 'a' :: '2' :: '5' :: '6' :: ':' :: rest =>
+      match Digest.parse (String.ofList rest) with
+      | .ok digest => .ok ⟨digest⟩
+      | .error _ => unshaped "Content reference"
+  | _ => unshaped "Content reference"
 
 /-- **A content address determines its digest.** Equal addresses hold one digest, so a
 reader never has two answers for the content one reference names. -/
@@ -136,6 +139,29 @@ digest and reading its text back yields exactly the runtime's `sha256:` form, so
 reference and a rebuilt one are the same string. -/
 theorem ofDigest_value (digest : Digest) : (ofDigest digest).value = contentRefText digest :=
   rfl
+
+theorem contentRefText_toList (digest : Digest) :
+    (contentRefText digest).toList =
+      's' :: 'h' :: 'a' :: '2' :: '5' :: '6' :: ':' :: digest.value.toList := by
+  have algorithmText : (DigestAlgorithm.sha256.wire).toList = ['s', 'h', 'a', '2', '5', '6'] := by
+    decide
+  have separator : (":" : String).toList = [':'] := by decide
+  unfold contentRefText
+  rw [String.toList_append, String.toList_append, algorithmText, separator]
+  rfl
+
+/-- **Every content address reads back as itself.** The text form and the reader are
+inverse, so a stored `sha256:` reference decodes to the exact address that wrote it and no
+record carrying one needs a second normalization. -/
+theorem parse_value (reference : ContentRef) : parse reference.value = .ok reference := by
+  obtain ⟨digest⟩ := reference
+  have digestParse : Digest.parse digest.value = .ok digest := by
+    unfold Digest.parse
+    simp [digest.valid]
+  show parse (contentRefText digest) = _
+  unfold parse
+  rw [contentRefText_toList]
+  simp [String.ofList_toList, digestParse]
 
 end ContentRef
 

@@ -17,7 +17,15 @@ repeating list is still making a mistake worth naming.
 `PlacementPin` carries its selection *with* the proof that the selection is the one the
 fixed order picks. A pin recording any other mode does not typecheck, which is the
 constructor's `preferredPlacement` re-derivation moved into the type.
+
+Which mode a set of admissible-mode sets serves is decided in exactly one Lean place:
+`AgentCore.Extract.Placement`, the module the runtime's own placement decision is lowered
+from. `preferredPlacement` below consumes that decision through `ModeSet.modes` — the list
+form a source already holds — rather than restating the four-source intersection or the
+fixed preference order. `preferredPlacement_order` is then a theorem about what Extract
+decides, not a second statement of it.
 -/
+import AgentCore.Extract.Placement
 import AgentCore.Kernel.Facets.Tier
 
 namespace AgentCore.Kernel
@@ -32,6 +40,21 @@ def ofWire (value : String) : Option IsolationMode :=
   else none
 
 theorem ofWire_wire (mode : IsolationMode) : ofWire mode.wire = some mode := by
+  cases mode <;> rfl
+
+/-- The Extract mode this one is. -/
+def toExtract : IsolationMode → Extract.IsolationMode
+  | .dynamic => .dynamic
+  | .provider => .provider
+  | .bundled => .bundled
+
+/-- The kernel mode for an Extract one. -/
+def ofExtract : Extract.IsolationMode → IsolationMode
+  | .dynamic => .dynamic
+  | .provider => .provider
+  | .bundled => .bundled
+
+theorem ofExtract_toExtract (mode : IsolationMode) : ofExtract mode.toExtract = mode := by
   cases mode <;> rfl
 
 end IsolationMode
@@ -73,6 +96,34 @@ theorem mem_modes {set : ModeSet} {mode : IsolationMode} :
   obtain ⟨dynamic, provider, bundled, _⟩ := set
   cases dynamic <;> cases provider <;> cases bundled <;> cases mode <;>
     simp [modes, contains]
+
+/-- The list form in Extract's vocabulary: what a source hands the placement decision. -/
+def extractModes (set : ModeSet) : List Extract.IsolationMode :=
+  set.modes.map IsolationMode.toExtract
+
+/-- **Extract's membership test on the handed-over list is this set's own.** Every source
+arrives as the list of modes it admits, and the decision reads membership per mode, so the
+list form and the bits agree without either side normalizing again. -/
+theorem extract_admits_dynamic (set : ModeSet) :
+    Extract.admitsMode set.extractModes .dynamic = set.contains .dynamic := by
+  obtain ⟨dynamic, provider, bundled, _⟩ := set
+  cases dynamic <;> cases provider <;> cases bundled <;>
+    simp [extractModes, modes, contains, IsolationMode.toExtract, Extract.admitsMode,
+      Extract.isDynamicMode]
+
+theorem extract_admits_provider (set : ModeSet) :
+    Extract.admitsMode set.extractModes .provider = set.contains .provider := by
+  obtain ⟨dynamic, provider, bundled, _⟩ := set
+  cases dynamic <;> cases provider <;> cases bundled <;>
+    simp [extractModes, modes, contains, IsolationMode.toExtract, Extract.admitsMode,
+      Extract.isProviderMode]
+
+theorem extract_admits_bundled (set : ModeSet) :
+    Extract.admitsMode set.extractModes .bundled = set.contains .bundled := by
+  obtain ⟨dynamic, provider, bundled, _⟩ := set
+  cases dynamic <;> cases provider <;> cases bundled <;>
+    simp [extractModes, modes, contains, IsolationMode.toExtract, Extract.admitsMode,
+      Extract.isBundledMode]
 
 theorem eq_of_bits {left right : ModeSet} (dynamic : left.dynamic = right.dynamic)
     (provider : left.provider = right.provider) (bundled : left.bundled = right.bundled) :
@@ -125,23 +176,51 @@ def admitsAll (manifest policy substrate trust : ModeSet) (mode : IsolationMode)
   ((manifest.contains mode && policy.contains mode) && substrate.contains mode) &&
     trust.contains mode
 
-/-- `preferredPlacement`: the first mode, in the one fixed order, that every source
-admits. -/
+/-- `preferredPlacement`: SPEC §9.2's decision, taken by `Extract.preferredPlacement` over
+the four sources' list forms. The four-source intersection and the fixed preference order
+are stated there and nowhere else; this is the kernel reading the answer back into its own
+vocabulary. -/
 def preferredPlacement (manifest policy substrate trust : ModeSet) : Option IsolationMode :=
-  placementPreference.find? (admitsAll manifest policy substrate trust)
+  (Extract.preferredPlacement manifest.extractModes policy.extractModes
+    substrate.extractModes trust.extractModes).map IsolationMode.ofExtract
 
-/-- The fixed order, written out. Nothing else decides placement. -/
+theorem extract_intersection_dynamic (manifest policy substrate trust : ModeSet) :
+    (Extract.placementIntersection manifest.extractModes policy.extractModes
+        substrate.extractModes trust.extractModes).dynamic =
+      admitsAll manifest policy substrate trust .dynamic := by
+  simp [Extract.placementIntersection, admitsAll, ModeSet.extract_admits_dynamic,
+    Bool.and_assoc]
+
+theorem extract_intersection_provider (manifest policy substrate trust : ModeSet) :
+    (Extract.placementIntersection manifest.extractModes policy.extractModes
+        substrate.extractModes trust.extractModes).provider =
+      admitsAll manifest policy substrate trust .provider := by
+  simp [Extract.placementIntersection, admitsAll, ModeSet.extract_admits_provider,
+    Bool.and_assoc]
+
+theorem extract_intersection_bundled (manifest policy substrate trust : ModeSet) :
+    (Extract.placementIntersection manifest.extractModes policy.extractModes
+        substrate.extractModes trust.extractModes).bundled =
+      admitsAll manifest policy substrate trust .bundled := by
+  simp [Extract.placementIntersection, admitsAll, ModeSet.extract_admits_bundled,
+    Bool.and_assoc]
+
+/-- The fixed order, written out. Nothing else decides placement — and the order written
+here is a *consequence* of `Extract.PlacementIntersection.preferred`, not a second copy of
+it. -/
 theorem preferredPlacement_order (manifest policy substrate trust : ModeSet) :
     preferredPlacement manifest policy substrate trust =
       (if admitsAll manifest policy substrate trust .dynamic then some .dynamic
        else if admitsAll manifest policy substrate trust .provider then some .provider
        else if admitsAll manifest policy substrate trust .bundled then some .bundled
        else none) := by
-  unfold preferredPlacement placementPreference
+  unfold preferredPlacement Extract.preferredPlacement Extract.PlacementIntersection.preferred
+  rw [extract_intersection_dynamic, extract_intersection_provider,
+    extract_intersection_bundled]
   cases first : admitsAll manifest policy substrate trust .dynamic <;>
     cases second : admitsAll manifest policy substrate trust .provider <;>
       cases third : admitsAll manifest policy substrate trust .bundled <;>
-        simp [List.find?, first, second, third]
+        simp [IsolationMode.ofExtract]
 
 /-- `selectPlacement`: the selection, or the refusal an empty intersection earns. -/
 def selectPlacement (manifest policy substrate trust : ModeSet) : Outcome IsolationMode :=

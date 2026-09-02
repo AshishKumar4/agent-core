@@ -3,10 +3,13 @@ Turn status and the Turn record (SPEC §5.3; `packages/agent-core/src/agents/run
 
 `TurnStatus` is the codebase's dominant idiom: an abstract base whose singleton subclasses
 carry the transitions, so an illegal transition is a method call that throws rather than a
-state a caller can reach. The base's default `claim`/`suspend`/`complete`/`cancelUnheld` all
-throw `turn.invalid-state`; each subclass overrides exactly the ones it admits. The kernel
-keeps that shape: one closed status vocabulary, one total transition per verb, and a refusal
-carrying `turn.invalid-state` everywhere the runtime throws.
+state a caller can reach. Which transitions exist is decided in exactly one Lean place —
+`AgentCore.Extract.TurnStatus`, the module the runtime's own `TurnStatus` is lowered from —
+and this module *consumes* that table rather than restating it: `claim`, `suspend`,
+`complete`, `cancelUnheld`, and `isTerminal` each ask Extract and turn its `none` into the
+refusal carrying `turn.invalid-state`. The two vocabularies differ only in shape, because
+the kernel groups the three terminal statuses under one constructor; `toExtract` and
+`ofExtract` are that grouping and its inverse, and `ofExtract_toExtract` proves they are.
 
 The `Turn` record's six constructor checks become `Prop` fields, so a Turn in an
 inconsistent state does not typecheck: a queued Turn holds an unheld epoch-zero lease, a
@@ -16,6 +19,7 @@ the record and therefore has to re-establish all six — which is the executable
 "state transitions preserve the model's invariants".
 -/
 import AgentCore.RunGraph
+import AgentCore.Extract.TurnStatus
 import AgentCore.Kernel.Runs.Lease
 
 namespace AgentCore.Kernel
@@ -64,55 +68,93 @@ theorem ofWire_wire (status : TurnStatus) : ofWire status.wire = some status := 
   | suspended => rfl
   | terminal outcome => cases outcome <;> rfl
 
-/-- Whether the Turn has ended. -/
-def isTerminal : TurnStatus → Bool
-  | .terminal _ => true
-  | _ => false
+/-- The Extract status this one is. The kernel groups the three terminal statuses under one
+constructor; Extract lists them flat, and this is that grouping read the other way. -/
+def toExtract : TurnStatus → Extract.TurnStatus
+  | .queued => .queued
+  | .running => .running
+  | .suspended => .suspended
+  | .terminal .succeeded => .succeeded
+  | .terminal .failed => .failed
+  | .terminal .cancelled => .cancelled
 
-/-- Which statuses admit `claim`: a queued Turn and a suspended one being resumed. -/
-def claimable : TurnStatus → Bool
-  | .queued | .suspended => true
-  | _ => false
+/-- The kernel status for an Extract one. -/
+def ofExtract : Extract.TurnStatus → TurnStatus
+  | .queued => .queued
+  | .running => .running
+  | .suspended => .suspended
+  | .succeeded => .terminal .succeeded
+  | .failed => .terminal .failed
+  | .cancelled => .terminal .cancelled
 
-/-- `claim`. -/
+/-- **The two vocabularies are the same vocabulary.** Nothing is lost by asking Extract for
+a transition and reading its answer back. -/
+theorem ofExtract_toExtract (status : TurnStatus) : ofExtract status.toExtract = status := by
+  cases status with
+  | queued => rfl
+  | running => rfl
+  | suspended => rfl
+  | terminal outcome => cases outcome <;> rfl
+
+/-- Whether the Turn has ended, as Extract's table decides it. -/
+def isTerminal (status : TurnStatus) : Bool := status.toExtract.terminal
+
+/-- Which statuses admit `claim`: exactly those Extract's table moves. -/
+def claimable (status : TurnStatus) : Bool := status.toExtract.claim.isSome
+
+/-- `claim`. The move is Extract's; the refusal is the runtime taxonomy's. -/
 def claim (status : TurnStatus) : Outcome TurnStatus :=
-  if status.claimable then .ok .running else refuse .turnInvalidState
+  match status.toExtract.claim with
+  | some next => .ok (ofExtract next)
+  | none => refuse .turnInvalidState
 
-/-- `suspend`: only a running Turn suspends. -/
+/-- `suspend`: only a running Turn suspends, because that is what Extract's table admits. -/
 def suspend (status : TurnStatus) : Outcome TurnStatus :=
-  if status == .running then .ok .suspended else refuse .turnInvalidState
+  match status.toExtract.suspend with
+  | some next => .ok (ofExtract next)
+  | none => refuse .turnInvalidState
 
-/-- `complete`: only a running Turn completes, into the outcome it reports. -/
+/-- `complete`: only a status Extract's table admits completes, into the outcome it reports.
+Which status may complete is Extract's `completes`; which status it lands on is the
+outcome's, which is why the table carries no parameter for it. -/
 def complete (status : TurnStatus) (outcome : TerminalOutcome) : Outcome TurnStatus :=
-  if status == .running then .ok (.terminal outcome) else refuse .turnInvalidState
+  if status.toExtract.completes then .ok (.terminal outcome) else refuse .turnInvalidState
 
-/-- `cancelUnheld`: a queued or suspended Turn may be cancelled without a token, because
-neither holds its branch. -/
+/-- `cancelUnheld`: a Turn holding no token may be cancelled without one. -/
 def cancelUnheld (status : TurnStatus) : Outcome TurnStatus :=
-  if status.claimable then .ok (.terminal .cancelled) else refuse .turnInvalidState
+  match status.toExtract.cancelUnheld with
+  | some next => .ok (ofExtract next)
+  | none => refuse .turnInvalidState
 
 theorem claim_result {status next : TurnStatus} (step : status.claim = .ok next) :
     next = .running := by
-  unfold claim at step
-  by_cases guard : status.claimable = true
-  · rw [if_pos guard] at step
-    exact (Except.ok.inj step).symm
-  · rw [if_neg guard] at step
-    simp [refuse] at step
+  cases status with
+  | queued =>
+      simp only [claim, toExtract, Extract.TurnStatus.claim, ofExtract, Except.ok.injEq] at step
+      exact step.symm
+  | running => simp [claim, toExtract, Extract.TurnStatus.claim, refuse] at step
+  | suspended =>
+      simp only [claim, toExtract, Extract.TurnStatus.claim, ofExtract, Except.ok.injEq] at step
+      exact step.symm
+  | terminal outcome =>
+      cases outcome <;> simp [claim, toExtract, Extract.TurnStatus.claim, refuse] at step
 
 theorem suspend_result {status next : TurnStatus} (step : status.suspend = .ok next) :
     next = .suspended := by
-  unfold suspend at step
-  by_cases guard : (status == TurnStatus.running) = true
-  · rw [if_pos guard] at step
-    exact (Except.ok.inj step).symm
-  · rw [if_neg guard] at step
-    simp [refuse] at step
+  cases status with
+  | running =>
+      simp only [suspend, toExtract, Extract.TurnStatus.suspend, ofExtract,
+        Except.ok.injEq] at step
+      exact step.symm
+  | queued => simp [suspend, toExtract, Extract.TurnStatus.suspend, refuse] at step
+  | suspended => simp [suspend, toExtract, Extract.TurnStatus.suspend, refuse] at step
+  | terminal outcome =>
+      cases outcome <;> simp [suspend, toExtract, Extract.TurnStatus.suspend, refuse] at step
 
 theorem complete_result {status next : TurnStatus} {outcome : TerminalOutcome}
     (step : status.complete outcome = .ok next) : next = .terminal outcome := by
   unfold complete at step
-  by_cases guard : (status == TurnStatus.running) = true
+  by_cases guard : status.toExtract.completes = true
   · rw [if_pos guard] at step
     exact (Except.ok.inj step).symm
   · rw [if_neg guard] at step
@@ -120,40 +162,62 @@ theorem complete_result {status next : TurnStatus} {outcome : TerminalOutcome}
 
 theorem cancelUnheld_result {status next : TurnStatus} (step : status.cancelUnheld = .ok next) :
     next = .terminal .cancelled := by
-  unfold cancelUnheld at step
-  by_cases guard : status.claimable = true
-  · rw [if_pos guard] at step
-    exact (Except.ok.inj step).symm
-  · rw [if_neg guard] at step
-    simp [refuse] at step
+  cases status with
+  | queued =>
+      simp only [cancelUnheld, toExtract, Extract.TurnStatus.cancelUnheld, ofExtract,
+        Except.ok.injEq] at step
+      exact step.symm
+  | suspended =>
+      simp only [cancelUnheld, toExtract, Extract.TurnStatus.cancelUnheld, ofExtract,
+        Except.ok.injEq] at step
+      exact step.symm
+  | running => simp [cancelUnheld, toExtract, Extract.TurnStatus.cancelUnheld, refuse] at step
+  | terminal outcome =>
+      cases outcome <;>
+        simp [cancelUnheld, toExtract, Extract.TurnStatus.cancelUnheld, refuse] at step
 
 /-- **A running Turn cannot be claimed again.** -/
 theorem running_not_claimable :
     (TurnStatus.running.claim).RefusedWith .turnInvalidState := by
-  simp [claim, claimable, refuse, Outcome.RefusedWith]
+  simp [claim, toExtract, Extract.TurnStatus.claim, refuse, Outcome.RefusedWith]
 
 /-- **A terminal Turn admits no transition at all.** Every verb refuses with
 `turn.invalid-state`, so an ended Turn cannot be resumed, suspended, completed again, or
-cancelled again. -/
+cancelled again. This is `Extract.terminal_admits_nothing` read through the refusal
+channel — the table says `none` four times and the kernel says `turn.invalid-state` four
+times. -/
 theorem terminal_admits_nothing (outcome outcome' : TerminalOutcome) :
     ((TurnStatus.terminal outcome).claim).RefusedWith .turnInvalidState ∧
       ((TurnStatus.terminal outcome).suspend).RefusedWith .turnInvalidState ∧
       ((TurnStatus.terminal outcome).complete outcome').RefusedWith .turnInvalidState ∧
       ((TurnStatus.terminal outcome).cancelUnheld).RefusedWith .turnInvalidState := by
-  refine ⟨?_, ?_, ?_, ?_⟩ <;>
-    simp [claim, suspend, complete, cancelUnheld, claimable, refuse, Outcome.RefusedWith]
+  have ended : (TurnStatus.terminal outcome).toExtract.terminal = true := by
+    cases outcome <;> rfl
+  obtain ⟨noClaim, noSuspend, noCancel, noComplete⟩ :=
+    Extract.terminal_admits_nothing ended
+  refine ⟨?_, ?_, ?_, ?_⟩
+  · unfold claim; rw [noClaim]; rfl
+  · unfold suspend; rw [noSuspend]; rfl
+  · unfold complete; rw [noComplete]; rfl
+  · unfold cancelUnheld; rw [noCancel]; rfl
 
 /-- **Only a running Turn suspends or completes.** -/
 theorem suspend_requires_running {status : TurnStatus} (notRunning : status ≠ .running) :
     (status.suspend).RefusedWith .turnInvalidState := by
-  unfold suspend
-  simp [notRunning, refuse, Outcome.RefusedWith]
+  cases status with
+  | running => exact absurd rfl notRunning
+  | queued => rfl
+  | suspended => rfl
+  | terminal outcome => cases outcome <;> rfl
 
 theorem complete_requires_running {status : TurnStatus} {outcome : TerminalOutcome}
     (notRunning : status ≠ .running) :
     (status.complete outcome).RefusedWith .turnInvalidState := by
-  unfold complete
-  simp [notRunning, refuse, Outcome.RefusedWith]
+  cases status with
+  | running => exact absurd rfl notRunning
+  | queued => rfl
+  | suspended => rfl
+  | terminal ended => cases ended <;> rfl
 
 /-- The model's status for a terminal outcome. -/
 def outcomeToModel : TerminalOutcome → AgentCore.TurnStatus
@@ -179,10 +243,12 @@ theorem isTerminal_refines_model (status : TurnStatus) :
       (status.toModel = .succeeded ∨ status.toModel = .failed ∨
         status.toModel = .cancelled) := by
   cases status with
-  | queued => simp [isTerminal, toModel]
-  | running => simp [isTerminal, toModel]
-  | suspended => simp [isTerminal, toModel]
-  | terminal outcome => cases outcome <;> simp [isTerminal, toModel, outcomeToModel]
+  | queued => simp [isTerminal, toExtract, Extract.TurnStatus.terminal, toModel]
+  | running => simp [isTerminal, toExtract, Extract.TurnStatus.terminal, toModel]
+  | suspended => simp [isTerminal, toExtract, Extract.TurnStatus.terminal, toModel]
+  | terminal outcome =>
+      cases outcome <;>
+        simp [isTerminal, toExtract, Extract.TurnStatus.terminal, toModel, outcomeToModel]
 
 end TurnStatus
 
@@ -268,7 +334,8 @@ def claim (turn : Turn) (holder : PrincipalRef) (now expiresAt : Millis) : Outco
                     intro resting
                     rcases resting with suspended | terminal
                     · simp at suspended
-                    · simp [TurnStatus.isTerminal] at terminal
+                    · simp [TurnStatus.isTerminal, TurnStatus.toExtract,
+                        Extract.TurnStatus.terminal] at terminal
                   suspendedCheckpointed := by intro suspended; simp at suspended
                   outcomeRecorded := by
                     intro recorded
@@ -280,15 +347,16 @@ def claim (turn : Turn) (holder : PrincipalRef) (now expiresAt : Millis) : Outco
 /-- **`claim` admits exactly what the status machine admits.** -/
 theorem claim_matches_status_machine (turn : Turn) :
     turn.status.claimable = true ↔ ∃ next, turn.status.claim = .ok next := by
-  unfold TurnStatus.claim
+  unfold TurnStatus.claimable TurnStatus.claim
   constructor
   · intro claimable
-    exact ⟨.running, by rw [if_pos claimable]⟩
+    cases moved : turn.status.toExtract.claim with
+    | none => rw [moved] at claimable; simp at claimable
+    | some next => exact ⟨TurnStatus.ofExtract next, rfl⟩
   · intro ⟨_, step⟩
-    by_cases claimable : turn.status.claimable = true
-    · exact claimable
-    · rw [if_neg claimable] at step
-      simp [refuse] at step
+    cases moved : turn.status.toExtract.claim with
+    | none => rw [moved] at step; simp [refuse] at step
+    | some _ => rfl
 
 /-- `renew`: only a running Turn renews, under exactly its current token. Neither the status
 nor the holder moves, so the Turn keeps the invariants it already had. -/
@@ -349,7 +417,8 @@ def reclaim (turn : Turn) (holder : PrincipalRef) (now expiresAt : Millis) : Out
                     · rw [running] at suspended
                       simp at suspended
                     · rw [running] at terminal
-                      simp [TurnStatus.isTerminal] at terminal
+                      simp [TurnStatus.isTerminal, TurnStatus.toExtract,
+                        Extract.TurnStatus.terminal] at terminal
                   suspendedCheckpointed := by
                     intro suspended
                     rw [running] at suspended

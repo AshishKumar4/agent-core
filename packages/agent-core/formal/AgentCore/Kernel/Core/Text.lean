@@ -226,6 +226,24 @@ theorem strictlyOrdered_head_bound : ∀ (value : String) (values : List String)
       · exact before_trans chain.1
           (strictlyOrdered_head_bound first rest chain.2 existing deeper)
 
+/-- **A canonically ordered list holds no key twice.** Order is the stronger invariant: a
+record that carries sortedness does not need a separate uniqueness field, and one that
+carries only uniqueness cannot decide identity by comparing encoded bytes. -/
+theorem nodup_of_strictlyOrdered : ∀ (values : List String),
+    strictlyOrdered values = true → values.Nodup
+  | [], _ => List.nodup_nil
+  | value :: rest, ordered => by
+      have bound := strictlyOrdered_head_bound value rest ordered
+      have tail : strictlyOrdered rest = true := by
+        cases rest with
+        | nil => rfl
+        | cons _ _ => exact (strictlyOrdered_cons_of ordered).2
+      refine List.nodup_cons.mpr ⟨?_, nodup_of_strictlyOrdered rest tail⟩
+      intro member
+      have self := bound value member
+      rw [before_irrefl] at self
+      simp at self
+
 /-- Insert one value into a list kept in canonical key order. -/
 def insertBy {α : Type} (key : α → String) (value : α) : List α → List α
   | [] => [value]
