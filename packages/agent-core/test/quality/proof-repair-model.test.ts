@@ -30,6 +30,7 @@ import {
     ProofRepairModelRecording,
     ProofRepairPrompt,
     RecordedProofModelExchange,
+    SpawnProofModelExchange,
     proofModelProposal,
     type ProofModelRequest
 } from "../../scripts/quality/proof-repair-model.js";
@@ -285,6 +286,28 @@ function run(
         verifier(selected, outcomes),
         selected.owners
     ).repair(selected.objective, generator, attempts);
+}
+
+/** The stand-in exchange child, and the one question every spawn case asks it. The real
+ * child is the only asynchronous thing in the loop, so what these cases exercise is the
+ * parent: what it writes to the child, and how strictly it reads what comes back. */
+const childFixture = join(import.meta.dirname, "fixtures", "proof-repair-model-child.mjs");
+
+const question: ProofModelRequest = Object.freeze({
+    instructions: "repair the proof",
+    text: "one turn of it"
+});
+
+function spawnExchange(model: string, timeoutMs = 5_000): SpawnProofModelExchange {
+    return new SpawnProofModelExchange(
+        {
+            endpoint: "http://127.0.0.1:1/unreachable-on-purpose",
+            model,
+            credential: () => "a-credential",
+            timeoutMs
+        },
+        childFixture
+    );
 }
 
 describe("the live-model proof candidate generator", () => {
@@ -613,5 +636,62 @@ describe("the live-model proof candidate generator", () => {
             () =>
                 new ProofRepairPrompt(selected.store.load().digest, selected.objective, [])
         ).toThrow("shows the model no writable artifact");
+    });
+
+    test("reads the exchange child's answer strictly, and its silence as no answer", () => {
+        const answered = spawnExchange("echo");
+        const echoed = assertObject(
+            parseCanonicalJson(answered.exchange(question), "the echoed request"),
+            "the echoed request"
+        );
+
+        // The credential crossed on standard input, with the rendered transcript, and
+        // nothing else was needed to make the call.
+        expect(echoed["credential"]).toBe("a-credential");
+        expect(echoed["instructions"]).toBe(question.instructions);
+        expect(echoed["text"]).toBe(question.text);
+        expect(echoed["timeoutMs"]).toBe(5_000);
+        expect(answered.spend()).toEqual({ exchanges: 1, inputTokens: 13, outputTokens: 5 });
+
+        // Every way the child can fail to answer is an exchange that produced nothing, and
+        // each says which one it was: the loop declines on all of them rather than treating
+        // a broken child as a model that answered.
+        const missing = spawnExchange("textless");
+        expect(() => missing.exchange(question)).toThrow(ProofModelUnavailable);
+        expect(() => spawnExchange("not-json").exchange(question)).toThrow(
+            "answered with no reply record"
+        );
+        expect(() => spawnExchange("failure").exchange(question)).toThrow(
+            "the model refused the exchange: model.unavailable: endpoint refused"
+        );
+        expect(() => spawnExchange("failure-unreadable").exchange(question)).toThrow(
+            "no reason was given"
+        );
+        expect(() => spawnExchange("exit-nonzero").exchange(question)).toThrow(
+            "exited 3: the child could not start"
+        );
+        // A child that answers without a usage record still answered; the run simply has
+        // nothing to report about what it cost.
+        const unmeasured = spawnExchange("usageless");
+        expect(unmeasured.exchange(question)).toBe("answered without a usage record");
+        expect(unmeasured.spend()).toEqual({ exchanges: 1, inputTokens: 0, outputTokens: 0 });
+    });
+
+    test("refuses an exchange target that cannot be spent against", () => {
+        expect(() => spawnExchange("echo", 0)).toThrow("is not a duration");
+        expect(
+            () =>
+                new SpawnProofModelExchange(
+                    { endpoint: "", model: "echo", credential: () => "x", timeoutMs: 1_000 },
+                    childFixture
+                )
+        ).toThrow("names no endpoint");
+        expect(
+            () =>
+                new SpawnProofModelExchange(
+                    { endpoint: "http://127.0.0.1:1/", model: "", credential: () => "x", timeoutMs: 1_000 },
+                    childFixture
+                )
+        ).toThrow("names no model");
     });
 });

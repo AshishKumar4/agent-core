@@ -102,12 +102,12 @@ const generator = new ProofRepairModelGenerator(prompt, exchange, options.exchan
 const result = host.repair(objective, generator, options.attempts);
 
 const spend = exchange instanceof SpawnProofModelExchange ? exchange.spend() : undefined;
-if (options.record !== undefined) {
+// `--record` needs a live run, and a live run names its model, so what is recorded is
+// always the model that answered.
+if (options.record !== undefined && options.model !== undefined) {
     await writeCanonicalJson(
         options.record,
-        generator
-            .recording(options.model ?? `replay:${options.replay ?? "none"}`, options.provenance)
-            .toData()
+        generator.recording(options.model, options.provenance).toData()
     );
 }
 

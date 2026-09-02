@@ -521,8 +521,11 @@ export class SpawnProofModelExchange extends ProofModelExchange {
         }
         const failure = record["failure"];
         if (failure !== undefined) {
+            // The child's output is untrusted like any other input: a failure field that is
+            // not a message still means there is no answer, and it says so rather than
+            // throwing a shape error out of the loop.
             throw new ProofModelUnavailable(
-                `the model refused the exchange: ${assertString(failure, "the exchange failure")}`
+                `the model refused the exchange: ${isJsonString(failure) && failure.length > 0 ? failure : "no reason was given"}`
             );
         }
         const usage = record["usage"];
