@@ -1,0 +1,92 @@
+{
+  "edition": "1.0.0",
+  "packages": [
+    {
+      "id": "facets-enforcement",
+      "entryModule": "AgentCore.Facets.Enforcement",
+      "leanSource": "formal/AgentCore/Facets/Enforcement.lean",
+      "root": "src/facets/generated/enforcement",
+      "declarations": [
+        "AgentCore.Facets.claimHonorsEnforcementFloor",
+        "AgentCore.Facets.enforcementFloor"
+      ],
+      "certificates": ["bool.and", "bool.not", "bool.or"],
+      "surface": {
+        "AgentCore/Facets/Enforcement.ts": [
+          "EnforcementTier",
+          "GeneratedData",
+          "Impact",
+          "claimHonorsEnforcementFloor",
+          "enforcementFloor",
+          "requireBoolean"
+        ]
+      }
+    },
+    {
+      "id": "facets-placement",
+      "entryModule": "AgentCore.Extract.Placement",
+      "leanSource": "formal/AgentCore/Extract/Placement.lean",
+      "root": "src/facets/generated/placement",
+      "declarations": ["AgentCore.Extract.admitsMode", "AgentCore.Extract.preferredPlacement"],
+      "certificates": ["bool.and", "list.any"],
+      "surface": {
+        "AgentCore/Extract/Placement.ts": [
+          "GeneratedData",
+          "IsolationMode",
+          "Option",
+          "PlacementIntersection",
+          "PlacementIntersectionData",
+          "PlacementIntersectionInit",
+          "admitsMode",
+          "preferredPlacement",
+          "requireList"
+        ]
+      }
+    },
+    {
+      "id": "runs-turn-status",
+      "entryModule": "AgentCore.Extract.TurnStatus",
+      "leanSource": "formal/AgentCore/Extract/TurnStatus.lean",
+      "root": "src/agents/runs/generated/turn-status",
+      "declarations": [
+        "AgentCore.Extract.TurnStatus.cancelUnheld",
+        "AgentCore.Extract.TurnStatus.claim",
+        "AgentCore.Extract.TurnStatus.completes",
+        "AgentCore.Extract.TurnStatus.suspend",
+        "AgentCore.Extract.TurnStatus.terminal",
+        "AgentCore.Extract.ofTerminalOutcome"
+      ],
+      "certificates": [],
+      "surface": {
+        "AgentCore/Extract/TurnStatus.ts": [
+          "GeneratedData",
+          "Option",
+          "TerminalOutcome",
+          "TurnStatus",
+          "TurnStatusData",
+          "ofTerminalOutcome"
+        ]
+      }
+    },
+    {
+      "id": "definition-tree-merge",
+      "entryModule": "AgentCore.Extract.TreeMerge",
+      "leanSource": "formal/AgentCore/Extract/TreeMerge.lean",
+      "root": "src/definition/generated/tree-merge",
+      "declarations": [
+        "AgentCore.Extract.TreeMergePolicy.side",
+        "AgentCore.Extract.TreeMergePolicy.surfacesConflicts"
+      ],
+      "certificates": [],
+      "surface": {
+        "AgentCore/Extract/TreeMerge.ts": [
+          "GeneratedData",
+          "Option",
+          "TreeMergePolicy",
+          "TreeMergePolicyData",
+          "TreeMergeSide"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,1230 @@
+{
+  "schemaVersion": 4001,
+  "semantic": {
+    "fragmentVersion": "tslean-semantic-typed-v5",
+    "entryModule": "AgentCore.Extract.TurnStatus",
+    "leanProjectPath": "../../../../../formal",
+    "declarations": [
+      "AgentCore.Extract.TurnStatus.cancelUnheld",
+      "AgentCore.Extract.TurnStatus.claim",
+      "AgentCore.Extract.TurnStatus.completes",
+      "AgentCore.Extract.TurnStatus.suspend",
+      "AgentCore.Extract.TurnStatus.terminal",
+      "AgentCore.Extract.ofTerminalOutcome"
+    ],
+    "leanToolchain": {
+      "identity": "leanprover/lean4:v4.33.1",
+      "leanVersion": "Lean (version 4.33.1, x86_64-unknown-linux-gnu, commit 819816b2e0a3bf405af45ae5c7af2491d8f5bee6, Release)",
+      "lakeVersion": "Lake version 5.0.0-src+819816b (Lean version 4.33.1)"
+    },
+    "modules": [
+      {
+        "path": "AgentCore/Extract/TurnStatus.ts",
+        "leanModule": "AgentCore.Extract.TurnStatus",
+        "imports": [],
+        "declarations": [
+          {
+            "declaration": "AgentCore.Extract.TerminalOutcome",
+            "emitted": "TerminalOutcome",
+            "line": 19,
+            "span": {
+              "source": "AgentCore/Extract/TurnStatus.lean",
+              "startLine": 22,
+              "startColumn": 0,
+              "endLine": 30,
+              "endColumn": 28
+            }
+          },
+          {
+            "declaration": "AgentCore.Extract.TurnStatus",
+            "emitted": "TurnStatus",
+            "line": 25,
+            "span": {
+              "source": "AgentCore/Extract/TurnStatus.lean",
+              "startLine": 32,
+              "startColumn": 0,
+              "endLine": 44,
+              "endColumn": 28
+            }
+          },
+          {
+            "declaration": "AgentCore.Extract.TurnStatus.cancelUnheld",
+            "emitted": "cancelUnheld",
+            "line": 25,
+            "span": {
+              "source": "AgentCore/Extract/TurnStatus.lean",
+              "startLine": 96,
+              "startColumn": 0,
+              "endLine": 108,
+              "endColumn": 22
+            }
+          },
+          {
+            "declaration": "AgentCore.Extract.TurnStatus.claim",
+            "emitted": "claim",
+            "line": 25,
+            "span": {
+              "source": "AgentCore/Extract/TurnStatus.lean",
+              "startLine": 53,
+              "startColumn": 0,
+              "endLine": 65,
+              "endColumn": 22
+            }
+          },
+          {
+            "declaration": "AgentCore.Extract.TurnStatus.completes",
+            "emitted": "completes",
+            "line": 25,
+            "span": {
+              "source": "AgentCore/Extract/TurnStatus.lean",
+              "startLine": 80,
+              "startColumn": 0,
+              "endLine": 94,
+              "endColumn": 23
+            }
+          },
+          {
+            "declaration": "AgentCore.Extract.TurnStatus.suspend",
+            "emitted": "suspend",
+            "line": 25,
+            "span": {
+              "source": "AgentCore/Extract/TurnStatus.lean",
+              "startLine": 67,
+              "startColumn": 0,
+              "endLine": 78,
+              "endColumn": 22
+            }
+          },
+          {
+            "declaration": "AgentCore.Extract.TurnStatus.terminal",
+            "emitted": "terminal",
+            "line": 25,
+            "span": {
+              "source": "AgentCore/Extract/TurnStatus.lean",
+              "startLine": 110,
+              "startColumn": 0,
+              "endLine": 118,
+              "endColumn": 23
+            }
+          },
+          {
+            "declaration": "AgentCore.Extract.ofTerminalOutcome",
+            "emitted": "ofTerminalOutcome",
+            "line": 236,
+            "span": {
+              "source": "AgentCore/Extract/TurnStatus.lean",
+              "startLine": 46,
+              "startColumn": 0,
+              "endLine": 51,
+              "endColumn": 28
+            }
+          }
+        ],
+        "bodySha256": "sha256:0030e4d2105a2e13d5f12e79abc7e1b0da2971e827ee0deb494c66cb64d72c6c",
+        "sourceMapSha256": "sha256:c13ca338413158ee630ebcba254827daad28a6a95331b9c7d3f9e75bb9ba4f3e"
+      }
+    ],
+    "closure": [
+      {
+        "declaration": "AgentCore.Extract.TerminalOutcome",
+        "module": "AgentCore.Extract.TurnStatus",
+        "role": "emitted",
+        "reason": ""
+      },
+      {
+        "declaration": "AgentCore.Extract.TerminalOutcome.cancelled",
+        "module": "AgentCore.Extract.TurnStatus",
+        "role": "erased",
+        "reason": "constructor lowered with its inductive type"
+      },
+      {
+        "declaration": "AgentCore.Extract.TerminalOutcome.casesOn",
+        "module": "AgentCore.Extract.TurnStatus",
+        "role": "erased",
+        "reason": "generated helper reached only through erased scaffolding"
+      },
+      {
+        "declaration": "AgentCore.Extract.TerminalOutcome.failed",
+        "module": "AgentCore.Extract.TurnStatus",
+        "role": "erased",
+        "reason": "constructor lowered with its inductive type"
+      },
+      {
+        "declaration": "AgentCore.Extract.TerminalOutcome.rec",
+        "module": "AgentCore.Extract.TurnStatus",
+        "role": "erased",
+        "reason": "recursor"
+      },
+      {
+        "declaration": "AgentCore.Extract.TerminalOutcome.succeeded",
+        "module": "AgentCore.Extract.TurnStatus",
+        "role": "erased",
+        "reason": "constructor lowered with its inductive type"
+      },
+      {
+        "declaration": "AgentCore.Extract.TurnStatus",
+        "module": "AgentCore.Extract.TurnStatus",
+        "role": "emitted",
+        "reason": ""
+      },
+      {
+        "declaration": "AgentCore.Extract.TurnStatus.cancelUnheld",
+        "module": "AgentCore.Extract.TurnStatus",
+        "role": "emitted",
+        "reason": ""
+      },
+      {
+        "declaration": "AgentCore.Extract.TurnStatus.cancelled",
+        "module": "AgentCore.Extract.TurnStatus",
+        "role": "erased",
+        "reason": "constructor lowered with its inductive type"
+      },
+      {
+        "declaration": "AgentCore.Extract.TurnStatus.casesOn",
+        "module": "AgentCore.Extract.TurnStatus",
+        "role": "erased",
+        "reason": "generated helper reached only through erased scaffolding"
+      },
+      {
+        "declaration": "AgentCore.Extract.TurnStatus.claim",
+        "module": "AgentCore.Extract.TurnStatus",
+        "role": "emitted",
+        "reason": ""
+      },
+      {
+        "declaration": "AgentCore.Extract.TurnStatus.claim.match_1",
+        "module": "AgentCore.Extract.TurnStatus",
+        "role": "erased",
+        "reason": "match auxiliary inlined at its application sites"
+      },
+      {
+        "declaration": "AgentCore.Extract.TurnStatus.completes",
+        "module": "AgentCore.Extract.TurnStatus",
+        "role": "emitted",
+        "reason": ""
+      },
+      {
+        "declaration": "AgentCore.Extract.TurnStatus.failed",
+        "module": "AgentCore.Extract.TurnStatus",
+        "role": "erased",
+        "reason": "constructor lowered with its inductive type"
+      },
+      {
+        "declaration": "AgentCore.Extract.TurnStatus.queued",
+        "module": "AgentCore.Extract.TurnStatus",
+        "role": "erased",
+        "reason": "constructor lowered with its inductive type"
+      },
+      {
+        "declaration": "AgentCore.Extract.TurnStatus.rec",
+        "module": "AgentCore.Extract.TurnStatus",
+        "role": "erased",
+        "reason": "recursor"
+      },
+      {
+        "declaration": "AgentCore.Extract.TurnStatus.running",
+        "module": "AgentCore.Extract.TurnStatus",
+        "role": "erased",
+        "reason": "constructor lowered with its inductive type"
+      },
+      {
+        "declaration": "AgentCore.Extract.TurnStatus.succeeded",
+        "module": "AgentCore.Extract.TurnStatus",
+        "role": "erased",
+        "reason": "constructor lowered with its inductive type"
+      },
+      {
+        "declaration": "AgentCore.Extract.TurnStatus.suspend",
+        "module": "AgentCore.Extract.TurnStatus",
+        "role": "emitted",
+        "reason": ""
+      },
+      {
+        "declaration": "AgentCore.Extract.TurnStatus.suspend.match_1",
+        "module": "AgentCore.Extract.TurnStatus",
+        "role": "erased",
+        "reason": "match auxiliary inlined at its application sites"
+      },
+      {
+        "declaration": "AgentCore.Extract.TurnStatus.suspended",
+        "module": "AgentCore.Extract.TurnStatus",
+        "role": "erased",
+        "reason": "constructor lowered with its inductive type"
+      },
+      {
+        "declaration": "AgentCore.Extract.TurnStatus.terminal",
+        "module": "AgentCore.Extract.TurnStatus",
+        "role": "emitted",
+        "reason": ""
+      },
+      {
+        "declaration": "AgentCore.Extract.TurnStatus.terminal.match_1",
+        "module": "AgentCore.Extract.TurnStatus",
+        "role": "erased",
+        "reason": "match auxiliary inlined at its application sites"
+      },
+      {
+        "declaration": "AgentCore.Extract.instReprTerminalOutcome.repr.match_1",
+        "module": "AgentCore.Extract.TurnStatus",
+        "role": "erased",
+        "reason": "match auxiliary inlined at its application sites"
+      },
+      {
+        "declaration": "AgentCore.Extract.ofTerminalOutcome",
+        "module": "AgentCore.Extract.TurnStatus",
+        "role": "emitted",
+        "reason": ""
+      },
+      {
+        "declaration": "Bool",
+        "module": "Init.Prelude",
+        "role": "runtime-boundary",
+        "reason": "constant outside the target module closure; its TypeScript image is fixed by the type mapping"
+      },
+      {
+        "declaration": "Bool.false",
+        "module": "Init.Prelude",
+        "role": "runtime-boundary",
+        "reason": "constant outside the target module closure; its TypeScript image is fixed by the type mapping"
+      },
+      {
+        "declaration": "Bool.true",
+        "module": "Init.Prelude",
+        "role": "runtime-boundary",
+        "reason": "constant outside the target module closure; its TypeScript image is fixed by the type mapping"
+      },
+      {
+        "declaration": "Option",
+        "module": "Init.Prelude",
+        "role": "runtime-boundary",
+        "reason": "constant outside the target module closure; its TypeScript image is fixed by the type mapping"
+      },
+      {
+        "declaration": "Option.none",
+        "module": "Init.Prelude",
+        "role": "runtime-boundary",
+        "reason": "constant outside the target module closure; its TypeScript image is fixed by the type mapping"
+      },
+      {
+        "declaration": "Option.some",
+        "module": "Init.Prelude",
+        "role": "runtime-boundary",
+        "reason": "constant outside the target module closure; its TypeScript image is fixed by the type mapping"
+      },
+      {
+        "declaration": "PUnit",
+        "module": "Init.Prelude",
+        "role": "runtime-boundary",
+        "reason": "constant outside the target module closure; its TypeScript image is fixed by the type mapping"
+      },
+      {
+        "declaration": "PUnit.unit",
+        "module": "Init.Prelude",
+        "role": "runtime-boundary",
+        "reason": "constant outside the target module closure; its TypeScript image is fixed by the type mapping"
+      },
+      {
+        "declaration": "Unit",
+        "module": "Init.Prelude",
+        "role": "runtime-boundary",
+        "reason": "constant outside the target module closure; its TypeScript image is fixed by the type mapping"
+      },
+      {
+        "declaration": "Unit.unit",
+        "module": "Init.Prelude",
+        "role": "runtime-boundary",
+        "reason": "constant outside the target module closure; its TypeScript image is fixed by the type mapping"
+      }
+    ],
+    "inputs": [
+      {
+        "kind": "lean-project",
+        "identity": "compiler-project:lake-manifest.json",
+        "sha256": "sha256:5d6b334baa39de6864ceffcd02bfbfe758d8ce336a571dc171f831c9c29af944"
+      },
+      {
+        "kind": "lean-project",
+        "identity": "compiler-project:lakefile.toml",
+        "sha256": "sha256:374caa2ac9bf32d4aea72dd7b6c2b5c3328ce2d85eff2948b612f1c41c8c35df"
+      },
+      {
+        "kind": "lean-project",
+        "identity": "compiler-project:lean-toolchain",
+        "sha256": "sha256:3aac669c7a910ec2389f4e4f921b605adf6ebf2d1e0c9b9cd0be4d33f3f5db71"
+      },
+      {
+        "kind": "compiler-source",
+        "identity": "compiler:artifact",
+        "sha256": "sha256:251dff2515593e1fa25750dd312224c16d51f67378341cffc93852e1a5033933"
+      },
+      {
+        "kind": "compiler-source",
+        "identity": "compiler:artifact-transaction",
+        "sha256": "sha256:be688b8a21cae888cf8d98c6de56a148715cc936952637de0a1f3739ec835509"
+      },
+      {
+        "kind": "compiler-source",
+        "identity": "compiler:certificates",
+        "sha256": "sha256:0423881fdacc3f785c96d2ae76e05ab3560875bde27c8b27e6837dc21b2243ae"
+      },
+      {
+        "kind": "compiler-source",
+        "identity": "compiler:cli",
+        "sha256": "sha256:50c877c22f48b3eb7e407ca580eae0f206f6f6452dc385ed0f79b109174021b8"
+      },
+      {
+        "kind": "compiler-source",
+        "identity": "compiler:compiler",
+        "sha256": "sha256:477deadf5ab32d049bf67e02c37d199e251eed03134f395f8c036c6bb4b21775"
+      },
+      {
+        "kind": "compiler-source",
+        "identity": "compiler:emitter",
+        "sha256": "sha256:115bd270d9bfb9af2afa98cca401aa40f2d04b4be5cf4db7d5373c86931603cb"
+      },
+      {
+        "kind": "compiler-source",
+        "identity": "compiler:fragment",
+        "sha256": "sha256:7df86a7779d86bbbf0c10c485902460c7c67fbac6d45fecb320abe20acbeab9a"
+      },
+      {
+        "kind": "compiler-source",
+        "identity": "compiler:index",
+        "sha256": "sha256:912c8f5b07a0e3c134618c429928ea768555f4225a92218f46e0fe60379cb8c9"
+      },
+      {
+        "kind": "compiler-source",
+        "identity": "compiler:ir",
+        "sha256": "sha256:d15e7b7db6996aac14edb7af48a1a9f7ca76bb87045957c6e3c5588d09a97ebd"
+      },
+      {
+        "kind": "compiler-source",
+        "identity": "compiler:lean-exporter",
+        "sha256": "sha256:59df35a00e87e500b7afcec51cd95a00b42a268ac58d3379e2e7d4213fcbfabb"
+      },
+      {
+        "kind": "compiler-source",
+        "identity": "compiler:lean-source:TSLean/LeanToTypeScript/Semantics.lean",
+        "sha256": "sha256:3b3f56ae98f444fab1599d0f4d7bcde4973864c95cb67f43e672e0309c2f27ce"
+      },
+      {
+        "kind": "compiler-source",
+        "identity": "compiler:lean-source:TSLean/LeanToTypeScript/Semantics/Allocation.lean",
+        "sha256": "sha256:664708276157af008356444e2379462c8c77379c7c7d62b9856ef57f4a9a53e0"
+      },
+      {
+        "kind": "compiler-source",
+        "identity": "compiler:lean-source:TSLean/LeanToTypeScript/Semantics/Assumption.lean",
+        "sha256": "sha256:069aa8ff5260b8214b158a7a33e0a5aab67dc4b303cc0c806c9900090725b14b"
+      },
+      {
+        "kind": "compiler-source",
+        "identity": "compiler:lean-source:TSLean/LeanToTypeScript/Semantics/Closure.lean",
+        "sha256": "sha256:68dba45a507fa26dd9c1d8dd2d2f9579e6f02d6255e88e0eecd008649c8f6fb3"
+      },
+      {
+        "kind": "compiler-source",
+        "identity": "compiler:lean-source:TSLean/LeanToTypeScript/Semantics/Compile.lean",
+        "sha256": "sha256:d532b273d3e1126fc2dd27fa9aa59101e2d4d7f605d9caebb70ea3e56814f4ca"
+      },
+      {
+        "kind": "compiler-source",
+        "identity": "compiler:lean-source:TSLean/LeanToTypeScript/Semantics/Ir.lean",
+        "sha256": "sha256:e524d4ef32ab9b6196bc811419c475c7ea639f17730b2307273790b95e07ae1a"
+      },
+      {
+        "kind": "compiler-source",
+        "identity": "compiler:lean-source:TSLean/LeanToTypeScript/Semantics/Opcode.lean",
+        "sha256": "sha256:a653295a905f5d94d42da18495fd714ebf164d95cd59c34a331946ba81c066f4"
+      },
+      {
+        "kind": "compiler-source",
+        "identity": "compiler:lean-source:TSLean/LeanToTypeScript/Semantics/Preservation.lean",
+        "sha256": "sha256:55e86fbef9c6209162d867afc1d14f81330f4f32cb9b0ff377afbf82fd4b3bc2"
+      },
+      {
+        "kind": "compiler-source",
+        "identity": "compiler:lean-source:TSLean/LeanToTypeScript/Semantics/Program.lean",
+        "sha256": "sha256:e44e67d700d86e87b700ce1e659aef0cff6ffccea650ceece0f9f2e18e450ba1"
+      },
+      {
+        "kind": "compiler-source",
+        "identity": "compiler:lean-source:TSLean/LeanToTypeScript/Semantics/RegistryReport.lean",
+        "sha256": "sha256:84ba71230ccca5e28bb684a295ce12fe77c8b9d620ebfc49e01a77c7052c8128"
+      },
+      {
+        "kind": "compiler-source",
+        "identity": "compiler:lean-source:TSLean/LeanToTypeScript/Semantics/Relation.lean",
+        "sha256": "sha256:fa39e400caf1c955b516707207cc1bd2e6cdeba374e0018aa3cc085294d006fa"
+      },
+      {
+        "kind": "compiler-source",
+        "identity": "compiler:lean-source:TSLean/LeanToTypeScript/Semantics/Source.lean",
+        "sha256": "sha256:3d12b7e3004f2545c6449ad1078671c7cd7feee611034d1e969848e24dfc8dd8"
+      },
+      {
+        "kind": "compiler-source",
+        "identity": "compiler:lean-source:TSLean/LeanToTypeScript/Semantics/Target.lean",
+        "sha256": "sha256:d92973f7bbb97ecf90475f901e607c812ad9dbffab7c3e4c43ee2c5a46be2396"
+      },
+      {
+        "kind": "compiler-source",
+        "identity": "compiler:lean-source:TSLean/LeanToTypeScript/Semantics/Tests/Registry.lean",
+        "sha256": "sha256:3c29b2a4353dd444cfd44f84f44caccabd6abdc5768e32ff122a81e6cc7cdf41"
+      },
+      {
+        "kind": "compiler-source",
+        "identity": "compiler:manifest",
+        "sha256": "sha256:6b011152dab8122bc8b42f4eefbdf499cea0f4e4c5d8fa46bb94ac9b48a08734"
+      },
+      {
+        "kind": "compiler-source",
+        "identity": "compiler:ordering",
+        "sha256": "sha256:8842dbfee6aa31cafca39eb050f7060dc22e67d3d9b038fa27fd7203b5dd6561"
+      },
+      {
+        "kind": "compiler-source",
+        "identity": "compiler:package",
+        "sha256": "sha256:f87c4d44b538f901091c0e2613a6d8eb0efcca88f202a7d3ddad30e481aa9112"
+      },
+      {
+        "kind": "compiler-source",
+        "identity": "compiler:package-layout",
+        "sha256": "sha256:aad3dfb8bfa63fefbd1d37ab0689bf83d287fefa6ea5de78882cb3b4ed59f917"
+      },
+      {
+        "kind": "compiler-source",
+        "identity": "compiler:platform",
+        "sha256": "sha256:798a4d7943c9e13c2440167f2c2aa98859d8e81f8d963bfc7c183cc375ccadea"
+      },
+      {
+        "kind": "compiler-source",
+        "identity": "compiler:runtime-conformance",
+        "sha256": "sha256:3fa75ea450f6f7912315bcac18d3ae5f4293dbb37555b8fb6d11972a6ae1d377"
+      },
+      {
+        "kind": "compiler-source",
+        "identity": "compiler:runtime-provenance",
+        "sha256": "sha256:3608cdb9a616a613e755adc199a45b7c79400c7d834e501ae5133254a4aa01fc"
+      },
+      {
+        "kind": "compiler-source",
+        "identity": "compiler:spec:compiler-registry.json",
+        "sha256": "sha256:61b7bd5b65e06f7f65e1b743903565d5e41dbdc950e25aa8591fe82ba3f3287b"
+      },
+      {
+        "kind": "compiler-source",
+        "identity": "compiler:spec:enforcement.bounds.json",
+        "sha256": "sha256:080bc73df7bc9c37349650298f602157f3e32576bfb881a07ef0d97b62dee67b"
+      },
+      {
+        "kind": "compiler-source",
+        "identity": "compiler:spec:placement.bounds.json",
+        "sha256": "sha256:435d9687952de671f6a01c7376b6284c3615fa0125ed02d0367ff41e915c4ce8"
+      },
+      {
+        "kind": "compiler-source",
+        "identity": "compiler:spec:semantics/probes.json",
+        "sha256": "sha256:c11937b8fc42448014dcdc0d69d9f18a04dce7ddd27622f8b2b419f0c9bbbb90"
+      },
+      {
+        "kind": "compiler-source",
+        "identity": "compiler:spec:semantics/registry.json",
+        "sha256": "sha256:472b476248f17f5b44eff6b00da89be8d50d5aba973d3d990a86158d6dfed09a"
+      },
+      {
+        "kind": "lean-source",
+        "identity": "source:AgentCore.Extract.TurnStatus",
+        "sha256": "sha256:a10d9ff46a2f9650c8c4c2f9c2726ca179900141769e81baaf4adceee20f2a12"
+      },
+      {
+        "kind": "lean-source",
+        "identity": "source:TSLean.LeanToTypeScript.Export",
+        "sha256": "sha256:59df35a00e87e500b7afcec51cd95a00b42a268ac58d3379e2e7d4213fcbfabb"
+      },
+      {
+        "kind": "lean-project",
+        "identity": "target-project:lake-manifest.json",
+        "sha256": "sha256:4fbc9e1e9fed46de5828db4315cd958a2069f224d88c347e67b892ec2f80c3ce"
+      },
+      {
+        "kind": "lean-project",
+        "identity": "target-project:lakefile.lean",
+        "sha256": "sha256:17d78dcf0e2248047cd55c501506ba9f373a77c3599dd6f3648e268dcb96b9bd"
+      },
+      {
+        "kind": "lean-project",
+        "identity": "target-project:lean-toolchain",
+        "sha256": "sha256:3aac669c7a910ec2389f4e4f921b605adf6ebf2d1e0c9b9cd0be4d33f3f5db71"
+      }
+    ],
+    "inputClosureSha256": "sha256:e65be29238ef4c5a0fffbd6ab217ffec2c7469dcb90b3404217d44954fc6eb6a",
+    "semanticIrSha256": "sha256:fbc8ce10f3f6ebcd2e23103c8d97c0bc489ce9ad9500cfd27e9760c019939623",
+    "certificates": [],
+    "generatedBodySha256": "sha256:196bb9fa6324dbb5fe2971db0012c6baa9befc8c8c0cd80dd34906a35d073764"
+  },
+  "environment": {
+    "runtime": "node:v22.22.3",
+    "typescriptVersion": "6.0.2",
+    "platform": "linux-x64",
+    "inputs": [
+      {
+        "kind": "lean-toolchain",
+        "identity": "compiler-toolchain:lake-executable",
+        "sha256": "sha256:60330ab6f07dce20f3fa9ebb08e8b984ea9549eac172afeb15d9d2227060e2b3"
+      },
+      {
+        "kind": "lean-toolchain",
+        "identity": "compiler-toolchain:lean-executable",
+        "sha256": "sha256:e8baaa71855a616dc351028f3ad2200051b0671f423a1696a100e809302d5550"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "compiler:runtime",
+        "sha256": "sha256:e6ec2c188d83d813f81f2de8aea084d74dce603ac1abedd0a30ad941b10087b2"
+      },
+      {
+        "kind": "lean-module",
+        "identity": "module:AgentCore.Extract.TurnStatus",
+        "sha256": "sha256:83c287c41381c1c77a8cf46b891071cdcf40f7c1b84676c4ffb674c3a3fa7b3f"
+      },
+      {
+        "kind": "lean-module",
+        "identity": "module:Init",
+        "sha256": "sha256:9ed3667be31b6ce04b831418a8bc9e99c44804b8ddaf52f6ebbdebfd26d8409e"
+      },
+      {
+        "kind": "lean-module",
+        "identity": "module:Lean",
+        "sha256": "sha256:b6d86d9546713512afdbbaecee5fbc5355e06a30cd70a405f4fa061dce3d56a7"
+      },
+      {
+        "kind": "lean-module",
+        "identity": "module:TSLean.LeanToTypeScript.Export",
+        "sha256": "sha256:9db5d6884429a8ba1056df9305fcf5a71ce3d80811fcb6553af5a03d292493ba"
+      },
+      {
+        "kind": "lean-toolchain",
+        "identity": "target-toolchain:lake-executable",
+        "sha256": "sha256:60330ab6f07dce20f3fa9ebb08e8b984ea9549eac172afeb15d9d2227060e2b3"
+      },
+      {
+        "kind": "lean-toolchain",
+        "identity": "target-toolchain:lean-executable",
+        "sha256": "sha256:e8baaa71855a616dc351028f3ad2200051b0671f423a1696a100e809302d5550"
+      },
+      {
+        "kind": "lean-toolchain",
+        "identity": "toolchain-launcher:lake",
+        "sha256": "sha256:840179e70803ef373c2ec53342d6a45ea7d022533e4145489fc1278b4f716385"
+      },
+      {
+        "kind": "lean-toolchain",
+        "identity": "toolchain-runtime:00:libInit_shared.so",
+        "sha256": "sha256:2f96493ac9046f64ec7bcb78102a4c1e7cd9a7042487f246af45eda8a96667f5"
+      },
+      {
+        "kind": "lean-toolchain",
+        "identity": "toolchain-runtime:01:libLake_shared.so",
+        "sha256": "sha256:b1d164bf248f35b9e9664e696f4cd05a79a7066065510fb9b459139c78beb354"
+      },
+      {
+        "kind": "lean-toolchain",
+        "identity": "toolchain-runtime:02:libleanshared.so",
+        "sha256": "sha256:23d636cac1cadcba37beac30eff9b9b20d66cee726cf5defb4ae39f1284a3e5a"
+      },
+      {
+        "kind": "lean-toolchain",
+        "identity": "toolchain-runtime:03:libleanshared_1.so",
+        "sha256": "sha256:2f96493ac9046f64ec7bcb78102a4c1e7cd9a7042487f246af45eda8a96667f5"
+      },
+      {
+        "kind": "lean-toolchain",
+        "identity": "toolchain-runtime:04:libleanshared_2.so",
+        "sha256": "sha256:2f96493ac9046f64ec7bcb78102a4c1e7cd9a7042487f246af45eda8a96667f5"
+      },
+      {
+        "kind": "lean-toolchain",
+        "identity": "toolchain-runtime:05:ld-linux-x86-64.so.2",
+        "sha256": "sha256:c5e80a563850d6ab5c2f2482e4202d9c1b71fbf44854b8c399e63527202c64e1"
+      },
+      {
+        "kind": "lean-toolchain",
+        "identity": "toolchain-runtime:06:libc.so.6",
+        "sha256": "sha256:a3947513a02831ec692ebf13053c07614882ab54a2101fb91a1b15724062ed0c"
+      },
+      {
+        "kind": "lean-toolchain",
+        "identity": "toolchain-runtime:07:libdl.so.2",
+        "sha256": "sha256:7d293f8361fcead4f9691561adc0413f724f3607b959abe0d4fb243072956079"
+      },
+      {
+        "kind": "lean-toolchain",
+        "identity": "toolchain-runtime:08:libm.so.6",
+        "sha256": "sha256:beea4eeacfcfa2cd96011b959a826c97cf4a774017e214f6a34d7eea3d49cd88"
+      },
+      {
+        "kind": "lean-toolchain",
+        "identity": "toolchain-runtime:09:libpthread.so.0",
+        "sha256": "sha256:f93acb6e78dcf0213c8a85f922d21916249148e24de426079c40b6304c42085d"
+      },
+      {
+        "kind": "lean-toolchain",
+        "identity": "toolchain-runtime:10:librt.so.1",
+        "sha256": "sha256:5df2508a1ef33bd8024d77271e2a4a2607cb63e59dd753dd46f8e7a2ed44962d"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:compiler",
+        "sha256": "sha256:630f808ac32d968a49a392c42cc06fd72abd939aaa7edfe3302810c067934653"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.d.ts",
+        "sha256": "sha256:0e6477e5049e579cc5de741a70ac91235252edc0468b2e569f22de9db3357786"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.decorators.d.ts",
+        "sha256": "sha256:1ce14b81c5cc821994aa8ec1d42b220dd41b27fcc06373bce3958af7421b77d4"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.decorators.legacy.d.ts",
+        "sha256": "sha256:b3a048b3e9302ef9a34ef4ebb9aecfb28b66abb3bce577206a79fee559c230da"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.dom.asynciterable.d.ts",
+        "sha256": "sha256:7f57fc4404ff020bc45b9c620aff2b40f700b95fe31164024c453a5e3c163c54"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.dom.d.ts",
+        "sha256": "sha256:d6b1eba8496bdd0eed6fc8a685768fe01b2da4a0388b5fe7df558290bffcf32f"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.dom.iterable.d.ts",
+        "sha256": "sha256:7f57fc4404ff020bc45b9c620aff2b40f700b95fe31164024c453a5e3c163c54"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2015.collection.d.ts",
+        "sha256": "sha256:105ba8ff7ba746404fe1a2e189d1d3d2e0eb29a08c18dded791af02f29fb4711"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2015.core.d.ts",
+        "sha256": "sha256:eadcffda2aa84802c73938e589b9e58248d74c59cb7fcbca6474e3435ac15504"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2015.d.ts",
+        "sha256": "sha256:3f88bedbeb09c6f5a6645cb24c7c55f1aa22d19ae96c8e6959cbd8b85a707bc6"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2015.generator.d.ts",
+        "sha256": "sha256:00343ca5b2e3d48fa5df1db6e32ea2a59afab09590274a6cccb1dbae82e60c7c"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2015.iterable.d.ts",
+        "sha256": "sha256:ebd9f816d4002697cb2864bea1f0b70a103124e18a8cd9645eeccc09bdf80ab4"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2015.promise.d.ts",
+        "sha256": "sha256:2c1afac30a01772cd2a9a298a7ce7706b5892e447bb46bdbeef720f7b5da77ad"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2015.proxy.d.ts",
+        "sha256": "sha256:7b0225f483e4fa685625ebe43dd584bb7973bbd84e66a6ba7bbe175ee1048b4f"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2015.reflect.d.ts",
+        "sha256": "sha256:c0a4b8ac6ce74679c1da2b3795296f5896e31c38e888469a8e0f99dc3305de60"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2015.symbol.d.ts",
+        "sha256": "sha256:3084a7b5f569088e0146533a00830e206565de65cae2239509168b11434cd84f"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2015.symbol.wellknown.d.ts",
+        "sha256": "sha256:c5079c53f0f141a0698faa903e76cb41cd664e3efb01cc17a5c46ec2eb0bef42"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2016.array.include.d.ts",
+        "sha256": "sha256:32cafbc484dea6b0ab62cf8473182bbcb23020d70845b406f80b7526f38ae862"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2016.d.ts",
+        "sha256": "sha256:7fe93b39b810eadd916be8db880dd7f0f7012a5cc6ffb62de8f62a2117fa6f1f"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2016.full.d.ts",
+        "sha256": "sha256:19adadff5144f8f89fef0a10b299d7a96206f4913d4c17d4864171320e9edbd6"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2016.intl.d.ts",
+        "sha256": "sha256:fca4cdcb6d6c5ef18a869003d02c9f0fd95df8cfaf6eb431cd3376bc034cad36"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2017.arraybuffer.d.ts",
+        "sha256": "sha256:b93ec88115de9a9dc1b602291b85baf825c85666bf25985cc5f698073892b467"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2017.d.ts",
+        "sha256": "sha256:bb0074cc08b84a2374af33d8bf044b80851ccc9e719a5e202eacf40db2c31600"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2017.date.d.ts",
+        "sha256": "sha256:f5c06dcc3fe849fcb297c247865a161f995cc29de7aa823afdd75aaaddc1419b"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2017.full.d.ts",
+        "sha256": "sha256:83635f912d414d0c5a855fba3e18418e9db7e73c2e0e170009c48275cc8c1a36"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2017.intl.d.ts",
+        "sha256": "sha256:c7b3542146734342e440a84b213384bfa188835537ddbda50d30766f0593aff9"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2017.object.d.ts",
+        "sha256": "sha256:b77e16112127a4b169ef0b8c3a4d730edf459c5f25fe52d5e436a6919206c4d7"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2017.sharedmemory.d.ts",
+        "sha256": "sha256:fbffd9337146eff822c7c00acbb78b01ea7ea23987f6c961eba689349e744f8c"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2017.string.d.ts",
+        "sha256": "sha256:a995c0e49b721312f74fdfb89e4ba29bd9824c770bbb4021d74d2bf560e4c6bd"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2017.typedarrays.d.ts",
+        "sha256": "sha256:ce6180fa19b1cccd07ee7f7dbb9a367ac19c0ed160573e4686425060b6df7f57"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2018.asyncgenerator.d.ts",
+        "sha256": "sha256:3f02e2476bccb9dbe21280d6090f0df17d2f66b74711489415a8aa4df73c9675"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2018.asynciterable.d.ts",
+        "sha256": "sha256:45e3ab34c1c013c8ab2dc1ba4c80c780744b13b5676800ae2e3be27ae862c40c"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2018.d.ts",
+        "sha256": "sha256:1a7daebe4f45fb03d9ec53d60008fbf9ac45a697fdc89e4ce218bc94b94f94d6"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2018.full.d.ts",
+        "sha256": "sha256:63787dbe04141f5d3ebce2e08b64bc9bba589beb0a4d22e7994d3005af1e48a6"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2018.intl.d.ts",
+        "sha256": "sha256:805c86f6cca8d7702a62a844856dbaa2a3fd2abef0536e65d48732441dde5b5b"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2018.promise.d.ts",
+        "sha256": "sha256:e42e397f1a5a77994f0185fd1466520691456c772d06bf843e5084ceb879a0ad"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2018.regexp.d.ts",
+        "sha256": "sha256:f4c2b41f90c95b1c532ecc874bd3c111865793b23aebcc1c3cbbabcd5d76ffb0"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2019.array.d.ts",
+        "sha256": "sha256:ab26191cfad5b66afa11b8bf935ef1cd88fabfcb28d30b2dfa6fad877d050332"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2019.d.ts",
+        "sha256": "sha256:f94b133a3cb14a288803be545ac2683e0d0ff6661bcd37e31aaaec54fc382aed"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2019.full.d.ts",
+        "sha256": "sha256:e3de8409485b0c198a5a075bd4a1d06d8f42dc52b377709d33b131b97de56456"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2019.intl.d.ts",
+        "sha256": "sha256:689da16f46e647cef0d64b0def88910e818a5877ca5379ede156ca3afb780ac3"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2019.object.d.ts",
+        "sha256": "sha256:2088bc26531e38fb05eedac2951480db5309f6be3fa4a08d2221abb0f5b4200d"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2019.string.d.ts",
+        "sha256": "sha256:cb9d366c425fea79716a8fb3af0d78e6b22ebbab3bd64d25063b42dc9f531c1e"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2019.symbol.d.ts",
+        "sha256": "sha256:500934a8089c26d57ebdb688fc9757389bb6207a3c8f0674d68efa900d2abb34"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2020.bigint.d.ts",
+        "sha256": "sha256:bc21cc8b6fee4f4c2440d08035b7ea3c06b3511314c8bab6bef7a92de58a2593"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2020.d.ts",
+        "sha256": "sha256:f59d0650799f8782fd74cf73c19223730c6d1b9198671b1c5b3a38e1188b5953"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2020.date.d.ts",
+        "sha256": "sha256:7ca53d13d2957003abb47922a71866ba7cb2068f8d154877c596d63c359fed25"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2020.full.d.ts",
+        "sha256": "sha256:577cc49be1979782a5a695b46049566d123e2a75382f10bb82f2e5c87e29059a"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2020.intl.d.ts",
+        "sha256": "sha256:48915f327cd1dea4d7bd358d9dc7732f58f9e1626a29cc0c05c8c692419d9bb7"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2020.number.d.ts",
+        "sha256": "sha256:b7bf9377723203b5a6a4b920164df22d56a43f593269ba6ae1fdc97774b68855"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2020.promise.d.ts",
+        "sha256": "sha256:54725f8c4df3d900cb4dac84b64689ce29548da0b4e9b7c2de61d41c79293611"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2020.sharedmemory.d.ts",
+        "sha256": "sha256:e5594bc3076ac29e6c1ebda77939bc4c8833de72f654b6e376862c0473199323"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2020.string.d.ts",
+        "sha256": "sha256:2f3eb332c2d73e729f3364fcc0c2b375e72a121e8157d25a82d67a138c83a95c"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2020.symbol.wellknown.d.ts",
+        "sha256": "sha256:6f4427f9642ce8d500970e4e69d1397f64072ab73b97e476b4002a646ac743b1"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2021.d.ts",
+        "sha256": "sha256:8a15b4607d9a499e2dbeed9ec0d3c0d7372c850b2d5f1fb259e8f6d41d468a84"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2021.full.d.ts",
+        "sha256": "sha256:e4a70ead7fea07d9abe520cc9e30c04ac035ebceaab28f9e67211610006c65de"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2021.intl.d.ts",
+        "sha256": "sha256:a917a49ac94cd26b754ab84e113369a75d1a47a710661d7cd25e961cc797065f"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2021.promise.d.ts",
+        "sha256": "sha256:db9709688f82c9e5f65a119c64d835f906efe5f559d08b11642d56eb85b79357"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2021.string.d.ts",
+        "sha256": "sha256:4b25b8c874acd1a4cf8444c3617e037d444d19080ac9f634b405583fd10ce1f7"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2021.weakref.d.ts",
+        "sha256": "sha256:37be57d7c90cf1f8112ee2636a068d8fd181289f82b744160ec56a7dc158a9f5"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2022.array.d.ts",
+        "sha256": "sha256:6d3261badeb7843d157ef3e6f5d1427d0eeb0af0cf9df84a62cfd29fd47ac86e"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2022.d.ts",
+        "sha256": "sha256:26e0fe14baee4e127f4365d1ae0b276f400562e45e19e35fd2d4c296684715e6"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2022.error.d.ts",
+        "sha256": "sha256:195daca651dde22f2167ac0d0a05e215308119a3100f5e6268e8317d05a92526"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2022.full.d.ts",
+        "sha256": "sha256:01a30f9e8582b369075c0808df71121e6855cb06fd8d3d39511d9ebb66405205"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2022.intl.d.ts",
+        "sha256": "sha256:8b11e4285cd2bb164a4dc09248bdec69e9842517db4ca47c1ba913011e44ff2f"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2022.object.d.ts",
+        "sha256": "sha256:0508571a52475e245b02bc50fa1394065a0a3d05277fbf5120c3784b85651799"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2022.regexp.d.ts",
+        "sha256": "sha256:fc611fea8d30ea72c6bbfb599c9b4d393ce22e2f5bfef2172534781e7d138104"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2022.string.d.ts",
+        "sha256": "sha256:8f9af488f510c3015af3cc8c267a9e9d96c4dd38a1fdff0e11dc5a544711415b"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2023.array.d.ts",
+        "sha256": "sha256:0bd714129fca875f7d4c477a1a392200b0bcd13fb2e80928cd334b63830ea047"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2023.collection.d.ts",
+        "sha256": "sha256:e2c9037ae6cd2c52d80ceef0b3c5ffdb488627d71529cf4f63776daf11161c9a"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2023.d.ts",
+        "sha256": "sha256:1e9332c23e9a907175e0ffc6a49e236f97b48838cc8aec9ce7e4cec21e544b65"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2023.full.d.ts",
+        "sha256": "sha256:821bd6049b8f96b9d24c9fbc49b542dcf7a80d76f9efb330b5ef32c373af83d4"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2023.intl.d.ts",
+        "sha256": "sha256:135d5cf4d345f59f1a9caadfafcd858d3d9cc68290db616cc85797224448cccc"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2024.arraybuffer.d.ts",
+        "sha256": "sha256:bc238c3f81c2984751932b6aab223cd5b830e0ac6cad76389e5e9d2ffc03287d"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2024.collection.d.ts",
+        "sha256": "sha256:4a07f9b76d361f572620927e5735b77d6d2101c23cdd94383eb5b706e7b36357"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2024.d.ts",
+        "sha256": "sha256:3753fbc1113dc511214802a2342280a8b284ab9094f6420e7aa171e868679f91"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2024.full.d.ts",
+        "sha256": "sha256:b9f65879de79a7647ad2e5b8089277c215911fa99d4b858d78014df6ba2852f3"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2024.object.d.ts",
+        "sha256": "sha256:7c4e8dc6ab834cc6baa0227e030606d29e3e8449a9f67cdf5605ea5493c4db29"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2024.promise.d.ts",
+        "sha256": "sha256:de7ba0fd02e06cd9a5bd4ab441ed0e122735786e67dde1e849cced1cd8b46b78"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2024.regexp.d.ts",
+        "sha256": "sha256:6148e4e88d720a06855071c3db02069434142a8332cf9c182cda551adedf3156"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2024.sharedmemory.d.ts",
+        "sha256": "sha256:d63dba625b108316a40c95a4425f8d4294e0deeccfd6c7e59d819efa19e23409"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2024.string.d.ts",
+        "sha256": "sha256:0568d6befee03dd435bed4fc25c4e46865b24bdcb8c563fdc21f580a2c301904"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2025.collection.d.ts",
+        "sha256": "sha256:30d62269b05b584741f19a5369852d5d34895aa2ac4fd948956f886d15f9cc0d"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2025.d.ts",
+        "sha256": "sha256:999ca32883495a866aa5737fe1babc764a469e4cde6ee6b136a4b9ae68853e4b"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2025.float16.d.ts",
+        "sha256": "sha256:f128dae7c44d8f35ee42e0a437000a57c9f06cc04f8b4fb42eebf44954d53dc8"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2025.full.d.ts",
+        "sha256": "sha256:e03da518b01b46a4c99a1f88cd727ee98ddf14492c43dae1ae7a63e992971bab"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2025.intl.d.ts",
+        "sha256": "sha256:ffbe6d7b295306b2ba88030f65b74c107d8d99bdcf596ea99c62a02f606108b0"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2025.iterator.d.ts",
+        "sha256": "sha256:996fb27b15277369c68a4ba46ed138b4e9e839a02fb4ec756f7997629242fd9f"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2025.promise.d.ts",
+        "sha256": "sha256:79b712591b270d4778c89706ca2cfc56ddb8c3f895840e477388f1710dc5eda9"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es2025.regexp.d.ts",
+        "sha256": "sha256:20884846cef428b992b9bd032e70a4ef88e349263f63aeddf04dda837a7dba26"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es5.d.ts",
+        "sha256": "sha256:bcd24271a113971ba9eb71ff8cb01bc6b0f872a85c23fdbe5d93065b375933cd"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.es6.d.ts",
+        "sha256": "sha256:174a0fa01bb60bcb80e09b0b7bdcdddf688891433d6030244df5b44eb9ebd210"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.esnext.array.d.ts",
+        "sha256": "sha256:5fcab789c73a97cd43828ee3cc94a61264cf24d4c44472ce64ced0e0f148bdb2"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.esnext.collection.d.ts",
+        "sha256": "sha256:db59a81f070c1880ad645b2c0275022baa6a0c4f0acdc58d29d349c6efcf0903"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.esnext.d.ts",
+        "sha256": "sha256:17f13ecb98cbc39243f2eee1f16d45cd8ec4706b03ee314f1915f1a8b42f6984"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.esnext.date.d.ts",
+        "sha256": "sha256:673294292640f5722b700e7d814e17aaf7d93f83a48a2c9b38f33cbc940ad8b0"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.esnext.decorators.d.ts",
+        "sha256": "sha256:d786b48f934cbca483b3c6d0a798cb43bbb4ada283e76fb22c28e53ae05b9e69"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.esnext.disposable.d.ts",
+        "sha256": "sha256:1ecb8e347cb6b2a8927c09b86263663289418df375f5e68e11a0ae683776978f"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.esnext.error.d.ts",
+        "sha256": "sha256:142efd4ce210576f777dc34df121777be89eda476942d6d6663b03dcb53be3ff"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.esnext.full.d.ts",
+        "sha256": "sha256:ef4a897cd2a3f91000c10264e400b3667c7e51e1b7365f03b62e8081dc53bde6"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.esnext.intl.d.ts",
+        "sha256": "sha256:379bc41580c2d774f82e828c70308f24a005b490c25ba34d679d84bcf05c3d9d"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.esnext.sharedmemory.d.ts",
+        "sha256": "sha256:ed484fb2aa8a1a23d0277056ec3336e0a0b52f9b8d6a961f338a642faf43235d"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.esnext.temporal.d.ts",
+        "sha256": "sha256:4ffedae1d1c2d53fdbca1c96d3c7dda544281f7d262f99b6880634f8fd8d9820"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.esnext.typedarrays.d.ts",
+        "sha256": "sha256:83a730b125d477dd264df8ba479afab27a3dae7152b005c214ab94dc7ee44fd3"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.scripthost.d.ts",
+        "sha256": "sha256:f13f4b465c99041e912db5c44129a94588e1aafee35a50eab51044833f50b4ee"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.webworker.asynciterable.d.ts",
+        "sha256": "sha256:7f57fc4404ff020bc45b9c620aff2b40f700b95fe31164024c453a5e3c163c54"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.webworker.d.ts",
+        "sha256": "sha256:d52ed68e7eb5881768a55713c9b5c7c443e6b46de15c04e348928b8efd20b110"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.webworker.importscripts.d.ts",
+        "sha256": "sha256:2a2de5b9459b3fc44decd9ce6100b72f1b002ef523126c1d3d8b2a4a63d74d78"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:library:lib.webworker.iterable.d.ts",
+        "sha256": "sha256:7f57fc4404ff020bc45b9c620aff2b40f700b95fe31164024c453a5e3c163c54"
+      },
+      {
+        "kind": "compiler-runtime",
+        "identity": "typescript:package",
+        "sha256": "sha256:bb6ee7e709ae60426e30b8d393df4d939ee61407794b4f053ce6338d6eaa8c63"
+      }
+    ],
+    "inputClosureSha256": "sha256:e9624767f00d9438e769aa7170edd682008b5164401f9cf8b674c31a5b92cb9b",
+    "runtimeConformance": []
+  }
+}

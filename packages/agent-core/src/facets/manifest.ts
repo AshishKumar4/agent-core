@@ -13,13 +13,19 @@ import {
 } from "./data";
 import { Contribution, Contributions } from "./contribution";
 import { BindingName, FacetPackageId, SlotName } from "./id";
+import type { IsolationMode } from "./generated/placement/AgentCore/Extract/Placement";
 
-export type IsolationMode = "dynamic" | "provider" | "bundled";
+// The §9.2 placement vocabulary and the decision over it are lowered by the TSLean compiler
+// from `formal/AgentCore/Extract/Placement.lean`, the module the Lean kernel checks; the
+// re-export keeps every existing importer of this module unaffected.
+export type { IsolationMode } from "./generated/placement/AgentCore/Extract/Placement";
+export { admitsMode, preferredPlacement } from "./generated/placement/AgentCore/Extract/Placement";
 
-// The one fixed preference order (SPEC §9.2). IsolationMode's vocabulary and its
-// preference order both live here, next to each other, so nothing outside facets
-// redeclares either — definition/placement.ts re-exports this array rather than
-// keeping its own copy.
+// The one fixed preference order (SPEC §9.2), as the array decoders validate against and
+// canonical ordering sorts into. The order itself is stated once more, inside the lowered
+// `PlacementIntersection.preferred`, because the admitted fragment lowers list *consumption*
+// and not list construction; `test/facets/placement-extraction.test.ts` holds the two to
+// each other over every admissible-set combination, so neither can drift alone.
 export const PLACEMENT_PREFERENCE: readonly IsolationMode[] = Object.freeze([
     "dynamic",
     "provider",

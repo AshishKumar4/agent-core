@@ -35,9 +35,24 @@ import {
     leaseTokenToData,
     type LeaseToken
 } from "./lease";
-import { requireTerminalOutcome, type TerminalOutcome } from "./outcome";
+import { requireTerminalOutcome } from "./outcome";
 import { BlueprintPin, RunPins } from "./pins";
+import {
+    TurnStatus,
+    ofTerminalOutcome,
+    type Option,
+    type TerminalOutcome
+} from "./generated/turn-status/AgentCore/Extract/TurnStatus";
 
+/**
+ * The Turn status vocabulary and every transition it admits are lowered by the TSLean
+ * compiler from `formal/AgentCore/Extract/TurnStatus.lean`, the module the Lean kernel
+ * checks: the abstract base, the singleton per case, and the four moves. A move the table
+ * refuses answers `none`, and `admittedStatus` turns that into this context's stable
+ * `turn.invalid-state` refusal — the code and the message are runtime taxonomy, so they
+ * stay here, while which moves exist is decided once, in Lean.
+ */
+export { TurnStatus };
 export type TurnTerminalStatus = TerminalOutcome;
 
 export interface TurnCacheLineage {
@@ -45,91 +60,32 @@ export interface TurnCacheLineage {
     readonly promptPrefix: Digest;
 }
 
-export abstract class TurnStatus {
-    public static get queued(): TurnStatus {
-        return queuedTurn;
-    }
-    public static get running(): TurnStatus {
-        return runningTurn;
-    }
-    public static get suspended(): TurnStatus {
-        return suspendedTurn;
-    }
-    public static get succeeded(): TurnStatus {
-        return succeededTurn;
-    }
-    public static get failed(): TurnStatus {
-        return failedTurn;
-    }
-    public static get cancelled(): TurnStatus {
-        return cancelledTurn;
-    }
-    public abstract readonly kind: "queued" | "running" | "suspended" | TurnTerminalStatus;
-    public claim(): TurnStatus {
-        throw invalidTurn(`Cannot claim a ${this.kind} Turn`);
-    }
-    public suspend(): TurnStatus {
-        throw invalidTurn(`Cannot suspend a ${this.kind} Turn`);
-    }
-    public complete(_outcome: TurnTerminalStatus): TurnStatus {
-        throw invalidTurn(`Cannot complete a ${this.kind} Turn`);
-    }
-    public cancelUnheld(): TurnStatus {
-        throw invalidTurn(`Cannot cancel a ${this.kind} Turn without a token`);
-    }
-
-    public static from(kind: TurnStatus["kind"]): TurnStatus {
-        switch (kind) {
-            case "queued":
-                return TurnStatus.queued;
-            case "running":
-                return TurnStatus.running;
-            case "suspended":
-                return TurnStatus.suspended;
-            case "succeeded":
-                return TurnStatus.succeeded;
-            case "failed":
-                return TurnStatus.failed;
-            case "cancelled":
-                return TurnStatus.cancelled;
-        }
-    }
+function admittedStatus(next: Option<TurnStatus>, refusal: string): TurnStatus {
+    if (next.kind === "some") return next.value;
+    throw invalidTurn(refusal);
 }
 
-class QueuedTurn extends TurnStatus {
-    public readonly kind = "queued" as const;
-    public override claim(): TurnStatus {
-        return TurnStatus.running;
-    }
-    public override cancelUnheld(): TurnStatus {
-        return TurnStatus.cancelled;
-    }
+// Completion is two lowered facts: whether this status may complete at all, and which
+// status an outcome lands on. Composing them here keeps the refusal's code and message in
+// the host, where the taxonomy lives.
+function completedStatus(status: TurnStatus, outcome: TerminalOutcome): TurnStatus {
+    if (!status.completes()) throw invalidTurn(`Cannot complete a ${status.kind} Turn`);
+    return ofTerminalOutcome(outcome);
 }
 
-class RunningTurn extends TurnStatus {
-    public readonly kind = "running" as const;
-    public override suspend(): TurnStatus {
-        return TurnStatus.suspended;
-    }
-    public override complete(outcome: TurnTerminalStatus): TurnStatus {
-        return TurnStatus.from(outcome);
-    }
-}
-
-class SuspendedTurn extends TurnStatus {
-    public readonly kind = "suspended" as const;
-    public override claim(): TurnStatus {
-        return TurnStatus.running;
-    }
-    public override cancelUnheld(): TurnStatus {
-        return TurnStatus.cancelled;
-    }
-}
-
-class TerminalTurn extends TurnStatus {
-    public constructor(public readonly kind: TurnTerminalStatus) {
-        super();
-    }
+// The lowering emits one singleton per case but does not freeze them, and a record this
+// context hands out is frozen. Freezing here — where the lowered vocabulary enters the
+// domain, not inside the generated tree a regeneration would overwrite — is what keeps
+// `Object.isFrozen` true for every status a caller can reach.
+for (const status of [
+    TurnStatus.queued,
+    TurnStatus.running,
+    TurnStatus.suspended,
+    TurnStatus.succeeded,
+    TurnStatus.failed,
+    TurnStatus.cancelled
+]) {
+    Object.freeze(status);
 }
 
 export interface TurnInit {
@@ -204,7 +160,7 @@ export class Turn extends CodecRecord {
             throw new TypeError("Running Turns require a held lease");
         }
         if (
-            (this.status.kind === "suspended" || isTerminal(this.status)) &&
+            (this.status.kind === "suspended" || this.status.terminal()) &&
             this.lease.holder !== undefined
         ) {
             throw new TypeError("Suspended and terminal Turns must be unheld");
@@ -223,7 +179,7 @@ export class Turn extends CodecRecord {
 
     public claim(holder: PrincipalRef, now: Date, expiresAt: Date): Turn {
         return this.transition({
-            status: this.status.claim(),
+            status: admittedStatus(this.status.claim(), `Cannot claim a ${this.status.kind} Turn`),
             lease: this.lease.claim(holder, now, expiresAt)
         });
     }
@@ -245,7 +201,10 @@ export class Turn extends CodecRecord {
     public suspend(token: LeaseToken, checkpoint: RunCheckpointId, now: Date): Turn {
         this.requireToken(token, now);
         return this.transition({
-            status: this.status.suspend(),
+            status: admittedStatus(
+                this.status.suspend(),
+                `Cannot suspend a ${this.status.kind} Turn`
+            ),
             lease: this.lease.fence(),
             checkpoint
         });
@@ -259,18 +218,24 @@ export class Turn extends CodecRecord {
     ): Turn {
         this.requireToken(token, now);
         return this.transition({
-            status: this.status.complete(outcome),
+            status: completedStatus(this.status, outcome),
             lease: this.lease.fence(),
             result
         });
     }
 
     public cancelUnheld(): Turn {
-        return this.transition({ status: this.status.cancelUnheld(), lease: this.lease.fence() });
+        return this.transition({
+            status: admittedStatus(
+                this.status.cancelUnheld(),
+                `Cannot cancel a ${this.status.kind} Turn without a token`
+            ),
+            lease: this.lease.fence()
+        });
     }
 
     public forceCancel(): Turn {
-        if (isTerminal(this.status) && this.lease.holder === undefined) return this;
+        if (this.status.terminal() && this.lease.holder === undefined) return this;
         return this.transition({ status: TurnStatus.cancelled, lease: this.lease.fence() });
     }
 
@@ -402,10 +367,6 @@ class TurnRecordCodec extends RecordCodec<Turn> {
                 Revision,
                 TextId,
                 TurnStatus,
-                QueuedTurn,
-                RunningTurn,
-                SuspendedTurn,
-                TerminalTurn,
                 SemVer,
                 TurnLease,
                 RunPins,
@@ -702,10 +663,6 @@ function requireTurnStatus(value: JsonValue | undefined): TurnStatus {
     return TurnStatus.from(requireTerminalOutcome(value, "Turn status"));
 }
 
-function isTerminal(status: TurnStatus): boolean {
-    return status.kind === "succeeded" || status.kind === "failed" || status.kind === "cancelled";
-}
-
 function invalidTurn(message: string): AgentCoreError {
     return new AgentCoreError("turn.invalid-state", message);
 }
@@ -716,10 +673,3 @@ function nextTurnRevision(revision: Revision): Revision {
     }
     return revision.next();
 }
-
-const queuedTurn = Object.freeze(new QueuedTurn());
-const runningTurn = Object.freeze(new RunningTurn());
-const suspendedTurn = Object.freeze(new SuspendedTurn());
-const succeededTurn = Object.freeze(new TerminalTurn("succeeded"));
-const failedTurn = Object.freeze(new TerminalTurn("failed"));
-const cancelledTurn = Object.freeze(new TerminalTurn("cancelled"));

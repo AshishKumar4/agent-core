@@ -12,6 +12,7 @@ import {
     AuthoredCodeBackingId,
     PLACEMENT_PREFERENCE,
     matchesGlob,
+    preferredPlacement as servedPlacement,
     requireAuthoredCodeConsumer,
     type AuthoredCodeConsumer,
     type IsolationMode
@@ -266,23 +267,21 @@ export class PlacementSelection {
     }
 }
 
-// The single implementation of the four-set admissible intersection (SPEC §9.2):
-// the first mode, in preference order, admitted by every one of the four sources.
-// selectPlacement uses it to compute a fresh selection; a Pin re-derives it to
-// check a previously recorded selection still matches the canonical algorithm.
+// SPEC §9.2's four-set admissible intersection: the first mode, in preference order,
+// admitted by every one of the four sources. The decision itself is lowered from
+// `formal/AgentCore/Extract/Placement.lean` and re-exported through `../facets`; what is
+// written here is only the shape conversion, because the lowering answers with the
+// admitted fragment's `Option` and this context's callers answer absence with `undefined`.
+// selectPlacement uses it to compute a fresh selection; a Pin re-derives it to check a
+// previously recorded selection still matches the canonical algorithm.
 export function preferredPlacement(
     manifest: readonly IsolationMode[],
     policy: readonly IsolationMode[],
     substrate: readonly IsolationMode[],
     trust: readonly IsolationMode[]
 ): IsolationMode | undefined {
-    return PLACEMENT_PREFERENCE.find(
-        (mode) =>
-            manifest.includes(mode) &&
-            policy.includes(mode) &&
-            substrate.includes(mode) &&
-            trust.includes(mode)
-    );
+    const served = servedPlacement(manifest, policy, substrate, trust);
+    return served.kind === "some" ? served.value : undefined;
 }
 
 export function selectPlacement(input: PlacementInput | PlacementInputInit): PlacementSelection {

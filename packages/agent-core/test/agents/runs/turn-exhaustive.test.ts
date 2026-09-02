@@ -8,6 +8,10 @@ import { TurnLease } from "../../../src/agents/runs/lease";
 import { TurnPlacementSnapshot } from "../../../src/agents/runs/placement";
 import { RunCheckpoint, Turn, TurnInboxEntry, TurnStatus } from "../../../src/agents/runs/turn";
 import {
+    ofTerminalOutcome,
+    type Option
+} from "../../../src/agents/runs/generated/turn-status/AgentCore/Extract/TurnStatus";
+import {
     content,
     digest,
     ids,
@@ -39,35 +43,51 @@ function expectCode(operation: () => void, code: AgentCoreError["code"]): void {
 }
 
 describe("TurnStatus complete transition matrix", () => {
+    // The table is lowered from formal/AgentCore/Extract/TurnStatus.lean, so a refused move
+    // answers `none` here and the host turns that into turn.invalid-state; both halves are
+    // asserted, the refusal against the lowered table and the code against the Turn that
+    // raises it.
     it(
         "[C13-TURN-EXECUTOR-WRITER] rejects every illegal queued, running, suspended, and terminal transition",
         { tags: "p1" },
         () => {
-            expectCode(() => TurnStatus.queued.suspend(), "turn.invalid-state");
-            expectCode(() => TurnStatus.queued.complete("failed"), "turn.invalid-state");
-            expectCode(() => TurnStatus.running.claim(), "turn.invalid-state");
-            expectCode(() => TurnStatus.running.cancelUnheld(), "turn.invalid-state");
-            expectCode(() => TurnStatus.suspended.suspend(), "turn.invalid-state");
-            expectCode(() => TurnStatus.suspended.complete("failed"), "turn.invalid-state");
+            expect(TurnStatus.queued.suspend().kind).toBe("none");
+            expect(TurnStatus.queued.completes()).toBe(false);
+            expect(TurnStatus.running.claim().kind).toBe("none");
+            expect(TurnStatus.running.cancelUnheld().kind).toBe("none");
+            expect(TurnStatus.suspended.suspend().kind).toBe("none");
+            expect(TurnStatus.suspended.completes()).toBe(false);
             for (const status of [TurnStatus.succeeded, TurnStatus.failed, TurnStatus.cancelled]) {
-                expectCode(() => status.claim(), "turn.invalid-state");
-                expectCode(() => status.suspend(), "turn.invalid-state");
-                expectCode(() => status.complete("failed"), "turn.invalid-state");
-                expectCode(() => status.cancelUnheld(), "turn.invalid-state");
+                expect(status.claim().kind).toBe("none");
+                expect(status.suspend().kind).toBe("none");
+                expect(status.completes()).toBe(false);
+                expect(status.cancelUnheld().kind).toBe("none");
+                expect(status.terminal()).toBe(true);
             }
+            const refused = thrownBy(AgentCoreError, () =>
+                queued({ status: TurnStatus.cancelled }).cancelUnheld()
+            );
+            expect(refused.code).toBe("turn.invalid-state");
+            expect(refused.message).toBe("Cannot cancel a cancelled Turn without a token");
         }
     );
 
     it("returns every legal status singleton", { tags: "p1" }, () => {
-        expect(TurnStatus.queued.claim().kind).toBe("running");
-        expect(TurnStatus.running.suspend().kind).toBe("suspended");
-        expect(TurnStatus.running.complete("succeeded").kind).toBe("succeeded");
-        expect(TurnStatus.running.complete("failed").kind).toBe("failed");
-        expect(TurnStatus.running.complete("cancelled").kind).toBe("cancelled");
-        expect(TurnStatus.suspended.claim().kind).toBe("running");
-        expect(TurnStatus.suspended.cancelUnheld().kind).toBe("cancelled");
+        expect(admitted(TurnStatus.queued.claim()).kind).toBe("running");
+        expect(admitted(TurnStatus.running.suspend()).kind).toBe("suspended");
+        expect(ofTerminalOutcome("succeeded").kind).toBe("succeeded");
+        expect(ofTerminalOutcome("failed").kind).toBe("failed");
+        expect(ofTerminalOutcome("cancelled").kind).toBe("cancelled");
+        expect(TurnStatus.running.completes()).toBe(true);
+        expect(admitted(TurnStatus.suspended.claim()).kind).toBe("running");
+        expect(admitted(TurnStatus.suspended.cancelUnheld()).kind).toBe("cancelled");
     });
 });
+
+function admitted(next: Option<TurnStatus>): TurnStatus {
+    if (next.kind === "none") throw new TypeError("the lowered table refused an admitted move");
+    return next.value;
+}
 
 describe("Turn aggregate exhaustive behavior", () => {
     it("rejects every invalid aggregate shape", { tags: "p2" }, () => {
@@ -179,37 +199,41 @@ describe("Turn aggregate exhaustive behavior", () => {
 });
 
 describe("checkpoint and inbox codecs", () => {
-    it("[C13-RUN-CHECKPOINT-KINDS] round-trips tree and no-tree checkpoints and rejects cursor shape", { tags: "p1" }, () => {
-        const withTree = new RunCheckpoint(
-            new RunCheckpointId("with-tree"),
-            ids.turn,
-            new RunCommitId("commit"),
-            content("c"),
-            1,
-            content("d")
-        );
-        const withoutTree = new RunCheckpoint(
-            new RunCheckpointId("without-tree"),
-            ids.turn,
-            new RunCommitId("commit"),
-            content("c"),
-            0,
-            undefined
-        );
-        expect(RunCheckpoint.decode(RunCheckpoint.encode(withTree)).tree).toBeDefined();
-        expect(RunCheckpoint.decode(RunCheckpoint.encode(withoutTree)).tree).toBeUndefined();
-        expect(
-            () =>
-                new RunCheckpoint(
-                    new RunCheckpointId("bad"),
-                    ids.turn,
-                    new RunCommitId("commit"),
-                    content("c"),
-                    -1,
-                    undefined
-                )
-        ).toThrow(/cursor/);
-    });
+    it(
+        "[C13-RUN-CHECKPOINT-KINDS] round-trips tree and no-tree checkpoints and rejects cursor shape",
+        { tags: "p1" },
+        () => {
+            const withTree = new RunCheckpoint(
+                new RunCheckpointId("with-tree"),
+                ids.turn,
+                new RunCommitId("commit"),
+                content("c"),
+                1,
+                content("d")
+            );
+            const withoutTree = new RunCheckpoint(
+                new RunCheckpointId("without-tree"),
+                ids.turn,
+                new RunCommitId("commit"),
+                content("c"),
+                0,
+                undefined
+            );
+            expect(RunCheckpoint.decode(RunCheckpoint.encode(withTree)).tree).toBeDefined();
+            expect(RunCheckpoint.decode(RunCheckpoint.encode(withoutTree)).tree).toBeUndefined();
+            expect(
+                () =>
+                    new RunCheckpoint(
+                        new RunCheckpointId("bad"),
+                        ids.turn,
+                        new RunCommitId("commit"),
+                        content("c"),
+                        -1,
+                        undefined
+                    )
+            ).toThrow(/cursor/);
+        }
+    );
 
     it(
         "round-trips ordinary and cancellation inbox entries and rejects every malformed shape",

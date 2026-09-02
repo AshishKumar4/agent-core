@@ -20,6 +20,16 @@ become a dependency of a designated theorem. -/
 lean_lib RuntimeAssurance where
   roots := #[`RuntimeAssurance]
 
+/-- The extraction plane: the executable cores TSLean lowers into `src/**/generated/**`.
+It imports nothing — not even `AgentCore` — because the compiler lowers an entry module's
+whole import closure, and everything outside the admitted fragment would have to be lowered
+too. It is imported by nothing in the model for the reason `SpecCnl` is: `formalScope` is
+`abstract-model-only`, so no designated theorem may come to rest on a definition that exists
+to be compiled. Kernel-checked here (`lake build Extract`) and again at every generation,
+whose manifest records the olean digest it read. -/
+lean_lib Extract where
+  roots := #[`AgentCore.Extract]
+
 lean_exe oracle where
   root := `Oracle.Main
 

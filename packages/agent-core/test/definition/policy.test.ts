@@ -411,12 +411,12 @@ describe("policy declaration codec", () => {
                 expect(decoded.treeMerge?.equals(policy)).toBe(true);
             }
 
-            expect(TreeMergePolicy.ours.side).toBe("ours");
-            expect(TreeMergePolicy.theirs.side).toBe("theirs");
-            expect(TreeMergePolicy.perPath.side).toBeUndefined();
-            expect(TreeMergePolicy.ours.surfacesConflicts).toBe(false);
-            expect(TreeMergePolicy.theirs.surfacesConflicts).toBe(false);
-            expect(TreeMergePolicy.perPath.surfacesConflicts).toBe(true);
+            expect(TreeMergePolicy.ours.side()).toEqual({ kind: "some", value: "ours" });
+            expect(TreeMergePolicy.theirs.side()).toEqual({ kind: "some", value: "theirs" });
+            expect(TreeMergePolicy.perPath.side()).toEqual({ kind: "none" });
+            expect(TreeMergePolicy.ours.surfacesConflicts()).toBe(false);
+            expect(TreeMergePolicy.theirs.surfacesConflicts()).toBe(false);
+            expect(TreeMergePolicy.perPath.surfacesConflicts()).toBe(true);
 
             // Omission is the declaration that this platform never merges over one shared
             // Environment. It must survive a round trip as absence rather than acquire a
@@ -426,7 +426,7 @@ describe("policy declaration codec", () => {
             expect(requireObject(PolicySet.empty().toData())["treeMerge"]).toBeNull();
 
             expect(() => TreeMergePolicy.fromData("mine")).toThrow(
-                /Tree merge policy must be one of/
+                /TreeMergePolicy data must name a constructor/
             );
         }
     );
@@ -446,12 +446,12 @@ describe("policy declaration codec", () => {
             ]) {
                 expect(Object.isFrozen(policy)).toBe(true);
                 expect(() => {
-                    Object.defineProperty(policy, "label", { value: "tampered" });
+                    Object.defineProperty(policy, "kind", { value: "tampered" });
                 }).toThrow(TypeError);
                 expect(TreeMergePolicy.fromData(policy.toData())).toBe(policy);
             }
-            expect(TreeMergePolicy.ours.label).toBe("ours");
-            expect(TreeMergePolicy.perPath.label).toBe("perPath");
+            expect(TreeMergePolicy.ours.kind).toBe("ours");
+            expect(TreeMergePolicy.perPath.kind).toBe("perPath");
         }
     );
 });

@@ -1,0 +1,10 @@
+{
+  "version": 3,
+  "file": "Placement.ts",
+  "sourceRoot": "",
+  "sources": [
+    "../../../../../../formal/AgentCore/Extract/Placement.lean"
+  ],
+  "names": [],
+  "mappings": ";;;;;;;;;;;;;;;;;;AAwBA;;;;;;AA+BA;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;AArBA;;;;;;;;;;;;;AAOA;;;;;;;;;;;;;AAOA;;;;;;;;;;;;;AA4CA;;;;;;;;;;;;;;;AAWA;;;;;;;;;;;AAaA"
+}

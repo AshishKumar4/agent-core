@@ -38,10 +38,10 @@ import {
 import { ManagedOrigin } from "./origin";
 import {
     AuthoredCodeBackingPolicy,
-    PLACEMENT_PREFERENCE,
     PlacementInput,
     PlacementPolicy,
-    PlacementSelection
+    PlacementSelection,
+    preferredPlacement
 } from "./placement";
 import { PolicySet, TreeMergePolicy } from "./policy";
 import { BLUEPRINT_CONTRIBUTOR } from "./materialization-kind";
@@ -124,7 +124,7 @@ export function placementProjection(
     selection: PlacementSelection
 ): DesiredProjection {
     requireCanonicalName(facet, "Placement facet");
-    const selected = choosePlacement(
+    const selected = preferredPlacement(
         selection.manifest,
         selection.policy,
         selection.substrate,
@@ -737,21 +737,6 @@ function materializationPlanId(origin: ManagedOrigin, actors: readonly ActorPlan
         actors: actors.map((actor) => actor.toData()),
         origin: origin.toData()
     });
-}
-
-function choosePlacement(
-    manifest: readonly IsolationMode[],
-    policy: readonly IsolationMode[],
-    substrate: readonly IsolationMode[],
-    trust: readonly IsolationMode[]
-): IsolationMode | undefined {
-    return PLACEMENT_PREFERENCE.find(
-        (mode) =>
-            manifest.includes(mode) &&
-            policy.includes(mode) &&
-            substrate.includes(mode) &&
-            trust.includes(mode)
-    );
 }
 
 function validatePlacementSelection(

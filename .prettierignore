@@ -13,3 +13,5 @@ packages/agent-core/src/facets/generated/
 pnpm-lock.yaml
 reports/
 packages/agent-core/artifacts/conformance/live-evidence/
+packages/agent-core/src/agents/runs/generated/
+packages/agent-core/src/definition/generated/

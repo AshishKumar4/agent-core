@@ -13,6 +13,10 @@ import {
     PLACEMENT_PREFERENCE,
     PlacementPolicy
 } from "./placement";
+import {
+    TreeMergePolicy,
+    type TreeMergePolicyData
+} from "./generated/tree-merge/AgentCore/Extract/TreeMerge";
 
 export { enforcementFloor };
 export type { EnforcementTier } from "../facets";
@@ -35,85 +39,27 @@ export const POLICY_IMPACTS: readonly Impact[] = Object.freeze([
  * Absence is not a fourth setting: a Blueprint that omits it declares a platform whose
  * branches own disjoint Environments, and a merge that would need a side is rejected
  * rather than guessed (C13-RUN-TREE-CONFLICT-EXPLICIT).
+ *
+ * The vocabulary, both facts, and the singleton per case are lowered by the TSLean
+ * compiler from `formal/AgentCore/Extract/TreeMerge.lean`; only the absence-tolerant
+ * decode below is this context's, because absence is a Blueprint fact and not a merge one.
  */
-export type TreeMergeSetting = "ours" | "theirs" | "perPath";
+export { TreeMergePolicy };
+export type TreeMergeSetting = TreeMergePolicyData;
 
-export abstract class TreeMergePolicy {
-    public static get ours(): TreeMergePolicy {
-        return oursTreeMerge;
-    }
-
-    public static get theirs(): TreeMergePolicy {
-        return theirsTreeMerge;
-    }
-
-    public static get perPath(): TreeMergePolicy {
-        return perPathTreeMerge;
-    }
-
-    public static fromData(value: JsonValue | undefined): TreeMergePolicy | undefined {
-        if (value === undefined || value === null) return undefined;
-        const declared = TREE_MERGE_POLICIES.find((policy) => policy.label === value);
-        if (declared === undefined) {
-            throw new TypeError(
-                `Tree merge policy must be one of ${TREE_MERGE_POLICIES.map((policy) => policy.label).join(", ")}`
-            );
-        }
-        return declared;
-    }
-
-    public abstract readonly label: TreeMergeSetting;
-
-    /** The side a wholesale resolution records, or nothing when resolution is per path. */
-    public abstract get side(): "ours" | "theirs" | undefined;
-
-    /** Whether a path both sides changed is a conflict the operator resolves explicitly. */
-    public abstract get surfacesConflicts(): boolean;
-
-    public equals(other: TreeMergePolicy): boolean {
-        return this === other;
-    }
-
-    public toData(): JsonValue {
-        return this.label;
-    }
+/** The declared policy, or nothing where the Blueprint declares none (SPEC §9.2). */
+export function treeMergePolicyFromData(value: JsonValue | undefined): TreeMergePolicy | undefined {
+    if (value === undefined || value === null) return undefined;
+    return TreeMergePolicy.fromData(value);
 }
 
-class WholesaleTreeMerge extends TreeMergePolicy {
-    public constructor(public readonly label: "ours" | "theirs") {
-        super();
-        Object.freeze(this);
-    }
-
-    public get side(): "ours" | "theirs" {
-        return this.label;
-    }
-
-    public get surfacesConflicts(): false {
-        return false;
-    }
+// The lowering emits one singleton per case but does not freeze them, and a record this
+// context hands out is frozen. Freezing here — where the lowered vocabulary enters the
+// domain, not inside the generated tree a regeneration would overwrite — is what keeps
+// `Object.isFrozen` true for every policy a caller can reach.
+for (const policy of [TreeMergePolicy.ours, TreeMergePolicy.theirs, TreeMergePolicy.perPath]) {
+    Object.freeze(policy);
 }
-
-class PerPathTreeMerge extends TreeMergePolicy {
-    public readonly label = "perPath";
-
-    public get side(): undefined {
-        return undefined;
-    }
-
-    public get surfacesConflicts(): true {
-        return true;
-    }
-}
-
-const oursTreeMerge = Object.freeze(new WholesaleTreeMerge("ours"));
-const theirsTreeMerge = Object.freeze(new WholesaleTreeMerge("theirs"));
-const perPathTreeMerge = Object.freeze(new PerPathTreeMerge());
-const TREE_MERGE_POLICIES: readonly TreeMergePolicy[] = Object.freeze([
-    oursTreeMerge,
-    theirsTreeMerge,
-    perPathTreeMerge
-]);
 
 export interface PolicySetInit {
     readonly tiers?: EnforcementTierOverrides;
@@ -201,7 +147,7 @@ export class PolicySet {
         ) {
             throw new TypeError("Policy set contains missing or unknown fields");
         }
-        const treeMerge = TreeMergePolicy.fromData(object["treeMerge"]);
+        const treeMerge = treeMergePolicyFromData(object["treeMerge"]);
         return new PolicySet({
             tiers: requireTiers(object["tiers"]),
             approvals: requireImpactArray(object["approvals"], "Policy approvals"),

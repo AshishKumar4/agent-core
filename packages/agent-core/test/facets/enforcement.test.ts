@@ -5,12 +5,12 @@ import {
     enforcementFloor,
     type EnforcementTier,
     type Impact
-} from "../../src/facets/generated/AgentCore/Facets/Enforcement";
+} from "../../src/facets/generated/enforcement/AgentCore/Facets/Enforcement";
 
 /*
- * `src/facets/generated/` is what the TSLean compiler lowers from the Lean module the
- * kernel checks, `formal/AgentCore/Facets/Enforcement.lean`. It was a twin beside a
- * handwritten module once; the cutover made it the one live implementation, so this
+ * `src/facets/generated/enforcement/` is what the TSLean compiler lowers from the Lean
+ * module the kernel checks, `formal/AgentCore/Facets/Enforcement.lean`. It was a twin beside
+ * a handwritten module once; the cutover made it the one live implementation, so this
  * suite is the contract's proof against the generated artifact itself: the SPEC table,
  * not either implementation, decides every answer.
  *

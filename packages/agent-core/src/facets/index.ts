@@ -40,7 +40,9 @@ export {
     BindingRequirement,
     FacetManifest,
     PLACEMENT_PREFERENCE,
-    canonicalIsolationModes
+    admitsMode,
+    canonicalIsolationModes,
+    preferredPlacement
 } from "./manifest";
 export type { FacetManifestInit, IsolationMode } from "./manifest";
 export {
