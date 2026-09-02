@@ -13,5 +13,11 @@
     "noUncheckedIndexedAccess": true,
     "skipLibCheck": true
   },
-  "include": ["../../src/**/*.ts", "../queue-codecs.ts", "../run-fixture.ts", "./**/*.ts"]
+  "include": [
+    "../../src/**/*.ts",
+    "../content-store-contract.ts",
+    "../queue-codecs.ts",
+    "../run-fixture.ts",
+    "./**/*.ts"
+  ]
 }

@@ -4,6 +4,7 @@ export type CloudflareOperationalErrorCode = Extract<
     AgentCoreErrorCode,
     | "authority.denied"
     | "codec.invalid"
+    | "content.not-found"
     | "invocation.invalid"
     | "operation.invalid-input"
     | "operation.invalid-output"

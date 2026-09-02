@@ -1220,6 +1220,7 @@
       "BlueprintValidator": "class",
       "BlueprintValidatorOptions": "interface",
       "ByteRange": "class",
+      "ByteRangeWindow": "interface",
       "CanonicalBatchAttemptResources": "interface",
       "CanonicalBatchAuthorityAuthenticationPort": "interface",
       "CanonicalBatchAuthorityPermitPort": "interface",
@@ -2149,6 +2150,7 @@
     },
     "@agent-core/core/content": {
       "ByteRange": "class",
+      "ByteRangeWindow": "interface",
       "ContentCollectionCandidate": "interface",
       "ContentOwnerEdge": "class",
       "ContentPutResult": "interface",

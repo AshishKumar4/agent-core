@@ -2,6 +2,7 @@ export { actorObjectName, parseActorObjectName } from "./actor-name.js";
 export type { ActorObjectIdentity } from "./actor-name.js";
 export {
     R2ContentObjectRepository,
+    R2ContentStore,
     R2_BUFFERED_OBJECT_LIMIT_BYTES,
     R2_KEY_LIMIT_BYTES,
     R2_METADATA_LIMIT_BYTES,
@@ -11,11 +12,14 @@ export type {
     ContentObject,
     ContentObjectAddress,
     ContentObjectPutResult,
+    ContentObjectStat,
     R2BucketLike,
     R2ChecksumsLike,
+    R2GetOptionsLike,
     R2ObjectBodyLike,
     R2ObjectLike,
-    R2PutOptionsLike
+    R2PutOptionsLike,
+    R2RangeLike
 } from "./content-object.js";
 export { locateActorObject } from "./namespace.js";
 export type { ActorNamespaceLocation, DurableObjectNamespaceLike } from "./namespace.js";
@@ -170,7 +174,7 @@ export type {
     FetchServiceLike,
     ScopedFetchServiceLike
 } from "./deployment.js";
-export { contentRepositoryFromR2Binding } from "./r2.js";
+export { contentRepositoryFromR2Binding, contentStoreFromR2Binding } from "./r2.js";
 export type { R2BucketBinding } from "./r2.js";
 export { createCloudflareWorker } from "./worker.js";
 export type {

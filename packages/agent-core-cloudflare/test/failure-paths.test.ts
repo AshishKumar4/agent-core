@@ -1,4 +1,4 @@
-import { AgentCoreError, TenantId } from "@agent-core/core";
+import { AgentCoreError, ByteRange, TenantId } from "@agent-core/core";
 import {
     AlarmOutboxReconciler,
     AtLeastOnceQueueAdapter,
@@ -165,7 +165,8 @@ describe("Cloudflare operational failure mapping", () => {
         const missingAfterWrite = new R2ContentObjectRepository(
             {
                 put: async () => null,
-                get: async () => null
+                get: async () => null,
+                head: async () => null
             },
             fakeErrors
         );
@@ -178,6 +179,9 @@ describe("Cloudflare operational failure mapping", () => {
                 put: async () => null,
                 get: async () => {
                     throw new TypeError("R2 unavailable");
+                },
+                head: async () => {
+                    throw new TypeError("R2 unavailable");
                 }
             },
             fakeErrors
@@ -185,6 +189,12 @@ describe("Cloudflare operational failure mapping", () => {
         await expect(failedRead.get(new TenantId("tenant"), "a".repeat(64))).rejects.toMatchObject({
             code: "protocol.invalid-state"
         });
+        await expect(failedRead.head(new TenantId("tenant"), "a".repeat(64))).rejects.toMatchObject(
+            { code: "protocol.invalid-state" }
+        );
+        await expect(
+            failedRead.readRange(new TenantId("tenant"), "a".repeat(64), ByteRange.all())
+        ).rejects.toMatchObject({ code: "protocol.invalid-state" });
         expectOperationalFailure(
             () => contentRepositoryFromR2Binding({}, () => malformedInput(null), fakeErrors),
             "operation.invalid-output"

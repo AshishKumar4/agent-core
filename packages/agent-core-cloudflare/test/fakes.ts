@@ -26,9 +26,11 @@ import type {
     HibernatingWebSocketLike,
     QueueMessageLike,
     R2BucketLike,
+    R2GetOptionsLike,
     R2ObjectBodyLike,
     R2ObjectLike,
     R2PutOptionsLike,
+    R2RangeLike,
     ReconciliationOutbox,
     SqliteRow,
     SqliteValue,
@@ -316,6 +318,7 @@ interface FakeR2StoredObject {
     metadata: Record<string, string>;
     checksum: ArrayBuffer;
     etag: string;
+    declaredSize: number | undefined;
 }
 
 export class FakeR2Bucket implements R2BucketLike {
@@ -325,6 +328,14 @@ export class FakeR2Bucket implements R2BucketLike {
         readonly key: string;
         readonly options: R2PutOptionsLike;
     }> = [];
+    /** Every read and the window it asked for, so a pushed-down range is observable. */
+    public readonly getCalls: Array<{
+        readonly key: string;
+        readonly range: R2RangeLike | undefined;
+    }> = [];
+    public readonly headCalls: string[] = [];
+    /** Every body actually buffered, so a refusal taken before buffering is observable. */
+    public readonly bodyReads: string[] = [];
 
     public async put(
         key: string,
@@ -337,20 +348,45 @@ export class FakeR2Bucket implements R2BucketLike {
             bytes: viewBytes(value),
             metadata: { ...options.customMetadata },
             checksum: options.sha256.slice(0),
-            etag: String(++this.#etag)
+            etag: String(++this.#etag),
+            declaredSize: undefined
         };
         this.#objects.set(key, stored);
         return object(key, stored);
     }
 
-    public async get(key: string): Promise<R2ObjectBodyLike | null> {
+    /**
+     * Serves a window by clamping it to the object, which is what a permissive object
+     * store does with an over-long range. The fake keeps that behaviour on purpose: a
+     * range refusal observed against a fake that refused for itself would prove nothing
+     * about the seam, so here the clamp is available and the seam still must not use it.
+     */
+    public async get(key: string, options?: R2GetOptionsLike): Promise<R2ObjectBodyLike | null> {
+        this.getCalls.push({ key, range: options?.range });
         const stored = this.#objects.get(key);
         if (stored === undefined) return null;
         const metadata = object(key, stored);
+        const window = options?.range;
+        const served =
+            window === undefined
+                ? stored.bytes
+                : stored.bytes.subarray(
+                      Math.min(window.offset, stored.bytes.byteLength),
+                      Math.min(window.offset + window.length, stored.bytes.byteLength)
+                  );
         return {
             ...metadata,
-            arrayBuffer: async () => stored.bytes.slice().buffer
+            arrayBuffer: async () => {
+                this.bodyReads.push(key);
+                return served.slice().buffer;
+            }
         };
+    }
+
+    public async head(key: string): Promise<R2ObjectLike | null> {
+        this.headCalls.push(key);
+        const stored = this.#objects.get(key);
+        return stored === undefined ? null : object(key, stored);
     }
 
     public corruptBody(key: string, bytes: Uint8Array): void {
@@ -363,6 +399,14 @@ export class FakeR2Bucket implements R2BucketLike {
 
     public corruptChecksum(key: string, checksum: ArrayBuffer): void {
         this.require(key).checksum = checksum.slice(0);
+    }
+
+    /**
+     * Reports a size the object does not hold, which is how a bound measured against
+     * R2's reported size is exercised without allocating the bytes it refuses.
+     */
+    public declareSize(key: string, size: number): void {
+        this.require(key).declaredSize = size;
     }
 
     private require(key: string): FakeR2StoredObject {
@@ -662,7 +706,7 @@ export class FakeDurableObjectNamespace<Stub> implements DurableObjectNamespaceL
 function object(key: string, stored: FakeR2StoredObject): R2ObjectLike {
     return {
         key,
-        size: stored.bytes.byteLength,
+        size: stored.declaredSize ?? stored.bytes.byteLength,
         etag: stored.etag,
         customMetadata: { ...stored.metadata },
         checksums: { sha256: stored.checksum.slice(0) }

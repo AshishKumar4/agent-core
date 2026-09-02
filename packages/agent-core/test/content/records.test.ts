@@ -478,7 +478,20 @@ describe("content record diagnostics", () => {
                 "content.invalid-range",
                 "Byte range exceeds content bounds"
             );
+            // The same refusal reaches a store that resolves the window against a size it
+            // was told rather than against bytes it holds, which is the only form an
+            // adapter over a platform that answers ranges itself can use.
+            expectAgentCoreError(
+                () => range.resolve(bytes.byteLength),
+                "content.invalid-range",
+                "Byte range exceeds content bounds"
+            );
         }
         expect(ByteRange.slice(0, 3).read(bytes)).toEqual(bytes);
+        expect(ByteRange.slice(1, 2).resolve(3)).toEqual({ offset: 1, length: 2 });
+        expect(ByteRange.from(1).resolve(3)).toEqual({ offset: 1, length: 2 });
+        expect(ByteRange.all().resolve(3)).toEqual({ offset: 0, length: 3 });
+        expect(ByteRange.slice(3, 0).resolve(3)).toEqual({ offset: 3, length: 0 });
+        expect(() => ByteRange.all().resolve(-1)).toThrow(TypeError);
     });
 });

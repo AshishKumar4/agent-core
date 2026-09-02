@@ -1,5 +1,11 @@
 import { AgentCoreError } from "../errors";
 
+/** The offset and length one `ByteRange` names inside content of a known size. */
+export interface ByteRangeWindow {
+    readonly offset: number;
+    readonly length: number;
+}
+
 export class ByteRange {
     static readonly #whole = new ByteRange(0, undefined);
 
@@ -28,10 +34,26 @@ export class ByteRange {
         return new ByteRange(validOffset, validLength);
     }
 
+    /**
+     * The exact window this range names inside content of `size` bytes, refused rather
+     * than clamped when it reaches past them. A store that carries its content in memory
+     * has no use for this beyond `read`, but one that pushes a range down to a platform
+     * that answers ranges itself — an R2 ranged `get`, an HTTP `Range` — needs the window
+     * as data before it asks, and taking it from here is what keeps one refusal rule for
+     * every substrate: the platform is only ever asked for bytes this range has already
+     * proved are inside the content, so a platform that clamps an over-long range never
+     * gets the chance to answer with fewer bytes than the caller asked for.
+     */
+    public resolve(size: number): ByteRangeWindow {
+        const total = requireNonnegative(size, "Content size");
+        const end = this.length === undefined ? total : this.offset + this.length;
+        requireRange(this.offset <= total && end <= total);
+        return { offset: this.offset, length: end - this.offset };
+    }
+
     public read(bytes: Uint8Array): Uint8Array {
-        const end = this.length === undefined ? bytes.byteLength : this.offset + this.length;
-        requireRange(this.offset <= bytes.byteLength && end <= bytes.byteLength);
-        return bytes.slice(this.offset, end);
+        const window = this.resolve(bytes.byteLength);
+        return bytes.slice(window.offset, window.offset + window.length);
     }
 }
 

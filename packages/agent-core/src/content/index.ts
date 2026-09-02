@@ -7,6 +7,7 @@ export {
 export type { MemoryContentRetentionSnapshot, MemoryContentSnapshot } from "./memory";
 export { MediaHint } from "./media";
 export { ByteRange } from "./range";
+export type { ByteRangeWindow } from "./range";
 export {
     ContentOwnerEdge,
     ContentRetention,
