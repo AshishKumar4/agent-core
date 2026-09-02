@@ -25,30 +25,34 @@ const tenantId = new TenantId("tenant");
 const deploymentId = DeploymentId.derive(tenantId, new DeploymentKey("platform"));
 
 describe("RunPins integration ports", () => {
-    test("fails closed when W5 reservation and migration evidence is unavailable", { tags: "p0" }, () => {
-        const port: RunPinsReservationPort<undefined> = new FailClosedRunPinsReservationPort();
-        const pins = definitionPins();
-        const holder = new PackagePinHolder("run", "run");
-        expect(() =>
-            port.reserve(undefined, {
-                holder,
-                pins,
-                sourceRevision: Revision.initial(),
-                idempotencyKey: "reserve-run"
-            })
-        ).toThrow(/unavailable/);
-        expect(
-            port.release(undefined, {
-                id: digest("reservation"),
-                revision: Revision.initial()
-            })
-        ).toBe(false);
-        const evidence = port.removalEvidence(undefined, pins);
-        expect(evidence.kind).toBe("unknown");
-        expect(evidence.conclusive).toBe(false);
-        expect(evidence.holders).toEqual([]);
-        expect(port.verifyMigration(undefined, migrationEvidence(runActor()))).toBe(false);
-    });
+    test(
+        "fails closed when W5 reservation and migration evidence is unavailable",
+        { tags: "p0" },
+        () => {
+            const port: RunPinsReservationPort<undefined> = new FailClosedRunPinsReservationPort();
+            const pins = definitionPins();
+            const holder = new PackagePinHolder("run", "run");
+            expect(() =>
+                port.reserve(undefined, {
+                    holder,
+                    pins,
+                    sourceRevision: Revision.initial(),
+                    idempotencyKey: "reserve-run"
+                })
+            ).toThrow(/unavailable/);
+            expect(
+                port.release(undefined, {
+                    id: digest("reservation"),
+                    revision: Revision.initial()
+                })
+            ).toBe(false);
+            const evidence = port.removalEvidence(undefined, pins);
+            expect(evidence.kind).toBe("unknown");
+            expect(evidence.conclusive).toBe(false);
+            expect(evidence.holders).toEqual([]);
+            expect(port.verifyMigration(undefined, migrationEvidence(runActor()))).toBe(false);
+        }
+    );
 });
 
 /**
@@ -123,9 +127,9 @@ describe("SPEC 5.2 pin holder retention", () => {
 
             for (let index = 0; index < held.length; index += 1) {
                 const remaining = held.slice(index);
-                expect(port.removalEvidence(undefined, pins).holders.map((one) => one.kind)).toEqual(
-                    remaining.map((entry) => entry.kind).toSorted()
-                );
+                expect(
+                    port.removalEvidence(undefined, pins).holders.map((one) => one.kind)
+                ).toEqual(remaining.map((entry) => entry.kind).toSorted());
                 expect(port.release(undefined, held[index]!.reservation)).toBe(true);
             }
 

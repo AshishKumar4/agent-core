@@ -590,10 +590,8 @@ describe("SecretRef custody", () => {
                 new RecordedCustodySeam(
                     environmentCredentialCustody(record, false),
                     provider
-                ).resolve(
-                    new CredentialResolutionRequest(credential, holder, endpoint),
-                    transport
-                ).refusal
+                ).resolve(new CredentialResolutionRequest(credential, holder, endpoint), transport)
+                    .refusal
             ).toBe("consumer-revoked");
             expect(transport.injected).toEqual(["authorization=Bearer raw-deploy-token"]);
         }

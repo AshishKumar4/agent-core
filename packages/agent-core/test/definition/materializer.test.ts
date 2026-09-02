@@ -54,111 +54,124 @@ const tenantId = new TenantId("tenant");
 const deploymentId = DeploymentId.derive(tenantId, new DeploymentKey("platform"));
 
 describe("same-Actor additive materialization", () => {
-    test("keeps direct local mutation machinery out of the definition barrel", { tags: "p2" }, () => {
-        expect("LocalMaterializationStore" in Definition).toBe(false);
-        expect("LocalMaterializer" in Definition).toBe(false);
-        expect("materializeActorPlan" in Definition).toBe(false);
-        expect("materializationKinds" in Definition).toBe(false);
-        expect("requireMaterializationKind" in Definition).toBe(false);
-        expect("validateMaterializationKind" in Definition).toBe(false);
-        expect(
-            () =>
-                new LocalMaterializer({
-                    actor: actorRef("target"),
-                    store: new MemoryMaterializationStore(actorRef("other")),
-                    resources: new MemoryManagedResourcePort<StoreState>()
-                })
-        ).toThrow(/different Actor/);
-    });
+    test(
+        "keeps direct local mutation machinery out of the definition barrel",
+        { tags: "p2" },
+        () => {
+            expect("LocalMaterializationStore" in Definition).toBe(false);
+            expect("LocalMaterializer" in Definition).toBe(false);
+            expect("materializeActorPlan" in Definition).toBe(false);
+            expect("materializationKinds" in Definition).toBe(false);
+            expect("requireMaterializationKind" in Definition).toBe(false);
+            expect("validateMaterializationKind" in Definition).toBe(false);
+            expect(
+                () =>
+                    new LocalMaterializer({
+                        actor: actorRef("target"),
+                        store: new MemoryMaterializationStore(actorRef("other")),
+                        resources: new MemoryManagedResourcePort<StoreState>()
+                    })
+            ).toThrow(/different Actor/);
+        }
+    );
 
-    test("[definition.managed-state] [definition.materialization-generation] [definition.materialization-generation-pointer] derives stable IDs and strictly round-trips generation state codecs", { tags: "p1" }, () => {
-        const actor = actorRef("workspace-a");
-        const first = actorPlan(actor, origin(1, "config-a"), [
-            projection("slot:z", { value: 2 }),
-            projection("slot:a", { value: 1 })
-        ]);
-        const reordered = actorPlan(actor, origin(1, "config-a"), [
-            projection("slot:a", { value: 1 }),
-            projection("slot:z", { value: 2 })
-        ]);
+    test(
+        "[definition.managed-state] [definition.materialization-generation] [definition.materialization-generation-pointer] derives stable IDs and strictly round-trips generation state codecs",
+        { tags: "p1" },
+        () => {
+            const actor = actorRef("workspace-a");
+            const first = actorPlan(actor, origin(1, "config-a"), [
+                projection("slot:z", { value: 2 }),
+                projection("slot:a", { value: 1 })
+            ]);
+            const reordered = actorPlan(actor, origin(1, "config-a"), [
+                projection("slot:a", { value: 1 }),
+                projection("slot:z", { value: 2 })
+            ]);
 
-        const left = materializeActorPlan(actor, first);
-        const right = materializeActorPlan(actor, reordered);
-        expect(() => materializeActorPlan(actorRef("foreign"), first)).toThrow(/exactly equal/);
-        const pointer = MaterializationGenerationPointer.initial(
-            actor,
-            deploymentId,
-            left.generation.id
-        );
+            const left = materializeActorPlan(actor, first);
+            const right = materializeActorPlan(actor, reordered);
+            expect(() => materializeActorPlan(actorRef("foreign"), first)).toThrow(/exactly equal/);
+            const pointer = MaterializationGenerationPointer.initial(
+                actor,
+                deploymentId,
+                left.generation.id
+            );
 
-        expect(MaterializationGeneration.encode(right.generation)).toEqual(
-            MaterializationGeneration.encode(left.generation)
-        );
-        expect(right.records.map((record) => record.id.value)).toEqual(
-            left.records.map((record) => record.id.value)
-        );
-        expect(
-            MaterializationGeneration.encode(
-                MaterializationGeneration.decode(MaterializationGeneration.encode(left.generation))
-            )
-        ).toEqual(MaterializationGeneration.encode(left.generation));
-        expect(
-            ManagedStateRecord.encode(
-                ManagedStateRecord.decode(ManagedStateRecord.encode(left.records[0]!))
-            )
-        ).toEqual(ManagedStateRecord.encode(left.records[0]!));
-        expect(
-            MaterializationGenerationPointer.encode(
-                MaterializationGenerationPointer.decode(
-                    MaterializationGenerationPointer.encode(pointer)
+            expect(MaterializationGeneration.encode(right.generation)).toEqual(
+                MaterializationGeneration.encode(left.generation)
+            );
+            expect(right.records.map((record) => record.id.value)).toEqual(
+                left.records.map((record) => record.id.value)
+            );
+            expect(
+                MaterializationGeneration.encode(
+                    MaterializationGeneration.decode(
+                        MaterializationGeneration.encode(left.generation)
+                    )
                 )
-            )
-        ).toEqual(MaterializationGenerationPointer.encode(pointer));
+            ).toEqual(MaterializationGeneration.encode(left.generation));
+            expect(
+                ManagedStateRecord.encode(
+                    ManagedStateRecord.decode(ManagedStateRecord.encode(left.records[0]!))
+                )
+            ).toEqual(ManagedStateRecord.encode(left.records[0]!));
+            expect(
+                MaterializationGenerationPointer.encode(
+                    MaterializationGenerationPointer.decode(
+                        MaterializationGenerationPointer.encode(pointer)
+                    )
+                )
+            ).toEqual(MaterializationGenerationPointer.encode(pointer));
 
-        const envelope = jsonObject(MaterializationGeneration.encode(left.generation));
-        const payload = requireObject(envelope["payload"], "generation payload");
-        expectCodecError(
-            () =>
-                MaterializationGeneration.decode(
-                    encodeCanonicalJson({
-                        ...envelope,
-                        payload: { ...payload, status: "active" }
+            const envelope = jsonObject(MaterializationGeneration.encode(left.generation));
+            const payload = requireObject(envelope["payload"], "generation payload");
+            expectCodecError(
+                () =>
+                    MaterializationGeneration.decode(
+                        encodeCanonicalJson({
+                            ...envelope,
+                            payload: { ...payload, status: "active" }
+                        })
+                    ),
+                "codec.invalid"
+            );
+            expectCodecError(
+                () =>
+                    MaterializationGenerationPointer.decode(
+                        encodeCanonicalJson({
+                            ...jsonObject(MaterializationGenerationPointer.encode(pointer)),
+                            version: { major: 3, minor: 0 }
+                        })
+                    ),
+                "codec.unknown-major"
+            );
+            const managedEnvelope = jsonObject(ManagedStateRecord.encode(left.records[0]!));
+            expectCodecError(
+                () =>
+                    ManagedStateRecord.decode(
+                        encodeCanonicalJson({
+                            ...managedEnvelope,
+                            payload: {
+                                ...requireObject(
+                                    managedEnvelope["payload"],
+                                    "managed state payload"
+                                ),
+                                recordKind: "slot-entry"
+                            }
+                        })
+                    ),
+                "codec.invalid"
+            );
+            expect(
+                () =>
+                    new ManagedStateRecord({
+                        ...left.records[0]!,
+                        recordKind: "facet.slot-entry"
                     })
-                ),
-            "codec.invalid"
-        );
-        expectCodecError(
-            () =>
-                MaterializationGenerationPointer.decode(
-                    encodeCanonicalJson({
-                        ...jsonObject(MaterializationGenerationPointer.encode(pointer)),
-                        version: { major: 3, minor: 0 }
-                    })
-                ),
-            "codec.unknown-major"
-        );
-        const managedEnvelope = jsonObject(ManagedStateRecord.encode(left.records[0]!));
-        expectCodecError(
-            () =>
-                ManagedStateRecord.decode(
-                    encodeCanonicalJson({
-                        ...managedEnvelope,
-                        payload: {
-                            ...requireObject(managedEnvelope["payload"], "managed state payload"),
-                            recordKind: "slot-entry"
-                        }
-                    })
-                ),
-            "codec.invalid"
-        );
-        expect(
-            () =>
-                new ManagedStateRecord({
-                    ...left.records[0]!,
-                    recordKind: "facet.slot-entry"
-                })
-        ).toThrow(/Unsupported materialization record kind/);
-    });
+            ).toThrow(/Unsupported materialization record kind/);
+        }
+    );
 
     test("applies reordered plans once and makes an equal replay a no-op", { tags: "p0" }, () => {
         const actor = actorRef("workspace-a");
@@ -199,112 +212,136 @@ describe("same-Actor additive materialization", () => {
         expect(snapshot.transactionCount).toBe(2);
     });
 
-    test("journals a new origin when unchanged desired state is re-materialized", { tags: "p1" }, () => {
-        const actor = actorRef("workspace-origin-noop");
-        const store = new MemoryMaterializationStore(actor);
-        const materializer = localMaterializer(actor, store);
-        materializer.apply(
-            actorPlan(actor, origin(1, "one"), [projection("policy:stable", { value: 1 })])
-        );
-        const result = materializer.apply(
-            actorPlan(actor, origin(2, "two"), [projection("policy:stable", { value: 1 })])
-        );
-        expect(result.semanticNoop).toBe(true);
-        expect(result.pointerChanged).toBe(true);
-        expect(result.generation.origin.generation).toBe(2);
-        expect(result.pointer.revision.value).toBe(1);
-    });
-
-    test("rejects immutable generation conflicts without retaining partial records", { tags: "p0" }, () => {
-        const actor = actorRef("workspace-a");
-        const store = new MemoryMaterializationStore(actor);
-        const materializer = localMaterializer(actor, store);
-        const sharedOrigin = origin(3, "config-a");
-        const accepted = actorPlan(actor, sharedOrigin, [projection("slot:a", { value: 1 })]);
-        const conflicting = actorPlan(actor, sharedOrigin, [projection("slot:b", { value: 2 })]);
-        materializer.apply(accepted);
-        const before = store.snapshot();
-
-        expect(() => materializer.apply(conflicting)).toThrow(
-            /generation.*(?:immutable|strictly increase)/
-        );
-
-        const after = store.snapshot();
-        expect(after.generations.map((generation) => generation.id.value)).toEqual(
-            before.generations.map((generation) => generation.id.value)
-        );
-        expect(after.records.map((record) => record.id.value)).toEqual(
-            before.records.map((record) => record.id.value)
-        );
-        expect(after.pointer?.generationId.value).toBe(before.pointer?.generationId.value);
-    });
-
-    test("reports a byte-divergent active generation as corrupt, not a revision conflict", { tags: "p0" }, () => {
-        // kills src/definition/materializer.ts:194
-        const actor = actorRef("workspace-divergent");
-        const store = new MemoryMaterializationStore(actor);
-        const materializer = localMaterializer(actor, store);
-        const plan = actorPlan(actor, origin(1, "config-a"), [projection("slot:a", { value: 1 })]);
-        const desired = materializeActorPlan(actor, plan);
-        const divergent = new MaterializationGeneration({
-            actor,
-            origin: plan.origin,
-            actorPlanId: plan.id,
-            managedRecordIds: []
-        });
-        expect(divergent.id.equals(desired.generation.id)).toBe(true);
-        store.transaction((transaction) => {
-            store.insertGeneration(transaction, divergent);
-            expect(
-                store.compareAndSetGenerationPointer(
-                    transaction,
-                    actor,
-                    deploymentId,
-                    undefined,
-                    MaterializationGenerationPointer.initial(actor, deploymentId, divergent.id)
-                )
-            ).toBe(true);
-        });
-
-        expectCodecError(() => materializer.apply(plan), "codec.invalid");
-    });
-
-    test("moves only the active pointer and leaves old generations and state untouched", { tags: "p0" }, () => {
-        const actor = actorRef("workspace-a");
-        const store = new MemoryMaterializationStore(actor);
-        const materializer = localMaterializer(actor, store);
-        const oldResult = materializer.apply(
-            actorPlan(actor, origin(1, "config-a"), [projection("slot:a", { value: 1 })])
-        );
-        const nextResult = materializer.apply(
-            actorPlan(actor, origin(2, "config-b"), [projection("slot:a", { value: 2 })])
-        );
-        const snapshot = store.snapshot();
-
-        expect(snapshot.generations.map((generation) => generation.id.value).sort()).toEqual(
-            [oldResult.generation.id.value, nextResult.generation.id.value].sort()
-        );
-        expect(snapshot.records).toHaveLength(2);
-        expect(snapshot.pointer?.generationId.equals(nextResult.generation.id)).toBe(true);
-        expect(snapshot.pointer?.revision.value).toBe(1);
-        expect(snapshot.deletedRecords).toBe(0);
-    });
-
-    test("does not query existing Runs or require a current-generation fallback", { tags: "p1" }, () => {
-        const actor = actorRef("workspace-a");
-        const store = new MemoryMaterializationStore(actor, ["existing-run", "pinned-run"]);
-        const materializer = localMaterializer(actor, store);
-
-        expect(() =>
+    test(
+        "journals a new origin when unchanged desired state is re-materialized",
+        { tags: "p1" },
+        () => {
+            const actor = actorRef("workspace-origin-noop");
+            const store = new MemoryMaterializationStore(actor);
+            const materializer = localMaterializer(actor, store);
             materializer.apply(
+                actorPlan(actor, origin(1, "one"), [projection("policy:stable", { value: 1 })])
+            );
+            const result = materializer.apply(
+                actorPlan(actor, origin(2, "two"), [projection("policy:stable", { value: 1 })])
+            );
+            expect(result.semanticNoop).toBe(true);
+            expect(result.pointerChanged).toBe(true);
+            expect(result.generation.origin.generation).toBe(2);
+            expect(result.pointer.revision.value).toBe(1);
+        }
+    );
+
+    test(
+        "rejects immutable generation conflicts without retaining partial records",
+        { tags: "p0" },
+        () => {
+            const actor = actorRef("workspace-a");
+            const store = new MemoryMaterializationStore(actor);
+            const materializer = localMaterializer(actor, store);
+            const sharedOrigin = origin(3, "config-a");
+            const accepted = actorPlan(actor, sharedOrigin, [projection("slot:a", { value: 1 })]);
+            const conflicting = actorPlan(actor, sharedOrigin, [
+                projection("slot:b", { value: 2 })
+            ]);
+            materializer.apply(accepted);
+            const before = store.snapshot();
+
+            expect(() => materializer.apply(conflicting)).toThrow(
+                /generation.*(?:immutable|strictly increase)/
+            );
+
+            const after = store.snapshot();
+            expect(after.generations.map((generation) => generation.id.value)).toEqual(
+                before.generations.map((generation) => generation.id.value)
+            );
+            expect(after.records.map((record) => record.id.value)).toEqual(
+                before.records.map((record) => record.id.value)
+            );
+            expect(after.pointer?.generationId.value).toBe(before.pointer?.generationId.value);
+        }
+    );
+
+    test(
+        "reports a byte-divergent active generation as corrupt, not a revision conflict",
+        { tags: "p0" },
+        () => {
+            // kills src/definition/materializer.ts:194
+            const actor = actorRef("workspace-divergent");
+            const store = new MemoryMaterializationStore(actor);
+            const materializer = localMaterializer(actor, store);
+            const plan = actorPlan(actor, origin(1, "config-a"), [
+                projection("slot:a", { value: 1 })
+            ]);
+            const desired = materializeActorPlan(actor, plan);
+            const divergent = new MaterializationGeneration({
+                actor,
+                origin: plan.origin,
+                actorPlanId: plan.id,
+                managedRecordIds: []
+            });
+            expect(divergent.id.equals(desired.generation.id)).toBe(true);
+            store.transaction((transaction) => {
+                store.insertGeneration(transaction, divergent);
+                expect(
+                    store.compareAndSetGenerationPointer(
+                        transaction,
+                        actor,
+                        deploymentId,
+                        undefined,
+                        MaterializationGenerationPointer.initial(actor, deploymentId, divergent.id)
+                    )
+                ).toBe(true);
+            });
+
+            expectCodecError(() => materializer.apply(plan), "codec.invalid");
+        }
+    );
+
+    test(
+        "moves only the active pointer and leaves old generations and state untouched",
+        { tags: "p0" },
+        () => {
+            const actor = actorRef("workspace-a");
+            const store = new MemoryMaterializationStore(actor);
+            const materializer = localMaterializer(actor, store);
+            const oldResult = materializer.apply(
                 actorPlan(actor, origin(1, "config-a"), [projection("slot:a", { value: 1 })])
-            )
-        ).not.toThrow();
-        expect(store.snapshot()).toMatchObject({
-            runQueries: 0,
-            runs: ["existing-run", "pinned-run"]
-        });
-    });
+            );
+            const nextResult = materializer.apply(
+                actorPlan(actor, origin(2, "config-b"), [projection("slot:a", { value: 2 })])
+            );
+            const snapshot = store.snapshot();
+
+            expect(snapshot.generations.map((generation) => generation.id.value).sort()).toEqual(
+                [oldResult.generation.id.value, nextResult.generation.id.value].sort()
+            );
+            expect(snapshot.records).toHaveLength(2);
+            expect(snapshot.pointer?.generationId.equals(nextResult.generation.id)).toBe(true);
+            expect(snapshot.pointer?.revision.value).toBe(1);
+            expect(snapshot.deletedRecords).toBe(0);
+        }
+    );
+
+    test(
+        "does not query existing Runs or require a current-generation fallback",
+        { tags: "p1" },
+        () => {
+            const actor = actorRef("workspace-a");
+            const store = new MemoryMaterializationStore(actor, ["existing-run", "pinned-run"]);
+            const materializer = localMaterializer(actor, store);
+
+            expect(() =>
+                materializer.apply(
+                    actorPlan(actor, origin(1, "config-a"), [projection("slot:a", { value: 1 })])
+                )
+            ).not.toThrow();
+            expect(store.snapshot()).toMatchObject({
+                runQueries: 0,
+                runs: ["existing-run", "pinned-run"]
+            });
+        }
+    );
 
     test("rejects foreign targets and multi-Actor plans before writing", { tags: "p0" }, () => {
         const owner = actorRef("workspace-a");
@@ -343,84 +380,106 @@ describe("same-Actor additive materialization", () => {
         "facet.slot-entry",
         "authority.grant",
         "identity.role"
-    ])("rechecks unsupported %s projections before opening a transaction", { tags: "p1" }, (recordKind) => {
-        const actor = actorRef("tenant-a", "tenant");
-        const store = new MemoryMaterializationStore(actor);
-        const materializer = localMaterializer(actor, store);
-        const valid = actorPlan(actor, origin(1, "config-a"), [
-            projection("policy:tenant", { value: 1 })
-        ]);
+    ])(
+        "rechecks unsupported %s projections before opening a transaction",
+        { tags: "p1" },
+        (recordKind) => {
+            const actor = actorRef("tenant-a", "tenant");
+            const store = new MemoryMaterializationStore(actor);
+            const materializer = localMaterializer(actor, store);
+            const valid = actorPlan(actor, origin(1, "config-a"), [
+                projection("policy:tenant", { value: 1 })
+            ]);
 
-        expect(() => materializer.apply(forgeActorPlanKind(valid, recordKind))).toThrow(
-            /Unsupported materialization record kind/
-        );
-        expectEmpty(store);
-    });
+            expect(() => materializer.apply(forgeActorPlanKind(valid, recordKind))).toThrow(
+                /Unsupported materialization record kind/
+            );
+            expectEmpty(store);
+        }
+    );
 
-    test("rejects stale generation replay and requires a higher generation for rollback", { tags: "p0" }, () => {
-        const actor = actorRef("workspace-a");
-        const store = new MemoryMaterializationStore(actor);
-        const materializer = localMaterializer(actor, store);
-        const first = actorPlan(actor, origin(1, "first"), [projection("slot:a", { value: 1 })]);
-        const second = actorPlan(actor, origin(2, "second"), [projection("slot:a", { value: 2 })]);
-        materializer.apply(first);
-        materializer.apply(second);
+    test(
+        "rejects stale generation replay and requires a higher generation for rollback",
+        { tags: "p0" },
+        () => {
+            const actor = actorRef("workspace-a");
+            const store = new MemoryMaterializationStore(actor);
+            const materializer = localMaterializer(actor, store);
+            const first = actorPlan(actor, origin(1, "first"), [
+                projection("slot:a", { value: 1 })
+            ]);
+            const second = actorPlan(actor, origin(2, "second"), [
+                projection("slot:a", { value: 2 })
+            ]);
+            materializer.apply(first);
+            materializer.apply(second);
 
-        expect(() => materializer.apply(first)).toThrow(/strictly increase/);
+            expect(() => materializer.apply(first)).toThrow(/strictly increase/);
 
-        const rollback = actorPlan(actor, origin(3, "rollback"), [
-            projection("slot:a", { value: 1 })
-        ]);
-        expect(materializer.apply(rollback).pointerChanged).toBe(true);
-        expect(
-            store
-                .snapshot()
-                .pointer?.generationId.equals(materializeActorPlan(actor, rollback).generation.id)
-        ).toBe(true);
-    });
+            const rollback = actorPlan(actor, origin(3, "rollback"), [
+                projection("slot:a", { value: 1 })
+            ]);
+            expect(materializer.apply(rollback).pointerChanged).toBe(true);
+            expect(
+                store
+                    .snapshot()
+                    .pointer?.generationId.equals(
+                        materializeActorPlan(actor, rollback).generation.id
+                    )
+            ).toBe(true);
+        }
+    );
 
-    test("rolls back local writes when managed insertion or pointer CAS fails", { tags: "p0" }, () => {
-        const workspace = actorRef("workspace-a");
-        const insertFault = new MemoryMaterializationStore(workspace);
-        insertFault.failManagedInsert = true;
-        expect(() =>
-            localMaterializer(workspace, insertFault).apply(
-                actorPlan(workspace, origin(1, "insert"), [projection("slot:a", { value: 1 })])
-            )
-        ).toThrow(/injected managed-state fault/);
-        expectEmpty(insertFault);
+    test(
+        "rolls back local writes when managed insertion or pointer CAS fails",
+        { tags: "p0" },
+        () => {
+            const workspace = actorRef("workspace-a");
+            const insertFault = new MemoryMaterializationStore(workspace);
+            insertFault.failManagedInsert = true;
+            expect(() =>
+                localMaterializer(workspace, insertFault).apply(
+                    actorPlan(workspace, origin(1, "insert"), [projection("slot:a", { value: 1 })])
+                )
+            ).toThrow(/injected managed-state fault/);
+            expectEmpty(insertFault);
 
-        const casFault = new MemoryMaterializationStore(workspace);
-        casFault.failCas = true;
-        expect(() =>
-            localMaterializer(workspace, casFault).apply(
-                actorPlan(workspace, origin(1, "cas"), [projection("slot:a", { value: 1 })])
-            )
-        ).toThrow(/changed concurrently/);
-        expectEmpty(casFault);
-    });
+            const casFault = new MemoryMaterializationStore(workspace);
+            casFault.failCas = true;
+            expect(() =>
+                localMaterializer(workspace, casFault).apply(
+                    actorPlan(workspace, origin(1, "cas"), [projection("slot:a", { value: 1 })])
+                )
+            ).toThrow(/changed concurrently/);
+            expectEmpty(casFault);
+        }
+    );
 
-    test("reconciles create update and remove with one stable managed resource identity", { tags: "p1" }, () => {
-        const actor = actorRef("workspace-reconcile");
-        const store = new MemoryMaterializationStore(actor);
-        const materializer = localMaterializer(actor, store);
-        const created = materializer.apply(
-            actorPlan(actor, origin(1, "one"), [projection("policy:stable", { value: 1 })])
-        );
-        const resourceId = store.snapshot().resources[0]!.resourceId;
+    test(
+        "reconciles create update and remove with one stable managed resource identity",
+        { tags: "p1" },
+        () => {
+            const actor = actorRef("workspace-reconcile");
+            const store = new MemoryMaterializationStore(actor);
+            const materializer = localMaterializer(actor, store);
+            const created = materializer.apply(
+                actorPlan(actor, origin(1, "one"), [projection("policy:stable", { value: 1 })])
+            );
+            const resourceId = store.snapshot().resources[0]!.resourceId;
 
-        const updated = materializer.apply(
-            actorPlan(actor, origin(2, "two"), [projection("policy:stable", { value: 2 })])
-        );
-        expect(updated.actions).toEqual(["update"]);
-        expect(store.snapshot().resources[0]!.resourceId.equals(resourceId)).toBe(true);
-        expect(store.snapshot().resources[0]!.revision.value).toBe(1);
+            const updated = materializer.apply(
+                actorPlan(actor, origin(2, "two"), [projection("policy:stable", { value: 2 })])
+            );
+            expect(updated.actions).toEqual(["update"]);
+            expect(store.snapshot().resources[0]!.resourceId.equals(resourceId)).toBe(true);
+            expect(store.snapshot().resources[0]!.revision.value).toBe(1);
 
-        const removed = materializer.apply(actorPlan(actor, origin(3, "three"), []));
-        expect(removed.actions).toEqual(["remove"]);
-        expect(store.snapshot().resources).toEqual([]);
-        expect(removed.pointer.revision.value).toBe(created.pointer.revision.value + 2);
-    });
+            const removed = materializer.apply(actorPlan(actor, origin(3, "three"), []));
+            expect(removed.actions).toEqual(["remove"]);
+            expect(store.snapshot().resources).toEqual([]);
+            expect(removed.pointer.revision.value).toBe(created.pointer.revision.value + 2);
+        }
+    );
 
     test("rejects drift and rolls owner state back with journal state", { tags: "p0" }, () => {
         const actor = actorRef("workspace-drift");
@@ -450,80 +509,92 @@ describe("same-Actor additive materialization", () => {
         expect(store.snapshot().resources[0]!.desiredDigest.equals(activeDigest)).toBe(true);
     });
 
-    test("[C13-BLUEPRINT-RUN-PINS] fails closed on unknown RunPins evidence without advancing local state", { tags: "p0" }, () => {
-        const actor = actorRef("workspace-pinned");
-        const store = new MemoryMaterializationStore(actor);
-        const materializer = localMaterializer(actor, store);
-        materializer.apply(
-            actorPlan(actor, origin(1, "one"), [projection("policy:stable", { value: 1 })])
-        );
-        const before = store.snapshot();
-        store.resourcePort.deferral = (change) =>
-            RunPinEvidence.inconclusive("unknown", "w5-unavailable").deferral(
-                new DeferredManagedRecord(change),
-                pinnedRelease()
+    test(
+        "[C13-BLUEPRINT-RUN-PINS] fails closed on unknown RunPins evidence without advancing local state",
+        { tags: "p0" },
+        () => {
+            const actor = actorRef("workspace-pinned");
+            const store = new MemoryMaterializationStore(actor);
+            const materializer = localMaterializer(actor, store);
+            materializer.apply(
+                actorPlan(actor, origin(1, "one"), [projection("policy:stable", { value: 1 })])
+            );
+            const before = store.snapshot();
+            store.resourcePort.deferral = (change) =>
+                RunPinEvidence.inconclusive("unknown", "w5-unavailable").deferral(
+                    new DeferredManagedRecord(change),
+                    pinnedRelease()
+                );
+
+            // SPEC 9.3: evidence the host cannot turn into an obligation naming its record,
+            // reason, and condition is a rejected reconciliation, never a removal admitted and
+            // left pending on an unstated reason.
+            expect(() => materializer.apply(actorPlan(actor, origin(2, "two"), []))).toThrow(
+                /not expressible as a pending obligation: unknown RunPins evidence: w5-unavailable/
+            );
+            expect(store.snapshot()).toMatchObject({
+                generations: before.generations,
+                records: before.records,
+                pointer: before.pointer,
+                resources: before.resources
+            });
+        }
+    );
+
+    test(
+        "rejects foreign active generations and corrupt post-CAS pointer reads atomically",
+        { tags: "p0" },
+        () => {
+            const actor = actorRef("workspace-hostile-store");
+            const foreign = new MemoryMaterializationStore(actor);
+            const foreignMaterializer = localMaterializer(actor, foreign);
+            foreignMaterializer.apply(
+                actorPlan(actor, origin(1, "one"), [projection("policy:stable", { value: 1 })])
+            );
+            foreign.returnForeignGeneration = true;
+            expect(() =>
+                foreignMaterializer.apply(
+                    actorPlan(actor, origin(2, "two"), [projection("policy:stable", { value: 2 })])
+                )
+            ).toThrow(/different Actor/);
+
+            for (const corruption of ["missing", "different"] as const) {
+                const store = new MemoryMaterializationStore(actor);
+                store.pointerCorruption = corruption;
+                expect(() =>
+                    localMaterializer(actor, store).apply(
+                        actorPlan(actor, origin(1, corruption), [
+                            projection("policy:stable", { value: 1 })
+                        ])
+                    )
+                ).toThrow(corruption === "missing" ? /Missing active/ : /did not persist/);
+                expectEmpty(store);
+            }
+        }
+    );
+
+    test(
+        "materializes an empty first generation without a previous pointer",
+        { tags: "p1" },
+        () => {
+            const actor = actorRef("workspace-empty-first");
+            const store = new MemoryMaterializationStore(actor);
+
+            const result = localMaterializer(actor, store).apply(
+                actorPlan(actor, origin(1, "empty"), [])
             );
 
-        // SPEC 9.3: evidence the host cannot turn into an obligation naming its record,
-        // reason, and condition is a rejected reconciliation, never a removal admitted and
-        // left pending on an unstated reason.
-        expect(() => materializer.apply(actorPlan(actor, origin(2, "two"), []))).toThrow(
-            /not expressible as a pending obligation: unknown RunPins evidence: w5-unavailable/
-        );
-        expect(store.snapshot()).toMatchObject({
-            generations: before.generations,
-            records: before.records,
-            pointer: before.pointer,
-            resources: before.resources
-        });
-    });
-
-    test("rejects foreign active generations and corrupt post-CAS pointer reads atomically", { tags: "p0" }, () => {
-        const actor = actorRef("workspace-hostile-store");
-        const foreign = new MemoryMaterializationStore(actor);
-        const foreignMaterializer = localMaterializer(actor, foreign);
-        foreignMaterializer.apply(
-            actorPlan(actor, origin(1, "one"), [projection("policy:stable", { value: 1 })])
-        );
-        foreign.returnForeignGeneration = true;
-        expect(() =>
-            foreignMaterializer.apply(
-                actorPlan(actor, origin(2, "two"), [projection("policy:stable", { value: 2 })])
-            )
-        ).toThrow(/different Actor/);
-
-        for (const corruption of ["missing", "different"] as const) {
-            const store = new MemoryMaterializationStore(actor);
-            store.pointerCorruption = corruption;
-            expect(() =>
-                localMaterializer(actor, store).apply(
-                    actorPlan(actor, origin(1, corruption), [
-                        projection("policy:stable", { value: 1 })
-                    ])
-                )
-            ).toThrow(corruption === "missing" ? /Missing active/ : /did not persist/);
-            expectEmpty(store);
+            expect(result).toMatchObject({
+                insertedGeneration: true,
+                pointerChanged: true,
+                semanticNoop: false
+            });
+            expect(result.insertedRecords).toEqual([]);
+            expect(result.actions).toEqual([]);
+            expect(result.pending.converged).toBe(true);
+            expect(store.snapshot().pointer?.revision.value).toBe(0);
         }
-    });
-
-    test("materializes an empty first generation without a previous pointer", { tags: "p1" }, () => {
-        const actor = actorRef("workspace-empty-first");
-        const store = new MemoryMaterializationStore(actor);
-
-        const result = localMaterializer(actor, store).apply(
-            actorPlan(actor, origin(1, "empty"), [])
-        );
-
-        expect(result).toMatchObject({
-            insertedGeneration: true,
-            pointerChanged: true,
-            semanticNoop: false
-        });
-        expect(result.insertedRecords).toEqual([]);
-        expect(result.actions).toEqual([]);
-        expect(result.pending.converged).toBe(true);
-        expect(store.snapshot().pointer?.revision.value).toBe(0);
-    });
+    );
 
     test("does not report a semantic no-op when any action mutates state", { tags: "p1" }, () => {
         const actor = actorRef("workspace-mixed-actions");
@@ -548,38 +619,42 @@ describe("same-Actor additive materialization", () => {
         expect(updated.actions).toEqual(["update", "noop"]);
     });
 
-    test("rejects a store that rewrites immutable managed state or generations", { tags: "p0" }, () => {
-        const actor = actorRef("workspace-immutable");
-        const plan = actorPlan(actor, origin(1, "one"), [projection("policy:stable", { value: 1 })]);
-        const desired = materializeActorPlan(actor, plan);
-        const record = requireOne(desired.records);
+    test(
+        "rejects a store that rewrites immutable managed state or generations",
+        { tags: "p0" },
+        () => {
+            const actor = actorRef("workspace-immutable");
+            const plan = actorPlan(actor, origin(1, "one"), [
+                projection("policy:stable", { value: 1 })
+            ]);
+            const desired = materializeActorPlan(actor, plan);
+            const record = requireOne(desired.records);
 
-        const recordStore = new MemoryMaterializationStore(actor);
-        const forgedRecord = tamperedRecord(record,
-            { desired: { forged: true } }
-        );
-        recordStore.transaction((transaction) => {
-            transaction.records.set(record.id.value, forgedRecord);
-        });
-        expect(() => localMaterializer(actor, recordStore).apply(plan)).toThrow(
-            /Managed state .+ is immutable/
-        );
+            const recordStore = new MemoryMaterializationStore(actor);
+            const forgedRecord = tamperedRecord(record, { desired: { forged: true } });
+            recordStore.transaction((transaction) => {
+                transaction.records.set(record.id.value, forgedRecord);
+            });
+            expect(() => localMaterializer(actor, recordStore).apply(plan)).toThrow(
+                /Managed state .+ is immutable/
+            );
 
-        const generationStore = new MemoryMaterializationStore(actor);
-        const other = materializeActorPlan(
-            actor,
-            actorPlan(actor, origin(1, "other"), [projection("policy:other", { value: 3 })])
-        );
-        const forgedGeneration = tamperedRecord(other.generation,
-            { id: desired.generation.id }
-        );
-        generationStore.transaction((transaction) => {
-            transaction.generations.set(desired.generation.id.value, forgedGeneration);
-        });
-        expect(() => localMaterializer(actor, generationStore).apply(plan)).toThrow(
-            /Materialization generation .+ is immutable/
-        );
-    });
+            const generationStore = new MemoryMaterializationStore(actor);
+            const other = materializeActorPlan(
+                actor,
+                actorPlan(actor, origin(1, "other"), [projection("policy:other", { value: 3 })])
+            );
+            const forgedGeneration = tamperedRecord(other.generation, {
+                id: desired.generation.id
+            });
+            generationStore.transaction((transaction) => {
+                transaction.generations.set(desired.generation.id.value, forgedGeneration);
+            });
+            expect(() => localMaterializer(actor, generationStore).apply(plan)).toThrow(
+                /Materialization generation .+ is immutable/
+            );
+        }
+    );
 
     test("rejects an active pointer owned by a different Actor", { tags: "p0" }, () => {
         const actor = actorRef("workspace-pointer-owner");
@@ -597,18 +672,22 @@ describe("same-Actor additive materialization", () => {
         ).toThrow("Materialization generation pointer belongs to a different Actor");
     });
 
-    test("reuses an equal immutable journal closure when activation was not yet pointed", { tags: "p1" }, () => {
-        const actor = actorRef("workspace-recovered-journal");
-        const store = new MemoryMaterializationStore(actor);
-        const plan = actorPlan(actor, origin(1, "recovered"), [
-            projection("policy:stable", { value: 1 })
-        ]);
-        store.seedHistory(plan);
-        const result = localMaterializer(actor, store).apply(plan);
-        expect(result.insertedRecords).toEqual([]);
-        expect(result.insertedGeneration).toBe(false);
-        expect(result.pointerChanged).toBe(true);
-    });
+    test(
+        "reuses an equal immutable journal closure when activation was not yet pointed",
+        { tags: "p1" },
+        () => {
+            const actor = actorRef("workspace-recovered-journal");
+            const store = new MemoryMaterializationStore(actor);
+            const plan = actorPlan(actor, origin(1, "recovered"), [
+                projection("policy:stable", { value: 1 })
+            ]);
+            store.seedHistory(plan);
+            const result = localMaterializer(actor, store).apply(plan);
+            expect(result.insertedRecords).toEqual([]);
+            expect(result.insertedGeneration).toBe(false);
+            expect(result.pointerChanged).toBe(true);
+        }
+    );
 });
 
 interface StoreState extends MemoryManagedResourceState {
@@ -805,8 +884,7 @@ function actorPlan(
 }
 
 function projection(logicalKey: string, desired: { readonly value: number }): DesiredProjection {
-    const tiered: PolicySetInit =
-        desired.value % 2 === 0 ? { tiers: { execute: "mediated" } } : {};
+    const tiered: PolicySetInit = desired.value % 2 === 0 ? { tiers: { execute: "mediated" } } : {};
     const approved: PolicySetInit =
         desired.value % 3 === 0 ? { ...tiered, approvals: ["externalSend"] } : tiered;
     return policyProjection(logicalKey, new PolicySet(approved));
@@ -823,9 +901,7 @@ function pinnedRelease(): PackagePin {
 
 function forgeActorPlanKind(plan: ActorPlan, recordKind: string): ActorPlan {
     const projection = plan.projections[0]!;
-    const unsupported = tamperedRecord(projection,
-        { recordKind }
-    );
+    const unsupported = tamperedRecord(projection, { recordKind });
     return tamperedRecord(plan, {
         projections: Object.freeze([unsupported])
     });

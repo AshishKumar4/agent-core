@@ -417,8 +417,10 @@ describe("Blueprint validation", () => {
             // The same closure with the slot declared is admissible, so the refusal below
             // is the retirement and not the Facet.
             expect(
-                validateBlueprint(blueprint([install("cards", "^1")], { slots: [cardSlot] }), options)
-                    .declarations
+                validateBlueprint(
+                    blueprint([install("cards", "^1")], { slots: [cardSlot] }),
+                    options
+                ).declarations
             ).toHaveLength(1);
 
             expect(() => {

@@ -109,7 +109,9 @@ interface RecordedPinReservation {
  * holder, so a removal defers on a Turn, a Session, a tree checkpoint, or a Snapshot with
  * no Run in the picture at all.
  */
-export class RecordedRunPinsReservationPort<Transaction> extends RunPinsReservationPort<Transaction> {
+export class RecordedRunPinsReservationPort<
+    Transaction
+> extends RunPinsReservationPort<Transaction> {
     readonly #reservations = new Map<string, RecordedPinReservation>();
     readonly #byIdempotencyKey = new Map<string, string>();
     readonly #migrations = new Set<string>();
