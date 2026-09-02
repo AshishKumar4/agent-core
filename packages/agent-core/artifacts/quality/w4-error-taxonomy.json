@@ -1,6 +1,9 @@
 {
   "edition": "3.0.0",
-  "owners": ["W0", "W9"],
+  "owners": [
+    "W0",
+    "W9"
+  ],
   "wave": "W4",
   "inventory": "artifacts/quality/w4-source-inventory.json",
   "checker": "artifacts/quality/check-w4-error-taxonomy.mjs",
@@ -417,6 +420,13 @@
       "file": "src/definition/declaration.ts",
       "symbol": "BlueprintDeclarationCodecPort.constructor",
       "statementSha256": "2a536568552c4b1ed2dd719a49eb8f0ccc015f8e88a891c1ee81097099020f50",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "6f54953133ca6f46038809cdbfd8df92df9ba1604340bf459e10c384a245bed8",
+      "file": "src/definition/generated/tree-merge/AgentCore/Extract/TreeMerge.ts",
+      "symbol": "TreeMergePolicy.fromData",
+      "statementSha256": "b1f79c591205b27fc054af059fb23eb37ae6b8c443a139843d340fc2e1ae74b2",
       "occurrence": 1
     },
     {
@@ -1050,17 +1060,10 @@
       "occurrence": 1
     },
     {
-      "declarationSha256": "349ff09fabede5f76b721ec55b629533b8ea100e88e9bdecc0f6294ba871c55b",
+      "declarationSha256": "26b0e8d6d02e0e1f6f321788abe70690439643d0bb20a7947f4cf704614b5cf8",
       "file": "src/definition/policy.ts",
       "symbol": "PolicySet.fromData",
       "statementSha256": "b5c00a9c6c05894a1de3099f48ee4afa4acb99f9c31f5ea671b663b605454420",
-      "occurrence": 1
-    },
-    {
-      "declarationSha256": "6c890671e73d2ffcc3e8e9779176b1ca880b85581e21d5e7defad0cdbab5b5fa",
-      "file": "src/definition/policy.ts",
-      "symbol": "TreeMergePolicy.fromData",
-      "statementSha256": "6a8785e396bba69a311f35ccf2c06db231b6effd0e03ac4ebfefc660b4c4e175",
       "occurrence": 1
     },
     {
