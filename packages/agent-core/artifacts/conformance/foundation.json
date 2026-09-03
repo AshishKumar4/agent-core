@@ -48,7 +48,6 @@
         "src/actors/actor.ts#Actor",
         "src/actors/fence.ts#ActorRecoveryState",
         "src/actors/store.ts#MemoryActorStore",
-        "src/agents/runs/store.ts#RUN_RECORD_CODECS",
         "src/core/codec.ts#CodecCompatibility",
         "src/core/codec.ts#CodecDeclaration",
         "src/core/codec.ts#CodecDeclaration.merge",
@@ -74,11 +73,7 @@
         "test/core/codec.test.ts#CodecDeclaration [C13-CODEC-INCOMPATIBILITY-TOTAL] decides every stored declaration against a reader with no third answer",
         "test/core/codec.test.ts#CodecDeclaration [C13-CODEC-INCOMPATIBILITY-TOTAL] freezes the compatible singleton against public method replacement",
         "test/core/codec.test.ts#CodecDeclaration [C13-CODEC-INCOMPATIBILITY-TOTAL] names its kinds once, in canonical order",
-        "test/core/codec.test.ts#CodecDeclaration [C13-CODEC-INCOMPATIBILITY-TOTAL] round-trips through its stored form and refuses a malformed one",
-        "test/agents/runs/derivation-totality.test.ts#Run derivation totality [C13-CODEC-INCOMPATIBILITY-TOTAL] [C13-RUN-FRONTIER-COMPLETE] a reserved-minus-completed frontier rejects an unreadable record set rather than answering short",
-        "test/agents/runs/derivation-totality.test.ts#Run derivation totality [C13-CODEC-INCOMPATIBILITY-TOTAL] [C13-RUN-ANCESTRY] an ancestry walk rejects an unreadable record set rather than answering not-an-ancestor",
-        "test/agents/runs/derivation-totality.test.ts#Run derivation totality [C13-CODEC-INCOMPATIBILITY-TOTAL] [C13-RUN-SETTLED-DERIVED] a settlement test rejects an unreadable record set rather than reporting settled",
-        "test/agents/runs/derivation-totality.test.ts#Run derivation totality [C13-CODEC-INCOMPATIBILITY-TOTAL] the Run record set a protocol command declares is the set these derivations read"
+        "test/core/codec.test.ts#CodecDeclaration [C13-CODEC-INCOMPATIBILITY-TOTAL] round-trips through its stored form and refuses a malformed one"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": [
@@ -92,7 +87,9 @@
         "A refused activation still advances the Actor fence epoch. Fencing a stale incarnation is a \u00a78.1 obligation rather than part of the record set \u00a78.3 leaves untouched, so this rule claims that the stored declaration bytes and the records they name are unchanged, which the cited tests assert directly, and claims nothing about the fence epoch",
         "The declaration is compared once per activation and the verdict is captured, rather than re-read before each operation. A declaration rewritten underneath a live Actor by something that is not a reader is therefore outside this rule, and it is already a separate violation: \u00a78.4 rule 1 gives every record type exactly one owning Actor",
         "The Cloudflare profile keeps its own mechanism. packages/agent-core-cloudflare/src/migration.ts remains the release-distance specialisation of this rule, and this row claims only the substrate-level obligation, never any part of C13-CLOUDFLARE-ROLLBACK-WINDOW, which stays W8's to evidence",
-        "A substrate schema marker is a specialisation of this rule rather than a second mechanism, and the same reading applies beyond the Cloudflare profile: W4's SQLite MATERIALIZATION_SCHEMA_VERSION moving 2 to 3 refuses an old database at the marker instead of at the first row that fails to decode, which is this rule's timing obligation applied to one table family. This row claims the Actor-owned record set and never a substrate's own migration marker, so a marker and a declaration coexisting is not a duplicated plane"
+        "A substrate schema marker is a specialisation of this rule rather than a second mechanism, and the same reading applies beyond the Cloudflare profile: W4's SQLite MATERIALIZATION_SCHEMA_VERSION moving 2 to 3 refuses an old database at the marker instead of at the first row that fails to decode, which is this rule's timing obligation applied to one table family. This row claims the Actor-owned record set and never a substrate's own migration marker, so a marker and a declaration coexisting is not a duplicated plane",
+        "The Run record codec table src/agents/runs/store.ts#RUN_RECORD_CODECS declares the run-side majors this rule reaches, but it is W5-owned source and the evidence-ownership rule leaves it uncitable from a W1 row; the declaration side this row does cite is src/core/codec.ts, and the run-side registration is evidenced by W5's own rows.",
+        "The Run derivation-totality cases in test/agents/runs/derivation-totality.test.ts exercise this rule over run records, but they are W5-owned tests and the evidence-ownership rule leaves them uncitable from a W1 row; they remain W5's evidence for the same behaviour."
       ]
     },
     {
@@ -109,13 +106,7 @@
         "src/content/retention.ts#contentOwnerKey",
         "src/content/transient.ts#TransientContentLeaseState",
         "src/core/content-ref.ts#contentRetentionFields",
-        "src/definition/package-store.ts#ProjectedPackageStore",
-        "src/environments/store.ts#MemoryEnvironmentStore",
-        "src/invocations/receipt.ts#receiptContentRetention",
-        "src/slates/store.ts#MemorySlateStore",
-        "src/substrates/sqlite/content-retention.ts#SqliteContentRetention",
-        "src/substrates/sqlite/invocations/persistence.ts#SqliteInvocationPersistence",
-        "src/workspaces/retention.ts#WorkspaceContentRetention"
+        "src/substrates/sqlite/content-retention.ts#SqliteContentRetention"
       ],
       "testSelectors": [
         "test/conformance/profile-base.test.ts#Profile base conformance [C13-CONTENT-CUSTODY] derives exact direct, nested, and inherited ContentRef declarations",
@@ -156,7 +147,8 @@
         "Content put into a ContentStore and not yet named by any record is never offered for collection, because the seam refuses to collect a blob that has no Tenant relation at all, which keeps a writer's bytes alive between put and retain and leaves reclamation of never-named content outside this rule",
         "Custody is single-Actor. A ContentStore and its retention state are bound to exactly one Tenant and Actor per \u00a78.4 rule 1 and every edge from a foreign Tenant or Actor is refused before any mutation, so this rule never claims that two Actors can share retention of one ContentRef",
         "Tenant retention policy is consulted, never implemented. The seam asks a TenantContentPolicyReader about each candidate and fails closed on an absent, denied or faulting answer, so export, legal deletion and Tenant closure stay the policy owner's obligation and outside this rule",
-        "This rule does not claim that every guard inside collect is independently load-bearing. The owner checks in the candidate scan are redundant with the relation invariant that owned content always carries a null tombstone, which both implementations assert on every read, so removing either alone changes no observable behaviour and no cited test can discriminate it"
+        "This rule does not claim that every guard inside collect is independently load-bearing. The owner checks in the candidate scan are redundant with the relation invariant that owned content always carries a null tombstone, which both implementations assert on every read, so removing either alone changes no observable behaviour and no cited test can discriminate it",
+        "Custody registration is cross-cutting: the stores that register it live in W4, W6, W7 and W8 (src/definition/package-store.ts, src/environments/store.ts, src/invocations/receipt.ts, src/slates/store.ts, src/substrates/sqlite/invocations/persistence.ts, src/workspaces/retention.ts). The evidence-ownership rule leaves every one of them uncitable from this W1 row, so this row cites only the W1 custody vocabulary and plane; each owning wave evidences its own store's registration."
       ]
     },
     {

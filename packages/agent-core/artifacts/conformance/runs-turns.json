@@ -898,7 +898,6 @@
       "status": "implemented",
       "prerequisites": [],
       "sourceSymbols": [
-        "src/definition/policy.ts#treeMergePolicyFromData",
         "src/agents/runs/evidence.ts#RunMergePort",
         "src/agents/runs/runtime.ts#RunRuntime.validateMerge",
         "src/composition/run-evidence.ts#CanonicalRunMergePort"
@@ -911,6 +910,9 @@
         "Conflict detection over the opaque tree checkpoint digest remains unimplemented. Closure requires one ContentStore-backed tree codec and diff path whose decoded bytes prove each ContentRef, rather than a test-only snapshot map. This is W5 work; what has landed is the absence half of the rule, which needs no detector: with nothing declared, no merge over a shared tree lands at all.",
         "The declaration RunRuntime.validateMerge reads is host-supplied through RunMergePort.declaredTreeMerge rather than loaded by the exact PolicySet id, revision and digest in commit.pins.effectivePolicy. The seam is passed the merge commit so a canonical implementation can bind it, and CanonicalRunMergePort forwards it, but nothing yet proves the answer came from those pinned bytes. This bounds the resolution half only: the absence refusal is structural and does not rest on the port's answer being pin-bound, because an absent answer is the refusing case.",
         "The merge-resolution control evidence must prove that its authenticated caller invoked the administer-impact Operation whose successful Receipt proposal digest binds these exact path choices; generic system-control writer evidence alone is insufficient."
+      ],
+      "bounds": [
+        "src/definition/policy.ts carries part of this rule's mechanism but is owned by another wave, and the evidence-ownership rule leaves it uncitable from a W5 row; that wave's own rows evidence the same behaviour."
       ]
     },
     {
@@ -1149,7 +1151,10 @@
       "specTextSha256": "sha256:26f551b6cde385dd65f552ba15ce51930426551693e8ae36b53deb7655aa9062",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/agents/runs/turn.ts#Turn", "src/agents/runs/turn.ts#TurnStatus"],
+      "sourceSymbols": [
+        "src/agents/runs/turn.ts#Turn",
+        "src/agents/runs/generated/turn-status/AgentCore/Extract/TurnStatus.ts#TurnStatus"
+      ],
       "testSelectors": [
         "test/agents/runs/foundation.test.ts#Turn lifecycle [C13-TURN-LIFECYCLE] enforces claim, renewal, suspension, resume, completion, and terminal rejection"
       ],
