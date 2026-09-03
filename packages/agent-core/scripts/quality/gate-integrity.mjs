@@ -47,6 +47,19 @@ import {
 } from "./project.mjs";
 
 const subprocessTimeout = 120_000;
+/**
+ * How many measurements run at once. Each one copies the whole repository into a scratch
+ * tree and spawns a real checker inside it, so the cost per worker is a repository's
+ * working set rather than a thread; on a machine with many cores and a memory ceiling,
+ * `availableParallelism()` workers exhaust the ceiling and the run is killed with no
+ * report written at all — a SIGKILL that reads as every control being red with an empty
+ * diagnostic, which is the one failure shape that looks like a finding and is not.
+ *
+ * The bound is stated here rather than left to the host because the host's core count is
+ * not the resource this saturates. A run under it is slower and finishes; a run over it
+ * measures nothing.
+ */
+const MEASUREMENT_CONCURRENCY = 4;
 const gateFields = ["input", "mutations", "node", "rule"];
 const mutationFields = ["defect", "diagnostic", "expects", "find", "id", "replace"];
 const corePackage = "packages/agent-core";
@@ -506,8 +519,9 @@ function spawnChecker(argv, cwd) {
 async function inParallel(tasks) {
     const results = Array.from({ length: tasks.length });
     let next = 0;
+    const workers = Math.min(tasks.length, MEASUREMENT_CONCURRENCY, availableParallelism());
     await Promise.all(
-        Array.from({ length: Math.min(tasks.length, availableParallelism()) }, async () => {
+        Array.from({ length: workers }, async () => {
             for (let index = next++; index < tasks.length; index = next++) {
                 results[index] = await tasks[index]();
             }
