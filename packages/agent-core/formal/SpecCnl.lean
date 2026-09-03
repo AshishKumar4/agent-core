@@ -1,4 +1,6 @@
 import SpecCnl.Hostile
+import SpecCnl.Intent.Hostile
+import SpecCnl.Intent.Report
 import SpecCnl.Report
 
 /-!
@@ -26,6 +28,31 @@ parser to drift from.
 * `SpecCnl.Hostile` — kernel-checked assertions that all of it refuses what it must.
 * `SpecCnl.Report` — the emitted ledger and axiom designations, consumed by
   `scripts/quality/cnl.mjs`.
+
+The intent language sits beside it, under `SpecCnl.Intent`, and shares every part of it
+that can be shared: the same category algebra, the same chart, the same deduplication by
+reading key, the same round trip, the same emission. What it adds is a direction of
+authority. A controlled-language sentence is a candidate theorem about the fixed model; an
+intent is a constraint on what a platform may admit, so its denotation is a predicate on
+transition relations and a set of intents can contradict itself.
+
+* `SpecCnl.Intent.Grammar` — the denotation, the polarity theorems, and the lattice lemma
+  that makes the contradiction check exact.
+* `SpecCnl.Intent.Lexicon` — the controlled language's table extended by the intent
+  connectives, and the rule that no surface carries both a transition family and a guard.
+* `SpecCnl.Intent.Ledgers` — the reviewed ledger table, its search window, and the
+  kernel-checked binding of every name it records.
+* `SpecCnl.Intent.Corpus`, `SpecCnl.Intent.Adversarial` — the ratifiable records and the
+  adversarial ones, which carry an expected verdict instead of an anchored atom.
+* `SpecCnl.Intent.Elab` — the elaborators that derive a record's denotation, polarity split
+  and verdict claim from one parse.
+* `SpecCnl.Intent.Check` — the bounded search, the only untrusted component: it proposes a
+  verdict and never decides one.
+* `SpecCnl.Intent.Proofs` — the witness or refutation behind every decided verdict, and the
+  bridge proving an intent instantiated at the model is the controlled sentence for the same
+  rule.
+* `SpecCnl.Intent.Hostile`, `SpecCnl.Intent.Report` — the refusals and the emitted ledger,
+  consumed by `scripts/quality/intents.mjs`.
 
 What this instrument is not: it does not read SPEC prose (0 of the surveyed rule units
 parse as written), it makes no claim about unrestricted English, and no tool in it judges

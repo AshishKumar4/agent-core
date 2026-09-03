@@ -162,20 +162,29 @@ def chart (lex : List LexEntry) (tokens : Array String) :
       cells := cells.setIfInBounds tag items
   return cells
 
-/-- The distinct sentence readings of the whole span, deduplicated by reading rather than
-by construction: two chart entries with the same AST are one reading. -/
-def readings (lex : List LexEntry) (tokens : Array String) : Except String (List Item) := do
+/-- The distinct readings of the whole span whose category `accept` admits, deduplicated by
+reading rather than by construction: two chart entries with the same AST are one reading.
+
+`accept` is a predicate rather than one fixed atom because the intent language admits at a
+different target category. It shares this chart, this deduplication, and this notion of
+"two readings", so there is no second parser to drift from the first. -/
+def readingsWhere (accept : Cat → Bool) (lex : List LexEntry) (tokens : Array String) :
+    Except String (List Item) := do
   let cells ← chart lex tokens
   let whole := cells[tokens.size]?.getD []
   let mut seen : List String := []
   let mut distinct : List Item := []
   for item in whole do
-    if item.cat == Cat.s then
+    if accept item.cat then
       let identity := item.key
       if !seen.contains identity then
         seen := identity :: seen
         distinct := distinct ++ [item]
   return distinct
+
+/-- The distinct sentence readings of the whole span. -/
+def readings (lex : List LexEntry) (tokens : Array String) : Except String (List Item) :=
+  readingsWhere (fun category => category == Cat.s) lex tokens
 
 /-! ## Linearisation and Lean emission
 
@@ -230,13 +239,59 @@ def renderAst (lex : List LexEntry) : Item → Except String String
 /-! ## Admission -/
 
 /-- What an admitted sentence yields. `lean` is the emitted term source; `ast` is the
-reviewable semantic AST; `heads` is every lexicon entry the reading used. -/
+reviewable semantic AST; `heads` is every lexicon entry the reading used; `category` is the
+reading's own category and `key` its reading identity, and a ratification pin names both. -/
 structure Admission where
   sentence : String
+  category : String
+  key : String
   lean : String
   ast : String
   heads : List String
   deriving Repr, Inhabited
+
+/-- The one reading of `sentence` the target admits, or the refusal.
+
+A sentence yields a reading only when **exactly one** reading of the whole span has a
+category `accept` admits, and that reading linearises back to the sentence **exactly**. Two
+readings, no reading, or a linearisation that differs by one word are all refusals. `role`
+names what the caller looked for, so a refusal says what was not found. -/
+def readingOf (accept : Cat → Bool) (role : String) (lex : List LexEntry) (sentence : String) :
+    Except String Item := do
+  if let some reason := sentenceRefusal sentence then
+    throw s!"refused: {reason}"
+  let tokens := (tokenise sentence).toArray
+  let parses ← readingsWhere accept lex tokens
+  match parses with
+  | [] => throw s!"refused: no reading of '{sentence}' as {role}"
+  | [item] =>
+      let relinearised := String.intercalate " " (← linearise lex item)
+      if relinearised != sentence then
+        throw s!"refused: '{sentence}' linearises back as '{relinearised}'"
+      return item
+  | _ =>
+      let rendered ← parses.mapM (fun item => renderAst lex item)
+      throw s!"refused: '{sentence}' has {parses.length} readings: \
+        {String.intercalate " | " rendered}"
+
+/-- Emits everything an admitted reading yields. Every head is ascribed the type its
+category interprets to, so an unresolved category slot, or a denotation that does not
+inhabit its category, is refused here rather than reported. -/
+def admissionOf (lex : List LexEntry) (sentence : String) (item : Item) :
+    Except String Admission := do
+  return {
+    sentence,
+    category := item.cat.render,
+    key := item.key,
+    lean := ← toLean lex item,
+    ast := ← renderAst lex item,
+    heads := item.heads
+  }
+
+/-- Admits a sentence at the target `accept` describes, or refuses it with the reason. -/
+def compileWhere (accept : Cat → Bool) (role : String) (lex : List LexEntry)
+    (sentence : String) : Except String Admission := do
+  admissionOf lex sentence (← readingOf accept role lex sentence)
 
 /-- Admits a controlled-language sentence, or refuses it with the reason.
 
@@ -244,25 +299,7 @@ A sentence is admitted only when it has **exactly one** reading of category `S`,
 reading linearises back to the sentence **exactly**, and every head's denotation
 inhabits the type its category interprets to. Two readings, no reading, an unresolved
 category slot, or a linearisation that differs by one word are all refusals. -/
-def compile (lex : List LexEntry) (sentence : String) : Except String Admission := do
-  if let some reason := sentenceRefusal sentence then
-    throw s!"refused: {reason}"
-  let tokens := (tokenise sentence).toArray
-  let parses ← readings lex tokens
-  match parses with
-  | [] => throw s!"refused: no reading of '{sentence}' as a sentence"
-  | [item] =>
-      let relinearised := String.intercalate " " (← linearise lex item)
-      if relinearised != sentence then
-        throw s!"refused: '{sentence}' linearises back as '{relinearised}'"
-      return {
-        sentence,
-        lean := ← toLean lex item,
-        ast := ← renderAst lex item,
-        heads := item.heads
-      }
-  | _ =>
-      let rendered ← parses.mapM (fun item => renderAst lex item)
-      throw s!"refused: '{sentence}' has {parses.length} readings: {String.intercalate " | " rendered}"
+def compile (lex : List LexEntry) (sentence : String) : Except String Admission :=
+  compileWhere (fun category => category == Cat.s) "a sentence" lex sentence
 
 end SpecCnl

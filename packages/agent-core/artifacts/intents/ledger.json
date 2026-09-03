@@ -1,0 +1,1012 @@
+{
+  "heads": [
+    {
+      "category": "(GD[s,l]\\IN[s,l])/ST[s,l]",
+      "denotation": "sha256:9ec6f7e7232f479676bf402002d8f84171bf9aad0ac00aa1827479f5e9586560",
+      "id": "intent.requires"
+    },
+    {
+      "category": "GD[s,l]\\IN[s,l]",
+      "denotation": "sha256:52247083b822226f324a54d17bf915254cdb8ea836b81df561f8abec3feb2ffe",
+      "id": "intent.possible"
+    },
+    {
+      "category": "(GD[s,l]\\IN[s,l])/ST[s,l]",
+      "denotation": "sha256:3f0671df4091c2743e5de19281622d6f6ca134a6456c20b58cb69ab006623995",
+      "id": "intent.possible.where"
+    },
+    {
+      "category": "(IN[s,l]\\IN[s,l])/IN[s,l]",
+      "denotation": "sha256:028d02f072a0960f0711ec6f0e81e31b5cc1a3f7f8c352ede925171cb4d414d1",
+      "id": "intent.and"
+    },
+    {
+      "category": "NU[s,p]",
+      "denotation": "sha256:a3526b26fa54509b06ffe754da7872bc4866ece4484e93b2eb7de3a339fd84b7",
+      "id": "three"
+    },
+    {
+      "category": "GD[AgentCore.TurnLease,AgentCore.LeaseLabel]",
+      "denotation": "sha256:5c56517c06bfd861283a51d8a87b009f0f74397204b474a6fa3a34088eb62db7",
+      "id": "lease.reclaims"
+    },
+    {
+      "category": "ST[AgentCore.TurnLease,AgentCore.LeaseLabel]",
+      "denotation": "sha256:1cbbd78fd781417809962312f03abc35f597395945ee6126ec7ec80d6f180447",
+      "id": "an.unheld.lease"
+    }
+  ],
+  "ledger": {
+    "adversarial": {
+      "ambiguityCases": 1,
+      "negativeCases": 8,
+      "negativeRefused": 8,
+      "roundTripExact": 4,
+      "scrambles": 72,
+      "scramblesAdmitted": 0
+    },
+    "adversarialRecords": [
+      {
+        "ast": "intent.and(intent.requires(an.unheld.lease : ST[AgentCore.TurnLease,AgentCore.LeaseLabel], lease.reclaims : GD[AgentCore.TurnLease,AgentCore.LeaseLabel]) : IN[AgentCore.TurnLease,AgentCore.LeaseLabel], intent.possible(lease.reclaims : GD[AgentCore.TurnLease,AgentCore.LeaseLabel]) : IN[AgentCore.TurnLease,AgentCore.LeaseLabel]) : IN[AgentCore.TurnLease,AgentCore.LeaseLabel]",
+        "atoms": ["LEASE_RECLAIM_POSSIBLE", "LEASE_RECLAIM_UNHELD"],
+        "bounds": [
+          {
+            "field": "lease.turn.value",
+            "high": 2,
+            "low": 0
+          },
+          {
+            "field": "lease.holder.id.value",
+            "high": 2,
+            "low": 0
+          },
+          {
+            "field": "lease.epoch",
+            "high": 1,
+            "low": 0
+          },
+          {
+            "field": "lease.expiresAt.tick",
+            "high": 4,
+            "low": 1
+          },
+          {
+            "field": "label.holder.id.value",
+            "high": 2,
+            "low": 0
+          },
+          {
+            "field": "label.now.tick",
+            "high": 4,
+            "low": 0
+          },
+          {
+            "field": "label.expiresAt.tick",
+            "high": 4,
+            "low": 1
+          },
+          {
+            "field": "label.token.turn.value",
+            "high": 2,
+            "low": 0
+          },
+          {
+            "field": "label.token.epoch",
+            "high": 1,
+            "low": 0
+          }
+        ],
+        "bridgedAtom": null,
+        "core": ["LEASE_RECLAIM_UNHELD"],
+        "corpusUnit": null,
+        "declarations": [
+          {
+            "name": "SpecCnl.Intent.Proofs.intent_INT_ADV_UNHELD_RECLAIM",
+            "role": "denotation",
+            "type": "pi(app(app(const:SpecCnl.Intent.Lts,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),Prop)"
+          },
+          {
+            "name": "SpecCnl.Intent.Proofs.split_INT_ADV_UNHELD_RECLAIM",
+            "role": "split",
+            "type": "app(app(const:SpecCnl.Intent.Split,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel)"
+          },
+          {
+            "name": "SpecCnl.Intent.Proofs.splits_INT_ADV_UNHELD_RECLAIM",
+            "role": "splits",
+            "type": "pi(app(app(const:SpecCnl.Intent.Lts,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),app(app(const:Iff,app(const:SpecCnl.Intent.Proofs.intent_INT_ADV_UNHELD_RECLAIM,other)),app(app(app(app(const:SpecCnl.Intent.Split.denote,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),const:SpecCnl.Intent.Proofs.split_INT_ADV_UNHELD_RECLAIM),other)))"
+          },
+          {
+            "name": "SpecCnl.Intent.Proofs.upward_INT_ADV_UNHELD_RECLAIM",
+            "role": "upward",
+            "type": "pi(pi(app(app(const:SpecCnl.Intent.Lts,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),Prop),pi(app(app(app(app(app(const:Membership.mem,pi(app(app(const:SpecCnl.Intent.Lts,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),Prop)),app(const:List,pi(app(app(const:SpecCnl.Intent.Lts,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),Prop))),app(const:List.instMembership,pi(app(app(const:SpecCnl.Intent.Lts,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),Prop))),app(app(app(const:SpecCnl.Intent.Split.permissions,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),const:SpecCnl.Intent.Proofs.split_INT_ADV_UNHELD_RECLAIM)),other),app(app(app(const:SpecCnl.Intent.Upward,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),other)))"
+          },
+          {
+            "name": "SpecCnl.Intent.Proofs.claim_INT_ADV_UNHELD_RECLAIM",
+            "role": "claim",
+            "type": "Prop"
+          },
+          {
+            "name": "SpecCnl.Intent.Proofs.verdict_INT_ADV_UNHELD_RECLAIM",
+            "role": "verdict",
+            "type": "const:SpecCnl.Intent.Proofs.claim_INT_ADV_UNHELD_RECLAIM"
+          },
+          {
+            "name": "SpecCnl.Intent.Proofs.witnessed_INT_ADV_UNHELD_RECLAIM",
+            "role": "evidence",
+            "type": "pi(pi(app(app(const:SpecCnl.Intent.Lts,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),Prop),pi(app(app(app(app(app(const:Membership.mem,pi(app(app(const:SpecCnl.Intent.Lts,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),Prop)),app(const:List,pi(app(app(const:SpecCnl.Intent.Lts,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),Prop))),app(const:List.instMembership,pi(app(app(const:SpecCnl.Intent.Lts,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),Prop))),app(app(app(const:SpecCnl.Intent.Split.permissions,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),const:SpecCnl.Intent.Proofs.split_INT_ADV_UNHELD_RECLAIM)),other),app(other,app(app(app(app(const:SpecCnl.Intent.rmax,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),app(app(const:SpecCnl.Intent.anyTransition,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel)),app(app(app(const:SpecCnl.Intent.Split.safety,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),const:SpecCnl.Intent.Proofs.split_INT_ADV_UNHELD_RECLAIM)))))"
+          },
+          {
+            "name": "SpecCnl.Intent.Proofs.refuted_INT_ADV_UNHELD_RECLAIM",
+            "role": "evidence",
+            "type": "pi(pi(app(app(const:SpecCnl.Intent.Lts,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),Prop),pi(app(app(app(app(app(const:Membership.mem,pi(app(app(const:SpecCnl.Intent.Lts,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),Prop)),app(const:List,pi(app(app(const:SpecCnl.Intent.Lts,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),Prop))),app(const:List.instMembership,pi(app(app(const:SpecCnl.Intent.Lts,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),Prop))),app(app(app(const:SpecCnl.Intent.Split.permissions,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),const:SpecCnl.Intent.Proofs.split_INT_ADV_UNHELD_RECLAIM)),other),app(const:Not,app(other,app(app(app(app(const:SpecCnl.Intent.rmax,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),const:AgentCore.LeaseStep),app(app(app(const:SpecCnl.Intent.Split.safety,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),const:SpecCnl.Intent.Proofs.split_INT_ADV_UNHELD_RECLAIM))))))"
+          }
+        ],
+        "digest": "",
+        "excludedInstance": "lease(turn=0, holder=0.0, epoch=0, expiry=1) -- reclaim(holder=0.0, now=1, expiresAt=2)",
+        "expected": "OUTSIDE-MODEL",
+        "explored": 52032,
+        "failedPermission": "LEASE_RECLAIM_POSSIBLE",
+        "heads": [
+          "intent.and",
+          "intent.requires",
+          "an.unheld.lease",
+          "lease.reclaims",
+          "intent.possible",
+          "lease.reclaims"
+        ],
+        "key": "INT_ADV_UNHELD_RECLAIM",
+        "lean": "((((SpecCnl.Intent.inAnd) : (((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → (AgentCore.TurnLease) → Prop) → Prop) → ((((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → (AgentCore.TurnLease) → Prop) → Prop) → (((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → (AgentCore.TurnLease) → Prop) → Prop))) ((((SpecCnl.Intent.inRequires) : ((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → Prop) → (((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → Prop) → (((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → (AgentCore.TurnLease) → Prop) → Prop))) ((fun lease _ => AgentCore.TurnLease.holder lease = none) : (AgentCore.TurnLease) → (AgentCore.LeaseLabel) → Prop)) ((fun _ label => ∃ holder now expiresAt, label = AgentCore.LeaseLabel.reclaim holder now expiresAt) : (AgentCore.TurnLease) → (AgentCore.LeaseLabel) → Prop))) (((SpecCnl.Intent.inPossible) : ((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → Prop) → (((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → (AgentCore.TurnLease) → Prop) → Prop)) ((fun _ label => ∃ holder now expiresAt, label = AgentCore.LeaseLabel.reclaim holder now expiresAt) : (AgentCore.TurnLease) → (AgentCore.LeaseLabel) → Prop)))",
+        "ledger": "AgentCore.TurnLease",
+        "note": "demanding a reclaim while forbidding a held one. Nothing here contradicts anything: a platform that reclaims unheld leases is perfectly conceivable, and the universe pass witnesses one. The SPEC model is what refuses it, because LeaseStep.reclaim demands a holder, so the refutation is an inversion on that constructor rather than arithmetic",
+        "order": "lexicographic in the bounds listed, smallest first; lease.holder ranges over none and then each principal; label constructors in declaration order (claim, renew, reclaim, suspendFence, resume, terminalFence); every tenant is 0",
+        "readingKey": "intent.and(intent.requires(an.unheld.lease(),lease.reclaims()),intent.possible(lease.reclaims()))",
+        "refutationProof": "SpecCnl.Intent.Proofs.refuted_INT_ADV_UNHELD_RECLAIM",
+        "sentence": "lease reclaims are possible and lease reclaims require an unheld lease",
+        "specAtoms": [],
+        "verdict": "OUTSIDE-MODEL",
+        "witnessProof": "SpecCnl.Intent.Proofs.witnessed_INT_ADV_UNHELD_RECLAIM",
+        "witnesses": []
+      },
+      {
+        "ast": "intent.and(intent.possible.where(for.the.reclaim(equals(three : NU[AgentCore.TurnLease,AgentCore.Time], the.stated.time : NU[AgentCore.TurnLease,AgentCore.Time]) : ST[AgentCore.TurnLease,AgentCore.Time]) : ST[AgentCore.TurnLease,AgentCore.LeaseLabel], lease.reclaims : GD[AgentCore.TurnLease,AgentCore.LeaseLabel]) : IN[AgentCore.TurnLease,AgentCore.LeaseLabel], intent.requires(for.the.reclaim(is.at.most(two : NU[AgentCore.TurnLease,AgentCore.Time], the.stated.time : NU[AgentCore.TurnLease,AgentCore.Time]) : ST[AgentCore.TurnLease,AgentCore.Time]) : ST[AgentCore.TurnLease,AgentCore.LeaseLabel], lease.reclaims : GD[AgentCore.TurnLease,AgentCore.LeaseLabel]) : IN[AgentCore.TurnLease,AgentCore.LeaseLabel]) : IN[AgentCore.TurnLease,AgentCore.LeaseLabel]",
+        "atoms": ["LEASE_RECLAIM_BY_TWO", "LEASE_RECLAIM_AT_THREE"],
+        "bounds": [
+          {
+            "field": "lease.turn.value",
+            "high": 2,
+            "low": 0
+          },
+          {
+            "field": "lease.holder.id.value",
+            "high": 2,
+            "low": 0
+          },
+          {
+            "field": "lease.epoch",
+            "high": 1,
+            "low": 0
+          },
+          {
+            "field": "lease.expiresAt.tick",
+            "high": 4,
+            "low": 1
+          },
+          {
+            "field": "label.holder.id.value",
+            "high": 2,
+            "low": 0
+          },
+          {
+            "field": "label.now.tick",
+            "high": 4,
+            "low": 0
+          },
+          {
+            "field": "label.expiresAt.tick",
+            "high": 4,
+            "low": 1
+          },
+          {
+            "field": "label.token.turn.value",
+            "high": 2,
+            "low": 0
+          },
+          {
+            "field": "label.token.epoch",
+            "high": 1,
+            "low": 0
+          }
+        ],
+        "bridgedAtom": null,
+        "core": ["LEASE_RECLAIM_BY_TWO"],
+        "corpusUnit": null,
+        "declarations": [
+          {
+            "name": "SpecCnl.Intent.Proofs.intent_INT_ADV_EARLY_LATE_RECLAIM",
+            "role": "denotation",
+            "type": "pi(app(app(const:SpecCnl.Intent.Lts,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),Prop)"
+          },
+          {
+            "name": "SpecCnl.Intent.Proofs.split_INT_ADV_EARLY_LATE_RECLAIM",
+            "role": "split",
+            "type": "app(app(const:SpecCnl.Intent.Split,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel)"
+          },
+          {
+            "name": "SpecCnl.Intent.Proofs.splits_INT_ADV_EARLY_LATE_RECLAIM",
+            "role": "splits",
+            "type": "pi(app(app(const:SpecCnl.Intent.Lts,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),app(app(const:Iff,app(const:SpecCnl.Intent.Proofs.intent_INT_ADV_EARLY_LATE_RECLAIM,other)),app(app(app(app(const:SpecCnl.Intent.Split.denote,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),const:SpecCnl.Intent.Proofs.split_INT_ADV_EARLY_LATE_RECLAIM),other)))"
+          },
+          {
+            "name": "SpecCnl.Intent.Proofs.upward_INT_ADV_EARLY_LATE_RECLAIM",
+            "role": "upward",
+            "type": "pi(pi(app(app(const:SpecCnl.Intent.Lts,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),Prop),pi(app(app(app(app(app(const:Membership.mem,pi(app(app(const:SpecCnl.Intent.Lts,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),Prop)),app(const:List,pi(app(app(const:SpecCnl.Intent.Lts,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),Prop))),app(const:List.instMembership,pi(app(app(const:SpecCnl.Intent.Lts,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),Prop))),app(app(app(const:SpecCnl.Intent.Split.permissions,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),const:SpecCnl.Intent.Proofs.split_INT_ADV_EARLY_LATE_RECLAIM)),other),app(app(app(const:SpecCnl.Intent.Upward,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),other)))"
+          },
+          {
+            "name": "SpecCnl.Intent.Proofs.claim_INT_ADV_EARLY_LATE_RECLAIM",
+            "role": "claim",
+            "type": "Prop"
+          },
+          {
+            "name": "SpecCnl.Intent.Proofs.verdict_INT_ADV_EARLY_LATE_RECLAIM",
+            "role": "verdict",
+            "type": "const:SpecCnl.Intent.Proofs.claim_INT_ADV_EARLY_LATE_RECLAIM"
+          },
+          {
+            "name": "SpecCnl.Intent.Proofs.refuted_INT_ADV_EARLY_LATE_RECLAIM",
+            "role": "evidence",
+            "type": "pi(pi(app(app(const:SpecCnl.Intent.Lts,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),Prop),pi(app(app(app(app(app(const:Membership.mem,pi(app(app(const:SpecCnl.Intent.Lts,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),Prop)),app(const:List,pi(app(app(const:SpecCnl.Intent.Lts,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),Prop))),app(const:List.instMembership,pi(app(app(const:SpecCnl.Intent.Lts,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),Prop))),app(app(app(const:SpecCnl.Intent.Split.permissions,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),const:SpecCnl.Intent.Proofs.split_INT_ADV_EARLY_LATE_RECLAIM)),other),app(const:Not,app(other,app(app(app(app(const:SpecCnl.Intent.rmax,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),app(app(const:SpecCnl.Intent.anyTransition,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel)),app(app(app(const:SpecCnl.Intent.Split.safety,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),const:SpecCnl.Intent.Proofs.split_INT_ADV_EARLY_LATE_RECLAIM))))))"
+          }
+        ],
+        "digest": "",
+        "excludedInstance": "lease(turn=0, holder=none, epoch=0, expiry=1) -- reclaim(holder=0.0, now=3, expiresAt=1)",
+        "expected": "INCONSISTENT",
+        "explored": 52032,
+        "failedPermission": "LEASE_RECLAIM_AT_THREE",
+        "heads": [
+          "intent.and",
+          "intent.possible.where",
+          "for.the.reclaim",
+          "equals",
+          "three",
+          "the.stated.time",
+          "lease.reclaims",
+          "intent.requires",
+          "for.the.reclaim",
+          "is.at.most",
+          "two",
+          "the.stated.time",
+          "lease.reclaims"
+        ],
+        "key": "INT_ADV_EARLY_LATE_RECLAIM",
+        "lean": "((((SpecCnl.Intent.inAnd) : (((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → (AgentCore.TurnLease) → Prop) → Prop) → ((((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → (AgentCore.TurnLease) → Prop) → Prop) → (((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → (AgentCore.TurnLease) → Prop) → Prop))) ((((SpecCnl.Intent.inPossibleWhere) : ((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → Prop) → (((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → Prop) → (((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → (AgentCore.TurnLease) → Prop) → Prop))) (((fun cond before label => ∀ holder now expiresAt, label = AgentCore.LeaseLabel.reclaim holder now expiresAt → cond before now) : ((AgentCore.TurnLease) → (AgentCore.Time) → Prop) → ((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → Prop)) ((((SpecCnl.nuEquals) : ((AgentCore.TurnLease) → (AgentCore.Time) → Nat) → (((AgentCore.TurnLease) → (AgentCore.Time) → Nat) → ((AgentCore.TurnLease) → (AgentCore.Time) → Prop))) ((SpecCnl.nuLiteral 3) : (AgentCore.TurnLease) → (AgentCore.Time) → Nat)) ((fun _ now => AgentCore.Time.tick now) : (AgentCore.TurnLease) → (AgentCore.Time) → Nat)))) ((fun _ label => ∃ holder now expiresAt, label = AgentCore.LeaseLabel.reclaim holder now expiresAt) : (AgentCore.TurnLease) → (AgentCore.LeaseLabel) → Prop))) ((((SpecCnl.Intent.inRequires) : ((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → Prop) → (((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → Prop) → (((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → (AgentCore.TurnLease) → Prop) → Prop))) (((fun cond before label => ∀ holder now expiresAt, label = AgentCore.LeaseLabel.reclaim holder now expiresAt → cond before now) : ((AgentCore.TurnLease) → (AgentCore.Time) → Prop) → ((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → Prop)) ((((SpecCnl.nuAtMost) : ((AgentCore.TurnLease) → (AgentCore.Time) → Nat) → (((AgentCore.TurnLease) → (AgentCore.Time) → Nat) → ((AgentCore.TurnLease) → (AgentCore.Time) → Prop))) ((SpecCnl.nuLiteral 2) : (AgentCore.TurnLease) → (AgentCore.Time) → Nat)) ((fun _ now => AgentCore.Time.tick now) : (AgentCore.TurnLease) → (AgentCore.Time) → Nat)))) ((fun _ label => ∃ holder now expiresAt, label = AgentCore.LeaseLabel.reclaim holder now expiresAt) : (AgentCore.TurnLease) → (AgentCore.LeaseLabel) → Prop)))",
+        "ledger": "AgentCore.TurnLease",
+        "note": "forbidding a reclaim after tick two while demanding one at tick three. No platform at all satisfies both, so the verdict is INCONSISTENT rather than OUTSIDE-MODEL and the refutation never mentions the model",
+        "order": "lexicographic in the bounds listed, smallest first; lease.holder ranges over none and then each principal; label constructors in declaration order (claim, renew, reclaim, suspendFence, resume, terminalFence); every tenant is 0",
+        "readingKey": "intent.and(intent.possible.where(for.the.reclaim(equals(three(),the.stated.time())),lease.reclaims()),intent.requires(for.the.reclaim(is.at.most(two(),the.stated.time())),lease.reclaims()))",
+        "refutationProof": "SpecCnl.Intent.Proofs.refuted_INT_ADV_EARLY_LATE_RECLAIM",
+        "sentence": "lease reclaims require the stated time is at most two for the reclaim and lease reclaims are possible where the stated time equals three for the reclaim",
+        "specAtoms": [],
+        "verdict": "INCONSISTENT",
+        "witnessProof": null,
+        "witnesses": []
+      },
+      {
+        "ast": "intent.and(intent.requires(for.the.reclaim(is.at.most(two : NU[AgentCore.TurnLease,AgentCore.Time], the.stated.time : NU[AgentCore.TurnLease,AgentCore.Time]) : ST[AgentCore.TurnLease,AgentCore.Time]) : ST[AgentCore.TurnLease,AgentCore.LeaseLabel], lease.reclaims : GD[AgentCore.TurnLease,AgentCore.LeaseLabel]) : IN[AgentCore.TurnLease,AgentCore.LeaseLabel], intent.possible(lease.reclaims : GD[AgentCore.TurnLease,AgentCore.LeaseLabel]) : IN[AgentCore.TurnLease,AgentCore.LeaseLabel]) : IN[AgentCore.TurnLease,AgentCore.LeaseLabel]",
+        "atoms": ["LEASE_RECLAIM_POSSIBLE", "LEASE_RECLAIM_BY_TWO"],
+        "bounds": [
+          {
+            "field": "lease.turn.value",
+            "high": 2,
+            "low": 0
+          },
+          {
+            "field": "lease.holder.id.value",
+            "high": 2,
+            "low": 0
+          },
+          {
+            "field": "lease.epoch",
+            "high": 1,
+            "low": 0
+          },
+          {
+            "field": "lease.expiresAt.tick",
+            "high": 4,
+            "low": 1
+          },
+          {
+            "field": "label.holder.id.value",
+            "high": 2,
+            "low": 0
+          },
+          {
+            "field": "label.now.tick",
+            "high": 4,
+            "low": 0
+          },
+          {
+            "field": "label.expiresAt.tick",
+            "high": 4,
+            "low": 1
+          },
+          {
+            "field": "label.token.turn.value",
+            "high": 2,
+            "low": 0
+          },
+          {
+            "field": "label.token.epoch",
+            "high": 1,
+            "low": 0
+          }
+        ],
+        "bridgedAtom": null,
+        "core": [],
+        "corpusUnit": null,
+        "declarations": [
+          {
+            "name": "SpecCnl.Intent.Proofs.intent_INT_ADV_BOUNDED_RECLAIM",
+            "role": "denotation",
+            "type": "pi(app(app(const:SpecCnl.Intent.Lts,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),Prop)"
+          },
+          {
+            "name": "SpecCnl.Intent.Proofs.split_INT_ADV_BOUNDED_RECLAIM",
+            "role": "split",
+            "type": "app(app(const:SpecCnl.Intent.Split,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel)"
+          },
+          {
+            "name": "SpecCnl.Intent.Proofs.splits_INT_ADV_BOUNDED_RECLAIM",
+            "role": "splits",
+            "type": "pi(app(app(const:SpecCnl.Intent.Lts,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),app(app(const:Iff,app(const:SpecCnl.Intent.Proofs.intent_INT_ADV_BOUNDED_RECLAIM,other)),app(app(app(app(const:SpecCnl.Intent.Split.denote,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),const:SpecCnl.Intent.Proofs.split_INT_ADV_BOUNDED_RECLAIM),other)))"
+          },
+          {
+            "name": "SpecCnl.Intent.Proofs.upward_INT_ADV_BOUNDED_RECLAIM",
+            "role": "upward",
+            "type": "pi(pi(app(app(const:SpecCnl.Intent.Lts,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),Prop),pi(app(app(app(app(app(const:Membership.mem,pi(app(app(const:SpecCnl.Intent.Lts,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),Prop)),app(const:List,pi(app(app(const:SpecCnl.Intent.Lts,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),Prop))),app(const:List.instMembership,pi(app(app(const:SpecCnl.Intent.Lts,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),Prop))),app(app(app(const:SpecCnl.Intent.Split.permissions,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),const:SpecCnl.Intent.Proofs.split_INT_ADV_BOUNDED_RECLAIM)),other),app(app(app(const:SpecCnl.Intent.Upward,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),other)))"
+          },
+          {
+            "name": "SpecCnl.Intent.Proofs.claim_INT_ADV_BOUNDED_RECLAIM",
+            "role": "claim",
+            "type": "Prop"
+          },
+          {
+            "name": "SpecCnl.Intent.Proofs.verdict_INT_ADV_BOUNDED_RECLAIM",
+            "role": "verdict",
+            "type": "const:SpecCnl.Intent.Proofs.claim_INT_ADV_BOUNDED_RECLAIM"
+          },
+          {
+            "name": "SpecCnl.Intent.Proofs.witnessed_INT_ADV_BOUNDED_RECLAIM",
+            "role": "evidence",
+            "type": "pi(pi(app(app(const:SpecCnl.Intent.Lts,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),Prop),pi(app(app(app(app(app(const:Membership.mem,pi(app(app(const:SpecCnl.Intent.Lts,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),Prop)),app(const:List,pi(app(app(const:SpecCnl.Intent.Lts,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),Prop))),app(const:List.instMembership,pi(app(app(const:SpecCnl.Intent.Lts,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),Prop))),app(app(app(const:SpecCnl.Intent.Split.permissions,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),const:SpecCnl.Intent.Proofs.split_INT_ADV_BOUNDED_RECLAIM)),other),app(other,app(app(app(app(const:SpecCnl.Intent.rmax,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),const:AgentCore.LeaseStep),app(app(app(const:SpecCnl.Intent.Split.safety,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),const:SpecCnl.Intent.Proofs.split_INT_ADV_BOUNDED_RECLAIM)))))"
+          }
+        ],
+        "digest": "",
+        "excludedInstance": null,
+        "expected": "CONSISTENT",
+        "explored": 52032,
+        "failedPermission": null,
+        "heads": [
+          "intent.and",
+          "intent.requires",
+          "for.the.reclaim",
+          "is.at.most",
+          "two",
+          "the.stated.time",
+          "lease.reclaims",
+          "intent.possible",
+          "lease.reclaims"
+        ],
+        "key": "INT_ADV_BOUNDED_RECLAIM",
+        "lean": "((((SpecCnl.Intent.inAnd) : (((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → (AgentCore.TurnLease) → Prop) → Prop) → ((((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → (AgentCore.TurnLease) → Prop) → Prop) → (((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → (AgentCore.TurnLease) → Prop) → Prop))) ((((SpecCnl.Intent.inRequires) : ((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → Prop) → (((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → Prop) → (((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → (AgentCore.TurnLease) → Prop) → Prop))) (((fun cond before label => ∀ holder now expiresAt, label = AgentCore.LeaseLabel.reclaim holder now expiresAt → cond before now) : ((AgentCore.TurnLease) → (AgentCore.Time) → Prop) → ((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → Prop)) ((((SpecCnl.nuAtMost) : ((AgentCore.TurnLease) → (AgentCore.Time) → Nat) → (((AgentCore.TurnLease) → (AgentCore.Time) → Nat) → ((AgentCore.TurnLease) → (AgentCore.Time) → Prop))) ((SpecCnl.nuLiteral 2) : (AgentCore.TurnLease) → (AgentCore.Time) → Nat)) ((fun _ now => AgentCore.Time.tick now) : (AgentCore.TurnLease) → (AgentCore.Time) → Nat)))) ((fun _ label => ∃ holder now expiresAt, label = AgentCore.LeaseLabel.reclaim holder now expiresAt) : (AgentCore.TurnLease) → (AgentCore.LeaseLabel) → Prop))) (((SpecCnl.Intent.inPossible) : ((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → Prop) → (((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → (AgentCore.TurnLease) → Prop) → Prop)) ((fun _ label => ∃ holder now expiresAt, label = AgentCore.LeaseLabel.reclaim holder now expiresAt) : (AgentCore.TurnLease) → (AgentCore.LeaseLabel) → Prop)))",
+        "ledger": "AgentCore.TurnLease",
+        "note": "the discriminating case. A bound on when a reclaim may happen, together with the demand that one happen, is satisfiable and the model realises it. A checker that answered INCONSISTENT whenever a safety atom bounded a permission would pass every other case in this list and fail this one",
+        "order": "lexicographic in the bounds listed, smallest first; lease.holder ranges over none and then each principal; label constructors in declaration order (claim, renew, reclaim, suspendFence, resume, terminalFence); every tenant is 0",
+        "readingKey": "intent.and(intent.requires(for.the.reclaim(is.at.most(two(),the.stated.time())),lease.reclaims()),intent.possible(lease.reclaims()))",
+        "refutationProof": null,
+        "sentence": "lease reclaims are possible and lease reclaims require the stated time is at most two for the reclaim",
+        "specAtoms": [],
+        "verdict": "CONSISTENT",
+        "witnessProof": "SpecCnl.Intent.Proofs.witnessed_INT_ADV_BOUNDED_RECLAIM",
+        "witnesses": [
+          {
+            "instance": "lease(turn=0, holder=0.0, epoch=0, expiry=1) -- reclaim(holder=0.0, now=1, expiresAt=2)",
+            "permission": "LEASE_RECLAIM_POSSIBLE"
+          }
+        ]
+      }
+    ],
+    "atoms": [
+      {
+        "ast": "intent.requires(for.the.reclaim(is.at.most(the.stated.time : NU[AgentCore.TurnLease,AgentCore.Time], the.recorded.expiry : NU[AgentCore.TurnLease,AgentCore.Time]) : ST[AgentCore.TurnLease,AgentCore.Time]) : ST[AgentCore.TurnLease,AgentCore.LeaseLabel], lease.reclaims : GD[AgentCore.TurnLease,AgentCore.LeaseLabel]) : IN[AgentCore.TurnLease,AgentCore.LeaseLabel]",
+        "category": "IN[AgentCore.TurnLease,AgentCore.LeaseLabel]",
+        "declarations": [
+          {
+            "name": "SpecCnl.Intent.Proofs.intent_LEASE_EXPIRY_BOUND",
+            "role": "denotation",
+            "type": "pi(app(app(const:SpecCnl.Intent.Lts,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),Prop)"
+          },
+          {
+            "name": "SpecCnl.Intent.Proofs.polar_LEASE_EXPIRY_BOUND",
+            "role": "polarity",
+            "type": "app(app(app(const:SpecCnl.Intent.Downward,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),const:SpecCnl.Intent.Proofs.intent_LEASE_EXPIRY_BOUND)"
+          }
+        ],
+        "heads": [
+          "intent.requires",
+          "for.the.reclaim",
+          "is.at.most",
+          "the.stated.time",
+          "the.recorded.expiry",
+          "lease.reclaims"
+        ],
+        "key": "LEASE_EXPIRY_BOUND",
+        "lean": "((((SpecCnl.Intent.inRequires) : ((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → Prop) → (((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → Prop) → (((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → (AgentCore.TurnLease) → Prop) → Prop))) (((fun cond before label => ∀ holder now expiresAt, label = AgentCore.LeaseLabel.reclaim holder now expiresAt → cond before now) : ((AgentCore.TurnLease) → (AgentCore.Time) → Prop) → ((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → Prop)) ((((SpecCnl.nuAtMost) : ((AgentCore.TurnLease) → (AgentCore.Time) → Nat) → (((AgentCore.TurnLease) → (AgentCore.Time) → Nat) → ((AgentCore.TurnLease) → (AgentCore.Time) → Prop))) ((fun _ now => AgentCore.Time.tick now) : (AgentCore.TurnLease) → (AgentCore.Time) → Nat)) ((fun lease _ => AgentCore.Time.tick (AgentCore.TurnLease.expiresAt lease)) : (AgentCore.TurnLease) → (AgentCore.Time) → Nat)))) ((fun _ label => ∃ holder now expiresAt, label = AgentCore.LeaseLabel.reclaim holder now expiresAt) : (AgentCore.TurnLease) → (AgentCore.LeaseLabel) → Prop))",
+        "ledger": "AgentCore.TurnLease",
+        "note": "a platform may reclaim a lease only at or after the tick it recorded as the lease's expiry. This is C13-TURN-LEASE-EXPIRY stated as a constraint on a platform rather than as a theorem about the model",
+        "polarity": "safety",
+        "readingKey": "intent.requires(for.the.reclaim(is.at.most(the.stated.time(),the.recorded.expiry())),lease.reclaims())",
+        "sentence": "lease reclaims require the recorded expiry is at most the stated time for the reclaim"
+      },
+      {
+        "ast": "intent.possible(lease.reclaims : GD[AgentCore.TurnLease,AgentCore.LeaseLabel]) : IN[AgentCore.TurnLease,AgentCore.LeaseLabel]",
+        "category": "IN[AgentCore.TurnLease,AgentCore.LeaseLabel]",
+        "declarations": [
+          {
+            "name": "SpecCnl.Intent.Proofs.intent_LEASE_RECLAIM_POSSIBLE",
+            "role": "denotation",
+            "type": "pi(app(app(const:SpecCnl.Intent.Lts,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),Prop)"
+          },
+          {
+            "name": "SpecCnl.Intent.Proofs.polar_LEASE_RECLAIM_POSSIBLE",
+            "role": "polarity",
+            "type": "app(app(app(const:SpecCnl.Intent.Upward,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),const:SpecCnl.Intent.Proofs.intent_LEASE_RECLAIM_POSSIBLE)"
+          }
+        ],
+        "heads": ["intent.possible", "lease.reclaims"],
+        "key": "LEASE_RECLAIM_POSSIBLE",
+        "lean": "(((SpecCnl.Intent.inPossible) : ((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → Prop) → (((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → (AgentCore.TurnLease) → Prop) → Prop)) ((fun _ label => ∃ holder now expiresAt, label = AgentCore.LeaseLabel.reclaim holder now expiresAt) : (AgentCore.TurnLease) → (AgentCore.LeaseLabel) → Prop))",
+        "ledger": "AgentCore.TurnLease",
+        "note": "a platform must admit some reclaim. The controlled language has no form for this, which is why a set of its sentences can never contradict itself: the empty relation satisfies every one of them",
+        "polarity": "permission",
+        "readingKey": "intent.possible(lease.reclaims())",
+        "sentence": "lease reclaims are possible"
+      },
+      {
+        "ast": "intent.requires(an.unheld.lease : ST[AgentCore.TurnLease,AgentCore.LeaseLabel], lease.reclaims : GD[AgentCore.TurnLease,AgentCore.LeaseLabel]) : IN[AgentCore.TurnLease,AgentCore.LeaseLabel]",
+        "category": "IN[AgentCore.TurnLease,AgentCore.LeaseLabel]",
+        "declarations": [
+          {
+            "name": "SpecCnl.Intent.Proofs.intent_LEASE_RECLAIM_UNHELD",
+            "role": "denotation",
+            "type": "pi(app(app(const:SpecCnl.Intent.Lts,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),Prop)"
+          },
+          {
+            "name": "SpecCnl.Intent.Proofs.polar_LEASE_RECLAIM_UNHELD",
+            "role": "polarity",
+            "type": "app(app(app(const:SpecCnl.Intent.Downward,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),const:SpecCnl.Intent.Proofs.intent_LEASE_RECLAIM_UNHELD)"
+          }
+        ],
+        "heads": ["intent.requires", "an.unheld.lease", "lease.reclaims"],
+        "key": "LEASE_RECLAIM_UNHELD",
+        "lean": "((((SpecCnl.Intent.inRequires) : ((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → Prop) → (((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → Prop) → (((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → (AgentCore.TurnLease) → Prop) → Prop))) ((fun lease _ => AgentCore.TurnLease.holder lease = none) : (AgentCore.TurnLease) → (AgentCore.LeaseLabel) → Prop)) ((fun _ label => ∃ holder now expiresAt, label = AgentCore.LeaseLabel.reclaim holder now expiresAt) : (AgentCore.TurnLease) → (AgentCore.LeaseLabel) → Prop))",
+        "ledger": "AgentCore.TurnLease",
+        "note": "a platform may reclaim only a lease nobody holds. The model demands the opposite — LeaseStep.reclaim requires a holder — so this atom is satisfiable but unrealisable, which is the OUTSIDE-MODEL case",
+        "polarity": "safety",
+        "readingKey": "intent.requires(an.unheld.lease(),lease.reclaims())",
+        "sentence": "lease reclaims require an unheld lease"
+      },
+      {
+        "ast": "intent.requires(for.the.reclaim(is.at.most(two : NU[AgentCore.TurnLease,AgentCore.Time], the.stated.time : NU[AgentCore.TurnLease,AgentCore.Time]) : ST[AgentCore.TurnLease,AgentCore.Time]) : ST[AgentCore.TurnLease,AgentCore.LeaseLabel], lease.reclaims : GD[AgentCore.TurnLease,AgentCore.LeaseLabel]) : IN[AgentCore.TurnLease,AgentCore.LeaseLabel]",
+        "category": "IN[AgentCore.TurnLease,AgentCore.LeaseLabel]",
+        "declarations": [
+          {
+            "name": "SpecCnl.Intent.Proofs.intent_LEASE_RECLAIM_BY_TWO",
+            "role": "denotation",
+            "type": "pi(app(app(const:SpecCnl.Intent.Lts,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),Prop)"
+          },
+          {
+            "name": "SpecCnl.Intent.Proofs.polar_LEASE_RECLAIM_BY_TWO",
+            "role": "polarity",
+            "type": "app(app(app(const:SpecCnl.Intent.Downward,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),const:SpecCnl.Intent.Proofs.intent_LEASE_RECLAIM_BY_TWO)"
+          }
+        ],
+        "heads": [
+          "intent.requires",
+          "for.the.reclaim",
+          "is.at.most",
+          "two",
+          "the.stated.time",
+          "lease.reclaims"
+        ],
+        "key": "LEASE_RECLAIM_BY_TWO",
+        "lean": "((((SpecCnl.Intent.inRequires) : ((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → Prop) → (((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → Prop) → (((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → (AgentCore.TurnLease) → Prop) → Prop))) (((fun cond before label => ∀ holder now expiresAt, label = AgentCore.LeaseLabel.reclaim holder now expiresAt → cond before now) : ((AgentCore.TurnLease) → (AgentCore.Time) → Prop) → ((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → Prop)) ((((SpecCnl.nuAtMost) : ((AgentCore.TurnLease) → (AgentCore.Time) → Nat) → (((AgentCore.TurnLease) → (AgentCore.Time) → Nat) → ((AgentCore.TurnLease) → (AgentCore.Time) → Prop))) ((SpecCnl.nuLiteral 2) : (AgentCore.TurnLease) → (AgentCore.Time) → Nat)) ((fun _ now => AgentCore.Time.tick now) : (AgentCore.TurnLease) → (AgentCore.Time) → Nat)))) ((fun _ label => ∃ holder now expiresAt, label = AgentCore.LeaseLabel.reclaim holder now expiresAt) : (AgentCore.TurnLease) → (AgentCore.LeaseLabel) → Prop))",
+        "ledger": "AgentCore.TurnLease",
+        "note": "a platform may not reclaim after tick two",
+        "polarity": "safety",
+        "readingKey": "intent.requires(for.the.reclaim(is.at.most(two(),the.stated.time())),lease.reclaims())",
+        "sentence": "lease reclaims require the stated time is at most two for the reclaim"
+      },
+      {
+        "ast": "intent.possible.where(for.the.reclaim(equals(three : NU[AgentCore.TurnLease,AgentCore.Time], the.stated.time : NU[AgentCore.TurnLease,AgentCore.Time]) : ST[AgentCore.TurnLease,AgentCore.Time]) : ST[AgentCore.TurnLease,AgentCore.LeaseLabel], lease.reclaims : GD[AgentCore.TurnLease,AgentCore.LeaseLabel]) : IN[AgentCore.TurnLease,AgentCore.LeaseLabel]",
+        "category": "IN[AgentCore.TurnLease,AgentCore.LeaseLabel]",
+        "declarations": [
+          {
+            "name": "SpecCnl.Intent.Proofs.intent_LEASE_RECLAIM_AT_THREE",
+            "role": "denotation",
+            "type": "pi(app(app(const:SpecCnl.Intent.Lts,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),Prop)"
+          },
+          {
+            "name": "SpecCnl.Intent.Proofs.polar_LEASE_RECLAIM_AT_THREE",
+            "role": "polarity",
+            "type": "app(app(app(const:SpecCnl.Intent.Upward,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),const:SpecCnl.Intent.Proofs.intent_LEASE_RECLAIM_AT_THREE)"
+          }
+        ],
+        "heads": [
+          "intent.possible.where",
+          "for.the.reclaim",
+          "equals",
+          "three",
+          "the.stated.time",
+          "lease.reclaims"
+        ],
+        "key": "LEASE_RECLAIM_AT_THREE",
+        "lean": "((((SpecCnl.Intent.inPossibleWhere) : ((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → Prop) → (((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → Prop) → (((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → (AgentCore.TurnLease) → Prop) → Prop))) (((fun cond before label => ∀ holder now expiresAt, label = AgentCore.LeaseLabel.reclaim holder now expiresAt → cond before now) : ((AgentCore.TurnLease) → (AgentCore.Time) → Prop) → ((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → Prop)) ((((SpecCnl.nuEquals) : ((AgentCore.TurnLease) → (AgentCore.Time) → Nat) → (((AgentCore.TurnLease) → (AgentCore.Time) → Nat) → ((AgentCore.TurnLease) → (AgentCore.Time) → Prop))) ((SpecCnl.nuLiteral 3) : (AgentCore.TurnLease) → (AgentCore.Time) → Nat)) ((fun _ now => AgentCore.Time.tick now) : (AgentCore.TurnLease) → (AgentCore.Time) → Nat)))) ((fun _ label => ∃ holder now expiresAt, label = AgentCore.LeaseLabel.reclaim holder now expiresAt) : (AgentCore.TurnLease) → (AgentCore.LeaseLabel) → Prop))",
+        "ledger": "AgentCore.TurnLease",
+        "note": "a platform must admit a reclaim at tick three. Against the atom above, no platform at all can do both, which is the INCONSISTENT case",
+        "polarity": "permission",
+        "readingKey": "intent.possible.where(for.the.reclaim(equals(three(),the.stated.time())),lease.reclaims())",
+        "sentence": "lease reclaims are possible where the stated time equals three for the reclaim"
+      }
+    ],
+    "auditedNames": [
+      "SpecCnl.Intent.sat_iff_rmax",
+      "SpecCnl.Intent.satAt_congr",
+      "SpecCnl.Intent.rmax_refines_of_subset",
+      "SpecCnl.Intent.not_permission_of_core",
+      "SpecCnl.Intent.inRequires_downward",
+      "SpecCnl.Intent.inPossible_upward",
+      "SpecCnl.Intent.inPossibleWhere_upward",
+      "SpecCnl.Intent.inAnd_downward",
+      "SpecCnl.Intent.inAnd_upward",
+      "SpecCnl.Intent.Proofs.intent_LEASE_EXPIRY_BOUND",
+      "SpecCnl.Intent.Proofs.polar_LEASE_EXPIRY_BOUND",
+      "SpecCnl.Intent.Proofs.intent_LEASE_RECLAIM_POSSIBLE",
+      "SpecCnl.Intent.Proofs.polar_LEASE_RECLAIM_POSSIBLE",
+      "SpecCnl.Intent.Proofs.intent_LEASE_RECLAIM_UNHELD",
+      "SpecCnl.Intent.Proofs.polar_LEASE_RECLAIM_UNHELD",
+      "SpecCnl.Intent.Proofs.intent_LEASE_RECLAIM_BY_TWO",
+      "SpecCnl.Intent.Proofs.polar_LEASE_RECLAIM_BY_TWO",
+      "SpecCnl.Intent.Proofs.intent_LEASE_RECLAIM_AT_THREE",
+      "SpecCnl.Intent.Proofs.polar_LEASE_RECLAIM_AT_THREE",
+      "SpecCnl.Intent.Proofs.intent_INT_LEASE_RECLAIM",
+      "SpecCnl.Intent.Proofs.split_INT_LEASE_RECLAIM",
+      "SpecCnl.Intent.Proofs.splits_INT_LEASE_RECLAIM",
+      "SpecCnl.Intent.Proofs.upward_INT_LEASE_RECLAIM",
+      "SpecCnl.Intent.Proofs.claim_INT_LEASE_RECLAIM",
+      "SpecCnl.Intent.Proofs.verdict_INT_LEASE_RECLAIM",
+      "SpecCnl.Intent.Proofs.witnessed_INT_LEASE_RECLAIM",
+      "SpecCnl.Intent.Proofs.atModel_LEASE_EXPIRY_BOUND",
+      "SpecCnl.Intent.Proofs.bridge_LEASE_EXPIRY_BOUND",
+      "SpecCnl.Intent.Proofs.intent_INT_ADV_UNHELD_RECLAIM",
+      "SpecCnl.Intent.Proofs.split_INT_ADV_UNHELD_RECLAIM",
+      "SpecCnl.Intent.Proofs.splits_INT_ADV_UNHELD_RECLAIM",
+      "SpecCnl.Intent.Proofs.upward_INT_ADV_UNHELD_RECLAIM",
+      "SpecCnl.Intent.Proofs.claim_INT_ADV_UNHELD_RECLAIM",
+      "SpecCnl.Intent.Proofs.verdict_INT_ADV_UNHELD_RECLAIM",
+      "SpecCnl.Intent.Proofs.witnessed_INT_ADV_UNHELD_RECLAIM",
+      "SpecCnl.Intent.Proofs.refuted_INT_ADV_UNHELD_RECLAIM",
+      "SpecCnl.Intent.Proofs.intent_INT_ADV_EARLY_LATE_RECLAIM",
+      "SpecCnl.Intent.Proofs.split_INT_ADV_EARLY_LATE_RECLAIM",
+      "SpecCnl.Intent.Proofs.splits_INT_ADV_EARLY_LATE_RECLAIM",
+      "SpecCnl.Intent.Proofs.upward_INT_ADV_EARLY_LATE_RECLAIM",
+      "SpecCnl.Intent.Proofs.claim_INT_ADV_EARLY_LATE_RECLAIM",
+      "SpecCnl.Intent.Proofs.verdict_INT_ADV_EARLY_LATE_RECLAIM",
+      "SpecCnl.Intent.Proofs.refuted_INT_ADV_EARLY_LATE_RECLAIM",
+      "SpecCnl.Intent.Proofs.intent_INT_ADV_BOUNDED_RECLAIM",
+      "SpecCnl.Intent.Proofs.split_INT_ADV_BOUNDED_RECLAIM",
+      "SpecCnl.Intent.Proofs.splits_INT_ADV_BOUNDED_RECLAIM",
+      "SpecCnl.Intent.Proofs.upward_INT_ADV_BOUNDED_RECLAIM",
+      "SpecCnl.Intent.Proofs.claim_INT_ADV_BOUNDED_RECLAIM",
+      "SpecCnl.Intent.Proofs.verdict_INT_ADV_BOUNDED_RECLAIM",
+      "SpecCnl.Intent.Proofs.witnessed_INT_ADV_BOUNDED_RECLAIM"
+    ],
+    "conjunction": {
+      "entry": "intent.and",
+      "polarityTheorems": ["SpecCnl.Intent.inAnd_downward", "SpecCnl.Intent.inAnd_upward"]
+    },
+    "connectives": [
+      {
+        "entry": "intent.requires",
+        "polarity": "safety",
+        "polarityTheorem": "SpecCnl.Intent.inRequires_downward"
+      },
+      {
+        "entry": "intent.possible",
+        "polarity": "permission",
+        "polarityTheorem": "SpecCnl.Intent.inPossible_upward"
+      },
+      {
+        "entry": "intent.possible.where",
+        "polarity": "permission",
+        "polarityTheorem": "SpecCnl.Intent.inPossibleWhere_upward"
+      }
+    ],
+    "entries": [
+      {
+        "category": "(GD[s,l]\\IN[s,l])/ST[s,l]",
+        "constants": [],
+        "denotation": "SpecCnl.Intent.inRequires",
+        "id": "intent.requires",
+        "surface": "require"
+      },
+      {
+        "category": "GD[s,l]\\IN[s,l]",
+        "constants": [],
+        "denotation": "SpecCnl.Intent.inPossible",
+        "id": "intent.possible",
+        "surface": "are possible"
+      },
+      {
+        "category": "(GD[s,l]\\IN[s,l])/ST[s,l]",
+        "constants": [],
+        "denotation": "SpecCnl.Intent.inPossibleWhere",
+        "id": "intent.possible.where",
+        "surface": "are possible where"
+      },
+      {
+        "category": "(IN[s,l]\\IN[s,l])/IN[s,l]",
+        "constants": [],
+        "denotation": "SpecCnl.Intent.inAnd",
+        "id": "intent.and",
+        "surface": "and"
+      },
+      {
+        "category": "NU[s,p]",
+        "constants": [],
+        "denotation": "SpecCnl.nuLiteral 3",
+        "id": "three",
+        "surface": "three"
+      },
+      {
+        "category": "GD[AgentCore.TurnLease,AgentCore.LeaseLabel]",
+        "constants": ["AgentCore.LeaseLabel.reclaim"],
+        "denotation": "fun _ label => ∃ holder now expiresAt, label = AgentCore.LeaseLabel.reclaim holder now expiresAt",
+        "id": "lease.reclaims",
+        "surface": "lease reclaims"
+      },
+      {
+        "category": "ST[AgentCore.TurnLease,AgentCore.LeaseLabel]",
+        "constants": ["AgentCore.TurnLease.holder"],
+        "denotation": "fun lease _ => AgentCore.TurnLease.holder lease = none",
+        "id": "an.unheld.lease",
+        "surface": "an unheld lease"
+      }
+    ],
+    "grammar": {
+      "addedEntries": 7,
+      "categoryAtoms": 13,
+      "connectives": 3,
+      "rules": 2,
+      "tableEntries": 311
+    },
+    "ledgers": [
+      {
+        "bounds": [
+          {
+            "field": "lease.turn.value",
+            "high": 2,
+            "low": 0
+          },
+          {
+            "field": "lease.holder.id.value",
+            "high": 2,
+            "low": 0
+          },
+          {
+            "field": "lease.epoch",
+            "high": 1,
+            "low": 0
+          },
+          {
+            "field": "lease.expiresAt.tick",
+            "high": 4,
+            "low": 1
+          },
+          {
+            "field": "label.holder.id.value",
+            "high": 2,
+            "low": 0
+          },
+          {
+            "field": "label.now.tick",
+            "high": 4,
+            "low": 0
+          },
+          {
+            "field": "label.expiresAt.tick",
+            "high": 4,
+            "low": 1
+          },
+          {
+            "field": "label.token.turn.value",
+            "high": 2,
+            "low": 0
+          },
+          {
+            "field": "label.token.epoch",
+            "high": 1,
+            "low": 0
+          }
+        ],
+        "completeness": "AgentCore.leaseStepExec_complete",
+        "exec": "AgentCore.leaseStepExec",
+        "initial": "AgentCore.TurnLease.initial",
+        "key": "AgentCore.TurnLease",
+        "label": "AgentCore.LeaseLabel",
+        "order": "lexicographic in the bounds listed, smallest first; lease.holder ranges over none and then each principal; label constructors in declaration order (claim, renew, reclaim, suspendFence, resume, terminalFence); every tenant is 0",
+        "soundness": "AgentCore.leaseStepExec_sound",
+        "state": "AgentCore.TurnLease",
+        "step": "AgentCore.LeaseStep"
+      }
+    ],
+    "lemmaNames": [
+      "SpecCnl.Intent.sat_iff_rmax",
+      "SpecCnl.Intent.satAt_congr",
+      "SpecCnl.Intent.rmax_refines_of_subset",
+      "SpecCnl.Intent.not_permission_of_core",
+      "SpecCnl.Intent.inRequires_downward",
+      "SpecCnl.Intent.inPossible_upward",
+      "SpecCnl.Intent.inPossibleWhere_upward",
+      "SpecCnl.Intent.inAnd_downward",
+      "SpecCnl.Intent.inAnd_upward"
+    ],
+    "negativeCorpus": [
+      {
+        "kind": "ambiguous(2)",
+        "reason": "three atoms joined by the ordinary coordinator associate two ways. Conjunction is associative in meaning, which is exactly why the grammar must not silently choose: a ratification pin names one reading key, and a later lexicon edit could swap which of two equivalent trees that key belongs to. A record is two atoms until an explicitly delimited three-atom form exists",
+        "sentence": "lease reclaims are possible and lease reclaims require an unheld lease and lease reclaims are possible"
+      },
+      {
+        "kind": "no-reading",
+        "reason": "`require` takes a guard, and `every lease reclaim` is a transition family whose denotation names AgentCore.LeaseStep. Admitting this would let an intent quantify over the model's own step relation instead of over the platform's, which is the whole distinction between the two languages",
+        "sentence": "every lease reclaim require an unheld lease"
+      },
+      {
+        "kind": "no-reading",
+        "reason": "the mirror image: the controlled language's `requires` takes a transition family, and `lease reclaims` is a guard. One surface may not carry both categories, so neither reading exists",
+        "sentence": "lease reclaims requires an unheld lease"
+      },
+      {
+        "kind": "no-reading",
+        "reason": "a guard is not a condition. `GD` is kept distinct from `ST` for the reason `PO` is kept distinct from `TR`: letting a guard stand in for the condition it guards would make `X requires X` a tautology the grammar admits",
+        "sentence": "lease reclaims require lease reclaims"
+      },
+      {
+        "kind": "no-reading",
+        "reason": "well-formed English refused by the ontology. The guard ranges over TurnLease and LeaseLabel; `a host pass` is a condition on DynamicDomain and IsolateLabel. The category algebra refuses it rather than a check somebody remembered to write",
+        "sentence": "lease reclaims require a host pass"
+      },
+      {
+        "kind": "no-reading",
+        "reason": "an intent atom and a controlled-language sentence cannot be conjoined. The two coordinators are different entries at different categories, so one sentence is never half a claim about the model and half a constraint on a platform",
+        "sentence": "lease reclaims are possible and every effect step maintains attempt immutability"
+      },
+      {
+        "kind": "no-reading",
+        "reason": "a permission with no guard says nothing about which transitions must exist. The connective's guard slot is not optional",
+        "sentence": "are possible"
+      },
+      {
+        "kind": "no-reading",
+        "reason": "the payload condition needs its lifter. `the stated time` is a quantity over a Time, and only `for the reclaim` ties that Time to the reclaim label's own; without it no condition on LeaseLabel exists. This is the same rule that keeps every payload condition and its label match separately reviewed",
+        "sentence": "lease reclaims are possible where the stated time equals three"
+      }
+    ],
+    "records": [
+      {
+        "ast": "intent.and(intent.possible(lease.reclaims : GD[AgentCore.TurnLease,AgentCore.LeaseLabel]) : IN[AgentCore.TurnLease,AgentCore.LeaseLabel], intent.requires(for.the.reclaim(is.at.most(the.stated.time : NU[AgentCore.TurnLease,AgentCore.Time], the.recorded.expiry : NU[AgentCore.TurnLease,AgentCore.Time]) : ST[AgentCore.TurnLease,AgentCore.Time]) : ST[AgentCore.TurnLease,AgentCore.LeaseLabel], lease.reclaims : GD[AgentCore.TurnLease,AgentCore.LeaseLabel]) : IN[AgentCore.TurnLease,AgentCore.LeaseLabel]) : IN[AgentCore.TurnLease,AgentCore.LeaseLabel]",
+        "atoms": ["LEASE_EXPIRY_BOUND", "LEASE_RECLAIM_POSSIBLE"],
+        "bounds": [
+          {
+            "field": "lease.turn.value",
+            "high": 2,
+            "low": 0
+          },
+          {
+            "field": "lease.holder.id.value",
+            "high": 2,
+            "low": 0
+          },
+          {
+            "field": "lease.epoch",
+            "high": 1,
+            "low": 0
+          },
+          {
+            "field": "lease.expiresAt.tick",
+            "high": 4,
+            "low": 1
+          },
+          {
+            "field": "label.holder.id.value",
+            "high": 2,
+            "low": 0
+          },
+          {
+            "field": "label.now.tick",
+            "high": 4,
+            "low": 0
+          },
+          {
+            "field": "label.expiresAt.tick",
+            "high": 4,
+            "low": 1
+          },
+          {
+            "field": "label.token.turn.value",
+            "high": 2,
+            "low": 0
+          },
+          {
+            "field": "label.token.epoch",
+            "high": 1,
+            "low": 0
+          }
+        ],
+        "bridgedAtom": "LEASE_EXPIRY_BOUND",
+        "core": [],
+        "corpusUnit": "SpecCnl.Sentences.cnl_C13_TURN_LEASE_EXPIRY",
+        "declarations": [
+          {
+            "name": "SpecCnl.Intent.Proofs.intent_INT_LEASE_RECLAIM",
+            "role": "denotation",
+            "type": "pi(app(app(const:SpecCnl.Intent.Lts,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),Prop)"
+          },
+          {
+            "name": "SpecCnl.Intent.Proofs.split_INT_LEASE_RECLAIM",
+            "role": "split",
+            "type": "app(app(const:SpecCnl.Intent.Split,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel)"
+          },
+          {
+            "name": "SpecCnl.Intent.Proofs.splits_INT_LEASE_RECLAIM",
+            "role": "splits",
+            "type": "pi(app(app(const:SpecCnl.Intent.Lts,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),app(app(const:Iff,app(const:SpecCnl.Intent.Proofs.intent_INT_LEASE_RECLAIM,other)),app(app(app(app(const:SpecCnl.Intent.Split.denote,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),const:SpecCnl.Intent.Proofs.split_INT_LEASE_RECLAIM),other)))"
+          },
+          {
+            "name": "SpecCnl.Intent.Proofs.upward_INT_LEASE_RECLAIM",
+            "role": "upward",
+            "type": "pi(pi(app(app(const:SpecCnl.Intent.Lts,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),Prop),pi(app(app(app(app(app(const:Membership.mem,pi(app(app(const:SpecCnl.Intent.Lts,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),Prop)),app(const:List,pi(app(app(const:SpecCnl.Intent.Lts,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),Prop))),app(const:List.instMembership,pi(app(app(const:SpecCnl.Intent.Lts,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),Prop))),app(app(app(const:SpecCnl.Intent.Split.permissions,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),const:SpecCnl.Intent.Proofs.split_INT_LEASE_RECLAIM)),other),app(app(app(const:SpecCnl.Intent.Upward,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),other)))"
+          },
+          {
+            "name": "SpecCnl.Intent.Proofs.claim_INT_LEASE_RECLAIM",
+            "role": "claim",
+            "type": "Prop"
+          },
+          {
+            "name": "SpecCnl.Intent.Proofs.verdict_INT_LEASE_RECLAIM",
+            "role": "verdict",
+            "type": "const:SpecCnl.Intent.Proofs.claim_INT_LEASE_RECLAIM"
+          },
+          {
+            "name": "SpecCnl.Intent.Proofs.atModel_LEASE_EXPIRY_BOUND",
+            "role": "atModel",
+            "type": "Prop"
+          },
+          {
+            "name": "SpecCnl.Intent.Proofs.bridge_LEASE_EXPIRY_BOUND",
+            "role": "bridge",
+            "type": "app(app(const:Iff,const:SpecCnl.Intent.Proofs.atModel_LEASE_EXPIRY_BOUND),const:SpecCnl.Sentences.cnl_C13_TURN_LEASE_EXPIRY)"
+          },
+          {
+            "name": "SpecCnl.Intent.Proofs.witnessed_INT_LEASE_RECLAIM",
+            "role": "evidence",
+            "type": "pi(pi(app(app(const:SpecCnl.Intent.Lts,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),Prop),pi(app(app(app(app(app(const:Membership.mem,pi(app(app(const:SpecCnl.Intent.Lts,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),Prop)),app(const:List,pi(app(app(const:SpecCnl.Intent.Lts,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),Prop))),app(const:List.instMembership,pi(app(app(const:SpecCnl.Intent.Lts,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),Prop))),app(app(app(const:SpecCnl.Intent.Split.permissions,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),const:SpecCnl.Intent.Proofs.split_INT_LEASE_RECLAIM)),other),app(other,app(app(app(app(const:SpecCnl.Intent.rmax,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),const:AgentCore.LeaseStep),app(app(app(const:SpecCnl.Intent.Split.safety,const:AgentCore.TurnLease),const:AgentCore.LeaseLabel),const:SpecCnl.Intent.Proofs.split_INT_LEASE_RECLAIM)))))"
+          }
+        ],
+        "digest": "345c281041a50e304408102fe36242689c57f2b428dcc01eda7bbaf12e27ae03",
+        "excludedInstance": null,
+        "expected": "CONSISTENT",
+        "explored": 52032,
+        "failedPermission": null,
+        "heads": [
+          "intent.and",
+          "intent.possible",
+          "lease.reclaims",
+          "intent.requires",
+          "for.the.reclaim",
+          "is.at.most",
+          "the.stated.time",
+          "the.recorded.expiry",
+          "lease.reclaims"
+        ],
+        "key": "INT_LEASE_RECLAIM",
+        "lean": "((((SpecCnl.Intent.inAnd) : (((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → (AgentCore.TurnLease) → Prop) → Prop) → ((((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → (AgentCore.TurnLease) → Prop) → Prop) → (((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → (AgentCore.TurnLease) → Prop) → Prop))) (((SpecCnl.Intent.inPossible) : ((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → Prop) → (((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → (AgentCore.TurnLease) → Prop) → Prop)) ((fun _ label => ∃ holder now expiresAt, label = AgentCore.LeaseLabel.reclaim holder now expiresAt) : (AgentCore.TurnLease) → (AgentCore.LeaseLabel) → Prop))) ((((SpecCnl.Intent.inRequires) : ((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → Prop) → (((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → Prop) → (((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → (AgentCore.TurnLease) → Prop) → Prop))) (((fun cond before label => ∀ holder now expiresAt, label = AgentCore.LeaseLabel.reclaim holder now expiresAt → cond before now) : ((AgentCore.TurnLease) → (AgentCore.Time) → Prop) → ((AgentCore.TurnLease) → (AgentCore.LeaseLabel) → Prop)) ((((SpecCnl.nuAtMost) : ((AgentCore.TurnLease) → (AgentCore.Time) → Nat) → (((AgentCore.TurnLease) → (AgentCore.Time) → Nat) → ((AgentCore.TurnLease) → (AgentCore.Time) → Prop))) ((fun _ now => AgentCore.Time.tick now) : (AgentCore.TurnLease) → (AgentCore.Time) → Nat)) ((fun lease _ => AgentCore.Time.tick (AgentCore.TurnLease.expiresAt lease)) : (AgentCore.TurnLease) → (AgentCore.Time) → Nat)))) ((fun _ label => ∃ holder now expiresAt, label = AgentCore.LeaseLabel.reclaim holder now expiresAt) : (AgentCore.TurnLease) → (AgentCore.LeaseLabel) → Prop)))",
+        "ledger": "AgentCore.TurnLease",
+        "note": "the expiry rule together with the demand that reclaim be possible at all. The safety half alone is satisfied by a platform that never reclaims, so the permission is what makes the pair say something a vacuous platform fails",
+        "order": "lexicographic in the bounds listed, smallest first; lease.holder ranges over none and then each principal; label constructors in declaration order (claim, renew, reclaim, suspendFence, resume, terminalFence); every tenant is 0",
+        "readingKey": "intent.and(intent.possible(lease.reclaims()),intent.requires(for.the.reclaim(is.at.most(the.stated.time(),the.recorded.expiry())),lease.reclaims()))",
+        "refutationProof": null,
+        "sentence": "lease reclaims require the recorded expiry is at most the stated time for the reclaim and lease reclaims are possible",
+        "specAtoms": ["C13-TURN-LEASE-EXPIRY"],
+        "verdict": "CONSISTENT",
+        "witnessProof": "SpecCnl.Intent.Proofs.witnessed_INT_LEASE_RECLAIM",
+        "witnesses": [
+          {
+            "instance": "lease(turn=0, holder=0.0, epoch=0, expiry=1) -- reclaim(holder=0.0, now=1, expiresAt=2)",
+            "permission": "LEASE_RECLAIM_POSSIBLE"
+          }
+        ]
+      }
+    ],
+    "unexercisedEntries": []
+  },
+  "modelConstants": [
+    {
+      "closure": null,
+      "digest": "sha256:77e20edfeeed8698919e3f2dc879c5244aefc24e2a309517ccd4ee18c955611a",
+      "kind": "definition",
+      "name": "AgentCore.LeaseLabel"
+    },
+    {
+      "closure": null,
+      "digest": "sha256:ca6d3235a4d70d473f8f7820a5b60f3939329fb5ac8e856fd991db5bf263130f",
+      "kind": "definition",
+      "name": "AgentCore.LeaseLabel.reclaim"
+    },
+    {
+      "closure": null,
+      "digest": "sha256:5660cc73d54912fa9cfbf0188ab7a48fc842b174c46f298cbb2e7b768764840c",
+      "kind": "definition",
+      "name": "AgentCore.LeaseStep"
+    },
+    {
+      "closure": null,
+      "digest": "sha256:bbd9391a5d6713c1841648ac1548ea33bdeac63656547bd153ae3f4147f92be7",
+      "kind": "definition",
+      "name": "AgentCore.TurnLease"
+    },
+    {
+      "closure": null,
+      "digest": "sha256:fac15d6c2222ffb94770519da252f04ae3f907b18c7501ee5e40f9e35d3a7835",
+      "kind": "definition",
+      "name": "AgentCore.TurnLease.holder"
+    },
+    {
+      "closure": null,
+      "digest": "sha256:b1140aa7479d50126c4287f8c49430724c52459cab0d7e98be0e2ad59ba28618",
+      "kind": "definition",
+      "name": "AgentCore.TurnLease.initial"
+    },
+    {
+      "closure": null,
+      "digest": "sha256:788b5c431636d6c345fdec96a746022dc114595da3448cb862f8bc7e889b76b9",
+      "kind": "definition",
+      "name": "AgentCore.leaseStepExec"
+    },
+    {
+      "closure": "sha256:5b8eafd05440339f4bbe13971fbc8565690c7620c62aab615392bf0b315b20a4",
+      "digest": "sha256:254566ce3db65a38131b206c0a3ff470977f9b5109559184325e42b41bfa866d",
+      "kind": "claim",
+      "name": "AgentCore.leaseStepExec_complete"
+    },
+    {
+      "closure": "sha256:5b8eafd05440339f4bbe13971fbc8565690c7620c62aab615392bf0b315b20a4",
+      "digest": "sha256:b25a82c1bcf92033748bc2d7a0e1f86a644a428d2d7ce6bc69b10a7fcc4e7036",
+      "kind": "claim",
+      "name": "AgentCore.leaseStepExec_sound"
+    }
+  ],
+  "pins": {
+    "lakeManifest": {
+      "dependencies": [],
+      "manifestSha256": "sha256:00e6ac3a3ccf575aa9905d6568ac6aba48fe84eb6256cf4b6c4596210cf2d285",
+      "manifestVersion": "1.1.0",
+      "packageName": "«agent-core-formal»"
+    },
+    "leanToolchain": {
+      "fileSha256": "sha256:3aac669c7a910ec2389f4e4f921b605adf6ebf2d1e0c9b9cd0be4d33f3f5db71",
+      "identity": "leanprover/lean4:v4.33.1"
+    }
+  },
+  "schemaVersion": 1
+}

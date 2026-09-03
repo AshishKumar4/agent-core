@@ -153,7 +153,7 @@ def ledger (env : Environment) : Except String Json := do
   return Json.mkObj
     [ ("grammar",
         Json.mkObj
-          [ ("categoryAtoms", Json.num 11),
+          [ ("categoryAtoms", Json.num 13),
             ("rules", Json.num 2),
             ("entries", Json.num lexicon.length),
             ("grammarEntries", Json.num (lexicon.length - contentEntries.length)),

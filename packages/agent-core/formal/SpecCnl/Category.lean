@@ -27,6 +27,8 @@ Atoms are fixed by the shape of the model, which is a labelled transition system
 | `PX[s,k]` | `s -> k -> s -> Prop` | a postcondition indexed by label payload  |
 | `NU[s,l]` | `s -> l -> Nat`     | a quantity read off source state and label  |
 | `RE[s,a,b]` | `s -> a -> b -> Prop` | a state-relative relation                 |
+| `GD[s,l]` | `s -> l -> Prop`    | a family guard: which transitions an atom is about |
+| `IN[s,l]` | `(s -> l -> s -> Prop) -> Prop` | an intent atom or conjunction over one ledger |
 
 Nothing here is domain content. Every content word's denotation is a term over
 `AgentCore` alone.
@@ -56,6 +58,8 @@ inductive Cat where
   | px (state key : Ty)
   | nu (state label : Ty)
   | re (state key value : Ty)
+  | gd (state label : Ty)
+  | in_ (state label : Ty)
   | fwd (result arg : Cat)
   | bwd (arg result : Cat)
   deriving DecidableEq, Repr, Inhabited
@@ -141,6 +145,8 @@ def apply (σ : Subst) : Cat → Cat
   | .px state key => .px (state.apply σ) (key.apply σ)
   | .nu state label => .nu (state.apply σ) (label.apply σ)
   | .re state key value => .re (state.apply σ) (key.apply σ) (value.apply σ)
+  | .gd state label => .gd (state.apply σ) (label.apply σ)
+  | .in_ state label => .in_ (state.apply σ) (label.apply σ)
   | .fwd result arg => .fwd (result.apply σ) (arg.apply σ)
   | .bwd arg result => .bwd (arg.apply σ) (result.apply σ)
 
@@ -156,6 +162,8 @@ def freshen (tag : Nat) : Cat → Cat
   | .px state key => .px (state.freshen tag) (key.freshen tag)
   | .nu state label => .nu (state.freshen tag) (label.freshen tag)
   | .re state key value => .re (state.freshen tag) (key.freshen tag) (value.freshen tag)
+  | .gd state label => .gd (state.freshen tag) (label.freshen tag)
+  | .in_ state label => .in_ (state.freshen tag) (label.freshen tag)
   | .fwd result arg => .fwd (result.freshen tag) (arg.freshen tag)
   | .bwd arg result => .bwd (arg.freshen tag) (result.freshen tag)
 
@@ -171,6 +179,8 @@ def unify (σ : Subst) : Cat → Cat → Except String Subst
   | .px a b, .px c d => do Ty.unify (← Ty.unify σ a c) b d
   | .nu a b, .nu c d => do Ty.unify (← Ty.unify σ a c) b d
   | .re a b c, .re d e f => do Ty.unify (← Ty.unify (← Ty.unify σ a d) b e) c f
+  | .gd a b, .gd c d => do Ty.unify (← Ty.unify σ a c) b d
+  | .in_ a b, .in_ c d => do Ty.unify (← Ty.unify σ a c) b d
   | .fwd r₁ a₁, .fwd r₂ a₂ => do Cat.unify (← Cat.unify σ r₁ r₂) a₁ a₂
   | .bwd a₁ r₁, .bwd a₂ r₂ => do Cat.unify (← Cat.unify σ a₁ a₂) r₁ r₂
   | left, right => .error s!"category clash: {repr left} against {repr right}"
@@ -195,6 +205,10 @@ def interp : Cat → Except String String
   | .nu state label => do return s!"({← state.interp}) → ({← label.interp}) → Nat"
   | .re state key value => do
       return s!"({← state.interp}) → ({← key.interp}) → ({← value.interp}) → Prop"
+  | .gd state label => do return s!"({← state.interp}) → ({← label.interp}) → Prop"
+  | .in_ state label => do
+      let σ ← state.interp
+      return s!"(({σ}) → ({← label.interp}) → ({σ}) → Prop) → Prop"
   | .fwd result arg => do return s!"({← arg.interp}) → ({← result.interp})"
   | .bwd arg result => do return s!"({← arg.interp}) → ({← result.interp})"
 
@@ -211,8 +225,30 @@ def render : Cat → String
   | .px state key => s!"PX[{state.render},{key.render}]"
   | .nu state label => s!"NU[{state.render},{label.render}]"
   | .re state key value => s!"RE[{state.render},{key.render},{value.render}]"
+  | .gd state label => s!"GD[{state.render},{label.render}]"
+  | .in_ state label => s!"IN[{state.render},{label.render}]"
   | .fwd result arg => s!"({result.render}/{arg.render})"
   | .bwd arg result => s!"({arg.render}\\{result.render})"
+
+/-- Every category atom this category mentions, by the name `render` gives it. A lexicon
+rule about which atoms one surface may carry reads this rather than the rendered text, so
+the rule cannot be fooled by an atom name appearing inside a type argument. -/
+def atomNames : Cat → List String
+  | .s => ["S"]
+  | .cj => ["CJ"]
+  | .np _ => ["NP"]
+  | .cn _ => ["CN"]
+  | .pr _ => ["PR"]
+  | .tr _ _ => ["TR"]
+  | .st _ _ => ["ST"]
+  | .po _ _ => ["PO"]
+  | .px _ _ => ["PX"]
+  | .nu _ _ => ["NU"]
+  | .re _ _ _ => ["RE"]
+  | .gd _ _ => ["GD"]
+  | .in_ _ _ => ["IN"]
+  | .fwd result arg => result.atomNames ++ arg.atomNames
+  | .bwd arg result => arg.atomNames ++ result.atomNames
 
 /-! ### Reading a category from its surface notation
 
@@ -244,6 +280,8 @@ private def binaryAtom (name : String) (state label : Ty) : Except String Cat :=
   | "PO" => .ok (.po state label)
   | "PX" => .ok (.px state label)
   | "NU" => .ok (.nu state label)
+  | "GD" => .ok (.gd state label)
+  | "IN" => .ok (.in_ state label)
   | _ => .error s!"unknown two-argument category atom '{name}'"
 
 private def ternaryAtom (name : String) (state key value : Ty) : Except String Cat :=
@@ -275,7 +313,8 @@ private def readAtom : Nat → List Char → Except String (Cat × List Char)
             let rest ← expect '[' rest
             let (ty, rest) ← readTy rest
             return (← unaryAtom name ty, ← expect ']' rest)
-          if name == "TR" || name == "ST" || name == "PO" || name == "PX" || name == "NU" then
+          if name == "TR" || name == "ST" || name == "PO" || name == "PX" ||
+              name == "NU" || name == "GD" || name == "IN" then
             let rest ← expect '[' rest
             let (state, rest) ← readTy rest
             let rest ← expect ',' rest

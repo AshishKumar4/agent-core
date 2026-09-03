@@ -713,15 +713,18 @@ def isSafeEntryId (id : String) : Bool :=
       head.isLower &&
         rest.all (fun c => (c.isLower && c.isAlpha) || c.isDigit || c == '.')
 
-/-- Structural refusals of the lexicon itself, independent of any sentence: an unsafe id,
-a duplicate id, a duplicate (surface, category) pair, or a category that does not read. A
-duplicate surface with the *same* category would make one reading appear twice and mask a
-genuine ambiguity, so it is refused here rather than reported later. -/
-def lexiconRefusals : List String := Id.run do
+/-- Structural refusals of a lexicon table itself, independent of any sentence: an unsafe
+id, a duplicate id, a duplicate (surface, category) pair, or a category that does not read.
+A duplicate surface with the *same* category would make one reading appear twice and mask a
+genuine ambiguity, so it is refused here rather than reported later.
+
+The table is a parameter because the intent language admits against this table extended by
+its own entries, and every rule below has to hold of that extension too. -/
+def lexiconRefusalsOf (entries : List LexEntry) : List String := Id.run do
   let mut refusals : List String := []
   let mut ids : List String := []
   let mut shapes : List String := []
-  for entry in lexicon do
+  for entry in entries do
     if !isSafeEntryId entry.id then
       refusals := refusals ++
         [s!"lexicon entry id '{entry.id}' is outside the safe charset; a reading key \
@@ -744,5 +747,8 @@ def lexiconRefusals : List String := Id.run do
             [s!"lexicon entry '{entry.id}' category does not round-trip: " ++
               s!"'{entry.category}' reads back as '{category.render}'"]
   return refusals
+
+/-- Structural refusals of the controlled language's own lexicon. -/
+def lexiconRefusals : List String := lexiconRefusalsOf lexicon
 
 end SpecCnl

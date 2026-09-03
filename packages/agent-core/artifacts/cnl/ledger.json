@@ -372,7 +372,7 @@
     "SpecCnl.Divergence.fix_is_strict"
   ],
   "grammar": {
-    "categoryAtoms": 11,
+    "categoryAtoms": 13,
     "contentEntries": 271,
     "entries": 304,
     "grammarEntries": 33,
