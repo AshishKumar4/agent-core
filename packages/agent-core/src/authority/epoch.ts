@@ -248,6 +248,14 @@ export class InvalidationWatermark {
         return InvalidationWatermark.codec.decode(bytes);
     }
 
+    /**
+     * A scope this watermark does not carry answers 0, which makes an entry recorded at
+     * epoch 0 and an absent entry indistinguishable to every reader. `dominates` depends on
+     * that: it compares epochs only, so dropping an epoch-0 entry preserves domination
+     * without losing anything observable. A reader that needed to tell "delivered at 0" from
+     * "never delivered" would break the guard, and would have to carry that distinction
+     * itself rather than infer it from membership.
+     */
     public epoch(scope: ScopeRef): number {
         return (
             this.delivered.find((entry) => scopeKey(entry.scope) === scopeKey(scope))?.epoch ?? 0
