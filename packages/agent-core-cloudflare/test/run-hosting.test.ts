@@ -15,7 +15,7 @@ import {
     type RunRecordKind,
     type StoredRunRecord
 } from "@agent-core/core/agents/runs";
-import { ContentOwnerEdge, type ContentPutResult } from "@agent-core/core/content";
+import { ContentOwnerEdge, contentOwnerKey, type ContentPutResult } from "@agent-core/core/content";
 import { TransactionalSqlite } from "@agent-core/core/substrates/sqlite";
 import {
     CloudflareRunHosting,
@@ -1446,7 +1446,7 @@ test(
                 repository.loadCheckpoint(transaction, checkpoint.id)
             )
         ).toEqual(checkpoint);
-        const ownerKey = `record:run.checkpoint:${checkpoint.id.value.length}:${checkpoint.id.value}:state`;
+        const ownerKey = contentOwnerKey("run.checkpoint", checkpoint.id.value, "state");
         const duplicate = new ContentOwnerEdge(storage.tenant, storage.owner, ownerKey, state);
         expectOperationalFailure(
             () =>
@@ -1575,7 +1575,7 @@ test(
             repository.transaction((transaction) =>
                 repository.insertCheckpoint(transaction, checkpoint)
             );
-            const ownerKey = `record:run.checkpoint:${checkpoint.id.value.length}:${checkpoint.id.value}:state`;
+            const ownerKey = contentOwnerKey("run.checkpoint", checkpoint.id.value, "state");
 
             if (corruption === "missing") {
                 damageDatabase(substrate, "DELETE FROM content_owner_edges WHERE owner_key = ?", [
@@ -1609,7 +1609,7 @@ test(
                 const edge = new ContentOwnerEdge(
                     storage.tenant,
                     storage.owner,
-                    "record:run.checkpoint:18:missing-checkpoint:state",
+                    contentOwnerKey("run.checkpoint", "missing-checkpoint", "state"),
                     state
                 );
                 damageDatabase(
