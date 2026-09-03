@@ -655,6 +655,8 @@ interface Harness {
 
 interface HarnessOptions {
     readonly persistence?: MediationPersistence<PipelineState, DemoAdmission>;
+    /** The replay records the reserved-identity lookup reads, when a test substitutes them. */
+    readonly evidence?: MemoryInvocationMediationPersistence;
     /**
      * A previous harness whose durable state this one is rebuilt over, which is what a host
      * restart looks like from here: the records, the content, and the detached schedule
@@ -674,7 +676,8 @@ async function harness(options: HarnessOptions = {}): Promise<Harness> {
             mediationInvocationCodecs(admissionCodec),
             recordingCustody()
         );
-    const evidence = previous?.evidence ?? new MemoryInvocationMediationPersistence();
+    const evidence =
+        options.evidence ?? previous?.evidence ?? new MemoryInvocationMediationPersistence();
     const detachedExecutions =
         previous?.detachedExecutions ?? new MemoryDetachedEffectExecutionPersistence();
     const schedule = previous?.schedule ?? new MemorySchedule();
@@ -775,6 +778,45 @@ class ProjectedRecords extends MemoryInvocationPersistence<
     public override attempt(transaction: InvocationMemoryState, id: EffectAttemptId) {
         if (this.#projecting && this.hideAttempt) return undefined;
         return super.attempt(transaction, id);
+    }
+}
+
+/**
+ * A mediation persistence that loses one item's PreparedInvocation, which is what the detached
+ * sweep sees when the records an admitted attempt was derived from cannot be read.
+ */
+class ForgetfulRecords extends MemoryInvocationPersistence<
+    MediationLeaseReference,
+    MediationAuthorityReference,
+    MediationDomainReference,
+    MediationPathEpochReference,
+    DemoAdmission
+> {
+    public forget: InvocationId | undefined;
+
+    public override prepared(transaction: InvocationMemoryState, invocation: InvocationId) {
+        return this.forget?.equals(invocation) === true
+            ? undefined
+            : super.prepared(transaction, invocation);
+    }
+}
+
+/**
+ * Replay records that answer the replay plane while it reserves and prepares, and then cannot
+ * answer for the prepared reservation — a substrate whose reads are not read-your-writes,
+ * which is what `providerQueryTruthful` is a premise about rather than a guarantee.
+ */
+class LostReservationReplays extends MemoryInvocationMediationPersistence {
+    /** The one request key whose row is lost once an Invocation has been bound to it. */
+    public lose: string | undefined;
+
+    public override replay(
+        transaction: InvocationMediationMemoryState,
+        scope: string,
+        requestKey: string
+    ) {
+        const stored = super.replay(transaction, scope, requestKey);
+        return this.lose === requestKey && stored?.invocation !== undefined ? undefined : stored;
     }
 }
 
@@ -1753,6 +1795,147 @@ describe("the detached execution plane the composition root owns", () => {
             expect(receipt.failure).toBeUndefined();
             expect(restarted.observed.calls).toBe(0);
             await restarted.pipeline.dispose();
+        }
+    );
+
+    it(
+        "[C13-TURN-HANDLE-DETACHMENT] a Turn cancelled before admission detaches nothing",
+        { tags: "p0" },
+        async () => {
+            // SPEC §5.6: admission is the commit point the handle names, so the two sides of
+            // it answer different questions. A Turn lost before it leaves a pre-effect Receipt
+            // over an item with no attempt, and there is no handle to publish — the Run takes
+            // on no obligation for work that was never detached. Answering with a handle here
+            // would owe a Receipt for an effect nothing will ever run.
+            const value = await harness();
+            const cancelled = new AbortController();
+            cancelled.abort();
+
+            const admission = await value.pipeline.admitDetached(
+                invocationRequest(cancelled.signal, "detached-cancelled-pre-effect")
+            );
+
+            if (admission.kind !== "terminal") {
+                throw new TypeError("expected the cancelled item to answer with its Receipt");
+            }
+            expect(admission.receipt).toBeInstanceOf(PreEffectReceipt);
+            expect(admission.receipt.outcome).toBe("cancelledPreEffect");
+            expect(value.transactions.read().attempts.size).toBe(0);
+            expect(value.observed.calls).toBe(0);
+            await value.pipeline.dispose();
+        }
+    );
+
+    it(
+        "[C13-TURN-HANDLE-DETACHMENT] refuses to detach an intent the Turn never bound",
+        { tags: "p0" },
+        async () => {
+            // The gateway has already resolved the Binding by the time the item is admitted,
+            // so the resolved Operation is checked against the Turn's bound one from that one
+            // resolution. An Operation whose declared shape has moved is refused before
+            // admission — detaching it would run work under an intent the Turn never bound and
+            // leave the Run owing a Receipt for it.
+            const value = await harness();
+            const drifted = new TurnBoundOperation(
+                bindingName,
+                facet,
+                new OperationRef("memory:recall"),
+                new OperationDescriptor(
+                    new OperationName("recall"),
+                    "observe",
+                    new JsonSchema({ type: "object" }),
+                    new JsonSchema({ type: "string" })
+                )
+            );
+
+            await expect(
+                value.pipeline.admitDetached({
+                    ...invocationRequest(undefined, "detached-unbound"),
+                    operation: drifted
+                })
+            ).rejects.toThrow(/does not match the exact bound Turn Operation/);
+            expect(value.transactions.read().attempts.size).toBe(0);
+            expect(value.observed.calls).toBe(0);
+            await value.pipeline.dispose();
+        }
+    );
+
+    it(
+        "[C13-TURN-HANDLE-DETACHMENT] refuses a detached admission whose reserved identity is unreadable",
+        { tags: "p0" },
+        async () => {
+            // A detached admission mints no Invocation of its own: the identity is the replay
+            // reservation §7.3 committed one step earlier. A substrate that answered the
+            // reservation and then lost it leaves this admission with no identity to admit
+            // against, and the refusal has to be the typed one — that is the signal to leave
+            // the item unadmitted and redeliver, where a fabricated identity would detach work
+            // under an Invocation no record names.
+            const evidence = new LostReservationReplays();
+            const value = await harness({ evidence });
+            evidence.lose = "detached-unreserved";
+
+            await expect(
+                value.pipeline.admitDetached(invocationRequest(undefined, "detached-unreserved"))
+            ).rejects.toThrow(/no reserved prepared replay identity/);
+            expect(value.transactions.read().attempts.size).toBe(0);
+            expect(value.observed.calls).toBe(0);
+            await value.pipeline.dispose();
+        }
+    );
+
+    it(
+        "[C13-TURN-HANDLE-DETACHMENT] sweeps past a released record whose own records are gone",
+        { tags: "p0" },
+        async () => {
+            // "Released and unfinished" is read from two owners, and a row whose
+            // PreparedInvocation cannot be read is not this query's error to raise:
+            // reconciliation answers for an attempt whose records are unreadable. Raising here
+            // would stall the sweep on that row and never reach the work behind it.
+            const records = new ForgetfulRecords(
+                mediationInvocationCodecs(admissionCodec),
+                recordingCustody()
+            );
+            const value = await harness({ persistence: records });
+            const unreadable = await detached(value, "detached-unreadable");
+            const behind = await detached(value, "detached-behind");
+            await value.pipeline.accept(releaseOf(unreadable));
+            await value.pipeline.accept(releaseOf(behind));
+
+            records.forget = unreadable.invocation;
+            const report = await value.pipeline.sweepDetachedEffects();
+
+            expect(report).toEqual({ queried: 1, executed: 1, remaining: false });
+            expect(value.observed.calls).toBe(1);
+            expect(receiptFor(value, behind.attempt).outcome).toBe("succeeded");
+            await value.pipeline.dispose();
+        }
+    );
+
+    it(
+        "[C13-TURN-HANDLE-DETACHMENT] treats a redelivered release as discharged, not as new work",
+        { tags: "p0" },
+        async () => {
+            // The Run's admission message is at-least-once, so the same release arrives again
+            // after the item has finished. Only a message that left work arms the driver: an
+            // idempotent redelivery that re-armed the schedule would keep a host sweeping
+            // forever, and one that re-executed would run a second effect for one item.
+            const value = await harness();
+            const handle = await detached(value, "detached-redelivered");
+
+            await value.pipeline.accept(releaseOf(handle));
+            expect(value.schedule.scheduled()).toEqual(new Date(2_000 + DETACHED_INTERVAL_MS));
+            expect(await value.pipeline.sweepDetachedEffects()).toEqual({
+                queried: 1,
+                executed: 1,
+                remaining: false
+            });
+            expect(value.schedule.scheduled()).toBeUndefined();
+
+            await value.pipeline.accept(releaseOf(handle));
+
+            expect(value.schedule.scheduled()).toBeUndefined();
+            expect(value.observed.calls).toBe(1);
+            await value.pipeline.dispose();
         }
     );
 });

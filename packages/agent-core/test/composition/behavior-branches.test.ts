@@ -9,7 +9,9 @@ import {
     TurnId,
     TurnInboxEntry,
     TurnInboxEntryId,
-    type AcceptanceReceiptEvidence
+    type AbandonedRewriteEvidence,
+    type AcceptanceReceiptEvidence,
+    type TurnAdmissionHandle
 } from "../../src/agents";
 import {
     CanonicalRunEvidencePort,
@@ -86,6 +88,7 @@ import {
     OperationPin,
     PreparedInvocation,
     ReceiptId,
+    type Receipt,
     type PreparedInvocationHeaderInit,
     type AuditEvidenceResolver,
     type InvocationLedger,
@@ -939,6 +942,55 @@ describe("W9 composition behavior branches", () => {
                 acceptance: () => evidence
             });
             expect(present.acceptance({}, receipt)).toBe(evidence);
+
+            // The same rule governs the three readers a §5.6 handle and a §7.4 rewrite are
+            // built from. `storedReceipt` and `publishedHandle` are what an admission handle
+            // is checked against, and `abandonedRewrite` is how an abandoned rewrite reaches
+            // the Run: a reader that faulted on a source omitting them would refuse a
+            // deployment that is within contract, and one that invented a value would state a
+            // fact no record carries.
+            expect(absent.abandonedRewrite({}, receipt, forwarded())).toBeUndefined();
+            expect(absent.storedReceipt({}, receipt)).toBeUndefined();
+            expect(
+                absent.publishedHandle({}, new InvocationId("published-item"), 0, "item-key")
+            ).toBeUndefined();
+
+            // When the source does answer, the reader forwards that answer and the exact
+            // identity it was asked about. A published handle is identified by item index AND
+            // item key together, so a reader that swapped or dropped either would answer for
+            // another item of the same Invocation.
+            const rewrite = forwarded<AbandonedRewriteEvidence>("The abandoned rewrite");
+            const stored = forwarded<Receipt>("The stored Receipt");
+            const handle = forwarded<TurnAdmissionHandle>("The published admission handle");
+            const asked: string[] = [];
+            const answering = new CanonicalRunEvidencePort<object>({
+                receipt: () => undefined,
+                delivery: () => undefined,
+                control: () => undefined,
+                synthesis: () => undefined,
+                abandonedRewrite: (_transaction, abandoned) => (
+                    asked.push(`rewrite:${abandoned.value}`),
+                    rewrite
+                ),
+                storedReceipt: (_transaction, stale) => (
+                    asked.push(`stored:${stale.value}`),
+                    stored
+                ),
+                publishedHandle: (_transaction, invocation, itemIndex, itemKey) => (
+                    asked.push(`handle:${invocation.value}:${itemIndex}:${itemKey}`),
+                    handle
+                )
+            });
+            expect(answering.abandonedRewrite({}, receipt, forwarded())).toBe(rewrite);
+            expect(answering.storedReceipt({}, receipt)).toBe(stored);
+            expect(
+                answering.publishedHandle({}, new InvocationId("published-item"), 1, "item-key")
+            ).toBe(handle);
+            expect(asked).toEqual([
+                "rewrite:acceptance-receipt",
+                "stored:acceptance-receipt",
+                "handle:published-item:1:item-key"
+            ]);
 
             const settlement = (
                 acceptanceSatisfied?: CanonicalSettlementSource<object>["acceptanceSatisfied"]

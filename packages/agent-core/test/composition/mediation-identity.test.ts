@@ -1,15 +1,52 @@
 import { describe, expect, test } from "vitest";
-import { DerivedMediationIdentities } from "../../src/composition";
-import { Digest, JsonSchema } from "../../src/core";
-import { FacetRef, OperationDescriptor, OperationName } from "../../src/facets";
-import { PrincipalId, PrincipalRef, TenantId } from "../../src/identity";
-import { ClaimWorkerId, EffectAttemptId, InvocationId, ReceiptId } from "../../src/invocations";
+import { ActorId, ActorRef } from "../../src/actors";
+import { TurnLease, type LeaseToken } from "../../src/agents";
+import {
+    Binding,
+    GrantId,
+    InvalidationWatermark,
+    PathEpochEvidence,
+    ScopeEpoch
+} from "../../src/authority";
+import { DerivedMediationIdentities, TenantOperationAuthority } from "../../src/composition";
+import type {
+    OperationAuthorityStatePort,
+    OperationResolutionCandidate,
+    OperationResolutionState
+} from "../../src/composition";
+import { Digest, JsonSchema, Revision, SemVer } from "../../src/core";
+import { PackageId, PackagePin, PolicySet } from "../../src/definition";
+import { TurnId } from "../../src/execution-references";
+import {
+    BindingName,
+    FacetRef,
+    OperationDescriptor,
+    OperationName,
+    ProtectionDomain
+} from "../../src/facets";
+import {
+    PrincipalId,
+    PrincipalRef,
+    ScopeRef,
+    SubjectRef,
+    TenantId,
+    WorkspaceId
+} from "../../src/identity";
+import { RouteReservationId } from "../../src/interaction-references";
+import {
+    ClaimWorkerId,
+    EffectAttemptId,
+    InvocationId,
+    InvocationPlacementPin,
+    ReceiptId
+} from "../../src/invocations";
 import { OperationRequestKey } from "../../src/operations";
 import type {
     MediatedInvocationPreflight,
     MediatedReplayBinding,
     OperationPayloadCardinality
 } from "../../src/operations";
+import { reaching } from "./fixture";
 
 const schema = new JsonSchema({ type: "object" });
 
@@ -64,6 +101,91 @@ const other = new InvocationId("agent-core.identity.invocation.v1:" + "2".repeat
 const attempt = new EffectAttemptId("agent-core.identity.effect-attempt.v1:" + "3".repeat(64));
 const receipt = new ReceiptId("agent-core.identity.attempt-receipt.v1:" + "4".repeat(64));
 const superseding = new ReceiptId("agent-core.identity.attempt-receipt.v1:" + "6".repeat(64));
+
+const principal = new PrincipalRef(
+    new TenantId("identity-tenant"),
+    new PrincipalId("identity-principal")
+);
+const owner = new ActorRef("workspace", new ActorId("identity-actor"));
+const workspaceScope = ScopeRef.workspace(
+    new TenantId("identity-tenant"),
+    new WorkspaceId("identity-workspace")
+);
+const bindingName = new BindingName("memory-primary");
+const facet = new FacetRef("memory:primary");
+const domain = new ProtectionDomain("backend", "identity-domain", "no-secrets");
+const RESOLVED_AT = new Date(1_000_000);
+const identityRoute = new RouteReservationId("identity-route");
+const presentedLease: LeaseToken = {
+    turn: new TurnId("identity-turn"),
+    holder: principal,
+    epoch: 1
+};
+
+/**
+ * One resolution as the authority plane issues it. The state port is reached only for the
+ * candidate — `resolve` is the whole path — and the resolution itself comes from shipped
+ * derivation, so a stale-denial identity below is computed from evidence a deployment could
+ * actually present rather than from a hand-built look-alike.
+ */
+async function resolution(
+    execution: Pick<OperationResolutionCandidate, "lease" | "originalLease" | "route">
+): Promise<OperationResolutionState> {
+    const lease = TurnLease.restore(
+        new TurnId("identity-turn"),
+        principal,
+        1,
+        new Date(RESOLVED_AT.getTime() + 5_000)
+    );
+    const candidate: OperationResolutionCandidate = {
+        principal,
+        binding: Binding.active(
+            workspaceScope,
+            SubjectRef.principal(principal),
+            domain,
+            bindingName,
+            new GrantId("identity-grant"),
+            facet
+        ),
+        pathEpochs: new PathEpochEvidence([
+            ScopeEpoch.initial(ScopeRef.tenant(new TenantId("identity-tenant"))),
+            ScopeEpoch.initial(workspaceScope)
+        ]),
+        watermark: new InvalidationWatermark(
+            new TenantId("identity-tenant"),
+            owner,
+            principal,
+            [],
+            new Revision(0)
+        ),
+        package: new PackagePin(
+            new PackageId("identity-package"),
+            new SemVer("1.0.0"),
+            digest("d"),
+            digest("d")
+        ),
+        placement: new InvocationPlacementPin({
+            manifest: ["bundled"],
+            policy: ["bundled"],
+            substrate: ["bundled"],
+            trust: ["bundled"],
+            selected: "bundled"
+        }),
+        owner,
+        policies: [new PolicySet({})],
+        turnOwnedSession: false,
+        sessionFilesystemTarget: false,
+        turnActorAuthorityLocal: false,
+        directAuthority: undefined,
+        ...execution,
+        originalLease: execution.lease === undefined ? undefined : lease
+    };
+    const authority = new TenantOperationAuthority(
+        reaching<OperationAuthorityStatePort<PrincipalRef>>({ resolve: () => candidate }),
+        () => RESOLVED_AT
+    );
+    return (await authority.resolve(principal, bindingName)).resolution;
+}
 
 describe("mediation identifiers derive from the evidence that determines them", () => {
     test("recomputes every identifier from the same evidence", { tags: "p0" }, () => {
@@ -330,6 +452,67 @@ describe("mediation identifiers derive from the evidence that determines them", 
                 "4037089ed6e1cc2751b7e1381ec024ce99bde7e0136c62e852e2c72fd4ad7225"
         );
     });
+
+    test(
+        "separates the executions one stale denial can be issued against",
+        { tags: "p0" },
+        async () => {
+            // §3.4 rule 7: the denial identity is minted from the exact stale resolution the
+            // caller presented, and which execution it was issued against is part of what made
+            // that intent distinct. A Turn-leased resolution and a route-driven one are
+            // different intents even for the same Binding and arguments, so collapsing them
+            // would give two different refusals one Receipt and one AuditRecord identity —
+            // and the second refusal would then read as a redelivery of the first.
+            const inputs = [{ query: "parking" }];
+            const routed = { lease: undefined, originalLease: undefined, route: identityRoute };
+            const leasedDenial = identities.staleDenialInvocation(
+                await resolution({
+                    lease: presentedLease,
+                    originalLease: undefined,
+                    route: undefined
+                }),
+                descriptor(),
+                inputs
+            );
+            const routedDenial = identities.staleDenialInvocation(
+                await resolution(routed),
+                descriptor(),
+                inputs
+            );
+            expect(routedDenial.value).not.toBe(leasedDenial.value);
+            expect(
+                routedDenial.value.startsWith("agent-core.identity.stale-denial-invocation.v1:")
+            ).toBe(true);
+
+            // The same stale observation retried after a crash recomputes the same denial,
+            // which is what stops a redelivery from forking a second refusal record.
+            expect(
+                identities.staleDenialInvocation(await resolution(routed), descriptor(), inputs)
+                    .value
+            ).toBe(routedDenial.value);
+
+            // Another reservation is another intent, and so are another Operation shape and
+            // another payload: each one is part of what the refused call actually was.
+            const elsewhere = await resolution({
+                lease: undefined,
+                originalLease: undefined,
+                route: new RouteReservationId("identity-other-route")
+            });
+            const minted = [
+                routedDenial.value,
+                identities.staleDenialInvocation(elsewhere, descriptor(), inputs).value,
+                identities.staleDenialInvocation(
+                    await resolution(routed),
+                    descriptor("forget"),
+                    inputs
+                ).value,
+                identities.staleDenialInvocation(await resolution(routed), descriptor(), [
+                    { query: "garage" }
+                ]).value
+            ];
+            expect(new Set(minted).size).toBe(minted.length);
+        }
+    );
 
     test("refuses a mediation scope that is not canonical", { tags: "p1" }, () => {
         expect(() => new DerivedMediationIdentities("")).toThrow(TypeError);
