@@ -39,7 +39,13 @@ export async function discoverPriorityTestFiles() {
                 const target = posix.normalize(
                     posix.join(posix.dirname(selectedPath), node.moduleSpecifier.text)
                 );
-                for (const candidate of [`${target}.ts`, `${target}/index.ts`, target]) {
+                // A NodeNext specifier names the emitted `.js`, so a suite that imports its
+                // shared contract that way must still be seen to depend on it: losing the
+                // edge would silently drop the contract's own tags from this file's lanes,
+                // which is the failure this discovery exists to prevent.
+                const candidates = [`${target}.ts`, `${target}/index.ts`, target];
+                if (target.endsWith(".js")) candidates.push(`${target.slice(0, -3)}.ts`);
+                for (const candidate of candidates) {
                     if (knownFiles.has(candidate)) dependencies.add(candidate);
                 }
             }
