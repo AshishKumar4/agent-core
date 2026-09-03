@@ -496,7 +496,7 @@ function checkTitleCitations(owner, selectors, suiteTexts, runnerTexts = suiteTe
         const title = selector.slice(separator + 1);
         const texts = [text, ...suiteTexts];
         const cased = suffixes(title).find((candidate) =>
-            texts.some((candidateText) => candidateText.includes(`"${candidate}"`))
+            texts.some((candidateText) => spelt(candidateText, candidate))
         );
         if (cased === undefined) {
             failures.push(`${owner} cites a case no suite text spells: ${title}`);
@@ -610,6 +610,32 @@ function checkSuite(service, name, selectors, suiteTexts) {
         }
     }
     return failures;
+}
+
+/**
+ * Whether one text spells a title as a case title: either as a quoted string literal, or
+ * as a template literal whose own literal segments bracket its interpolations in order.
+ *
+ * A title built from an exported bound is better practice than a hardcoded number — it is
+ * what the no-bare-literal rule asks for — so refusing it would push a suite into writing
+ * its bound twice. The literal segments still have to match exactly, so a paraphrase
+ * inside a template is refused like any other.
+ */
+function spelt(text, title) {
+    if (text.includes(`"${title}"`)) return true;
+    for (const [, template] of text.matchAll(/`([^`]*)`/gu)) {
+        if (!template.includes("${")) continue;
+        const pattern = template
+            .split(/\$\{[^}]*\}/u)
+            .map(escapeForPattern)
+            .join(".+?");
+        if (new RegExp(`^${pattern}$`, "u").test(title)) return true;
+    }
+    return false;
+}
+
+function escapeForPattern(part) {
+    return part.replace(/[$()*+.?[\\\]^{|}]/gu, (character) => `\\${character}`);
 }
 
 /** Every suffix of a title, longest first, at word boundaries. */

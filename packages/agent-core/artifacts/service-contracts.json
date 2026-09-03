@@ -31,16 +31,12 @@
       "statement": "The Extract<> subset of AgentCoreErrorCode that every Cloudflare adapter raises through CloudflareErrorPort. Accountable in full because it is the closed set the platform-facing services can answer, and because a code no service uses is as informative as one that is used: a code belonging to a substrate seam rather than to a service protocol should say so rather than sit unaccounted.",
       "outsideServiceTaxonomy": [
         {
-          "code": "authority.denied",
-          "reason": "The refusal of the two capability planes — the Cap'n Web provider session and the Tenant authority stub — whose contracts are owed rather than modelled here (premise providerCapabilityContractIsOwed). No service in this artifact answers it, and mapping it to one that does not would be inventing evidence."
-        },
-        {
           "code": "content.not-found",
           "reason": "The content seam's own refusal for an unresolved reference (artifacts/substrate-contracts.json seams[content]). No service protocol modelled here addresses content by reference."
         },
         {
           "code": "invocation.invalid",
-          "reason": "The undisclosed code the provider capability boundary collapses every unrecognised failure to. It is a disclosure decision rather than a way of failing, and it belongs to the owed provider.capability contract."
+          "reason": "The undisclosed code the Cap'n Web provider capability boundary collapses every unrecognised failure to. It is a disclosure decision rather than a way of failing, and it belongs to the one service protocol this artifact still owes — premise providerCapabilityContractIsOwed."
         },
         {
           "code": "run.invalid-state",
@@ -929,6 +925,242 @@
         "viewStreamSendThrowsUnderBackpressure",
         "providerCapabilityContractIsOwed"
       ]
+    },
+    {
+      "service": "tenant.authority",
+      "boundary": "SPEC §10.3's custody boundary: the issuance decision lives in the Tenant Actor, and a target Actor reaches it through a capability that authenticates who asked and decides nothing about what was asked. The module's own words — the request bytes are opaque here and travel unchanged — are the boundary rule.",
+      "direction": "outbound",
+      "transport": "A Workers RPC stub for one Tenant Actor, received as an RPC parameter and therefore owned by whoever minted it. Rides the rpc substrate seam's transport and adds its own request and reply vocabulary on top of it.",
+      "adapters": [
+        "packages/agent-core-cloudflare/src/permit-transport.ts#CapabilityAuthorityPermitIssuance",
+        "packages/agent-core-cloudflare/src/permit-transport.ts#CapabilityAuthorityPermitRecords",
+        "packages/agent-core-cloudflare/src/permit-transport.ts#CapabilityTargetLeaseEvidenceProjection",
+        "packages/agent-core-cloudflare/src/permit-transport.ts#requireCapability",
+        "packages/agent-core-cloudflare/src/permit-transport.ts#requireReply",
+        "packages/agent-core-cloudflare/src/permit-capability.ts#TargetBoundTenantAuthority"
+      ],
+      "operations": ["issuePermit", "issuedPermit", "projectLeaseEvidence"],
+      "operationSource": "packages/agent-core-cloudflare/test/authority-service-contract.ts#AUTHORITY_SERVICE_OPERATIONS",
+      "refusals": ["authority.denied", "operation.invalid-input", "operation.invalid-output"],
+      "refusalSource": "packages/agent-core-cloudflare/test/authority-service-contract.ts#AUTHORITY_SERVICE_REFUSALS",
+      "failureSource": "packages/agent-core-cloudflare/test/authority-service-contract.ts#AUTHORITY_SERVICE_REFUSALS",
+      "replies": ["answered", "absent", "refused", "indeterminate"],
+      "replySource": "packages/agent-core-cloudflare/test/authority-service-contract.ts#AuthorityServiceReply",
+      "taxonomy": [
+        {
+          "code": "authority.denied",
+          "failure": "authority.denied",
+          "union": "CloudflareOperationalErrorCode",
+          "replies": ["refused"],
+          "statement": "The Tenant's own authority decision, and the two guards that speak for it before it is reached: an issued-permit lookup naming a Tenant this capability does not reach, and a call on a capability its holder already released.",
+          "mechanism": "packages/agent-core-cloudflare/src/permit-transport.ts#CapabilityAuthorityPermitRecords compares the named issuer against the one the capability reaches and refuses before forwarding; packages/agent-core-cloudflare/src/permit-capability.ts#TargetBoundTenantAuthority refuses a call after its own release"
+        },
+        {
+          "code": "operation.invalid-input",
+          "failure": "operation.invalid-input",
+          "union": "CloudflareOperationalErrorCode",
+          "replies": ["refused"],
+          "statement": "Admission of an attacker-supplied request: an over-length idempotency key, a key rebound to different bytes, an exhausted distinct-key budget, or a payload past the SQL blob limit. Every one refuses before the Tenant sees anything.",
+          "mechanism": "packages/agent-core-cloudflare/src/permit-capability.ts#TargetBoundTenantAuthority admits each call against MAXIMUM_IDEMPOTENCY_KEY_LENGTH, MAXIMUM_KEYED_CALLS and the stored-blob bound before forwarding"
+        },
+        {
+          "code": "operation.invalid-output",
+          "failure": "operation.invalid-output",
+          "union": "CloudflareOperationalErrorCode",
+          "replies": ["refused"],
+          "statement": "The shape of what came back, or of what was handed in: a capability stub missing an operation, and a Tenant reply that is empty or not bytes. Core can only refuse a substituted decision on a reply it can decode, so an undecodable reply is a broken transport rather than a Tenant decision.",
+          "mechanism": "packages/agent-core-cloudflare/src/permit-transport.ts#requireCapability checks the stub's shape at construction and packages/agent-core-cloudflare/src/permit-transport.ts#requireReply checks every reply's"
+        }
+      ],
+      "invariants": [
+        {
+          "invariant": "idempotency: one key, one Tenant decision, even though every redelivery is forwarded",
+          "verdict": "honored-with-scope",
+          "code": "packages/agent-core-cloudflare/src/permit-capability.ts#TargetBoundTenantAuthority — the keyed guard, documented as a guard and never a cache",
+          "scope": "The one effect is the Tenant's durable decision rather than the arrival count: the capability forwards every redelivery on purpose, because the Tenant's own permit record is the single source of truth for whether the issuance already happened. Asserted by the sink's effect count — one decision under one key while two arrivals were carried — and on workerd by reading the Tenant's own stored digest, not by equal return values alone. Finding SVC-F18 records that nothing bounds how many times one admitted key may be redelivered.",
+          "selectors": [
+            "cloudflare/test/authority-service.test.ts#reference Tenant authority service contract keeps one Tenant decision under one idempotency key while forwarding the redelivery",
+            "cloudflare/test/authority-service.test.ts#in-memory target-bound capability Tenant authority service contract keeps one Tenant decision under one idempotency key while forwarding the redelivery",
+            "cloudflare/test/cloudflare/authority-service.test.ts#workerd Durable Object RPC Tenant authority service contract keeps one Tenant decision under one idempotency key while forwarding the redelivery"
+          ]
+        },
+        {
+          "invariant": "request opacity: the bytes travel unchanged and this transport decides nothing about them",
+          "verdict": "honored",
+          "code": "packages/agent-core-cloudflare/src/permit-transport.ts#CapabilityAuthorityPermitIssuance passes the bytes straight to the stub and only requireReply inspects anything, and only its shape; packages/agent-core-cloudflare/src/permit-capability.ts#TargetBoundTenantAuthority detaches the request without reading it",
+          "scope": null,
+          "selectors": [
+            "cloudflare/test/authority-service.test.ts#reference Tenant authority service contract answers a Tenant reply as opaque bytes and carries the request unchanged",
+            "cloudflare/test/authority-service.test.ts#in-memory target-bound capability Tenant authority service contract answers a Tenant reply as opaque bytes and carries the request unchanged",
+            "cloudflare/test/cloudflare/authority-service.test.ts#workerd Durable Object RPC Tenant authority service contract answers a Tenant reply as opaque bytes and carries the request unchanged"
+          ]
+        },
+        {
+          "invariant": "authentication is server-held: the callee uses the caller the capability was minted for, never one the payload claims",
+          "verdict": "honored-with-scope",
+          "code": "packages/agent-core-cloudflare/src/permit-capability.ts#TargetBoundTenantAuthority closes over the caller at mint time and no operation takes a caller argument",
+          "scope": "The attribution half is asserted here for all three implementations. The unforgeability half — a payload naming another target Actor is refused — is already asserted by the package's existing permit tests and is deliberately not restated.",
+          "selectors": [
+            "cloudflare/test/authority-service.test.ts#reference Tenant authority service contract attributes every call to the caller the capability was minted for",
+            "cloudflare/test/authority-service.test.ts#in-memory target-bound capability Tenant authority service contract attributes every call to the caller the capability was minted for",
+            "cloudflare/test/cloudflare/authority-service.test.ts#workerd Durable Object RPC Tenant authority service contract attributes every call to the caller the capability was minted for"
+          ]
+        },
+        {
+          "invariant": "retry safety: a redelivery under one key and one payload is safe, and a different key is a different call",
+          "verdict": "honored",
+          "code": "packages/agent-core-cloudflare/src/permit-capability.ts#TargetBoundTenantAuthority retains a digest per key and forwards only a matching repeat, so a key rebound to different bytes is refused rather than answered",
+          "scope": null,
+          "selectors": [
+            "cloudflare/test/authority-service.test.ts#reference Tenant authority service contract treats a different idempotency key with different bytes as a different call",
+            "cloudflare/test/authority-service.test.ts#reference Tenant authority service contract refuses a key rebound to different bytes without reaching the Tenant",
+            "cloudflare/test/authority-service.test.ts#in-memory target-bound capability Tenant authority service contract treats a different idempotency key with different bytes as a different call",
+            "cloudflare/test/authority-service.test.ts#in-memory target-bound capability Tenant authority service contract refuses a key rebound to different bytes without reaching the Tenant",
+            "cloudflare/test/cloudflare/authority-service.test.ts#workerd Durable Object RPC Tenant authority service contract refuses a key rebound to different bytes without reaching the Tenant"
+          ]
+        },
+        {
+          "invariant": "reply decodability: a reply the runtime cannot decode is refused rather than handed to core",
+          "verdict": "honored",
+          "code": "packages/agent-core-cloudflare/src/permit-transport.ts#requireReply",
+          "scope": null,
+          "selectors": [
+            "cloudflare/test/authority-service.test.ts#reference Tenant authority service contract refuses a reply it cannot decode rather than handing it to core",
+            "cloudflare/test/authority-service.test.ts#in-memory target-bound capability Tenant authority service contract refuses a reply it cannot decode rather than handing it to core",
+            "cloudflare/test/cloudflare/authority-service.test.ts#Tenant authority service protocol on workerd answers a reply core can decode as the Tenant's own recorded decision"
+          ]
+        },
+        {
+          "invariant": "key retention is bounded, and the bound is the exported constant rather than a literal",
+          "verdict": "honored",
+          "code": "packages/agent-core-cloudflare/src/permit-capability.ts#MAXIMUM_KEYED_CALLS",
+          "scope": null,
+          "selectors": [
+            "cloudflare/test/authority-service.test.ts#reference Tenant authority service contract admits 64 distinct idempotency keys and refuses the next",
+            "cloudflare/test/authority-service.test.ts#in-memory target-bound capability Tenant authority service contract admits 64 distinct idempotency keys and refuses the next",
+            "cloudflare/test/cloudflare/authority-service.test.ts#workerd Durable Object RPC Tenant authority service contract admits 64 distinct idempotency keys and refuses the next"
+          ]
+        },
+        {
+          "invariant": "no lifetime claim on a received stub: this transport never releases a handle it did not create",
+          "verdict": "honored",
+          "code": "packages/agent-core-cloudflare/src/permit-transport.ts#TenantAuthorityCapabilityStub declares no disposer, citing Cloudflare's rule that a stub received as an RPC parameter is disposed by the caller when the call returns",
+          "scope": null,
+          "selectors": [
+            "cloudflare/test/authority-service.test.ts#reference Tenant authority service contract never releases a capability handle it did not create",
+            "cloudflare/test/authority-service.test.ts#in-memory target-bound capability Tenant authority service contract never releases a capability handle it did not create",
+            "cloudflare/test/cloudflare/authority-service.test.ts#Tenant authority service protocol on workerd leaves the platform's own disposer on a received stub uncalled",
+            "cloudflare/test/authority-service.test.ts#Tenant authority service protocol gives the transports no lifetime surface at all"
+          ]
+        },
+        {
+          "invariant": "a permit that was never issued is a fact, not a refusal",
+          "verdict": "honored",
+          "code": "packages/agent-core-cloudflare/src/permit-transport.ts#CapabilityAuthorityPermitRecords returns undefined before requireReply, so an unissued nonce answers absent rather than an empty-reply refusal — which is what lets the authenticator detect a substituted permit",
+          "scope": null,
+          "selectors": [
+            "cloudflare/test/authority-service.test.ts#reference Tenant authority service contract reports a denial and a permit that was never issued as different replies",
+            "cloudflare/test/authority-service.test.ts#in-memory target-bound capability Tenant authority service contract reports a denial and a permit that was never issued as different replies",
+            "cloudflare/test/cloudflare/authority-service.test.ts#workerd Durable Object RPC Tenant authority service contract reports a denial and a permit that was never issued as different replies"
+          ]
+        },
+        {
+          "invariant": "the stub-shape guard holds across the boundary it exists to guard",
+          "verdict": "refuted",
+          "code": "packages/agent-core-cloudflare/src/permit-transport.ts#requireCapability proves each operation exists with an in-check and a callable check, but every property on a real RPC stub is a lazily resolved method",
+          "scope": "Disproved on workerd: a Durable Object stub whose receiver implements none of the three operations constructs all three transports without a refusal, and the failure surfaces at the call as a platform TypeError with no code, which the contract answers as indeterminate rather than operation.invalid-output. The guard is meaningful only for a malformed local object. Finding SVC-F16.",
+          "selectors": [
+            "cloudflare/test/cloudflare/authority-service.test.ts#Tenant authority service protocol on workerd admits a stub whose receiver implements none of the operations and faults at the call"
+          ]
+        },
+        {
+          "invariant": "a callee-side refusal stays classifiable at the caller",
+          "verdict": "honored-with-scope",
+          "code": "packages/agent-core-cloudflare/src/permit-transport.ts classifies by the properties that survive the transport rather than by class",
+          "scope": "Honored only because the classifier reads name and code. Measured on workerd: an AgentCoreError raised inside the Tenant object arrives with own properties stack, message, name, code and remote, and instanceof AgentCoreError is false. Any classifier or assertion written as an instanceof check cannot hold across this boundary. Finding SVC-F17.",
+          "selectors": [
+            "cloudflare/test/cloudflare/authority-service.test.ts#Tenant authority service protocol on workerd keeps a refusal raised in the Tenant object classifiable at the caller",
+            "cloudflare/test/authority-service.test.ts#Tenant authority service protocol classifies a callee refusal by the properties that survive the transport"
+          ]
+        },
+        {
+          "invariant": "ordering and at-least-once under concurrency",
+          "verdict": "untestable-at-this-seam",
+          "code": "packages/agent-core-cloudflare/src/permit-capability.ts#TargetBoundTenantAuthority is request-scoped and holds no queue, so there is no ordering claim at this seam to observe",
+          "scope": "Concurrent redelivery under one key is a premise rather than an assertion: every case here is strictly sequential. Premise authorityConcurrentRedeliveryIsOneDecision states what would settle it.",
+          "selectors": []
+        }
+      ],
+      "suite": {
+        "body": "packages/agent-core-cloudflare/test/authority-service-contract.ts",
+        "implementations": [
+          {
+            "name": "reference",
+            "kind": "reference",
+            "lane": "packages/agent-core-cloudflare test/vitest.config.mjs",
+            "runner": "packages/agent-core-cloudflare/test/authority-service.test.ts"
+          },
+          {
+            "name": "in-memory target-bound capability",
+            "kind": "adapter",
+            "lane": "packages/agent-core-cloudflare test/vitest.config.mjs",
+            "runner": "packages/agent-core-cloudflare/test/authority-service.test.ts"
+          },
+          {
+            "name": "workerd Durable Object RPC",
+            "kind": "adapter",
+            "lane": "packages/agent-core-cloudflare test/cloudflare/vitest.config.ts",
+            "runner": "packages/agent-core-cloudflare/test/cloudflare/authority-service.test.ts"
+          }
+        ],
+        "selectors": [
+          "cloudflare/test/authority-service.test.ts#reference Tenant authority service contract answers a Tenant reply as opaque bytes and carries the request unchanged",
+          "cloudflare/test/authority-service.test.ts#reference Tenant authority service contract answers every refusal the taxonomy declares, and declares every refusal it answers",
+          "cloudflare/test/authority-service.test.ts#reference Tenant authority service contract answers a reply the vocabulary declares for every operation the service declares",
+          "cloudflare/test/authority-service.test.ts#reference Tenant authority service contract reports a denial and a permit that was never issued as different replies",
+          "cloudflare/test/authority-service.test.ts#reference Tenant authority service contract keeps one Tenant decision under one idempotency key while forwarding the redelivery",
+          "cloudflare/test/authority-service.test.ts#reference Tenant authority service contract treats a different idempotency key with different bytes as a different call",
+          "cloudflare/test/authority-service.test.ts#reference Tenant authority service contract refuses a key rebound to different bytes without reaching the Tenant",
+          "cloudflare/test/authority-service.test.ts#reference Tenant authority service contract refuses an over-length key and an over-limit payload before the Tenant sees either",
+          "cloudflare/test/authority-service.test.ts#reference Tenant authority service contract admits 64 distinct idempotency keys and refuses the next",
+          "cloudflare/test/authority-service.test.ts#reference Tenant authority service contract refuses a reply it cannot decode rather than handing it to core",
+          "cloudflare/test/authority-service.test.ts#reference Tenant authority service contract answers an undeclared transport failure as indeterminate rather than as a refusal",
+          "cloudflare/test/authority-service.test.ts#reference Tenant authority service contract attributes every call to the caller the capability was minted for",
+          "cloudflare/test/authority-service.test.ts#reference Tenant authority service contract never releases a capability handle it did not create",
+          "cloudflare/test/authority-service.test.ts#in-memory target-bound capability Tenant authority service contract answers a Tenant reply as opaque bytes and carries the request unchanged",
+          "cloudflare/test/authority-service.test.ts#in-memory target-bound capability Tenant authority service contract answers every refusal the taxonomy declares, and declares every refusal it answers",
+          "cloudflare/test/authority-service.test.ts#in-memory target-bound capability Tenant authority service contract answers a reply the vocabulary declares for every operation the service declares",
+          "cloudflare/test/authority-service.test.ts#in-memory target-bound capability Tenant authority service contract reports a denial and a permit that was never issued as different replies",
+          "cloudflare/test/authority-service.test.ts#in-memory target-bound capability Tenant authority service contract keeps one Tenant decision under one idempotency key while forwarding the redelivery",
+          "cloudflare/test/authority-service.test.ts#in-memory target-bound capability Tenant authority service contract treats a different idempotency key with different bytes as a different call",
+          "cloudflare/test/authority-service.test.ts#in-memory target-bound capability Tenant authority service contract refuses a key rebound to different bytes without reaching the Tenant",
+          "cloudflare/test/authority-service.test.ts#in-memory target-bound capability Tenant authority service contract refuses an over-length key and an over-limit payload before the Tenant sees either",
+          "cloudflare/test/authority-service.test.ts#in-memory target-bound capability Tenant authority service contract admits 64 distinct idempotency keys and refuses the next",
+          "cloudflare/test/authority-service.test.ts#in-memory target-bound capability Tenant authority service contract refuses a reply it cannot decode rather than handing it to core",
+          "cloudflare/test/authority-service.test.ts#in-memory target-bound capability Tenant authority service contract answers an undeclared transport failure as indeterminate rather than as a refusal",
+          "cloudflare/test/authority-service.test.ts#in-memory target-bound capability Tenant authority service contract attributes every call to the caller the capability was minted for",
+          "cloudflare/test/authority-service.test.ts#in-memory target-bound capability Tenant authority service contract never releases a capability handle it did not create",
+          "cloudflare/test/cloudflare/authority-service.test.ts#workerd Durable Object RPC Tenant authority service contract answers a Tenant reply as opaque bytes and carries the request unchanged",
+          "cloudflare/test/cloudflare/authority-service.test.ts#workerd Durable Object RPC Tenant authority service contract answers every refusal the taxonomy declares, and declares every refusal it answers",
+          "cloudflare/test/cloudflare/authority-service.test.ts#workerd Durable Object RPC Tenant authority service contract answers a reply the vocabulary declares for every operation the service declares",
+          "cloudflare/test/cloudflare/authority-service.test.ts#workerd Durable Object RPC Tenant authority service contract reports a denial and a permit that was never issued as different replies",
+          "cloudflare/test/cloudflare/authority-service.test.ts#workerd Durable Object RPC Tenant authority service contract keeps one Tenant decision under one idempotency key while forwarding the redelivery",
+          "cloudflare/test/cloudflare/authority-service.test.ts#workerd Durable Object RPC Tenant authority service contract treats a different idempotency key with different bytes as a different call",
+          "cloudflare/test/cloudflare/authority-service.test.ts#workerd Durable Object RPC Tenant authority service contract refuses a key rebound to different bytes without reaching the Tenant",
+          "cloudflare/test/cloudflare/authority-service.test.ts#workerd Durable Object RPC Tenant authority service contract refuses an over-length key and an over-limit payload before the Tenant sees either",
+          "cloudflare/test/cloudflare/authority-service.test.ts#workerd Durable Object RPC Tenant authority service contract admits 64 distinct idempotency keys and refuses the next",
+          "cloudflare/test/cloudflare/authority-service.test.ts#workerd Durable Object RPC Tenant authority service contract refuses a reply it cannot decode rather than handing it to core",
+          "cloudflare/test/cloudflare/authority-service.test.ts#workerd Durable Object RPC Tenant authority service contract answers an undeclared transport failure as indeterminate rather than as a refusal",
+          "cloudflare/test/cloudflare/authority-service.test.ts#workerd Durable Object RPC Tenant authority service contract attributes every call to the caller the capability was minted for",
+          "cloudflare/test/cloudflare/authority-service.test.ts#workerd Durable Object RPC Tenant authority service contract never releases a capability handle it did not create"
+        ]
+      },
+      "premises": [
+        "authorityRefusalsAreTotal",
+        "authorityCalleeCodeSurvivesDeployedTransport",
+        "authorityIdempotencyHoldsAcrossEviction",
+        "authorityConcurrentRedeliveryIsOneDecision"
+      ]
     }
   ],
   "premises": [
@@ -1128,10 +1360,54 @@
       "atom": null,
       "atomStatus": null,
       "declaration": null,
-      "owed": "The Cap'n Web provider capability plane (packages/agent-core-cloudflare/src/provider-capability.ts) and the Tenant authority plane (src/permit-transport.ts with src/permit-capability.ts) are external service protocols this artifact does not yet model: their contract suites were still in flight when it was frozen. Until they land, authority.denied and invocation.invalid are accounted as outside the taxonomy rather than mapped by a service that does not answer them. Discharging this means adding both services with their own operation, reply and refusal vocabularies and their own parameterised suites against a reference and the real Cap'n Web session on workerd.",
+      "owed": "The Cap'n Web provider capability plane (packages/agent-core-cloudflare/src/provider-capability.ts) is the one external service protocol this artifact does not model: its contract suite was still in flight when the artifact was frozen. Until it lands, invocation.invalid — the undisclosed code that boundary collapses every unrecognised failure to — is accounted as outside the taxonomy rather than mapped by a service that does not answer it. Discharging this means adding the service with its own operation, reply and refusal vocabularies (authenticate as the only method an unauthenticated peer can reach, the handshake that must answer 101 with a socket, per-call re-mediation, and a refusal that cuts the whole session) and its own parameterised suite against a reference and the real Cap'n Web session on workerd.",
       "selectors": null,
       "premise": "providerCapabilityContractIsOwed",
       "kind": "safety",
+      "channel": "gap"
+    },
+    {
+      "atom": null,
+      "atomStatus": null,
+      "declaration": null,
+      "owed": null,
+      "selectors": [
+        "cloudflare/test/authority-service.test.ts#reference Tenant authority service contract answers every refusal the taxonomy declares, and declares every refusal it answers",
+        "cloudflare/test/authority-service.test.ts#in-memory target-bound capability Tenant authority service contract answers every refusal the taxonomy declares, and declares every refusal it answers",
+        "cloudflare/test/cloudflare/authority-service.test.ts#workerd Durable Object RPC Tenant authority service contract answers every refusal the taxonomy declares, and declares every refusal it answers"
+      ],
+      "premise": "authorityRefusalsAreTotal",
+      "kind": "safety",
+      "channel": "contractSuite"
+    },
+    {
+      "atom": null,
+      "atomStatus": null,
+      "declaration": null,
+      "owed": "The measurement that a callee-side AgentCoreError arrives with its name and code intact was taken through vitest-pool-workers' Durable Object stub wrapper, not through a deployed Worker-to-Durable-Object stub. Two things ride on it: that a Tenant refusal stays classifiable at a real deployed caller, and that the platform also defers a stub's property resolution to call time (which is what makes the shape guard vacuous). Discharging both needs one live-lane observation of a cross-object refusal's code at the caller and one construction-plus-call against a deployed stub. The live suite files are in the frozen fingerprint set, so this needs a consented live re-run rather than an edit.",
+      "selectors": null,
+      "premise": "authorityCalleeCodeSurvivesDeployedTransport",
+      "kind": "safety",
+      "channel": "gap"
+    },
+    {
+      "atom": null,
+      "atomStatus": null,
+      "declaration": null,
+      "owed": "The idempotency case runs inside one Tenant isolate lifetime. Discharging this needs an eviction between the two deliveries, so the second is answered from the Tenant's durable record rather than from a live guard. Narrow: the package's existing permit test already asserts the durable half for the admission path.",
+      "selectors": null,
+      "premise": "authorityIdempotencyHoldsAcrossEviction",
+      "kind": "safety",
+      "channel": "gap"
+    },
+    {
+      "atom": null,
+      "atomStatus": null,
+      "declaration": null,
+      "owed": "Every case is strictly sequential. Discharging this needs two capabilities minted for one caller issuing under one key without awaiting between the calls, showing the Tenant still reaches one decision.",
+      "selectors": null,
+      "premise": "authorityConcurrentRedeliveryIsOneDecision",
+      "kind": "progress",
       "channel": "gap"
     }
   ],
@@ -1307,6 +1583,54 @@
       "statement": "A redirect re-sends the caller's method and body unchanged to the redirect target, and WebTransportResponse carries a redirect location with no status, so 301, 302, 303, 307 and 308 are indistinguishable at the seam. A POST body therefore follows a redirect chosen by the first host to a second host, and the 303 downgrade to GET that a normal HTTP client performs cannot be expressed. The credential policy is re-consulted per hop; the body is not re-authorized in any sense.",
       "code": "packages/agent-core/src/facets/web/facet.ts#WebTransportResponse carries redirect without a status; #WebBackend.fetch re-sends request.method and the buffered body on the next hop",
       "modelled": "Recorded on the redirect invariant as the half that is not honored and not expressible at this seam, rather than left inside a verdict of honored."
+    },
+    {
+      "id": "SVC-F16",
+      "severity": "gap",
+      "service": "tenant.authority",
+      "statement": "The stub-shape guard is vacuous across the boundary it exists to guard. requireCapability proves each of the three operations exists with an in-check plus a callable check, but on a real RPC stub every property access is a lazily resolved RPC method — so a Durable Object stub for an object implementing NONE of the operations constructs all three transports without a refusal. The failure surfaces later, at the call, as a platform TypeError with no code, which the contract must answer as indeterminate rather than operation.invalid-output. The check is meaningful only for a malformed local object.",
+      "code": "packages/agent-core-cloudflare/src/permit-transport.ts#requireCapability",
+      "modelled": "Recorded as a refuted invariant rather than a scoped pass, and driven on workerd at cloudflare/test/cloudflare/authority-service.test.ts#Tenant authority service protocol on workerd admits a stub whose receiver implements none of the operations and faults at the call. Closing it would mean probing each operation with a call rather than a property read, which changes when the transport speaks to the Tenant and is not this lane's to decide."
+    },
+    {
+      "id": "SVC-F17",
+      "severity": "gap",
+      "service": "tenant.authority",
+      "statement": "A callee-side refusal loses its class but keeps its code. Measured on workerd through the pool's Durable Object stub: an AgentCoreError raised inside the Tenant object arrives at the caller with own properties stack, message, name, code and remote, and instanceof AgentCoreError is false. Every classifier or assertion in this repository written as an instanceof AgentCoreError check therefore cannot hold across this boundary — which is why the package's existing cross-object permit test asserts on messages instead of codes.",
+      "code": "packages/agent-core-cloudflare/src/permit-transport.ts and packages/agent-core-cloudflare/test/assertions.ts, whose expectOperationalFailure is an instanceof assertion",
+      "modelled": "The contract's classifier reads name and code, so one body classifies correctly in both lanes, and the artifact states the boundary rule rather than leaving it to be rediscovered. The repo-wide consequence for the instanceof-based assertion helpers is reported, not repaired."
+    },
+    {
+      "id": "SVC-F18",
+      "severity": "gap",
+      "service": "tenant.authority",
+      "statement": "Redelivery forwarding is an unbounded re-charge at the Tenant. Two deliveries of one claim reach the Tenant twice by design — the capability is a guard, not a cache — and rely on the Tenant's issuer replaying rather than re-deciding. Nothing bounds how many times ONE admitted key may be redelivered: MAXIMUM_KEYED_CALLS bounds distinct keys only. A holder of one capability can therefore make its Tenant repeat the issuance lookup arbitrarily often under a single admitted key, inside the Tenant's own I/O context.",
+      "code": "packages/agent-core-cloudflare/src/permit-capability.ts#TargetBoundTenantAuthority admits a matching repeat and forwards it, with MAXIMUM_KEYED_CALLS bounding only the number of distinct keys",
+      "modelled": "The idempotency invariant states plainly that the one effect is the Tenant's durable decision and not the arrival count, so the artifact does not claim a per-key delivery bound that does not exist."
+    },
+    {
+      "id": "SVC-F19",
+      "severity": "scope",
+      "service": "tenant.authority",
+      "statement": "Disclosure at this seam is total, and the sibling provider capability seam makes the opposite choice without either of them saying so. A Tenant refusal crosses with its verbatim message and a stack own property; the messages disclose the exported key-length, key-count and blob bounds and the holder's own idempotency key, all of which are public or holder-supplied, but the stack is a Tenant-internal detail reaching a target Actor. The provider capability boundary deliberately collapses a provider-internal failure to a code with no stack and no cause. Nothing in either transport records that this seam does not collapse.",
+      "code": "packages/agent-core-cloudflare/src/permit-transport.ts and packages/agent-core-cloudflare/src/permit-capability.ts raise through the shared error port without rewriting; packages/agent-core-cloudflare/src/provider-capability.ts declares a closed disclosure set and strips the stack",
+      "modelled": "Recorded rather than repaired: which of the two policies is right is a SPEC §10.3 question. The measurement is that stack is present as an own property on the delivered value; whether its frames are the callee's was not measured."
+    },
+    {
+      "id": "SVC-F20",
+      "severity": "observation",
+      "service": "tenant.authority",
+      "statement": "The caller's own release of a capability is indistinguishable from a fault. After the holder disposes the stub, a further call throws a platform error with no code, so the contract answers indeterminate; the callee-side equivalent is a refusal with authority.denied. The same prose failure — the capability is gone — lands in two reply kinds depending on which side released it. A distinct withdrawn kind would separate a caller's own withdrawal from a genuine unknown, exactly as model.inference separates abandoned from indeterminate.",
+      "code": "packages/agent-core-cloudflare/src/permit-capability.ts#TargetBoundTenantAuthority refuses a call after its own release with a code; a caller-side disposal produces a platform error carrying none",
+      "modelled": "Left as indeterminate rather than invented as a fifth kind, because a reply vocabulary is a protocol change and this artifact's own model.inference precedent shows what the fix looks like when it is made deliberately."
+    },
+    {
+      "id": "SVC-F21",
+      "severity": "observation",
+      "service": "tenant.authority",
+      "statement": "The callee's empty-nonce and empty-digest refusal is unreachable through the caller-half transport: the records transport always passes a 64-character hex digest and a nonce that came from a claim. The branch is reachable only by a holder calling the capability object directly. Recorded so the artifact does not claim the transport can produce a refusal it cannot.",
+      "code": "packages/agent-core-cloudflare/src/permit-capability.ts#TargetBoundTenantAuthority checks the nonce and digest it is handed; packages/agent-core-cloudflare/src/permit-transport.ts#CapabilityAuthorityPermitRecords never hands it an empty one",
+      "modelled": "The operation.invalid-input row's statement lists the mechanisms the transport can actually reach and does not list this one."
     }
   ]
 }
