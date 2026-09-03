@@ -48,7 +48,10 @@ beforeAll(async () => {
         0
     );
     committedDebt = stringsAt(corpusArtifact, "unregistered");
-    committedGates = gates.length;
+    // The checker reports how many RULES its gates turned red, and one rule legitimately
+    // guards several inputs (ACQ-GENERATED covers four generated packages), so the count
+    // is the distinct rules the corpus gates name and never the number of gate entries.
+    committedGates = new Set(gates.map((gate) => stringAt(gate, "rule"))).size;
     const ruleIds = objectsAt(await readArtifact("artifacts/quality/rules.json"), "rules").map(
         (rule) => stringAt(rule, "id")
     );
