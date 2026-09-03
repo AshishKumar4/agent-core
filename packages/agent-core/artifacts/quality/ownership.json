@@ -46,6 +46,7 @@
       "packages/agent-core/artifacts/records/index.json",
       "packages/agent-core/artifacts/scenarios/**",
       "packages/agent-core/artifacts/seams/index.json",
+      "packages/agent-core/artifacts/service-contracts.json",
       "packages/agent-core/artifacts/stuck/**",
       "packages/agent-core/artifacts/substrate-contracts.json",
       "packages/agent-core/artifacts/traceability.yaml",
