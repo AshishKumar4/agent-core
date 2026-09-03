@@ -205,8 +205,8 @@
         },
         {
           "id": "ACQ-HEURISTIC/the-audited-source-universe-is-narrowed",
-          "find": "\"roots\": [\n      \"packages/agent-core/src\",\n      \"packages/agent-core-cloudflare/src\"\n    ]",
-          "replace": "\"roots\": [\n      \"packages/agent-core/src\"\n    ]",
+          "find": "\"roots\": [\"packages/agent-core/src\", \"packages/agent-core-cloudflare/src\"],",
+          "replace": "\"roots\": [\"packages/agent-core/src\"],",
           "expects": "Heuristic register scope is not the audited source universe: expected=packages/agent-core/src,packages/agent-core-cloudflare/src",
           "diagnostic": "scope is not the audited source universe",
           "defect": "The register's declared scope was narrowed below the sources it must answer, which is how an audit passes by looking at less: every heuristic in the dropped package stops being detected while the artifact still reads as complete."
