@@ -386,8 +386,12 @@ export class SqliteAuthorityPermitStore
         }
         const requested = this.requested(transaction, permit.nonce);
         if (requested === undefined) {
-            if (this.row(transaction, permit.nonce) !== undefined) {
-                this.requireUnused(transaction, permit.nonce);
+            // The occupancy check above already proved any row here is this owner's, and a row
+            // this owner holds that is not a request is the nonce spent on its other side — an
+            // issuance. Naming that "no durable request" would invite a retry of a nonce
+            // nothing can consume again.
+            if (occupant !== undefined) {
+                throw denied("Authority permit nonce was already used by this Actor owner");
             }
             throw denied("Authority permit has no durable target request");
         }
@@ -423,16 +427,6 @@ export class SqliteAuthorityPermitStore
         }
         if (!this.consumed(transaction, permit.nonce)?.equals(digest)) {
             throw conflict("Authority permit consumption did not persist exactly");
-        }
-    }
-
-    private requireUnused(transaction: TransactionalSqlite, nonce: string): void {
-        if (
-            this.row(transaction, nonce) !== undefined ||
-            this.denialRow(transaction, nonce) !== undefined ||
-            this.consumptionRow(transaction, nonce) !== undefined
-        ) {
-            throw denied("Authority permit nonce was already used by this Actor owner");
         }
     }
 

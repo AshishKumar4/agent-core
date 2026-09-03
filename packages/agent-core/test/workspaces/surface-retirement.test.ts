@@ -632,6 +632,41 @@ describe("Surface retirement and re-registration", () => {
             expect(resumed.view.terminal).toBe(true);
         }
     );
+
+    test(
+        "[C13-VIEW-WITHDRAWAL-TERMINAL] the registration ordinal refuses to wrap and admits no look-alike epoch",
+        { tags: "p1" },
+        () => {
+            const first = SurfaceEpoch.first();
+
+            expect(first.value).toBe(1);
+            expect(first.text).toBe("1");
+            expect(first.next().value).toBe(2);
+            for (const value of [0, -1, 1.5, Number.NaN]) {
+                expect(() => new SurfaceEpoch(value)).toThrow(/positive safe integer/);
+            }
+
+            // Every View and ViewDelta is keyed on the epoch, so an ordinal that wrapped would
+            // reopen a retired stream at a key that already holds another registration's
+            // revisions. The ceiling is a refusal, never a rollover.
+            const ceiling = new SurfaceEpoch(Number.MAX_SAFE_INTEGER);
+            expect(surfaceStreamKey("surface-ceiling", ceiling)).not.toBe(
+                surfaceStreamKey("surface-ceiling", first)
+            );
+            expect(() => ceiling.next()).toThrow(
+                expect.objectContaining({ code: "protocol.invalid-state" })
+            );
+
+            // A subtype can carry state the epoch never declared, so it is not this epoch and
+            // cannot answer a read of one.
+            class WiderEpoch extends SurfaceEpoch {}
+            const wider = new WiderEpoch(1);
+            expect(SurfaceEpoch.isExact(first)).toBe(true);
+            expect(SurfaceEpoch.isExact(wider)).toBe(false);
+            expect(first.equals(wider)).toBe(false);
+            expect(first.equals(new SurfaceEpoch(1))).toBe(true);
+        }
+    );
 });
 
 describe("View and ViewDelta codecs", () => {

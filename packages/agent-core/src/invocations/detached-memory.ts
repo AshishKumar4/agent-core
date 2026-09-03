@@ -61,7 +61,13 @@ export class MemoryDetachedEffectExecutionPersistence implements DetachedEffectE
             [...transaction.detachedExecutions.values()]
                 .map((bytes) => DetachedEffectExecution.decode(bytes.slice()))
                 .filter((record) => record.state.executable)
-                .sort((left, right) => compareCanonicalText(left.id.value, right.id.value))
+                // The EffectAttempt is the page key, because it is the one the substrate index
+                // orders on. A driver's batch limit decides which released items this sweep
+                // runs, so a second order here would hand the same durable set to two hosts as
+                // two different pages.
+                .sort((left, right) =>
+                    compareCanonicalText(left.attempt.value, right.attempt.value)
+                )
                 .slice(0, limit)
         );
     }

@@ -627,3 +627,117 @@ describe("co-transacted record custody on SQLite", () => {
         }
     );
 });
+
+describe("record custody removal", () => {
+    test(
+        "[C13-CONTENT-CUSTODY] a removal path releases exactly the edges its record named and reclaims their bytes",
+        { tags: "p0" },
+        async () => {
+            const content = new MemoryContentStore();
+            const actor = new ActorRef("workspace", new ActorId("custody-removal"));
+            // No clock is supplied: a custody built the ordinary way stamps its own operations,
+            // which is what a store that does not carry one gets.
+            const custody = new ContentRecordCustody(content.retention(owner.tenant, actor));
+            const first = await put(content, "removal-first");
+            const second = await put(content, "removal-second");
+            const record = {
+                kind: "workspace.event",
+                key: "record-removal",
+                fields: [
+                    { field: "payload", ref: first },
+                    { field: "attachment", ref: second }
+                ]
+            };
+            const held = [
+                edge("workspace.event", record.key, "payload", first, actor),
+                edge("workspace.event", record.key, "attachment", second, actor)
+            ];
+
+            content.transaction((transaction) => custody.retain(transaction, record));
+            expectExactCustody(content, held, actor);
+
+            // A record that names no content is not a release of everything: dropping a
+            // fieldless record must leave every other record's custody exactly as it was.
+            content.transaction((transaction) =>
+                custody.release(transaction, { ...record, fields: [] })
+            );
+            expectExactCustody(content, held, actor);
+
+            content.transaction((transaction) => custody.release(transaction, record));
+            expectExactCustody(content, [], actor);
+            // Nothing owns the bytes now, so the sweep is free to reclaim exactly those two.
+            const reclaimed = content.transaction((transaction) =>
+                content
+                    .retention(owner.tenant, actor)
+                    .collect(
+                        transaction,
+                        { allowsCollection: () => true },
+                        new Date(Date.now() + 60_000)
+                    )
+            );
+            expect(reclaimed.map((ref) => ref.value).sort()).toEqual(
+                [first.value, second.value].sort()
+            );
+        }
+    );
+
+    test(
+        "[C13-CONTENT-CUSTODY] the workspaces port releases a retired record's edge and a discarded reference releases nothing",
+        { tags: "p0" },
+        async () => {
+            const content = new MemoryContentStore();
+            const retention = content.retention(workspaceTenant, sourceActor);
+            const port = new WorkspaceContentRetention(retention);
+            const event = eventFixture("workspace-retention-release");
+            const reference = eventRetention(event);
+            await content.put(encode("event-payload-workspace-retention-release"));
+            const held = new ContentOwnerEdge(
+                workspaceTenant,
+                sourceActor,
+                contentOwnerKey("workspace.event", event.id.value, "content"),
+                event.payload
+            );
+
+            content.transaction((transaction) => {
+                expect(port.verify(transaction, reference)).toBe(true);
+                port.retain(transaction, reference);
+            });
+            content.transaction((transaction) =>
+                retention.verifyExactNamespace(transaction, TUPLE_NAMESPACE, [held])
+            );
+
+            // `discard` is for bytes a rejected write left unnamed. Releasing here instead
+            // would drop the custody of a record that is still stored and hand its content to
+            // the very next sweep.
+            port.discard(reference);
+            content.transaction((transaction) =>
+                retention.verifyExactNamespace(transaction, TUPLE_NAMESPACE, [held])
+            );
+            expect(
+                content.transaction((transaction) =>
+                    retention.collect(
+                        transaction,
+                        { allowsCollection: () => true },
+                        new Date(Date.now() + 60_000)
+                    )
+                )
+            ).toEqual([]);
+
+            content.transaction((transaction) => port.release(transaction, reference));
+            content.transaction((transaction) =>
+                retention.verifyExactNamespace(transaction, TUPLE_NAMESPACE, [])
+            );
+            expect(
+                content
+                    .transaction((transaction) =>
+                        retention.collect(
+                            transaction,
+                            { allowsCollection: () => true },
+                            new Date(Date.now() + 60_000)
+                        )
+                    )
+                    .map((ref) => ref.value)
+            ).toEqual([event.payload.value]);
+        }
+    );
+});

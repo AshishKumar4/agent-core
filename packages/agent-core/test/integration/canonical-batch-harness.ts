@@ -682,13 +682,18 @@ export class CanonicalBatchHarness<Authorization = string> {
      * The host query the driver sweeps: released detachment records whose item still has no
      * current Receipt. Both halves are read from durable state, so a rebuilt driver finds the
      * same work a restart left behind.
+     *
+     * The bound belongs to the items the driver may execute and never to the records scanned
+     * to find them. A detachment record stays released after its item finishes, so bounding
+     * the scan would answer "nothing remains" whenever a finished record sorts first — and a
+     * driver that believed it would clear its schedule with released work still owed.
      */
     public releasedItems(): DetachedEffectExecutionSource {
         return {
             released: (limit) =>
                 this.transactions.transact((transaction) =>
                     this.detachedExecutions
-                        .releasedDetachedExecutions(transaction, limit)
+                        .releasedDetachedExecutions(transaction, Number.MAX_SAFE_INTEGER)
                         .flatMap((record) => {
                             const prepared = this.persistence.prepared(
                                 transaction,
@@ -705,6 +710,7 @@ export class CanonicalBatchHarness<Authorization = string> {
                                 ? [AdmittedInvocationItem.derive(prepared, attempt)]
                                 : [];
                         })
+                        .slice(0, limit)
                 )
         };
     }

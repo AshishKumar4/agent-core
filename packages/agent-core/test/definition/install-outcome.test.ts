@@ -18,7 +18,7 @@ import { ContributionAttribution, FacetPackageId, FacetRef } from "../../src/fac
 import { TenantId } from "../../src/identity";
 import { SqliteMaterializationStore } from "../../src/substrates";
 import { TestSqlite } from "../helpers/sqlite";
-import { fieldWithoutValue, recordData, tamperedRecord } from "./record-data";
+import { fieldWithoutValue, forged, recordData, tamperedRecord } from "./record-data";
 
 const encoder = new TextEncoder();
 const tenantId = new TenantId("tenant");
@@ -232,6 +232,44 @@ describe("failed Facet install evidence", () => {
                 refusals(restored, attribution, materialization).map((row) => row.reason)
             ).toEqual([failure.reason]);
             expect(new MemoryMaterializationControlStore().snapshot().installFailures).toEqual([]);
+        }
+    );
+
+    test(
+        "[C13-FACET-START-ATOMIC] refuses a failed install whose evidence is not the exact record it claims",
+        { tags: "p0" },
+        () => {
+            // This record is what answers "is this Scope still refused" after the process that
+            // failed is gone, and its ID is derived from these fields. A look-alike in any one
+            // of them would derive an ID over contents the durable record does not have, so
+            // each is refused where it is written rather than carried into the evidence.
+            expect(() =>
+                installFailure({
+                    attribution: forged<ContributionAttribution>({
+                        contributor: contributor.value,
+                        package: pin.id.value
+                    })
+                })
+            ).toThrow(/carries its contribution attribution/);
+            expect(() =>
+                installFailure({ packageFacet: forged<FacetPackageId>(packageFacet.value) })
+            ).toThrow(/names the Facet package that failed/);
+            expect(() =>
+                installFailure({ manifestDigest: forged<Digest>(digest("manifest").value) })
+            ).toThrow(/carries its manifest digest and its managed origin/);
+            expect(() =>
+                installFailure({
+                    materialization: forged<ManagedOrigin>({ generation: 1 })
+                })
+            ).toThrow(/carries its manifest digest and its managed origin/);
+            expect(() => installFailure({ phase: forged<FacetInstallPhase>("start") })).toThrow(
+                /names the phase its activation stopped in/
+            );
+
+            // The refusals above are about the look-alikes: the same fixture with every field
+            // exact still builds its record and derives its own ID.
+            expect(installFailure().phase).toBe(FacetInstallPhase.start);
+            expect(installFailure().id.equals(installFailure().id)).toBe(true);
         }
     );
 });

@@ -20,9 +20,12 @@ import {
     ScopeEpoch,
     TargetAuthorityPermitDenial,
     TargetAuthorityPermitRequest,
+    TargetLeaseEvidence,
+    TargetLeaseEvidenceKey,
     watermarkKey as authorityWatermarkKey,
     type AuthenticatedAuthorityPermit,
-    type AuthorityPermitExpectationInit
+    type AuthorityPermitExpectationInit,
+    type TargetLeaseEvidenceInit
 } from "../../../src/authority";
 import { Digest, Revision, SemVer, encodeCanonicalJson } from "../../../src/core";
 import { PackageId, PackagePin } from "../../../src/definition";
@@ -79,6 +82,18 @@ const tenantAnchor = Object.freeze({
     principalId: principal.principalId,
     tenantKind: "personal" as const,
     trustAnchor: Uint8Array.of(7, 7, 7)
+});
+/**
+ * An Actor in both permit roles: a Tenant Actor that issues permits and is also the target of
+ * permits another Tenant issues. One owner, one nonce namespace, both sides.
+ */
+const dualActor = new ActorRef("tenant", new ActorId("sqlite-permit-dual"));
+const dualTargeted: Partial<AuthorityPermitExpectationInit> = Object.freeze({
+    target: {
+        actor: dualActor,
+        fence: 3,
+        domain: new ProtectionDomain("backend", "sqlite-permit-domain", "no-secrets")
+    }
 });
 
 describe("SQLite authority permit store exact behavior", () => {
@@ -1502,6 +1517,350 @@ describe("SQLite authority permit store exact behavior", () => {
     });
 });
 
+describe("SQLite target lease evidence projection", () => {
+    test(
+        "[authority.target-lease-evidence] a projection is idempotent, reported through the Tenant store, and absent until one is written",
+        { tags: "p0" },
+        () => {
+            const database = new TestSqlite();
+            const store = tenantPermitStore(database);
+            const value = leaseEvidence();
+
+            // Nothing is projected yet: an absent attestation is an answer, not a fault, or a
+            // source could never ask before it attests.
+            expect(
+                store.transaction((transaction) =>
+                    store.projectedEvidence(transaction, value.reference())
+                )
+            ).toBeUndefined();
+
+            const projected = store.transaction((transaction) =>
+                store.projectEvidence(transaction, value)
+            );
+            const again = store.transaction((transaction) =>
+                store.projectEvidence(transaction, leaseEvidence())
+            );
+            const read = store.transaction((transaction) =>
+                store.projectedEvidence(transaction, value.reference())
+            );
+
+            expect(projected.digest().equals(value.digest())).toBe(true);
+            expect(again.digest().equals(value.digest())).toBe(true);
+            expect(read?.digest().equals(value.digest())).toBe(true);
+            // One key, one attestation: a second attestation under the same key would let a
+            // source swap the lease a permit was granted against.
+            expect(() =>
+                store.transaction((transaction) =>
+                    store.projectEvidence(transaction, leaseEvidence(digest("other-request")))
+                )
+            ).toThrow(/bound to another attestation/);
+        }
+    );
+
+    test(
+        "[authority.target-lease-evidence] a stored projection that does not answer its own reference is refused",
+        { tags: "p0" },
+        () => {
+            const database = new ProjectedSqlite();
+            const store = new SqliteAuthorityPermitStore(database, issuerActor);
+            const value = leaseEvidence();
+            const reference = value.reference();
+            store.transaction((transaction) => store.projectEvidence(transaction, value));
+            const read = (): TargetLeaseEvidence | undefined =>
+                store.transaction((transaction) => store.projectedEvidence(transaction, reference));
+
+            // The digest column is what binds the row to the reference a caller holds. A row
+            // under this key that attests something else is corruption, never a second answer.
+            database.mapRows = (rows) =>
+                rows.map((row) => ("evidence" in row ? { ...row, digest: "0".repeat(64) } : row));
+            expectExactFailure(read, "codec.invalid", corruptMessage);
+            database.mapRows = (rows) =>
+                rows.map((row) => ("evidence" in row ? { ...row, evidence: null } : row));
+            expectExactFailure(read, "codec.invalid", corruptMessage);
+
+            // The bytes decode, and they attest a different key: the reader compares the
+            // decoded attestation with the reference it was asked about, not just the columns.
+            const substitute = new TargetLeaseEvidence({
+                ...leaseEvidenceInit(),
+                key: new TargetLeaseEvidenceKey(sourceActor, "sqlite-permit-evidence-other")
+            });
+            database.mapRows = (rows) =>
+                rows.map((row) =>
+                    "evidence" in row
+                        ? {
+                              ...row,
+                              digest: reference.digest.value,
+                              evidence: TargetLeaseEvidence.encode(substitute)
+                          }
+                        : row
+                );
+            expectExactFailure(read, "codec.invalid", corruptMessage);
+
+            database.mapRows = (rows) => rows;
+            expect(read()?.digest().equals(value.digest())).toBe(true);
+        }
+    );
+
+    test(
+        "[authority.target-lease-evidence] a projection write that fails or vanishes is refused with its own typed cause",
+        { tags: "p1" },
+        () => {
+            const database = new ProjectedSqlite();
+            const store = new SqliteAuthorityPermitStore(database, issuerActor);
+            const project = (): TargetLeaseEvidence =>
+                store.transaction((transaction) =>
+                    store.projectEvidence(transaction, leaseEvidence())
+                );
+
+            database.failRun = new AgentCoreError("actor.closed", "evidence storage is closed");
+            expectExactFailure(project, "actor.closed", "evidence storage is closed");
+            database.failRun = new TypeError("evidence write failure");
+            expectExactFailure(
+                project,
+                "authority.denied",
+                "Target lease evidence could not be projected atomically"
+            );
+
+            // The write reported success and the row is not there: that is a storage fault, not
+            // an attestation, so the caller is never handed evidence nothing durable holds.
+            database.failRun = undefined;
+            database.dropRuns = true;
+            expectExactFailure(
+                project,
+                "protocol.revision-conflict",
+                "Target lease evidence projection did not persist"
+            );
+            database.dropRuns = false;
+            expect(project().digest().equals(leaseEvidence().digest())).toBe(true);
+        }
+    );
+});
+
+describe("SQLite authority permit read-time refusals", () => {
+    test(
+        "[C13-AUTHORITY-PERMIT-ONCE] a nonce another Actor holds is refused as theirs, never as this Actor's replay",
+        { tags: "p0" },
+        () => {
+            const database = new TestSqlite();
+            const target = new SqliteAuthorityPermitStore(database, targetActor);
+            const issuance = new SqliteAuthorityPermitStore(database, issuerActor);
+            const request = targetRequest("shared-nonce");
+            target.transaction((transaction) => target.request(transaction, request));
+
+            // One database holds both Actors' rows. Reading the other side's state answers
+            // "not mine to serve" rather than decoding another owner's row as this one's.
+            expect(
+                issuance.transaction((transaction) => issuance.issued(transaction, "shared-nonce"))
+            ).toBeUndefined();
+
+            // `INSERT OR IGNORE` no-ops against the held row and the read-back sees nothing.
+            // Naming that this Actor's replay would blame the wrong party for a collision.
+            expectExactFailure(
+                () =>
+                    issuance.transaction((transaction) =>
+                        issuance.issue(transaction, issuedPermit("shared-nonce"))
+                    ),
+                "authority.denied",
+                "Authority permit nonce is already held by another Actor owner"
+            );
+            expect(
+                target
+                    .transaction((transaction) => target.requested(transaction, "shared-nonce"))
+                    ?.digest().value
+            ).toBe(request.digest().value);
+        }
+    );
+
+    test(
+        "[C13-AUTHORITY-PERMIT-ONCE] a nonce this owner spent in one role is never reused in the other",
+        { tags: "p0" },
+        async () => {
+            const database = new TestSqlite();
+            // One Actor in both roles: it issues permits as a Tenant and it is the target of
+            // permits another Tenant issues. Its nonce namespace is one namespace, so a nonce
+            // spent in either role is spent — this is the only shape in which "already used by
+            // this Actor owner" is about this owner rather than a collision with another.
+            const store = new SqliteAuthorityPermitStore(database, dualActor);
+            const requested = targetRequestFor(expectation(dualTargeted), "dual-requested");
+            store.transaction((transaction) => store.request(transaction, requested));
+
+            // A nonce held as a target request is not an issuance, and issuing over it would
+            // resurrect a spent nonce as the other kind of record.
+            expect(
+                store.transaction((transaction) => store.issued(transaction, "dual-requested"))
+            ).toBeUndefined();
+            expectExactFailure(
+                () =>
+                    store.transaction((transaction) =>
+                        store.issue(
+                            transaction,
+                            issuedPermit("dual-requested", { issuer: dualActor })
+                        )
+                    ),
+                "authority.denied",
+                "Authority permit nonce was already used by this Actor owner"
+            );
+
+            // The mirror: a nonce this Actor issued under is not a durable target request, so
+            // requesting over it is the same replay.
+            store.transaction((transaction) =>
+                store.issue(transaction, issuedPermit("dual-issued", { issuer: dualActor }))
+            );
+            expect(
+                store.transaction((transaction) => store.requested(transaction, "dual-issued"))
+            ).toBeUndefined();
+            expectExactFailure(
+                () =>
+                    store.transaction((transaction) =>
+                        store.request(
+                            transaction,
+                            targetRequestFor(expectation(dualTargeted), "dual-issued")
+                        )
+                    ),
+                "authority.denied",
+                "Authority permit nonce was already used by this Actor owner"
+            );
+
+            // And consuming a permit another Tenant issued under that same nonce is refused as
+            // the replay it is, rather than as a permit with no durable request.
+            const issuance = new SqliteAuthorityPermitStore(new TestSqlite(), issuerActor);
+            const permit = issuance.transaction((transaction) =>
+                issuance.issue(transaction, issuedPermit("dual-issued", dualTargeted))
+            );
+            const authentication = await new AuthorityPermitAuthenticator(
+                new StoreIssuedRecordSource(issuance)
+            ).authenticate(permit, permit.expectation);
+            expectExactFailure(
+                () =>
+                    store.transaction((transaction) =>
+                        store.consume(
+                            transaction,
+                            authentication,
+                            permit,
+                            permit.expectation,
+                            consumeAt
+                        )
+                    ),
+                "authority.denied",
+                "Authority permit nonce was already used by this Actor owner"
+            );
+            expect(
+                store.transaction((transaction) => store.consumed(transaction, "dual-issued"))
+            ).toBeUndefined();
+            expect(
+                store
+                    .transaction((transaction) => store.requested(transaction, "dual-requested"))
+                    ?.digest().value
+            ).toBe(requested.digest().value);
+        }
+    );
+
+    test(
+        "[C13-AUTHORITY-PERMIT-ONCE] a consumed nonce that also carries a denial is refused from the consumption side",
+        { tags: "p0" },
+        async () => {
+            const database = new TestSqlite();
+            const target = new SqliteAuthorityPermitStore(database, targetActor);
+            const { permit, authentication } = await admit("both-sides-nonce", target);
+            target.transaction((transaction) =>
+                target.consume(transaction, authentication, permit, permit.expectation, consumeAt)
+            );
+            const denial = deniedTargetRequest(targetRequest("both-sides-nonce"));
+            database.run(
+                `INSERT INTO authority_permit_denials (nonce, owner_kind, owner_id, digest, denial)
+                 VALUES (?, ?, ?, ?, ?)`,
+                [
+                    "both-sides-nonce",
+                    targetActor.kind,
+                    targetActor.id.value,
+                    denial.digest().value,
+                    TargetAuthorityPermitDenial.encode(denial)
+                ]
+            );
+
+            // No pair of writes produces both rows. The consumption read must refuse rather
+            // than answer with a digest that a denial says was never allowed to run.
+            expectExactFailure(
+                () =>
+                    target.transaction((transaction) =>
+                        target.consumed(transaction, "both-sides-nonce")
+                    ),
+                "codec.invalid",
+                corruptMessage
+            );
+        }
+    );
+
+    test("schema initialization keeps a typed cause exactly", { tags: "p2" }, () => {
+        const database = new ProjectedSqlite();
+        database.failRun = new AgentCoreError("actor.closed", "schema storage is closed");
+
+        // A typed storage fault is the caller's own answer; wrapping it as corruption would
+        // report a broken store for a closed one.
+        expectExactFailure(
+            () => new SqliteAuthorityPermitStore(database, targetActor),
+            "actor.closed",
+            "schema storage is closed"
+        );
+    });
+});
+
+describe("SQLite authority permit prune faults", () => {
+    test("a prune whose read or delete fails keeps its typed cause", { tags: "p1" }, () => {
+        const database = new ProjectedSqlite();
+        const target = new SqliteAuthorityPermitStore(database, targetActor);
+        target.transaction((transaction) =>
+            target.request(transaction, targetRequest("prune-fault"))
+        );
+        const horizon = new Date(expiresAt.getTime() + 1);
+        const prune = () =>
+            target.transaction((transaction) => target.prune(transaction, horizon, 64, ""));
+
+        database.failAll = new AgentCoreError("actor.closed", "prune read is closed");
+        expectExactFailure(prune, "actor.closed", "prune read is closed");
+        database.failAll = new TypeError("prune read failure");
+        expectExactFailure(prune, "codec.invalid", "Authority permit prune read failed");
+
+        // The candidate read succeeded and the deletes did not: a sweep that reported the rows
+        // gone would leave them resident with nothing left to find them.
+        database.failAll = undefined;
+        database.failRun = new AgentCoreError("actor.closed", "prune delete is closed");
+        expectExactFailure(prune, "actor.closed", "prune delete is closed");
+        database.failRun = new TypeError("prune delete failure");
+        expectExactFailure(prune, "codec.invalid", "Authority permit prune failed");
+
+        database.failRun = undefined;
+        expect(prune()).toMatchObject({ removed: 1, examined: 1, more: false });
+    });
+
+    test("a prune candidate whose stored record is malformed is refused", { tags: "p1" }, () => {
+        const database = new ProjectedSqlite();
+        const target = new SqliteAuthorityPermitStore(database, targetActor);
+        target.transaction((transaction) =>
+            target.request(transaction, targetRequest("prune-corrupt"))
+        );
+        const prune = () =>
+            target.transaction((transaction) =>
+                target.prune(transaction, new Date(expiresAt.getTime() + 1), 64, "")
+            );
+
+        // Expiry is read from the stored record, so the sweep decodes it — and a row it cannot
+        // read is refused rather than skipped, which would leave it resident forever.
+        database.mapRows = (rows) =>
+            rows.map((row) => ("record" in row ? { ...row, record: null } : row));
+        expectExactFailure(prune, "codec.invalid", corruptMessage);
+        database.mapRows = (rows) =>
+            rows.map((row) => ("record" in row ? { ...row, state: "limbo" } : row));
+        expectExactFailure(prune, "codec.invalid", corruptMessage);
+        database.mapRows = (rows) =>
+            rows.map((row) => ("record" in row ? { ...row, record: Uint8Array.of(9, 9) } : row));
+        expectExactFailure(prune, "codec.invalid", corruptMessage);
+
+        database.mapRows = (rows) => rows;
+        expect(prune()).toMatchObject({ removed: 1, examined: 1 });
+    });
+});
+
 class ProjectedSqlite extends TestSqlite {
     readonly #database = new TestSqlite();
     public dropRuns = false;
@@ -1698,6 +2057,30 @@ function deniedTargetRequest(
             decidedAt
         )
     );
+}
+
+/** The attestation a source projects for one target lease, keyed by its idempotency key. */
+function leaseEvidence(
+    requestIdentity = digest("sqlite-permit-evidence-request")
+): TargetLeaseEvidence {
+    return new TargetLeaseEvidence({ ...leaseEvidenceInit(), requestIdentity });
+}
+
+function leaseEvidenceInit(): TargetLeaseEvidenceInit {
+    return {
+        key: new TargetLeaseEvidenceKey(sourceActor, "sqlite-permit-evidence"),
+        tenant,
+        run: new RunId("sqlite-permit-run"),
+        lease,
+        target: {
+            actor: targetActor,
+            fence: 3,
+            domain: new ProtectionDomain("backend", "sqlite-permit-domain", "no-secrets")
+        },
+        requestIdentity: digest("sqlite-permit-evidence-request"),
+        deadline: expiresAt,
+        watermark: InvalidationWatermark.empty(tenant, sourceActor, principal)
+    };
 }
 
 function tenantPermitStore(database: TransactionalSqlite): SqliteTenantAuthorityPermitStore {

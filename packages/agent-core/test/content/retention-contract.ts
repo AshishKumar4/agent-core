@@ -628,6 +628,63 @@ export function contentRetentionContract<TTransaction>(
         );
 
         test(
+            "[C13-CONTENT-CUSTODY] refuses a custody verification whose namespace or expectation is not exact",
+            { tags: "p0" },
+            async () => {
+                const harness = create();
+                const stored = await harness.store.put(encode("verified"));
+                const edge = new ContentOwnerEdge(
+                    tenant,
+                    actor,
+                    "record:workspace.view:1:verify:content",
+                    stored.ref
+                );
+                harness.transaction((transaction) =>
+                    harness.retention.retain(transaction, edge, at(10))
+                );
+                const verify = (
+                    prefixes: readonly string[],
+                    expected: readonly ContentOwnerEdge[]
+                ): void => {
+                    harness.transaction((transaction) =>
+                        harness.retention.verifyExactNamespace(transaction, prefixes, expected)
+                    );
+                };
+
+                // The prefixes decide which stored edges the verification is answerable for.
+                // No prefix reaches nothing and an empty prefix reaches everything, so a store
+                // asked either way would report a verified namespace it never compared.
+                expectAgentCoreError(() => verify([], [edge]), "protocol.invalid-state");
+                expectAgentCoreError(() => verify([""], [edge]), "protocol.invalid-state");
+                expectAgentCoreError(
+                    () => verify(["record:workspace.other:"], [edge]),
+                    "protocol.invalid-state"
+                );
+
+                // One owner key holds one ContentRef. An expectation that names a key twice
+                // could otherwise match a store holding either of them.
+                expectAgentCoreError(() => verify(custodyNamespace, [edge, edge]), "codec.invalid");
+                expectAgentCoreError(
+                    () =>
+                        verify(custodyNamespace, [
+                            edge,
+                            new ContentOwnerEdge(
+                                tenant,
+                                actor,
+                                edge.ownerKey,
+                                ContentRef.fromDigest(Digest.sha256(encode("other")))
+                            )
+                        ]),
+                    "codec.invalid"
+                );
+
+                // The exact expectation still verifies, so the refusals above are about the
+                // namespace and the expectation rather than the stored custody.
+                verify(custodyNamespace, [edge]);
+            }
+        );
+
+        test(
             "[C13-CONTENT-CUSTODY] a fresh store over the same durable state holds exactly what committed",
             { tags: "p0" },
             async () => {
