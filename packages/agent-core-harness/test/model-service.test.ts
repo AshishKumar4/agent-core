@@ -3,7 +3,10 @@ import { MemoryContentStore } from "@agent-core/core/content";
 import { BindingName } from "@agent-core/core/facets";
 import { HarnessError } from "../src/error.js";
 import { ModelProvider, type ModelCompletion, type ModelRequest } from "../src/model/provider.js";
-import { OpenAiCompatibleModelProvider, workersAiEndpoint } from "../src/model/openai-compatible.js";
+import {
+    OpenAiCompatibleModelProvider,
+    workersAiEndpoint
+} from "../src/model/openai-compatible.js";
 import { TranscriptTurnModelPort } from "../src/model/port.js";
 import {
     AssistantMessage,
@@ -53,7 +56,10 @@ class ReferenceModelProvider extends ModelProvider {
         }
         if (this.scenario.kind === "refuses") {
             if (this.scenario.code !== "model.unknown-tool") {
-                throw new HarnessError(this.scenario.code, `Reference refusal ${this.scenario.code}`);
+                throw new HarnessError(
+                    this.scenario.code,
+                    `Reference refusal ${this.scenario.code}`
+                );
             }
             // Not a throw: an undeclared tool is something the service *answered*, and the
             // port is what refuses it. Producing it any other way would test the reference
@@ -172,26 +178,22 @@ modelServiceContract("reference", reference);
 modelServiceContract("OpenAI-compatible adapter", adapter);
 
 describe("model inference service protocol", () => {
-    test(
-        "declares exactly the operations an implementation has to serve",
-        { tags: "p2" },
-        () => {
-            expect([...MODEL_SERVICE_OPERATIONS]).toEqual(["complete"]);
-            // `complete` is abstract, so `ModelProvider.prototype` carries no member of
-            // its own; what is observable is what an implementation defines. The
-            // reference defines exactly the vocabulary and nothing else, which is the
-            // direction that catches a vocabulary entry no implementation serves. The
-            // real adapter is only required to carry every declared operation: its
-            // `send` is internal plumbing rather than a protocol verb.
-            expect(
-                Object.getOwnPropertyNames(ReferenceModelProvider.prototype)
-                    .filter((name) => name !== "constructor")
-                    .sort()
-            ).toEqual([...MODEL_SERVICE_OPERATIONS]);
-            const offered = Object.getOwnPropertyNames(OpenAiCompatibleModelProvider.prototype);
-            expect(MODEL_SERVICE_OPERATIONS.every((name) => offered.includes(name))).toBe(true);
-        }
-    );
+    test("declares exactly the operations an implementation has to serve", { tags: "p2" }, () => {
+        expect([...MODEL_SERVICE_OPERATIONS]).toEqual(["complete"]);
+        // `complete` is abstract, so `ModelProvider.prototype` carries no member of
+        // its own; what is observable is what an implementation defines. The
+        // reference defines exactly the vocabulary and nothing else, which is the
+        // direction that catches a vocabulary entry no implementation serves. The
+        // real adapter is only required to carry every declared operation: its
+        // `send` is internal plumbing rather than a protocol verb.
+        expect(
+            Object.getOwnPropertyNames(ReferenceModelProvider.prototype)
+                .filter((name) => name !== "constructor")
+                .sort()
+        ).toEqual([...MODEL_SERVICE_OPERATIONS]);
+        const offered = Object.getOwnPropertyNames(OpenAiCompatibleModelProvider.prototype);
+        expect(MODEL_SERVICE_OPERATIONS.every((name) => offered.includes(name))).toBe(true);
+    });
 
     test(
         "leaves no HarnessError code outside the service taxonomy without saying so",

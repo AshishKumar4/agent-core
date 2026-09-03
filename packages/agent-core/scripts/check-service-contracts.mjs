@@ -63,7 +63,11 @@ const verdicts = [
     "honored-by-configuration",
     "unverified",
     "untestable-at-this-seam",
-    "unimplemented"
+    "unimplemented",
+    // A claim the contract disproved. Without it a refuted invariant has to be filed as
+    // "unverified", which reads as "nobody looked" — the opposite of what happened, and
+    // the one misreading that would let a known-false claim sit in an artifact unread.
+    "refuted"
 ];
 const implementationKinds = ["reference", "adapter"];
 const premiseKinds = ["safety", "progress"];
@@ -125,11 +129,21 @@ function check(artifactPath) {
     const unions = readCodeUnions(artifact);
     const mapped = new Map(artifact.codeUnions.map((union) => [union.union, new Set()]));
     const selectors = new Set();
+    // Every suite body and runner in the artifact. A case title is written in the body
+    // that declares it and the implementation name in the runner that passes it, so any
+    // title citation anywhere in this artifact is checked against all of them.
+    const suiteTexts = artifact.services
+        .flatMap((service) => [
+            service.suite?.body,
+            ...(service.suite?.implementations ?? []).map((entry) => entry.runner)
+        ])
+        .map((path) => (isNonEmptyString(path) ? sourceText(path) : undefined))
+        .filter((text) => text !== undefined);
     const failures = [];
     for (const service of artifact.services) {
-        failures.push(...checkService(service, unions, mapped, selectors));
+        failures.push(...checkService(service, unions, mapped, selectors, suiteTexts));
     }
-    failures.push(...checkUnionCompleteness(artifact, unions, mapped));
+    failures.push(...checkUnionCompleteness(artifact, unions, mapped, suiteTexts));
     failures.push(...checkPremises(artifact, selectors));
     failures.push(...checkCitedElsewhere(artifact));
     failures.push(...checkFindings(artifact));
@@ -212,7 +226,7 @@ function sourceText(relative) {
     return existsSync(path) ? readFileSync(path, "utf8") : undefined;
 }
 
-function checkService(service, unions, mapped, selectors) {
+function checkService(service, unions, mapped, selectors, suiteTexts) {
     const failures = [];
     assertExactKeys(
         service,
@@ -220,6 +234,7 @@ function checkService(service, unions, mapped, selectors) {
             "adapters",
             "boundary",
             "direction",
+            "failureSource",
             "invariants",
             "operationSource",
             "operations",
@@ -243,8 +258,8 @@ function checkService(service, unions, mapped, selectors) {
     failures.push(...checkVocabularies(service, name));
     failures.push(...checkCitations(service, name));
     failures.push(...checkTaxonomy(service, name, unions, mapped));
-    failures.push(...checkInvariants(service, name));
-    failures.push(...checkSuite(service, name, selectors));
+    failures.push(...checkInvariants(service, name, suiteTexts));
+    failures.push(...checkSuite(service, name, selectors, suiteTexts));
     return failures;
 }
 
@@ -317,59 +332,120 @@ function checkTaxonomy(service, name, unions, mapped) {
     const failures = [];
     assertArray(service.taxonomy, `service ${name} taxonomy`);
     const rows = new Map();
+    const codes = new Set();
     for (const row of service.taxonomy) {
-        assertExactKeys(row, ["code", "failure", "mechanism", "reply", "union"], "taxonomy row");
+        assertExactKeys(
+            row,
+            ["code", "failure", "mechanism", "replies", "statement", "union"],
+            "taxonomy row"
+        );
+        const failure = assertString(row.failure, `service ${name} taxonomy failure`);
         const code = assertString(row.code, `service ${name} taxonomy code`);
         const union = assertString(row.union, `service ${name} taxonomy union`);
-        if (!isNonEmptyString(row.failure) || !isNonEmptyString(row.mechanism)) {
-            failures.push(`service ${name} has a taxonomy row without a failure and a mechanism`);
+        if (!isNonEmptyString(row.statement) || !isNonEmptyString(row.mechanism)) {
+            failures.push(`service ${name} has a taxonomy row without a statement and a mechanism`);
         }
-        if (!service.replies.includes(row.reply)) {
-            failures.push(`service ${name} maps ${code} to reply ${row.reply}, which it never declares`);
+        // A code can be answerable as more than one reply — a policy refusal reached
+        // before the request left is a different promise from the same refusal reached
+        // after a redirect hop — so the row lists every kind it can arrive as, and every
+        // one of them has to be a kind the service declares.
+        assertUniqueStrings(row.replies, `service ${name} taxonomy ${failure} replies`);
+        for (const reply of row.replies) {
+            if (!service.replies.includes(reply)) {
+                failures.push(
+                    `service ${name} maps ${failure} to reply ${reply}, which it never declares`
+                );
+            }
         }
         const members = unions.get(union);
         if (members === undefined) {
-            failures.push(`service ${name} maps ${code} to code union ${union}, which is not declared`);
+            failures.push(
+                `service ${name} maps ${failure} to code union ${union}, which is not declared`
+            );
         } else if (!members.has(code)) {
             // The load-bearing direction: a code the artifact claims is stable but whose
             // own declaration does not carry it.
-            failures.push(`service ${name} maps ${code}, which its declared code union does not carry`);
+            failures.push(
+                `service ${name} maps ${code}, which its declared code union does not carry`
+            );
         } else {
             mapped.get(union).add(code);
+            codes.add(code);
         }
-        if (rows.has(code)) failures.push(`service ${name} maps ${code} twice`);
-        rows.set(code, row);
+        if (rows.has(failure)) failures.push(`service ${name} maps ${failure} twice`);
+        rows.set(failure, row);
         failures.push(...checkMechanism(service, name, row.mechanism));
     }
+    // A code can carry several mechanisms, so the taxonomy is keyed by the way of failing
+    // rather than by the code: without that, "every code is reachable" is all the totality
+    // case could claim, and "every declared way of failing reaches a code" — which is the
+    // claim that actually closes the taxonomy — would be unstated.
+    const [path, symbol] = splitCitation(service.failureSource);
+    const declared = symbol === undefined ? undefined : frozenTuple(path, symbol);
+    if (declared === undefined) {
+        failures.push(`service ${name} cites ${service.failureSource} for its failures, absent`);
+    } else {
+        const listed = [...rows.keys()].join(", ");
+        const actual = declared.join(", ");
+        if (listed !== actual) {
+            failures.push(
+                `service ${name} maps failures [${listed}] and ${symbol} declares [${actual}]`
+            );
+        }
+    }
     for (const code of service.refusals) {
-        if (!rows.has(code)) {
-            failures.push(`service ${name} refuses with ${code} and its taxonomy leaves it unmapped`);
+        if (!codes.has(code)) {
+            failures.push(
+                `service ${name} refuses with ${code} and its taxonomy leaves it unmapped`
+            );
         }
     }
     return failures;
 }
 
 /**
- * A mechanism is a citation whose first token is a `path` or `path:lines` into a file
- * that exists. The rest is prose, because a mechanism that cannot say why in words is a
- * line number pretending to be an explanation.
+ * A mechanism's first token is the citation and the rest is prose, because a mechanism
+ * that cannot say why in words is a line number pretending to be an explanation. The
+ * citation is `path`, `path:lines` or `path#Symbol`, and a named symbol has to be one the
+ * file actually spells — a symbol citation survives a refactor that shifts lines, which
+ * is why it is the form this artifact prefers, and it is only worth preferring if it is
+ * checked.
  */
 function checkMechanism(service, name, mechanism) {
-    const path = String(mechanism).split(/\s/u)[0].split(":")[0];
-    if (sourceText(path) !== undefined) return [];
-    return [`service ${name} cites mechanism file ${path}, which does not exist`];
+    const citation = String(mechanism)
+        .split(/\s/u)[0]
+        .replace(/[,.;]+$/u, "");
+    const [addressed, symbol] = splitCitation(citation);
+    const path = addressed.split(":")[0];
+    const text = sourceText(path);
+    if (text === undefined) {
+        return [`service ${name} cites mechanism file ${path}, which does not exist`];
+    }
+    if (symbol === undefined) return [];
+    // `Class.member` is checked part by part: the two are separate declarations in the
+    // source and a member that moved to another class should not read as still cited.
+    const missing = symbol.split(".").filter((part) => !text.includes(part));
+    if (missing.length === 0) return [];
+    return [`service ${name} cites mechanism ${citation}, absent from ${path}`];
 }
 
-function checkInvariants(service, name) {
+function checkInvariants(service, name, suiteTexts) {
     const failures = [];
     assertArray(service.invariants, `service ${name} invariants`);
     if (service.invariants.length === 0) {
         failures.push(`service ${name} relies on no invariant, which no protocol does`);
     }
     for (const invariant of service.invariants) {
+        assertExactKeys(
+            invariant,
+            ["code", "invariant", "scope", "selectors", "verdict"],
+            `service ${name} invariant`
+        );
         assertOneOf(invariant.verdict, verdicts, `service ${name} invariant verdict`);
         if (!isNonEmptyString(invariant.invariant) || !isNonEmptyString(invariant.code)) {
-            failures.push(`service ${name} has an invariant without a name and the code it is about`);
+            failures.push(
+                `service ${name} has an invariant without a name and the code it is about`
+            );
             continue;
         }
         // A scoped or unmet verdict is a claim about what is missing, so it has to say
@@ -379,12 +455,76 @@ function checkInvariants(service, name) {
                 `service ${name} records invariant ${invariant.invariant} as ${invariant.verdict} without a scope`
             );
         }
+        assertArray(invariant.selectors, `service ${name} invariant selectors`);
+        // An invariant is either observed or argued. A row that cites no case and states
+        // no scope is neither: it is a claim about the runtime with nothing behind it.
+        if (invariant.selectors.length === 0 && !isNonEmptyString(invariant.scope)) {
+            failures.push(
+                `service ${name} states invariant ${invariant.invariant} with neither a case nor a scope`
+            );
+        }
         failures.push(...checkMechanism(service, name, invariant.code));
+        failures.push(...checkTitleCitations(`service ${name}`, invariant.selectors, suiteTexts));
     }
     return failures;
 }
 
-function checkSuite(service, name, selectors) {
+/**
+ * A selector has to be spelled by the code that produces it: the case title as a quoted
+ * string literal, and the `describe` chain above it either as a literal or as the
+ * template a runner's implementation name flows into.
+ *
+ * The quotes are what make this worth checking. A word-by-word comparison would accept a
+ * paraphrase made of the same words, and an unquoted substring match would accept a title
+ * that exists only in a comment describing a case nobody wrote — which is the shape a
+ * fabricated citation takes. Whether the case then passed is the `tests` node's question,
+ * and this node runs after it, so a cited case that went red has already reddened the run
+ * before this check reads its title.
+ */
+function checkTitleCitations(owner, selectors, suiteTexts, runnerTexts = suiteTexts) {
+    const failures = [];
+    for (const selector of selectors) {
+        const separator = selector.indexOf("#");
+        const file = separator === -1 ? undefined : laneRelative(selector.slice(0, separator));
+        const text = file === undefined ? undefined : sourceText(file);
+        if (text === undefined) {
+            failures.push(
+                `${owner} cites selector ${selector} in no readable test lane: ${selector}`
+            );
+            continue;
+        }
+        const title = selector.slice(separator + 1);
+        const texts = [text, ...suiteTexts];
+        const cased = suffixes(title).find((candidate) =>
+            texts.some((candidateText) => candidateText.includes(`"${candidate}"`))
+        );
+        if (cased === undefined) {
+            failures.push(`${owner} cites a case no suite text spells: ${title}`);
+            continue;
+        }
+        const head = title.slice(0, title.length - cased.length).trim();
+        if (head === "" || texts.some((candidateText) => candidateText.includes(head))) continue;
+        // A parameterised `describe`: `${implementation} <prose>`. The prose tail is
+        // whichever suffix a suite text writes into its own template; whatever precedes it
+        // is the implementation name the runner passes, and the runner has to spell it.
+        const prose = suffixes(head).find((candidate) =>
+            texts.some((candidateText) => candidateText.includes(candidate))
+        );
+        if (prose === undefined) {
+            failures.push(`${owner} cites a describe title no suite text spells: ${head}`);
+            continue;
+        }
+        const implementation = head.slice(0, head.length - prose.length).trim();
+        if (!runnerTexts.some((candidateText) => candidateText.includes(`"${implementation}"`))) {
+            failures.push(
+                `${owner} cites implementation ${JSON.stringify(implementation)}, which no runner passes`
+            );
+        }
+    }
+    return failures;
+}
+
+function checkSuite(service, name, selectors, suiteTexts) {
     const failures = [];
     const suite = service.suite;
     assertExactKeys(suite, ["body", "implementations", "selectors"], `service ${name} suite`);
@@ -405,7 +545,11 @@ function checkSuite(service, name, selectors) {
             ["kind", "lane", "name", "runner"],
             `service ${name} implementation`
         );
-        assertOneOf(implementation.kind, implementationKinds, `service ${name} implementation kind`);
+        assertOneOf(
+            implementation.kind,
+            implementationKinds,
+            `service ${name} implementation kind`
+        );
         kinds.add(implementation.kind);
         const runner = sourceText(implementation.runner);
         if (runner === undefined) {
@@ -432,15 +576,28 @@ function checkSuite(service, name, selectors) {
     if (suite.selectors.length === 0) {
         failures.push(`service ${name} declares a contract suite and cites no case it runs`);
     }
-    const runners = suite.implementations.map((implementation) => implementation.runner);
+    const runnerTexts = suite.implementations
+        .map((implementation) => sourceText(implementation.runner))
+        .filter((text) => text !== undefined);
+    const shaped = [];
     for (const selector of suite.selectors) {
         selectors.add(selector);
         if (!SELECTOR_PATTERN.test(selector)) {
             failures.push(`service ${name} cites a malformed selector: ${selector}`);
             continue;
         }
-        failures.push(...checkSelectorTitles(name, selector, suite.body, runners));
+        // One shape for every service, so a reader comparing two contracts is comparing
+        // the same thing and the implementation name is always the leading fragment.
+        if (!selector.includes(" service contract ")) {
+            failures.push(
+                `service ${name} cites a selector outside the contract shape ` +
+                    `"<implementation> <service> service contract <case>": ${selector}`
+            );
+            continue;
+        }
+        shaped.push(selector);
     }
+    failures.push(...checkTitleCitations(`service ${name}`, shaped, suiteTexts, runnerTexts));
     // An implementation is only running the contract if some case ran under its name.
     // Without this, a listed implementation is a claim with nothing behind it: every
     // selector could belong to one of them and the artifact would still read as two.
@@ -451,66 +608,6 @@ function checkSuite(service, name, selectors) {
                 `service ${name} lists implementation ${JSON.stringify(implementation.name)} and cites no case that ran under it`
             );
         }
-    }
-    return failures;
-}
-
-/**
- * A selector has to be spelled by the code that produces it. Every service suite's
- * `describe` is `${implementation} <service prose> service contract`, so a selector reads
- * `<file>#<implementation> <service prose> service contract <case title>` and splits at
- * that one marker.
- *
- * The case title is then required as a quoted string literal, not merely as text
- * somewhere in the file. Two things follow from the quotes: a paraphrase cannot pass, and
- * neither can a title that exists only in a comment describing a case nobody wrote —
- * which is the shape a fabricated citation takes. Whether the case then passed is the
- * `tests` node's question, and this node runs after it, so a cited case that went red has
- * already reddened the run before this check reads its title.
- */
-function checkSelectorTitles(name, selector, body, runners) {
-    const separator = selector.indexOf("#");
-    const file = laneRelative(selector.slice(0, separator));
-    if (file === undefined) {
-        return [`service ${name} cites a selector in no declared test lane: ${selector}`];
-    }
-    if (sourceText(file) === undefined) {
-        return [`service ${name} cites selector file ${file}, which does not exist`];
-    }
-    const title = selector.slice(separator + 1);
-    const marker = " service contract ";
-    const at = title.indexOf(marker);
-    if (at === -1) {
-        return [
-            `service ${name} cites a selector outside the contract shape ` +
-                `"<implementation> <service> service contract <case>": ${selector}`
-        ];
-    }
-    const texts = [file, body, ...runners]
-        .map((path) => sourceText(path))
-        .filter((text) => text !== undefined);
-    const head = title.slice(0, at);
-    const cased = title.slice(at + marker.length);
-    const failures = [];
-    if (!texts.some((text) => text.includes(`"${cased}"`))) {
-        failures.push(`service ${name} cites a case no suite text spells: ${cased}`);
-    }
-    // The prose service name is whichever suffix of the head the body writes into its own
-    // `describe` template; whatever precedes it is the implementation name the runner
-    // passes in, and the runner has to spell that literally.
-    const prose = suffixes(head).find((candidate) =>
-        texts.some((text) => text.includes(`${candidate} service contract`))
-    );
-    if (prose === undefined) {
-        failures.push(`service ${name} cites a describe title no suite text spells: ${head}`);
-        return failures;
-    }
-    const implementation = head.slice(0, head.length - prose.length).trim();
-    const runnerTexts = runners.map((path) => sourceText(path)).filter((text) => text !== undefined);
-    if (!runnerTexts.some((text) => text.includes(`"${implementation}"`))) {
-        failures.push(
-            `service ${name} cites implementation ${JSON.stringify(implementation)}, which no runner passes`
-        );
     }
     return failures;
 }
@@ -535,7 +632,7 @@ function laneRelative(path) {
  * what "the taxonomy is complete with no unmapped failure" means as a check rather than
  * as a claim.
  */
-function checkUnionCompleteness(artifact, unions, mapped) {
+function checkUnionCompleteness(artifact, unions, mapped, suiteTexts) {
     const failures = [];
     for (const union of artifact.codeUnions) {
         const members = unions.get(union.union);
@@ -549,9 +646,15 @@ function checkUnionCompleteness(artifact, unions, mapped) {
         assertArray(union.outsideServiceTaxonomy, `${union.union} outsideServiceTaxonomy`);
         const excused = new Map();
         for (const entry of union.outsideServiceTaxonomy) {
-            assertExactKeys(entry, ["code", "reason"], `${union.union} outsideServiceTaxonomy entry`);
+            assertExactKeys(
+                entry,
+                ["code", "reason"],
+                `${union.union} outsideServiceTaxonomy entry`
+            );
             if (!members.has(entry.code)) {
-                failures.push(`code union ${union.union} excuses ${entry.code}, which it does not carry`);
+                failures.push(
+                    `code union ${union.union} excuses ${entry.code}, which it does not carry`
+                );
             }
             if (!isNonEmptyString(entry.reason)) {
                 failures.push(`code union ${union.union} excuses ${entry.code} with no reason`);
@@ -561,41 +664,25 @@ function checkUnionCompleteness(artifact, unions, mapped) {
         const claimed = mapped.get(union.union);
         for (const code of [...members].sort()) {
             if (claimed.has(code) && excused.has(code)) {
-                failures.push(`code ${code} is both mapped by a service and excused from ${union.union}`);
+                failures.push(
+                    `code ${code} is both mapped by a service and excused from ${union.union}`
+                );
             }
             if (!claimed.has(code) && !excused.has(code)) {
-                failures.push(`code union ${union.union} carries ${code} and no service taxonomy maps it`);
+                failures.push(
+                    `code union ${union.union} carries ${code} and no service taxonomy maps it`
+                );
             }
         }
         // The partition this entry states is itself a claim a test can pin, so the entry
-        // cites the case that pins it. These selectors are not contract cases and carry no
-        // implementation name, so only the title has to be spelled where it is cited.
+        // cites the case that pins it.
         assertUniqueStrings(union.selectors, `${union.union} selectors`);
         if (union.selectors.length === 0) {
             failures.push(`code union ${union.union} states a partition no case pins`);
         }
-        for (const selector of union.selectors) {
-            const separator = selector.indexOf("#");
-            const file = laneRelative(selector.slice(0, separator));
-            const text = file === undefined ? undefined : sourceText(file);
-            if (text === undefined) {
-                failures.push(`code union ${union.union} cites selector file ${file}, absent`);
-                continue;
-            }
-            const title = selector.slice(separator + 1);
-            // A selector joins a `describe` title to a case title, so it is well formed
-            // exactly when some split of it leaves two fragments the file both spells.
-            // Matching any single suffix would accept a paraphrase; matching a split
-            // accepts only the two literals the file actually carries.
-            const split = suffixes(title).some(
-                (candidate) =>
-                    text.includes(candidate) &&
-                    text.includes(title.slice(0, title.length - candidate.length).trim())
-            );
-            if (!split) {
-                failures.push(`code union ${union.union} cites a case ${file} does not spell: ${title}`);
-            }
-        }
+        failures.push(
+            ...checkTitleCitations(`code union ${union.union}`, union.selectors, suiteTexts)
+        );
     }
     return failures;
 }
@@ -608,7 +695,9 @@ function checkPremises(artifact, selectors) {
         assertArray(service.premises, `service ${service.service} premises`);
         for (const premise of service.premises) {
             if (!named.has(premise)) {
-                failures.push(`service ${service.service} rests on premise ${premise}, which is not declared`);
+                failures.push(
+                    `service ${service.service} rests on premise ${premise}, which is not declared`
+                );
             }
         }
     }
@@ -619,7 +708,16 @@ function checkPremises(artifact, selectors) {
         // one, and only the second can be checked.
         assertExactKeys(
             premise,
-            ["atom", "atomStatus", "channel", "declaration", "kind", "owed", "premise", "selectors"],
+            [
+                "atom",
+                "atomStatus",
+                "channel",
+                "declaration",
+                "kind",
+                "owed",
+                "premise",
+                "selectors"
+            ],
             "premises entry"
         );
         const name = assertString(premise.premise, "premise");
@@ -737,10 +835,14 @@ function checkCitedElsewhere(artifact) {
         );
         const name = assertString(cited.service, "citedElsewhere service");
         if (!isNonEmptyString(cited.statement)) {
-            failures.push(`cited service ${name} states no reason for being cited rather than restated`);
+            failures.push(
+                `cited service ${name} states no reason for being cited rather than restated`
+            );
         }
         if (cited.seam !== null && !seams.has(cited.seam)) {
-            failures.push(`cited service ${name} names substrate seam ${cited.seam}, which does not exist`);
+            failures.push(
+                `cited service ${name} names substrate seam ${cited.seam}, which does not exist`
+            );
         }
         assertArray(cited.premises, `cited service ${name} premises`);
         for (const premise of cited.premises) {
@@ -758,13 +860,19 @@ function checkFindings(artifact) {
     const failures = [];
     const services = new Set(artifact.services.map((service) => service.service));
     for (const finding of artifact.findings) {
-        assertExactKeys(finding, ["code", "id", "modelled", "service", "severity", "statement"], "findings entry");
+        assertExactKeys(
+            finding,
+            ["code", "id", "modelled", "service", "severity", "statement"],
+            "findings entry"
+        );
         const id = assertString(finding.id, "finding id");
         if (!isNonEmptyString(finding.statement) || !isNonEmptyString(finding.code)) {
             failures.push(`finding ${id} needs a statement and the code it is about`);
         }
         if (!services.has(finding.service)) {
-            failures.push(`finding ${id} is about service ${finding.service}, which is not declared`);
+            failures.push(
+                `finding ${id} is about service ${finding.service}, which is not declared`
+            );
         }
     }
     return failures;

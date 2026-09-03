@@ -1,7 +1,11 @@
 import { describe, expect, test } from "vitest";
 import { MemoryContentStore } from "@agent-core/core/content";
 import type { ContentRef } from "@agent-core/core/core";
-import type { TurnBoundOperation, TurnModelCall, TurnModelUsage } from "@agent-core/core/agents/runs";
+import type {
+    TurnBoundOperation,
+    TurnModelCall,
+    TurnModelUsage
+} from "@agent-core/core/agents/runs";
 import { HarnessError } from "../src/error.js";
 import { ModelProvider } from "../src/model/provider.js";
 import { TranscriptTurnModelPort } from "../src/model/port.js";
@@ -60,6 +64,20 @@ export type ModelServiceRefusalCode = (typeof MODEL_SERVICE_REFUSALS)[number];
 export const MODEL_SERVICE_UNSENDABLE = Object.freeze(["transcript.invalid"] as const);
 
 export type ModelServiceUnsendableCode = (typeof MODEL_SERVICE_UNSENDABLE)[number];
+
+/**
+ * The closed vocabulary of ways this service can fail — the refusals plus the one
+ * request-side refusal. It is a vocabulary of its own rather than just the code set
+ * because a taxonomy keyed by code can only claim that every code is reachable, and the
+ * claim that closes a taxonomy is that every declared way of failing reaches one.
+ */
+export const MODEL_SERVICE_FAILURES = Object.freeze([
+    "model.malformed-response",
+    "model.rejected",
+    "model.unavailable",
+    "model.unknown-tool",
+    "transcript.invalid"
+] as const);
 
 /**
  * The closed reply vocabulary. Five kinds, and the last two are the ones that keep this
@@ -170,7 +188,10 @@ function portOver(provider: ModelProvider): TranscriptTurnModelPort {
     return new TranscriptTurnModelPort(provider, new MemoryContentStore());
 }
 
-export function modelServiceContract(name: string, implementation: ModelServiceImplementation): void {
+export function modelServiceContract(
+    name: string,
+    implementation: ModelServiceImplementation
+): void {
     describe(`${name} model inference service contract`, () => {
         test(
             "answers a completion as one content-addressed assistant message",

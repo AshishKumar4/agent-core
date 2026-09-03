@@ -15,12 +15,52 @@
       "selectors": [
         "harness/test/model-service.test.ts#model inference service protocol leaves no HarnessError code outside the service taxonomy without saying so"
       ]
+    },
+    {
+      "union": "WebPolicyErrorCode",
+      "source": "packages/agent-core/src/facets/web/facet.ts",
+      "statement": "The web facet's own detail vocabulary. Accountable in full because it is the whole of what the egress policy chain can refuse, and because it is the only level at which the refusals differ: WebPolicyError passes operation.invalid-input to AgentCoreError for every one of the seven, so the kernel code distinguishes none of them (finding SVC-F5).",
+      "outsideServiceTaxonomy": [],
+      "selectors": [
+        "test/profiles/facets/web-egress-service.test.ts#web egress service protocol leaves no WebPolicyErrorCode outside the service taxonomy, and none distinguishable at the kernel level"
+      ]
+    },
+    {
+      "union": "CloudflareOperationalErrorCode",
+      "source": "packages/agent-core-cloudflare/src/error.ts",
+      "statement": "The Extract<> subset of AgentCoreErrorCode that every Cloudflare adapter raises through CloudflareErrorPort. Accountable in full because it is the closed set the platform-facing services can answer, and because a code no service uses is as informative as one that is used: a code belonging to a substrate seam rather than to a service protocol should say so rather than sit unaccounted.",
+      "outsideServiceTaxonomy": [
+        {
+          "code": "authority.denied",
+          "reason": "The refusal of the two capability planes — the Cap'n Web provider session and the Tenant authority stub — whose contracts are owed rather than modelled here (premise providerCapabilityContractIsOwed). No service in this artifact answers it, and mapping it to one that does not would be inventing evidence."
+        },
+        {
+          "code": "content.not-found",
+          "reason": "The content seam's own refusal for an unresolved reference (artifacts/substrate-contracts.json seams[content]). No service protocol modelled here addresses content by reference."
+        },
+        {
+          "code": "invocation.invalid",
+          "reason": "The undisclosed code the provider capability boundary collapses every unrecognised failure to. It is a disclosure decision rather than a way of failing, and it belongs to the owed provider.capability contract."
+        },
+        {
+          "code": "run.invalid-state",
+          "reason": "A Run lifecycle refusal raised by the kernel's Run machinery, not by any transport modelled here."
+        },
+        {
+          "code": "schema.unreadable",
+          "reason": "The Durable Object entrypoint's permanent startup refusal for an unrecognised schema marker. It gates whether the object serves at all, so it precedes every protocol rather than being one protocol's reply."
+        }
+      ],
+      "selectors": [
+        "cloudflare/test/deployment-service.test.ts#Cloudflare deployment service protocol names the site of each output refusal the one code covers",
+        "cloudflare/test/view-stream-service.test.ts#Cloudflare view stream service protocol names the site of each ceiling refusal the three codes share"
+      ]
     }
   ],
   "services": [
     {
       "service": "model.inference",
-      "boundary": "SPEC \u00a714's trust boundary in the plain case: the destination is a third party reached over a network the platform does not own, so the request is externalSend and reading the reply is observe (SPEC.md:2781-2789). Workers AI's REST route and AI Gateway are both third-party inference endpoints from the Tenant's side.",
+      "boundary": "SPEC §14's trust boundary in the plain case: the destination is a third party reached over a network the platform does not own, so the request is externalSend and reading the reply is observe (SPEC.md:2781-2789). Workers AI's REST route and AI Gateway are both third-party inference endpoints from the Tenant's side.",
       "direction": "outbound",
       "transport": "HTTPS POST of an OpenAI chat-completions body with a Bearer credential, through an injected fetch. workersAiEndpoint and aiGatewayEndpoint are the only two routes the repository spells; the endpoint and the credential are host-supplied options.",
       "adapters": [
@@ -41,79 +81,108 @@
       "replySource": "packages/agent-core-harness/test/model-service-contract.ts#ModelServiceReply",
       "taxonomy": [
         {
-          "failure": "The endpoint answered 5xx or 429, or the fetch itself threw while the caller's signal was not aborted.",
-          "code": "model.unavailable",
-          "union": "HarnessErrorCode",
-          "reply": "refused",
-          "mechanism": "packages/agent-core-harness/src/model/openai-compatible.ts:50-58,73-83"
-        },
-        {
-          "failure": "The endpoint answered a non-ok status that is neither 429 nor 5xx: the service understood the request and declined it.",
-          "code": "model.rejected",
-          "union": "HarnessErrorCode",
-          "reply": "refused",
-          "mechanism": "packages/agent-core-harness/src/model/openai-compatible.ts:50-58"
-        },
-        {
-          "failure": "The reply was not JSON, not JSON data, carried no choices, or carried a field of the wrong type anywhere the reader narrows one \u2014 including a usage count that is not a non-negative safe integer.",
           "code": "model.malformed-response",
-          "union": "HarnessErrorCode",
-          "reply": "refused",
-          "mechanism": "packages/agent-core-harness/src/model/openai-compatible.ts:135-242"
+          "failure": "model.malformed-response",
+          "mechanism": "packages/agent-core-harness/src/model/openai-compatible.ts:135-242",
+          "replies": ["refused"],
+          "statement": "The reply was not JSON, not JSON data, carried no choices, or carried a field of the wrong type anywhere the reader narrows one — including a usage count that is not a non-negative safe integer.",
+          "union": "HarnessErrorCode"
         },
         {
-          "failure": "The reply named a tool the request's catalog did not declare, so the service answered outside the vocabulary it was given.",
+          "code": "model.rejected",
+          "failure": "model.rejected",
+          "mechanism": "packages/agent-core-harness/src/model/openai-compatible.ts:50-58",
+          "replies": ["refused"],
+          "statement": "The endpoint answered a non-ok status that is neither 429 nor 5xx: the service understood the request and declined it.",
+          "union": "HarnessErrorCode"
+        },
+        {
+          "code": "model.unavailable",
+          "failure": "model.unavailable",
+          "mechanism": "packages/agent-core-harness/src/model/openai-compatible.ts:50-58,73-83",
+          "replies": ["refused"],
+          "statement": "The endpoint answered 5xx or 429, or the fetch itself threw while the caller's signal was not aborted.",
+          "union": "HarnessErrorCode"
+        },
+        {
           "code": "model.unknown-tool",
-          "union": "HarnessErrorCode",
-          "reply": "refused",
-          "mechanism": "packages/agent-core-harness/src/model/port.ts:96-108"
+          "failure": "model.unknown-tool",
+          "mechanism": "packages/agent-core-harness/src/model/port.ts:96-108",
+          "replies": ["refused"],
+          "statement": "The reply named a tool the request's catalog did not declare, so the service answered outside the vocabulary it was given.",
+          "union": "HarnessErrorCode"
         },
         {
-          "failure": "The request was not renderable: the reconstruction showed a section count other than one, or a transcript message of a kind renderMessages does not spell. Nothing crossed the boundary.",
           "code": "transcript.invalid",
-          "union": "HarnessErrorCode",
-          "reply": "unsendable",
-          "mechanism": "packages/agent-core-harness/src/model/port.ts:66-82; packages/agent-core-harness/src/model/openai-compatible.ts:120-123"
+          "failure": "transcript.invalid",
+          "mechanism": "packages/agent-core-harness/src/model/port.ts:66-82; packages/agent-core-harness/src/model/openai-compatible.ts:120-123",
+          "replies": ["unsendable"],
+          "statement": "The request was not renderable: the reconstruction showed a section count other than one, or a transcript message of a kind renderMessages does not spell. Nothing crossed the boundary.",
+          "union": "HarnessErrorCode"
         }
       ],
       "invariants": [
         {
           "invariant": "no streaming grammar: the protocol admits exactly one whole reply",
           "verdict": "honored",
-          "code": "packages/agent-core-harness/src/model/openai-compatible.ts:59 reads response.text() whole and readCompletion parses one document, so a streamed endpoint is unreachable through this adapter and no partial-reply grammar exists to get wrong"
+          "code": "packages/agent-core-harness/src/model/openai-compatible.ts:59 reads response.text() whole and readCompletion parses one document, so a streamed endpoint is unreachable through this adapter and no partial-reply grammar exists to get wrong",
+          "selectors": [],
+          "scope": "A structural claim about the adapter rather than an observed behaviour: there is no streamed reply to drive, because `response.text()` has already consumed the whole body before any parsing begins. What a case could show is only that a whole reply arrives whole, which is what the completion case already shows."
         },
         {
           "invariant": "the reply is content-addressed before it is a Turn's answer",
           "verdict": "honored",
-          "code": "packages/agent-core-harness/src/model/port.ts:36-40 puts AssistantMessageCodec.encode(message) into the ContentStore and returns the ref, so a Turn's model output names exactly the bytes the provider produced"
+          "code": "packages/agent-core-harness/src/model/port.ts:36-40 puts AssistantMessageCodec.encode(message) into the ContentStore and returns the ref, so a Turn's model output names exactly the bytes the provider produced",
+          "selectors": [
+            "harness/test/model-service.test.ts#reference model inference service contract answers a completion as one content-addressed assistant message",
+            "harness/test/model-service.test.ts#OpenAI-compatible adapter model inference service contract answers a completion as one content-addressed assistant message"
+          ],
+          "scope": null
         },
         {
           "invariant": "not idempotent, and nothing at this seam pretends otherwise",
           "verdict": "honored-with-scope",
           "code": "packages/agent-core-harness/src/model/openai-compatible.ts:32-49 builds the request body from the model and the messages alone; there is no idempotency key, no attempt identity and no dedup header",
-          "scope": "A repeated completion is a second inference, so this seam is not retry-safe and the adapter never retries. What makes a replay safe is the kernel side: the reply is content-addressed (port.ts:36-40) and a Turn's model input is reconstructed from committed records, so a re-run compares bytes rather than trusting the provider. The premise modelEndpointDeduplicatesNothing records what would be needed to claim more."
+          "scope": "A repeated completion is a second inference, so this seam is not retry-safe and the adapter never retries. What makes a replay safe is the kernel side: the reply is content-addressed (port.ts:36-40) and a Turn's model input is reconstructed from committed records, so a re-run compares bytes rather than trusting the provider. The premise modelEndpointDeduplicatesNothing records what would be needed to claim more.",
+          "selectors": []
         },
         {
           "invariant": "no ordering obligation: one request, one reply, no session",
           "verdict": "honored",
-          "code": "packages/agent-core-harness/src/model/provider.ts:22-27 ModelProvider offers exactly complete(request); the adapter holds no connection, cursor or sequence across calls"
+          "code": "packages/agent-core-harness/src/model/provider.ts:22-27 ModelProvider offers exactly complete(request); the adapter holds no connection, cursor or sequence across calls",
+          "selectors": [
+            "harness/test/model-service.test.ts#model inference service protocol declares exactly the operations an implementation has to serve"
+          ],
+          "scope": null
         },
         {
           "invariant": "a caller's withdrawal is not a service answer",
           "verdict": "honored",
-          "code": "packages/agent-core-harness/src/model/openai-compatible.ts:74-75 re-throws the original failure unclassified when the signal is aborted, rather than reporting an unreachable endpoint"
+          "code": "packages/agent-core-harness/src/model/openai-compatible.ts:74-75 re-throws the original failure unclassified when the signal is aborted, rather than reporting an unreachable endpoint",
+          "selectors": [
+            "harness/test/model-service.test.ts#reference model inference service contract answers a caller abort as abandoned rather than as a service refusal",
+            "harness/test/model-service.test.ts#OpenAI-compatible adapter model inference service contract answers a caller abort as abandoned rather than as a service refusal"
+          ],
+          "scope": null
         },
         {
           "invariant": "credential resolution is not in the taxonomy",
           "verdict": "honored-with-scope",
           "code": "packages/agent-core-harness/src/model/openai-compatible.ts:63-66 resolves the credential before the try block on purpose, so a credential failure is not misreported as an unreachable endpoint",
-          "scope": "The consequence is that it is not reported as anything: whatever the host's closure threw escapes as itself, and the contract answers indeterminate. That is honest but it means a credential outage and a broken adapter are indistinguishable to a caller reading codes alone. Recorded as finding SVC-F1."
+          "scope": "The consequence is that it is not reported as anything: whatever the host's closure threw escapes as itself, and the contract answers indeterminate. That is honest but it means a credential outage and a broken adapter are indistinguishable to a caller reading codes alone. Recorded as finding SVC-F1.",
+          "selectors": [
+            "harness/test/model-service.test.ts#model inference service protocol leaves a credential resolution failure outside the taxonomy entirely"
+          ]
         },
         {
           "invariant": "an undeclared throw is never dressed up as a refusal",
           "verdict": "honored-with-scope",
           "code": "packages/agent-core-harness/test/model-service-contract.ts serviceReply maps a HarnessError in the declared vocabulary and nothing else, so every other throw answers indeterminate carrying its cause",
-          "scope": "The adapter itself has such a path: a reply whose tool name passes every check readToolCalls makes and then fails new BindingName(name) throws a TypeError out of complete(). The contract observes it rather than papering over it. Recorded as finding SVC-F2."
+          "scope": "The adapter itself has such a path: a reply whose tool name passes every check readToolCalls makes and then fails new BindingName(name) throws a TypeError out of complete(). The contract observes it rather than papering over it. Recorded as finding SVC-F2.",
+          "selectors": [
+            "harness/test/model-service.test.ts#reference model inference service contract answers an unclassified transport failure as indeterminate rather than as a refusal",
+            "harness/test/model-service.test.ts#OpenAI-compatible adapter model inference service contract answers an unclassified transport failure as indeterminate rather than as a refusal"
+          ]
         }
       ],
       "suite": {
@@ -150,6 +219,715 @@
         "modelEndpointDeduplicatesNothing",
         "modelAbortStopsTheInference",
         "modelServiceRefusalsAreTotal"
+      ],
+      "failureSource": "packages/agent-core-harness/test/model-service-contract.ts#MODEL_SERVICE_FAILURES"
+    },
+    {
+      "service": "web.egress",
+      "boundary": "SPEC §14's trust boundary and §11's P11-WEB-* family: an outbound web request's destination is a third party by construction, so fetch and search carry externalSend impact and reading a cached reply carries observe. This is the seam SSRF policy and credential attachment are decided at.",
+      "direction": "outbound",
+      "transport": "The abstract WebTransport.send port: one authorized request, one whole reply, with the canonical EffectDispatch carried alongside so a provider can deduplicate and reconcile by effect identity.",
+      "adapters": ["absent"],
+      "operations": ["fetch", "search", "readCached"],
+      "operationSource": "packages/agent-core/test/profiles/facets/web-egress-contract.ts#WEB_EGRESS_OPERATIONS",
+      "refusals": [
+        "url.denied",
+        "credential.denied",
+        "rate.exceeded",
+        "size.exceeded",
+        "redirect.denied",
+        "search.invalid",
+        "cache.invalid"
+      ],
+      "refusalSource": "packages/agent-core/test/profiles/facets/web-egress-contract.ts#WEB_EGRESS_REFUSALS",
+      "replies": ["answered", "unsent", "refused", "indeterminate"],
+      "replySource": "packages/agent-core/test/profiles/facets/web-egress-contract.ts#WebEgressReply",
+      "taxonomy": [
+        {
+          "code": "url.denied",
+          "failure": "url.denied",
+          "mechanism": "packages/agent-core/src/facets/web/facet.ts#safeUrl and #authorizeTarget. Reached before the first send, and again on every redirect hop, which is why one code answers as two reply kinds.",
+          "replies": ["unsent", "refused"],
+          "statement": "The URL does not parse, its scheme is not http or https, it embeds a username or password, or WebUrlPolicy refused the target or answered with an authorization whose requested URL disagrees, whose resolved target is blank, or whose token is not an object record.",
+          "union": "WebPolicyErrorCode"
+        },
+        {
+          "code": "credential.denied",
+          "failure": "credential.denied",
+          "mechanism": "packages/agent-core/src/facets/web/facet.ts#WebBackend.fetch, gated on the module-private CREDENTIAL_HEADERS table after header names are folded to lower case",
+          "replies": ["unsent"],
+          "statement": "The caller supplied a credential header — authorization, cookie or proxy-authorization at any casing. Only WebCredentialPolicy may attach one.",
+          "union": "WebPolicyErrorCode"
+        },
+        {
+          "code": "rate.exceeded",
+          "failure": "rate.exceeded",
+          "mechanism": "packages/agent-core/src/facets/web/facet.ts#WebBackend.fetch — consume() is the statement immediately preceding transport.send, so the permit decides the request rather than annotating it",
+          "replies": ["unsent", "refused"],
+          "statement": "WebRatePolicy refused this hop's origin.",
+          "union": "WebPolicyErrorCode"
+        },
+        {
+          "code": "size.exceeded",
+          "failure": "size.exceeded",
+          "mechanism": "packages/agent-core/src/facets/web/facet.ts#WebBackend.fetch — the request bound is the first statement of the method and the reply bound runs on the returned body",
+          "replies": ["unsent", "refused"],
+          "statement": "The request body is longer than maxRequestBytes, or the reply is longer than maxResponseBytes. Both directions refuse rather than truncate.",
+          "union": "WebPolicyErrorCode"
+        },
+        {
+          "code": "redirect.denied",
+          "failure": "redirect.denied",
+          "mechanism": "packages/agent-core/src/facets/web/facet.ts#WebBackend.fetch — the redirect bound inside the hop loop. The one code with no unsent position at all: a redirect cannot be refused before one has arrived.",
+          "replies": ["refused"],
+          "statement": "The reply redirects and the hop count has reached maxRedirects.",
+          "union": "WebPolicyErrorCode"
+        },
+        {
+          "code": "search.invalid",
+          "failure": "search.invalid",
+          "mechanism": "packages/agent-core/src/facets/web/facet.ts#WebBackend.search — both refusals precede any awaitable call, so they are raised synchronously despite the declared Promise return (finding SVC-F7)",
+          "replies": ["unsent"],
+          "statement": "The search query is blank, or the limit is not a positive safe integer.",
+          "union": "WebPolicyErrorCode"
+        },
+        {
+          "code": "cache.invalid",
+          "failure": "cache.invalid",
+          "mechanism": "packages/agent-core/src/facets/web/facet.ts#WebBackend.readCached — the key canonicality gate, checked before the cache is read. readCached has no transport at all, so nothing crossing is structural here.",
+          "replies": ["unsent"],
+          "statement": "The cache key is empty or is not its own trimmed form.",
+          "union": "WebPolicyErrorCode"
+        }
+      ],
+      "invariants": [
+        {
+          "invariant": "P11-WEB-FETCH, P11-WEB-SEARCH and P11-WEB-CACHED: the operation vocabulary and the impact each verb crosses",
+          "verdict": "honored",
+          "code": "packages/agent-core/src/facets/web/facet.ts#WEB_OPERATION_CONTRACTS declares externalSend on fetch and search and observe on readCached",
+          "scope": null,
+          "selectors": [
+            "test/profiles/facets/web-egress-service.test.ts#web egress service protocol declares exactly the operations an implementation has to serve, at the impact each one crosses"
+          ]
+        },
+        {
+          "invariant": "P11-WEB-URL-SAFETY: an unsafe or unauthorized target is refused before the request leaves",
+          "verdict": "honored-with-scope",
+          "code": "packages/agent-core/src/facets/web/facet.ts#safeUrl and #authorizeTarget",
+          "scope": "Honored and observed for what the facet decides: a non-http(s) scheme, either embedded-credential field, a policy-refused host and a policy answer of the wrong shape all refuse with the transport never reached, and the whole chain re-runs on every redirect hop. What no code in this repository decides is the allowlist itself — WebUrlPolicy has no implementation anywhere, so the facet enforces that the question was asked and that the answer was well shaped, not that the answer was right. Premise webUrlPolicyDecidesSsrf carries the rest.",
+          "selectors": [
+            "test/profiles/facets/web-egress-service.test.ts#key-dedup reference web egress service contract refuses an unsafe or unauthorized target with the transport never reached",
+            "test/profiles/facets/web-egress-service.test.ts#attempt-reconciling reference web egress service contract refuses an unsafe or unauthorized target with the transport never reached"
+          ]
+        },
+        {
+          "invariant": "a caller's credential never attaches, and a policy credential attaches only to the target that hop was authorized for",
+          "verdict": "honored-with-scope",
+          "code": "packages/agent-core/src/facets/web/facet.ts#WebBackend.fetch — the CREDENTIAL_HEADERS gate runs on the folded caller headers, and credentials.headersFor is consulted per hop with that hop's URL",
+          "scope": "Observed for all three credential names at two casings each, and per hop: the first host's credential does not follow a redirect to the second. Scope: CREDENTIAL_HEADERS is module-private and unexported, so the contract restates the three names and a drift between the two lists is undetectable by any test (finding SVC-F8).",
+          "selectors": [
+            "test/profiles/facets/web-egress-service.test.ts#key-dedup reference web egress service contract refuses every caller-supplied credential header at every casing without attaching it",
+            "test/profiles/facets/web-egress-service.test.ts#attempt-reconciling reference web egress service contract refuses every caller-supplied credential header at every casing without attaching it",
+            "test/profiles/facets/web-egress-service.test.ts#key-dedup reference web egress service contract attaches a policy credential only to the target each hop was authorized for",
+            "test/profiles/facets/web-egress-service.test.ts#attempt-reconciling reference web egress service contract attaches a policy credential only to the target each hop was authorized for"
+          ]
+        },
+        {
+          "invariant": "a rate permit is consumed for the hop's origin before the request leaves",
+          "verdict": "honored",
+          "code": "packages/agent-core/src/facets/web/facet.ts#WebBackend.fetch — consume() immediately precedes transport.send",
+          "scope": null,
+          "selectors": [
+            "test/profiles/facets/web-egress-service.test.ts#key-dedup reference web egress service contract consumes a rate permit for the hop's origin before the request leaves",
+            "test/profiles/facets/web-egress-service.test.ts#attempt-reconciling reference web egress service contract consumes a rate permit for the hop's origin before the request leaves"
+          ]
+        },
+        {
+          "invariant": "P11-WEB-BLOCK and P11-WEB-LIMIT-POLICY: a size bound refuses rather than truncates, in both directions",
+          "verdict": "honored",
+          "code": "packages/agent-core/src/facets/web/facet.ts#WebBackend.fetch — the request bound before the URL is parsed, the reply bound on the returned body, and the provider is handed the same bound it is held to through WebTransportLimits",
+          "scope": null,
+          "selectors": [
+            "test/profiles/facets/web-egress-service.test.ts#key-dedup reference web egress service contract refuses an oversized request and an oversized reply rather than truncating either",
+            "test/profiles/facets/web-egress-service.test.ts#attempt-reconciling reference web egress service contract refuses an oversized request and an oversized reply rather than truncating either"
+          ]
+        },
+        {
+          "invariant": "a redirect is re-authorized on every hop and the chain is bounded",
+          "verdict": "honored-with-scope",
+          "code": "packages/agent-core/src/facets/web/facet.ts#WebBackend.fetch — authorization, credential policy and rate all run inside the hop loop against the new target",
+          "scope": "Honored for the policy chain and the bound, with one canonical EffectDispatch spanning the chain. Not honored, and not expressible at this seam: the method and the body are re-sent unchanged to the redirect target, and WebTransportResponse carries a redirect location with no status, so the 303 downgrade a normal client performs cannot be represented (finding SVC-F11).",
+          "selectors": [
+            "test/profiles/facets/web-egress-service.test.ts#key-dedup reference web egress service contract attaches a policy credential only to the target each hop was authorized for",
+            "test/profiles/facets/web-egress-service.test.ts#attempt-reconciling reference web egress service contract attaches a policy credential only to the target each hop was authorized for"
+          ]
+        },
+        {
+          "invariant": "retry safety by effect identity: a crash-after-send retry neither re-sends nor stays indeterminate",
+          "verdict": "honored-with-scope",
+          "code": "packages/agent-core/src/facets/web/facet.ts#WebTransport states the obligation in its own docstring — the provider must treat dispatch.idempotencyKey as the dedup key and must answer a reconciliation query addressed by dispatch.attempt identity; WebBackend only forwards the dispatch",
+          "scope": "Both references honor it, by the two mechanisms the docstring names, and the contract discriminates: a crash-after-send answers indeterminate and the retry under the same identity answers with one delivery, while a fresh identity delivers again. Nothing in src enforces it — two negative controls in the runner show a forgetful provider double-delivering under one identity, and a provider that dedups on the key alone unable to follow a redirect at all (finding SVC-F4). Premise webRemoteDeduplicatesByEffectIdentity carries the remote half.",
+          "selectors": [
+            "test/profiles/facets/web-egress-service.test.ts#key-dedup reference web egress service contract answers a crash-after-send retry rather than re-delivering it or staying indeterminate",
+            "test/profiles/facets/web-egress-service.test.ts#attempt-reconciling reference web egress service contract answers a crash-after-send retry rather than re-delivering it or staying indeterminate",
+            "test/profiles/facets/web-egress-service.test.ts#web egress service protocol re-delivers a crash-after-send retry when the provider ignores the effect identity, and nothing in the seam prevents it",
+            "test/profiles/facets/web-egress-service.test.ts#web egress service protocol cannot follow a redirect when the provider dedups on the idempotency key alone"
+          ]
+        },
+        {
+          "invariant": "no streaming grammar: one whole reply, with no chunk, trailer or continuation in the protocol",
+          "verdict": "honored",
+          "code": "packages/agent-core/src/facets/web/facet.ts#WebTransportResponse carries the body as one Uint8Array and send resolves once",
+          "scope": null,
+          "selectors": [
+            "test/profiles/facets/web-egress-service.test.ts#key-dedup reference web egress service contract answers with one whole byte array, because the protocol has no streamed reply",
+            "test/profiles/facets/web-egress-service.test.ts#attempt-reconciling reference web egress service contract answers with one whole byte array, because the protocol has no streamed reply"
+          ]
+        },
+        {
+          "invariant": "a refusal is two-level: a stable kernel code and the detail code that actually distinguishes it",
+          "verdict": "honored-with-scope",
+          "code": "packages/agent-core/src/facets/web/facet.ts#WebPolicyError passes operation.invalid-input for every WebPolicyErrorCode",
+          "scope": "Honored in the sense that both levels exist and travel together on every refusal this contract answers. The consequence is finding SVC-F5: a caller that catches AgentCoreError and switches on code cannot tell an SSRF refusal from a malformed cache key, because only detailCode separates them and that field lives on DetailedProfileError rather than in the kernel vocabulary.",
+          "selectors": [
+            "test/profiles/facets/web-egress-service.test.ts#web egress service protocol leaves no WebPolicyErrorCode outside the service taxonomy, and none distinguishable at the kernel level"
+          ]
+        }
+      ],
+      "suite": {
+        "body": "packages/agent-core/test/profiles/facets/web-egress-contract.ts",
+        "implementations": [
+          {
+            "name": "key-dedup reference",
+            "kind": "reference",
+            "lane": "packages/agent-core vitest.config.mjs",
+            "runner": "packages/agent-core/test/profiles/facets/web-egress-service.test.ts"
+          },
+          {
+            "name": "attempt-reconciling reference",
+            "kind": "reference",
+            "lane": "packages/agent-core vitest.config.mjs",
+            "runner": "packages/agent-core/test/profiles/facets/web-egress-service.test.ts"
+          }
+        ],
+        "selectors": [
+          "test/profiles/facets/web-egress-service.test.ts#key-dedup reference web egress service contract answers a fetch as one whole response the caller owns",
+          "test/profiles/facets/web-egress-service.test.ts#key-dedup reference web egress service contract answers every refusal the taxonomy declares in every position it declares, and answers none outside it",
+          "test/profiles/facets/web-egress-service.test.ts#key-dedup reference web egress service contract refuses an unsafe or unauthorized target with the transport never reached",
+          "test/profiles/facets/web-egress-service.test.ts#key-dedup reference web egress service contract refuses every caller-supplied credential header at every casing without attaching it",
+          "test/profiles/facets/web-egress-service.test.ts#key-dedup reference web egress service contract attaches a policy credential only to the target each hop was authorized for",
+          "test/profiles/facets/web-egress-service.test.ts#key-dedup reference web egress service contract consumes a rate permit for the hop's origin before the request leaves",
+          "test/profiles/facets/web-egress-service.test.ts#key-dedup reference web egress service contract refuses an oversized request and an oversized reply rather than truncating either",
+          "test/profiles/facets/web-egress-service.test.ts#key-dedup reference web egress service contract answers a crash-after-send retry rather than re-delivering it or staying indeterminate",
+          "test/profiles/facets/web-egress-service.test.ts#key-dedup reference web egress service contract answers an undeclared transport failure as indeterminate rather than as a refusal",
+          "test/profiles/facets/web-egress-service.test.ts#key-dedup reference web egress service contract answers with one whole byte array, because the protocol has no streamed reply",
+          "test/profiles/facets/web-egress-service.test.ts#key-dedup reference web egress service contract carries a search through the same egress path as a fetch, query and limit included",
+          "test/profiles/facets/web-egress-service.test.ts#key-dedup reference web egress service contract answers a cache miss rather than refusing one",
+          "test/profiles/facets/web-egress-service.test.ts#attempt-reconciling reference web egress service contract answers a fetch as one whole response the caller owns",
+          "test/profiles/facets/web-egress-service.test.ts#attempt-reconciling reference web egress service contract answers every refusal the taxonomy declares in every position it declares, and answers none outside it",
+          "test/profiles/facets/web-egress-service.test.ts#attempt-reconciling reference web egress service contract refuses an unsafe or unauthorized target with the transport never reached",
+          "test/profiles/facets/web-egress-service.test.ts#attempt-reconciling reference web egress service contract refuses every caller-supplied credential header at every casing without attaching it",
+          "test/profiles/facets/web-egress-service.test.ts#attempt-reconciling reference web egress service contract attaches a policy credential only to the target each hop was authorized for",
+          "test/profiles/facets/web-egress-service.test.ts#attempt-reconciling reference web egress service contract consumes a rate permit for the hop's origin before the request leaves",
+          "test/profiles/facets/web-egress-service.test.ts#attempt-reconciling reference web egress service contract refuses an oversized request and an oversized reply rather than truncating either",
+          "test/profiles/facets/web-egress-service.test.ts#attempt-reconciling reference web egress service contract answers a crash-after-send retry rather than re-delivering it or staying indeterminate",
+          "test/profiles/facets/web-egress-service.test.ts#attempt-reconciling reference web egress service contract answers an undeclared transport failure as indeterminate rather than as a refusal",
+          "test/profiles/facets/web-egress-service.test.ts#attempt-reconciling reference web egress service contract answers with one whole byte array, because the protocol has no streamed reply",
+          "test/profiles/facets/web-egress-service.test.ts#attempt-reconciling reference web egress service contract carries a search through the same egress path as a fetch, query and limit included",
+          "test/profiles/facets/web-egress-service.test.ts#attempt-reconciling reference web egress service contract answers a cache miss rather than refusing one"
+        ]
+      },
+      "premises": [
+        "webEgressHasNoBoundAdapter",
+        "webUrlPolicyDecidesSsrf",
+        "webRemoteDeduplicatesByEffectIdentity",
+        "webEgressHasNoCancellation",
+        "webEgressRefusalsAreTotal"
+      ],
+      "failureSource": "packages/agent-core/test/profiles/facets/web-egress-contract.ts#WEB_EGRESS_REFUSALS"
+    },
+    {
+      "service": "dispatch.deployment",
+      "boundary": "SPEC §14's trust boundary in its sharpest form: the destination is code the Tenant did not author — a Slate preview or a published version reached through a Workers for Platforms dispatch namespace, or a Worker Loader isolate carrying authored code. The runtime hands it a request and reads back whatever it answers.",
+      "direction": "outbound",
+      "transport": "A dispatch-namespace lookup (get(scriptName, parameters)) or a Worker Loader load, then a fetch through the resolved Fetcher. The Worker Loader half is the isolate substrate seam and is cited rather than re-modelled.",
+      "adapters": [
+        "packages/agent-core-cloudflare/src/dispatch.ts#DispatchNamespaceAdapter",
+        "packages/agent-core-cloudflare/src/deployment.ts#ExplicitCloudflareDeploymentAdapter",
+        "packages/agent-core-cloudflare/src/deployment.ts#isFetchService"
+      ],
+      "operations": ["resolve", "fetch"],
+      "operationSource": "packages/agent-core-cloudflare/test/deployment-service-contract.ts#DEPLOYMENT_OPERATIONS",
+      "refusals": ["operation.invalid-input", "operation.invalid-output", "protocol.invalid-state"],
+      "refusalSource": "packages/agent-core-cloudflare/test/deployment-service-contract.ts#DEPLOYMENT_REFUSALS",
+      "failureSource": "packages/agent-core-cloudflare/test/deployment-service-contract.ts#DEPLOYMENT_FAILURES",
+      "replies": ["resolved", "answered", "refused", "escaped", "indeterminate"],
+      "replySource": "packages/agent-core-cloudflare/test/deployment-service-contract.ts#DeploymentReply",
+      "taxonomy": [
+        {
+          "code": "operation.invalid-input",
+          "failure": "empty-script-name",
+          "mechanism": "packages/agent-core-cloudflare/src/dispatch.ts#DispatchNamespaceAdapter.resolve — the first statement of the method",
+          "replies": ["refused"],
+          "statement": "A dispatch deployment named no script.",
+          "union": "CloudflareOperationalErrorCode"
+        },
+        {
+          "code": "operation.invalid-input",
+          "failure": "empty-parameter-name",
+          "mechanism": "packages/agent-core-cloudflare/src/dispatch.ts#DispatchNamespaceAdapter.resolve — the parameter-entry guard immediately after the script-name guard",
+          "replies": ["refused"],
+          "statement": "A dispatch parameter carried an empty name or an empty value; both forms hit the one guard.",
+          "union": "CloudflareOperationalErrorCode"
+        },
+        {
+          "code": "protocol.invalid-state",
+          "failure": "resolution-threw",
+          "mechanism": "packages/agent-core-cloudflare/src/dispatch.ts#DispatchNamespaceAdapter.resolve — the catch around the namespace lookup",
+          "replies": ["refused"],
+          "statement": "The dispatch-namespace binding threw while resolving; the platform value travels as a captured cause.",
+          "union": "CloudflareOperationalErrorCode"
+        },
+        {
+          "code": "operation.invalid-output",
+          "failure": "absent-service",
+          "mechanism": "packages/agent-core-cloudflare/src/dispatch.ts#DispatchNamespaceAdapter.resolve — the absent-service guard after the try",
+          "replies": ["refused"],
+          "statement": "The dispatch namespace answered null or undefined rather than a service.",
+          "union": "CloudflareOperationalErrorCode"
+        },
+        {
+          "code": "operation.invalid-output",
+          "failure": "invalid-fetcher",
+          "mechanism": "packages/agent-core-cloudflare/src/deployment.ts#isFetchService, called from ExplicitCloudflareDeploymentAdapter's private requireService",
+          "replies": ["refused"],
+          "statement": "The binding answered a value that is not a Fetcher. Reached from both the dynamic and the dispatch arm.",
+          "union": "CloudflareOperationalErrorCode"
+        }
+      ],
+      "invariants": [
+        {
+          "invariant": "every declared refusal is decided before anything crosses the trust boundary",
+          "verdict": "honored",
+          "code": "packages/agent-core-cloudflare/src/deployment.ts#ExplicitCloudflareDeploymentAdapter.resolve carries all five mechanisms and runs before the fetch's try",
+          "scope": null,
+          "selectors": [
+            "cloudflare/test/deployment-service.test.ts#reference Cloudflare deployment service contract refuses every failure the taxonomy declares, and declares every refusal it answers",
+            "cloudflare/test/deployment-service.test.ts#ExplicitCloudflareDeploymentAdapter Cloudflare deployment service contract refuses every failure the taxonomy declares, and declares every refusal it answers"
+          ]
+        },
+        {
+          "invariant": "resolve is a pure lookup with no request semantics",
+          "verdict": "honored",
+          "code": "packages/agent-core-cloudflare/src/deployment.ts#ExplicitCloudflareDeploymentAdapter.resolve takes no Request and calls no fetch; the resolved reply kind cannot carry a Response",
+          "scope": null,
+          "selectors": [
+            "cloudflare/test/deployment-service.test.ts#reference Cloudflare deployment service contract resolves a dispatch deployment as a lookup that reaches no destination",
+            "cloudflare/test/deployment-service.test.ts#ExplicitCloudflareDeploymentAdapter Cloudflare deployment service contract resolves a dispatch deployment as a lookup that reaches no destination"
+          ]
+        },
+        {
+          "invariant": "a dynamic deployment is passed no capabilities at all",
+          "verdict": "honored",
+          "code": "packages/agent-core-cloudflare/src/deployment.ts#ExplicitCloudflareDeploymentAdapter.resolve passes an empty capability record to the loader, with the comment that a fetch surface is not a submission",
+          "scope": null,
+          "selectors": [
+            "cloudflare/test/deployment-service.test.ts#Cloudflare deployment service protocol passes a dynamic deployment no capabilities at all"
+          ]
+        },
+        {
+          "invariant": "the resolved scope is released exactly once, including when the call fails",
+          "verdict": "honored-with-scope",
+          "code": "packages/agent-core-cloudflare/src/deployment.ts#ExplicitCloudflareDeploymentAdapter.fetch — the finally that disposes the scope",
+          "scope": "Observable only in dynamic mode, where the loader handle's disposal is countable and is asserted as exactly one on both the answered and the escaped path. In dispatch mode DispatchFetchServiceScope's disposer is an empty body, so nothing is released and nothing is observable — finding SVC-F14.",
+          "selectors": [
+            "cloudflare/test/deployment-service.test.ts#reference Cloudflare deployment service contract releases the resolved scope exactly once when the destination fails",
+            "cloudflare/test/deployment-service.test.ts#ExplicitCloudflareDeploymentAdapter Cloudflare deployment service contract releases the resolved scope exactly once when the destination fails",
+            "cloudflare/test/deployment-service.test.ts#Cloudflare deployment service protocol never releases a dispatch-mode Fetcher"
+          ]
+        },
+        {
+          "invariant": "something constrains the response a destination returns",
+          "verdict": "refuted",
+          "code": "packages/agent-core-cloudflare/src/deployment.ts#ExplicitCloudflareDeploymentAdapter.fetch returns the awaited service.fetch result with no check, so the declared Promise<Response> is the type system's claim rather than the runtime's",
+          "scope": "Disproved rather than unverified: a destination answering a plain string has that string handed to the runtime. Finding SVC-F13.",
+          "selectors": [
+            "cloudflare/test/deployment-service.test.ts#Cloudflare deployment service protocol constrains nothing about the response a destination returns"
+          ]
+        },
+        {
+          "invariant": "a destination's own failure is not laundered into a refusal",
+          "verdict": "honored",
+          "code": "packages/agent-core-cloudflare/src/deployment.ts#ExplicitCloudflareDeploymentAdapter.fetch has no catch, so a throw from unauthored code propagates as itself and the contract answers escaped rather than refused",
+          "scope": null,
+          "selectors": [
+            "cloudflare/test/deployment-service.test.ts#reference Cloudflare deployment service contract carries a destination failure out unclassified rather than as a refusal",
+            "cloudflare/test/deployment-service.test.ts#ExplicitCloudflareDeploymentAdapter Cloudflare deployment service contract carries a destination failure out unclassified rather than as a refusal"
+          ]
+        }
+      ],
+      "suite": {
+        "body": "packages/agent-core-cloudflare/test/deployment-service-contract.ts",
+        "implementations": [
+          {
+            "name": "reference",
+            "kind": "reference",
+            "lane": "packages/agent-core-cloudflare test/vitest.config.mjs",
+            "runner": "packages/agent-core-cloudflare/test/deployment-service.test.ts"
+          },
+          {
+            "name": "ExplicitCloudflareDeploymentAdapter",
+            "kind": "adapter",
+            "lane": "packages/agent-core-cloudflare test/vitest.config.mjs",
+            "runner": "packages/agent-core-cloudflare/test/deployment-service.test.ts"
+          }
+        ],
+        "selectors": [
+          "cloudflare/test/deployment-service.test.ts#reference Cloudflare deployment service contract resolves a dispatch deployment as a lookup that reaches no destination",
+          "cloudflare/test/deployment-service.test.ts#reference Cloudflare deployment service contract answers a fetch with the destination's own response and releases the resolved scope",
+          "cloudflare/test/deployment-service.test.ts#reference Cloudflare deployment service contract refuses every failure the taxonomy declares, and declares every refusal it answers",
+          "cloudflare/test/deployment-service.test.ts#reference Cloudflare deployment service contract releases the resolved scope exactly once when the destination fails",
+          "cloudflare/test/deployment-service.test.ts#reference Cloudflare deployment service contract carries a destination failure out unclassified rather than as a refusal",
+          "cloudflare/test/deployment-service.test.ts#reference Cloudflare deployment service contract answers an undeclared resolution failure as indeterminate rather than as a refusal",
+          "cloudflare/test/deployment-service.test.ts#reference Cloudflare deployment service contract refuses an empty parameter value the way it refuses an empty parameter name",
+          "cloudflare/test/deployment-service.test.ts#ExplicitCloudflareDeploymentAdapter Cloudflare deployment service contract resolves a dispatch deployment as a lookup that reaches no destination",
+          "cloudflare/test/deployment-service.test.ts#ExplicitCloudflareDeploymentAdapter Cloudflare deployment service contract answers a fetch with the destination's own response and releases the resolved scope",
+          "cloudflare/test/deployment-service.test.ts#ExplicitCloudflareDeploymentAdapter Cloudflare deployment service contract refuses every failure the taxonomy declares, and declares every refusal it answers",
+          "cloudflare/test/deployment-service.test.ts#ExplicitCloudflareDeploymentAdapter Cloudflare deployment service contract releases the resolved scope exactly once when the destination fails",
+          "cloudflare/test/deployment-service.test.ts#ExplicitCloudflareDeploymentAdapter Cloudflare deployment service contract carries a destination failure out unclassified rather than as a refusal",
+          "cloudflare/test/deployment-service.test.ts#ExplicitCloudflareDeploymentAdapter Cloudflare deployment service contract answers an undeclared resolution failure as indeterminate rather than as a refusal",
+          "cloudflare/test/deployment-service.test.ts#ExplicitCloudflareDeploymentAdapter Cloudflare deployment service contract refuses an empty parameter value the way it refuses an empty parameter name"
+        ]
+      },
+      "premises": [
+        "deploymentRefusalsAreTotal",
+        "dispatchNamespaceBehavesAsModelled",
+        "dispatchFetcherHoldsNoResource",
+        "dispatchParametersReachTheScript",
+        "dispatchDestinationIsUnauthored"
+      ]
+    },
+    {
+      "service": "view.stream",
+      "boundary": "The one inbound protocol these packages own. The peer is an untrusted network client on the far side of a hibernating WebSocket, so every frame and every acknowledgement it sends is attacker-controlled data the runtime must narrow before acting on it.",
+      "direction": "bidirectional",
+      "transport": "A hibernating Cloudflare WebSocket carrying JSON view-stream frames outbound and acknowledgements inbound, with the cursor persisted in the socket's own attachment so it survives hibernation.",
+      "adapters": [
+        "packages/agent-core-cloudflare/src/websocket.ts#HibernatingViewSocketAdapter",
+        "packages/agent-core-cloudflare/src/websocket.ts#decodeViewStreamFrame",
+        "packages/agent-core-cloudflare/src/revision-log.ts#DurableViewRevisionLog"
+      ],
+      "operations": ["acknowledge", "snapshot", "delta"],
+      "operationSource": "packages/agent-core-cloudflare/test/view-stream-contract.ts#VIEW_STREAM_OPERATIONS",
+      "refusals": [
+        "codec.invalid",
+        "operation.invalid-input",
+        "protocol.invalid-state",
+        "protocol.revision-conflict"
+      ],
+      "refusalSource": "packages/agent-core-cloudflare/test/view-stream-contract.ts#VIEW_STREAM_REFUSALS",
+      "failureSource": "packages/agent-core-cloudflare/test/view-stream-contract.ts#VIEW_STREAM_FAILURES",
+      "replies": ["served", "attached", "decoded", "refused", "indeterminate"],
+      "replySource": "packages/agent-core-cloudflare/test/view-stream-contract.ts#ViewStreamReply",
+      "taxonomy": [
+        {
+          "code": "codec.invalid",
+          "failure": "frame-not-json",
+          "mechanism": "packages/agent-core-cloudflare/src/websocket.ts#decodeViewStreamFrame — the catch around the parse",
+          "replies": ["refused"],
+          "statement": "The frame text is not JSON.",
+          "union": "CloudflareOperationalErrorCode"
+        },
+        {
+          "code": "codec.invalid",
+          "failure": "frame-not-json-data",
+          "mechanism": "packages/agent-core-cloudflare/src/websocket.ts#decodeViewStreamFrame — the JSON-data guard inside the same try",
+          "replies": ["refused"],
+          "statement": "The frame text is JSON syntax but not JSON data, such as an escaped lone surrogate.",
+          "union": "CloudflareOperationalErrorCode"
+        },
+        {
+          "code": "codec.invalid",
+          "failure": "frame-not-object",
+          "mechanism": "packages/agent-core-cloudflare/src/websocket.ts#decodeViewStreamFrame — the object guard",
+          "replies": ["refused"],
+          "statement": "The frame is not a JSON object.",
+          "union": "CloudflareOperationalErrorCode"
+        },
+        {
+          "code": "codec.invalid",
+          "failure": "frame-field-unreadable",
+          "mechanism": "packages/agent-core-cloudflare/src/websocket.ts#decodeViewStreamFrame — the field readers built from the module's own data parser",
+          "replies": ["refused"],
+          "statement": "A declared frame field is absent or of the wrong type.",
+          "union": "CloudflareOperationalErrorCode"
+        },
+        {
+          "code": "codec.invalid",
+          "failure": "frame-wrong-version",
+          "mechanism": "packages/agent-core-cloudflare/src/websocket.ts#decodeViewStreamFrame — the combined version and kind guard",
+          "replies": ["refused"],
+          "statement": "The frame declares a version this protocol does not speak.",
+          "union": "CloudflareOperationalErrorCode"
+        },
+        {
+          "code": "codec.invalid",
+          "failure": "frame-unknown-kind",
+          "mechanism": "packages/agent-core-cloudflare/src/websocket.ts#decodeViewStreamFrame — the same combined guard",
+          "replies": ["refused"],
+          "statement": "The frame declares a kind outside the closed vocabulary.",
+          "union": "CloudflareOperationalErrorCode"
+        },
+        {
+          "code": "codec.invalid",
+          "failure": "attachment-not-object",
+          "mechanism": "packages/agent-core-cloudflare/src/websocket.ts#decodePersistedAttachment — the object guard",
+          "replies": ["refused"],
+          "statement": "The persisted attachment is not a JSON object, including a socket that hibernated without one.",
+          "union": "CloudflareOperationalErrorCode"
+        },
+        {
+          "code": "codec.invalid",
+          "failure": "attachment-field-unreadable",
+          "mechanism": "packages/agent-core-cloudflare/src/websocket.ts#decodePersistedAttachment — the catch around its field readers",
+          "replies": ["refused"],
+          "statement": "A persisted attachment field is absent or unreadable.",
+          "union": "CloudflareOperationalErrorCode"
+        },
+        {
+          "code": "codec.invalid",
+          "failure": "attachment-wrong-version",
+          "mechanism": "packages/agent-core-cloudflare/src/websocket.ts#decodePersistedAttachment — the version guard after the readers",
+          "replies": ["refused"],
+          "statement": "The persisted attachment declares the wrong version.",
+          "union": "CloudflareOperationalErrorCode"
+        },
+        {
+          "code": "codec.invalid",
+          "failure": "attachment-oversized-persisted",
+          "mechanism": "packages/agent-core-cloudflare/src/websocket.ts#requireAttachmentSize, called by decodePersistedAttachment with codec.invalid",
+          "replies": ["refused"],
+          "statement": "The persisted attachment exceeds the platform ceiling.",
+          "union": "CloudflareOperationalErrorCode"
+        },
+        {
+          "code": "operation.invalid-input",
+          "failure": "empty-channel",
+          "mechanism": "packages/agent-core-cloudflare/src/websocket.ts#createAttachment — the channel guard",
+          "replies": ["refused"],
+          "statement": "An accept was asked for an empty channel.",
+          "union": "CloudflareOperationalErrorCode"
+        },
+        {
+          "code": "operation.invalid-input",
+          "failure": "negative-revision",
+          "mechanism": "packages/agent-core-cloudflare/src/websocket.ts#requireInputRevision, reached from createAttachment",
+          "replies": ["refused"],
+          "statement": "An accept was asked for a negative revision.",
+          "union": "CloudflareOperationalErrorCode"
+        },
+        {
+          "code": "operation.invalid-input",
+          "failure": "unsafe-revision",
+          "mechanism": "packages/agent-core-cloudflare/src/websocket.ts#requireInputRevision, the first statement of HibernatingViewSocketAdapter.acknowledge — before the attachment is read",
+          "replies": ["refused"],
+          "statement": "A peer acknowledged a value that is not a safe integer.",
+          "union": "CloudflareOperationalErrorCode"
+        },
+        {
+          "code": "operation.invalid-input",
+          "failure": "attachment-oversized-new",
+          "mechanism": "packages/agent-core-cloudflare/src/websocket.ts#HibernatingViewSocketAdapter.accept — its size check, before anything is stored or admitted",
+          "replies": ["refused"],
+          "statement": "The attachment a new accept would need exceeds the platform ceiling.",
+          "union": "CloudflareOperationalErrorCode"
+        },
+        {
+          "code": "protocol.revision-conflict",
+          "failure": "acknowledgement-below-attached",
+          "mechanism": "packages/agent-core-cloudflare/src/websocket.ts#HibernatingViewSocketAdapter.acknowledge — the lower half of the range guard",
+          "replies": ["refused"],
+          "statement": "A peer acknowledged below the revision its own attachment records.",
+          "union": "CloudflareOperationalErrorCode"
+        },
+        {
+          "code": "protocol.revision-conflict",
+          "failure": "acknowledgement-above-current",
+          "mechanism": "packages/agent-core-cloudflare/src/websocket.ts#HibernatingViewSocketAdapter.acknowledge — the upper half of the range guard",
+          "replies": ["refused"],
+          "statement": "A peer acknowledged above the channel's current revision.",
+          "union": "CloudflareOperationalErrorCode"
+        },
+        {
+          "code": "protocol.invalid-state",
+          "failure": "accept-failed",
+          "mechanism": "packages/agent-core-cloudflare/src/websocket.ts#HibernatingViewSocketAdapter.accept — the catch around the platform accept",
+          "replies": ["refused"],
+          "statement": "The platform refused to accept the hibernating socket.",
+          "union": "CloudflareOperationalErrorCode"
+        },
+        {
+          "code": "protocol.invalid-state",
+          "failure": "send-failed",
+          "mechanism": "packages/agent-core-cloudflare/src/websocket.ts#HibernatingViewSocketAdapter — its private send — the catch around the socket write",
+          "replies": ["refused"],
+          "statement": "A replay frame could not be sent.",
+          "union": "CloudflareOperationalErrorCode"
+        },
+        {
+          "code": "protocol.invalid-state",
+          "failure": "serialize-failed",
+          "mechanism": "packages/agent-core-cloudflare/src/websocket.ts#HibernatingViewSocketAdapter — its private storeAttachment — the catch around the platform serialize",
+          "replies": ["refused"],
+          "statement": "The attachment could not be serialized onto the socket.",
+          "union": "CloudflareOperationalErrorCode"
+        },
+        {
+          "code": "protocol.invalid-state",
+          "failure": "deserialize-failed",
+          "mechanism": "packages/agent-core-cloudflare/src/websocket.ts#HibernatingViewSocketAdapter — its private readAttachment — the catch around the platform deserialize",
+          "replies": ["refused"],
+          "statement": "The attachment could not be read back off the socket.",
+          "union": "CloudflareOperationalErrorCode"
+        },
+        {
+          "code": "protocol.invalid-state",
+          "failure": "attachment-oversized-write",
+          "mechanism": "packages/agent-core-cloudflare/src/websocket.ts#requireAttachmentSize, called by storeAttachment with protocol.invalid-state",
+          "replies": ["refused"],
+          "statement": "A write would push an already-at-ceiling attachment over it. Reachable because the persisted decode spreads the stored record, so an undeclared key survives it.",
+          "union": "CloudflareOperationalErrorCode"
+        }
+      ],
+      "invariants": [
+        {
+          "invariant": "a replay sends the snapshot before any delta, and the deltas in ascending revision order",
+          "verdict": "honored",
+          "code": "packages/agent-core-cloudflare/src/websocket.ts#HibernatingViewSocketAdapter.replay emits the snapshot before the delta loop; the ordering is the revision log's own ORDER BY",
+          "scope": null,
+          "selectors": [
+            "cloudflare/test/view-stream-service.test.ts#reference view stream service contract sends the snapshot before any delta and the deltas in ascending revision order",
+            "cloudflare/test/view-stream-service.test.ts#HibernatingViewSocketAdapter view stream service contract sends the snapshot before any delta and the deltas in ascending revision order"
+          ]
+        },
+        {
+          "invariant": "an acknowledgement is monotone: never below the attached revision, never above the current one",
+          "verdict": "honored",
+          "code": "packages/agent-core-cloudflare/src/websocket.ts#HibernatingViewSocketAdapter.acknowledge — the two-sided range guard",
+          "scope": null,
+          "selectors": [
+            "cloudflare/test/view-stream-service.test.ts#reference view stream service contract advances the cursor monotonically and replays only what follows it",
+            "cloudflare/test/view-stream-service.test.ts#HibernatingViewSocketAdapter view stream service contract advances the cursor monotonically and replays only what follows it"
+          ]
+        },
+        {
+          "invariant": "an acknowledgement equal to the attached revision writes no attachment",
+          "verdict": "honored",
+          "code": "packages/agent-core-cloudflare/src/websocket.ts#HibernatingViewSocketAdapter.acknowledge — the guard around the store, so a chatty peer cannot make the object write per message",
+          "scope": null,
+          "selectors": [
+            "cloudflare/test/view-stream-service.test.ts#reference view stream service contract writes no attachment for an acknowledgement equal to the attached revision",
+            "cloudflare/test/view-stream-service.test.ts#HibernatingViewSocketAdapter view stream service contract writes no attachment for an acknowledgement equal to the attached revision"
+          ]
+        },
+        {
+          "invariant": "the attachment is written before the socket is accepted, because a socket accepted without one is unrepairable",
+          "verdict": "honored",
+          "code": "packages/agent-core-cloudflare/src/websocket.ts#HibernatingViewSocketAdapter.accept stores the attachment before the platform accept, with the comment saying why",
+          "scope": null,
+          "selectors": [
+            "cloudflare/test/view-stream-service.test.ts#reference view stream service contract writes the attachment before the transport accepts the socket",
+            "cloudflare/test/view-stream-service.test.ts#HibernatingViewSocketAdapter view stream service contract writes the attachment before the transport accepts the socket"
+          ]
+        },
+        {
+          "invariant": "an oversized attachment is refused before the socket is accepted",
+          "verdict": "honored",
+          "code": "packages/agent-core-cloudflare/src/websocket.ts#HibernatingViewSocketAdapter.accept — the size check before both the store and the accept",
+          "scope": null,
+          "selectors": [
+            "cloudflare/test/view-stream-service.test.ts#reference view stream service contract refuses an oversized attachment before the socket is accepted",
+            "cloudflare/test/view-stream-service.test.ts#HibernatingViewSocketAdapter view stream service contract refuses an oversized attachment before the socket is accepted"
+          ]
+        },
+        {
+          "invariant": "the frame grammar is a closed field set",
+          "verdict": "refuted",
+          "code": "packages/agent-core-cloudflare/src/websocket.ts#decodeViewStreamFrame spreads the decoded object, so the five declared fields are required but not exhaustive and an undeclared sixth reaches the caller",
+          "scope": "Disproved rather than unverified, and it matters because the peer is untrusted: the published decoder does not narrow what arrives. Finding SVC-F16.",
+          "selectors": [
+            "cloudflare/test/view-stream-service.test.ts#reference view stream service contract carries a field the grammar does not declare straight through",
+            "cloudflare/test/view-stream-service.test.ts#HibernatingViewSocketAdapter view stream service contract carries a field the grammar does not declare straight through"
+          ]
+        },
+        {
+          "invariant": "a replay is atomic: it either delivers or does not",
+          "verdict": "refuted",
+          "code": "packages/agent-core-cloudflare/src/websocket.ts#HibernatingViewSocketAdapter.replay sends frame by frame with no journal and no rollback",
+          "scope": "Disproved: a send that fails midway refuses the whole call while the earlier frames are already at the peer and the cursor never moved. Finding SVC-F15.",
+          "selectors": [
+            "cloudflare/test/view-stream-service.test.ts#Cloudflare view stream service protocol leaves a partly delivered replay behind when a send fails"
+          ]
+        },
+        {
+          "invariant": "the attachment measurement matches the ceiling the platform enforces",
+          "verdict": "untestable-at-this-seam",
+          "code": "packages/agent-core-cloudflare/src/websocket.ts#requireAttachmentSize measures the UTF-8 length of the JSON form, and the module comment states the platform measures the structured clone",
+          "scope": "Only an approximation by the module's own admission; premise viewStreamCloneMeasurementMatchesJson states what would settle it.",
+          "selectors": []
+        },
+        {
+          "invariant": "an undeclared storage failure is not laundered into a refusal",
+          "verdict": "honored-with-scope",
+          "code": "packages/agent-core-cloudflare/src/revision-log.ts#DurableViewRevisionLog reads the log without a catch and HibernatingViewSocketAdapter.replay adds none, so a platform throw reaches the peer-facing seam as itself",
+          "scope": "The reply is honest — indeterminate carrying the cause — but the consequence is that a storage outage and a bug in the stream code are indistinguishable to the caller. Finding SVC-F17.",
+          "selectors": [
+            "cloudflare/test/view-stream-service.test.ts#reference view stream service contract answers an undeclared storage failure as indeterminate rather than as a refusal",
+            "cloudflare/test/view-stream-service.test.ts#HibernatingViewSocketAdapter view stream service contract answers an undeclared storage failure as indeterminate rather than as a refusal"
+          ]
+        }
+      ],
+      "suite": {
+        "body": "packages/agent-core-cloudflare/test/view-stream-contract.ts",
+        "implementations": [
+          {
+            "name": "reference",
+            "kind": "reference",
+            "lane": "packages/agent-core-cloudflare test/vitest.config.mjs",
+            "runner": "packages/agent-core-cloudflare/test/view-stream-service.test.ts"
+          },
+          {
+            "name": "HibernatingViewSocketAdapter",
+            "kind": "adapter",
+            "lane": "packages/agent-core-cloudflare test/vitest.config.mjs",
+            "runner": "packages/agent-core-cloudflare/test/view-stream-service.test.ts"
+          }
+        ],
+        "selectors": [
+          "cloudflare/test/view-stream-service.test.ts#reference view stream service contract sends the snapshot before any delta and the deltas in ascending revision order",
+          "cloudflare/test/view-stream-service.test.ts#reference view stream service contract refuses every failure the taxonomy declares, and declares every refusal it answers",
+          "cloudflare/test/view-stream-service.test.ts#reference view stream service contract writes the attachment before the transport accepts the socket",
+          "cloudflare/test/view-stream-service.test.ts#reference view stream service contract refuses an oversized attachment before the socket is accepted",
+          "cloudflare/test/view-stream-service.test.ts#reference view stream service contract writes no attachment for an acknowledgement equal to the attached revision",
+          "cloudflare/test/view-stream-service.test.ts#reference view stream service contract advances the cursor monotonically and replays only what follows it",
+          "cloudflare/test/view-stream-service.test.ts#reference view stream service contract answers an undeclared storage failure as indeterminate rather than as a refusal",
+          "cloudflare/test/view-stream-service.test.ts#reference view stream service contract carries a field the grammar does not declare straight through",
+          "cloudflare/test/view-stream-service.test.ts#HibernatingViewSocketAdapter view stream service contract sends the snapshot before any delta and the deltas in ascending revision order",
+          "cloudflare/test/view-stream-service.test.ts#HibernatingViewSocketAdapter view stream service contract refuses every failure the taxonomy declares, and declares every refusal it answers",
+          "cloudflare/test/view-stream-service.test.ts#HibernatingViewSocketAdapter view stream service contract writes the attachment before the transport accepts the socket",
+          "cloudflare/test/view-stream-service.test.ts#HibernatingViewSocketAdapter view stream service contract refuses an oversized attachment before the socket is accepted",
+          "cloudflare/test/view-stream-service.test.ts#HibernatingViewSocketAdapter view stream service contract writes no attachment for an acknowledgement equal to the attached revision",
+          "cloudflare/test/view-stream-service.test.ts#HibernatingViewSocketAdapter view stream service contract advances the cursor monotonically and replays only what follows it",
+          "cloudflare/test/view-stream-service.test.ts#HibernatingViewSocketAdapter view stream service contract answers an undeclared storage failure as indeterminate rather than as a refusal",
+          "cloudflare/test/view-stream-service.test.ts#HibernatingViewSocketAdapter view stream service contract carries a field the grammar does not declare straight through"
+        ]
+      },
+      "premises": [
+        "viewStreamRefusalsAreTotal",
+        "viewStreamCloneMeasurementMatchesJson",
+        "viewStreamAttachmentSurvivesHibernation",
+        "viewStreamSendThrowsUnderBackpressure",
+        "providerCapabilityContractIsOwed"
       ]
     }
   ],
@@ -173,7 +951,7 @@
       "channel": "declaredAssumption",
       "atom": null,
       "atomStatus": null,
-      "declaration": "SPEC \u00a714's boundary rule (SPEC.md:2781-2789): the trust boundary encloses the protection domains the Tenant controls, and a third party is not one of them. Nothing the runtime can observe distinguishes an endpoint that ran the pinned model from one that answered from a cache, another model, or an interposing proxy.",
+      "declaration": "SPEC §14's boundary rule (SPEC.md:2781-2789): the trust boundary encloses the protection domains the Tenant controls, and a third party is not one of them. Nothing the runtime can observe distinguishes an endpoint that ran the pinned model from one that answered from a cache, another model, or an interposing proxy.",
       "owed": null,
       "selectors": null
     },
@@ -196,6 +974,165 @@
       "declaration": null,
       "owed": "The contract observes that an aborted call answers abandoned rather than a refusal; it cannot observe that the endpoint stopped generating. Discharging it needs a live lane that aborts a real in-flight completion and reads the provider's own accounting for the abandoned request.",
       "selectors": null
+    },
+    {
+      "atom": null,
+      "atomStatus": null,
+      "declaration": null,
+      "owed": null,
+      "selectors": [
+        "test/profiles/facets/web-egress-service.test.ts#key-dedup reference web egress service contract answers every refusal the taxonomy declares in every position it declares, and answers none outside it",
+        "test/profiles/facets/web-egress-service.test.ts#attempt-reconciling reference web egress service contract answers every refusal the taxonomy declares in every position it declares, and answers none outside it"
+      ],
+      "premise": "webEgressRefusalsAreTotal",
+      "kind": "safety",
+      "channel": "contractSuite"
+    },
+    {
+      "atom": null,
+      "atomStatus": null,
+      "declaration": null,
+      "owed": "The service is declared and entirely unbound. `implements WebTransport` occurs nowhere in any package's src, and `new WebBackend` occurs only in test/profiles/facets/web.test.ts, so no src module constructs the backend or the facet either. Both contract runs are therefore references, distinguished by which of the two provider obligations each discharges. Discharging this needs a WebTransport implementation in some package's src plus a src composition site that builds a WebBackend with it; the contract body then takes it as a third implementation with no change to the suite, and this service's adapter list stops reading \"absent\".",
+      "selectors": null,
+      "premise": "webEgressHasNoBoundAdapter",
+      "kind": "safety",
+      "channel": "gap"
+    },
+    {
+      "atom": null,
+      "atomStatus": null,
+      "declaration": null,
+      "owed": "Four of the five collaborators WebBackend takes have no implementation anywhere in src: WebUrlPolicy, WebCallerHeaderPolicy, WebCredentialPolicy and WebResponseCache (only FixedWindowRatePolicy exists). So the allowlist and SSRF decision P11-WEB-URL-SAFETY rests on is made by no code in this repository; the facet enforces that the question was asked and that the answer was well shaped. Discharging this needs a WebUrlPolicy that actually resolves targets, and adversarial cases against it: a link-local metadata address, loopback in decimal and hexadecimal forms, an IPv6 loopback, a hostname resolving into a private range, and a redirect from a public host to a private one. None of it is assertable today because there is nothing to assert it against.",
+      "selectors": null,
+      "premise": "webUrlPolicyDecidesSsrf",
+      "kind": "safety",
+      "channel": "gap"
+    },
+    {
+      "atom": null,
+      "atomStatus": null,
+      "declaration": null,
+      "owed": "WebTransport's docstring obligation is discharged by a provider's own local ledger. WebTransportRequest carries the authorization, method, headers and body, and the EffectDispatch arrives as a separate argument, so the protocol never says how the idempotency key reaches the remote service: no header placement, no declared field. A provider can honour the letter of the obligation and still cause a duplicate effect at the far end after a crash. Discharging this needs either a declared wire placement for the key in WebTransportRequest, or live evidence from a real provider that a replayed request under one key is deduplicated remotely. Neither is reachable in any local lane.",
+      "selectors": null,
+      "premise": "webRemoteDeduplicatesByEffectIdentity",
+      "kind": "safety",
+      "channel": "gap"
+    },
+    {
+      "atom": null,
+      "atomStatus": null,
+      "declaration": null,
+      "owed": "Neither WebBackend.fetch nor WebTransport.send takes an AbortSignal, so a caller's own withdrawal is not observable in this reply vocabulary at all — which is why this contract has no abandoned kind while model.inference does, and why a cancelled Turn's in-flight egress request has no defined outcome here. Discharging this needs a signal on send's parameters, at which point the vocabulary gains abandoned and the contract gains the case that a withdrawal is not reported as a refusal.",
+      "selectors": null,
+      "premise": "webEgressHasNoCancellation",
+      "kind": "progress",
+      "channel": "gap"
+    },
+    {
+      "atom": null,
+      "atomStatus": null,
+      "declaration": null,
+      "owed": null,
+      "selectors": [
+        "cloudflare/test/deployment-service.test.ts#reference Cloudflare deployment service contract refuses every failure the taxonomy declares, and declares every refusal it answers",
+        "cloudflare/test/deployment-service.test.ts#ExplicitCloudflareDeploymentAdapter Cloudflare deployment service contract refuses every failure the taxonomy declares, and declares every refusal it answers"
+      ],
+      "premise": "deploymentRefusalsAreTotal",
+      "kind": "safety",
+      "channel": "contractSuite"
+    },
+    {
+      "atom": null,
+      "atomStatus": null,
+      "declaration": null,
+      "owed": null,
+      "selectors": [
+        "cloudflare/test/view-stream-service.test.ts#reference view stream service contract refuses every failure the taxonomy declares, and declares every refusal it answers",
+        "cloudflare/test/view-stream-service.test.ts#HibernatingViewSocketAdapter view stream service contract refuses every failure the taxonomy declares, and declares every refusal it answers"
+      ],
+      "premise": "viewStreamRefusalsAreTotal",
+      "kind": "safety",
+      "channel": "contractSuite"
+    },
+    {
+      "atom": null,
+      "atomStatus": null,
+      "declaration": null,
+      "owed": "DispatchNamespaceLike models a Workers for Platforms namespace as one get(scriptName, parameters) that answers a Fetcher, answers nothing, or throws. A real dispatch namespace is reachable in no local lane. Discharging this needs a Workers for Platforms account, an uploaded tenant script, a dispatch_namespaces binding, and a live-lane run that resolves and fetches through it — including whether a streamed body preserves status, headers and back-pressure without turning into a throw the adapter leaves unclassified.",
+      "selectors": null,
+      "premise": "dispatchNamespaceBehavesAsModelled",
+      "kind": "safety",
+      "channel": "gap"
+    },
+    {
+      "atom": null,
+      "atomStatus": null,
+      "declaration": null,
+      "owed": "DispatchFetchServiceScope's disposer is an empty body, which is correct only if a Fetcher from a dispatch namespace holds nothing that must be released. Discharging this needs a live lane that resolves many Fetchers without disposing them and observes whether an RPC session or a subrequest budget leaks. Until then finding SVC-F14 stands.",
+      "selectors": null,
+      "premise": "dispatchFetcherHoldsNoResource",
+      "kind": "safety",
+      "channel": "gap"
+    },
+    {
+      "atom": null,
+      "atomStatus": null,
+      "declaration": null,
+      "owed": "The adapter validates dispatch parameters and forwards them; nothing local observes that they arrive in the dispatched script's own environment. Discharging this needs a live-lane fetch through a dispatched script that echoes the parameters it received.",
+      "selectors": null,
+      "premise": "dispatchParametersReachTheScript",
+      "kind": "safety",
+      "channel": "gap"
+    },
+    {
+      "atom": null,
+      "atomStatus": null,
+      "declaration": "SPEC §14's boundary rule (SPEC.md:2781-2789): a destination the Tenant does not control is outside the trust boundary. A dispatched script or a loaded isolate is authored elsewhere, so nothing it answers is trusted and nothing it throws is attributable to this protocol.",
+      "owed": null,
+      "selectors": null,
+      "premise": "dispatchDestinationIsUnauthored",
+      "kind": "safety",
+      "channel": "declaredAssumption"
+    },
+    {
+      "atom": null,
+      "atomStatus": null,
+      "declaration": null,
+      "owed": "requireAttachmentSize measures the UTF-8 length of the JSON form and the module states the platform measures the structured clone, so the two agree only approximately. Discharging this needs a workerd or live run storing an attachment under the ceiling by JSON measure and over it by clone measure, showing whether the platform refuses on an already-accepted socket — which is precisely the unrepairable state the attach-before-accept ordering exists to prevent.",
+      "selectors": null,
+      "premise": "viewStreamCloneMeasurementMatchesJson",
+      "kind": "safety",
+      "channel": "gap"
+    },
+    {
+      "atom": null,
+      "atomStatus": null,
+      "declaration": null,
+      "owed": "The structural lane round-trips the attachment through a structured clone in a double. Discharging this needs live evidence for a socket that genuinely hibernated and was revived, comparing the revived attachment to the stored one.",
+      "selectors": null,
+      "premise": "viewStreamAttachmentSurvivesHibernation",
+      "kind": "safety",
+      "channel": "gap"
+    },
+    {
+      "atom": null,
+      "atomStatus": null,
+      "declaration": null,
+      "owed": "The protocol.invalid-state send refusal is reachable in production only if a real hibernating socket's send throws rather than buffering silently. Discharging this needs a live replay of a payload large enough to exceed the socket's buffer, and the same lane would settle whether the platform accept can fail after a successful attachment write.",
+      "selectors": null,
+      "premise": "viewStreamSendThrowsUnderBackpressure",
+      "kind": "progress",
+      "channel": "gap"
+    },
+    {
+      "atom": null,
+      "atomStatus": null,
+      "declaration": null,
+      "owed": "The Cap'n Web provider capability plane (packages/agent-core-cloudflare/src/provider-capability.ts) and the Tenant authority plane (src/permit-transport.ts with src/permit-capability.ts) are external service protocols this artifact does not yet model: their contract suites were still in flight when it was frozen. Until they land, authority.denied and invocation.invalid are accounted as outside the taxonomy rather than mapped by a service that does not answer them. Discharging this means adding both services with their own operation, reply and refusal vocabularies and their own parameterised suites against a reference and the real Cap'n Web session on workerd.",
+      "selectors": null,
+      "premise": "providerCapabilityContractIsOwed",
+      "kind": "safety",
+      "channel": "gap"
     }
   ],
   "citedElsewhere": [
@@ -242,7 +1179,7 @@
         "queueAckedNeverRedelivered",
         "queueDeadLetterCustody"
       ],
-      "statement": "The queue disposition protocol \u2014 independent per-message dispositions, an undecodable body retried rather than acknowledged, dead-letter custody by configuration \u2014 is the queue seam's law set. No queue producer call exists anywhere in src, so only the consumer side has a protocol to model."
+      "statement": "The queue disposition protocol — independent per-message dispositions, an undecodable body retried rather than acknowledged, dead-letter custody by configuration — is the queue seam's law set. No queue producer call exists anywhere in src, so only the consumer side has a protocol to model."
     },
     {
       "service": "worker-loader.isolate",
@@ -254,7 +1191,7 @@
         "isolatePrivateStoreUnreadable",
         "isolateFreshLoadPerSubmission"
       ],
-      "statement": "Dynamic Worker Loader loads \u2014 for authored code, for hosted facets and for the dynamic half of a deployment \u2014 are the isolate seam: a required compute bound, a fresh isolate per submission, no ambient egress, and reach limited to the passed capabilities."
+      "statement": "Dynamic Worker Loader loads — for authored code, for hosted facets and for the dynamic half of a deployment — are the isolate seam: a required compute bound, a fresh isolate per submission, no ambient egress, and reach limited to the passed capabilities."
     },
     {
       "service": "durable-object.rpc",
@@ -279,7 +1216,7 @@
       "coveredBy": "packages/agent-core/src/facets/device/facet.ts#ReverseDeviceTransportBackend",
       "seam": null,
       "premises": [],
-      "statement": "The device facet declares an outbound transport port with no implementation anywhere in src, exactly as the web facet does. It is recorded rather than modelled because it has neither a bound adapter nor a reference implementation nor a \u00a713 atom of its own to anchor a taxonomy; inventing one would be inventing a contract for a service this repository does not call. The web.egress contract states the shape both share, and premise webEgressHasNoBoundAdapter states what an unbound port owes."
+      "statement": "The device facet declares an outbound transport port with no implementation anywhere in src, exactly as the web facet does. It is recorded rather than modelled because it has neither a bound adapter nor a reference implementation nor a §13 atom of its own to anchor a taxonomy; inventing one would be inventing a contract for a service this repository does not call. The web.egress contract states the shape both share, and premise webEgressHasNoBoundAdapter states what an unbound port owes."
     }
   ],
   "findings": [
@@ -287,7 +1224,7 @@
       "id": "SVC-F1",
       "severity": "gap",
       "service": "model.inference",
-      "statement": "A credential resolution failure has no code. `send` resolves the credential before the try block deliberately, so it is not misreported as an unreachable endpoint \u2014 but nothing then classifies it, and whatever the host's closure threw escapes `complete()` as itself. A caller reading codes cannot distinguish a credential outage from a broken adapter, and no retry policy can key on it.",
+      "statement": "A credential resolution failure has no code. `send` resolves the credential before the try block deliberately, so it is not misreported as an unreachable endpoint — but nothing then classifies it, and whatever the host's closure threw escapes `complete()` as itself. A caller reading codes cannot distinguish a credential outage from a broken adapter, and no retry policy can key on it.",
       "code": "packages/agent-core-harness/src/model/openai-compatible.ts:63-66",
       "modelled": "The reply vocabulary answers it as `indeterminate` carrying the cause, which is the honest reading rather than a refusal the service never gave. The contract pins it at test/model-service.test.ts#model inference service protocol leaves a credential resolution failure outside the taxonomy entirely. Closing it would mean adding a `model.credential-unavailable` code to HarnessErrorCode, which is a taxonomy change and not this lane's to make unilaterally."
     },
@@ -297,7 +1234,7 @@
       "service": "model.inference",
       "statement": "A malformed provider reply can escape the `model.malformed-response` taxonomy as a raw TypeError. `readToolCalls` narrows the tool name to a string and then hands it to `new BindingName(name)`, whose TextId constructor refuses an empty or over-long value with a TypeError. A reply carrying `function.name: \"\"` therefore passes every check the reader makes and throws a platform error type out of the adapter.",
       "code": "packages/agent-core-harness/src/model/openai-compatible.ts:150-166; packages/agent-core/src/core/id.ts:8-16",
-      "modelled": "The contract's `faults` scenario drives exactly this reply for the real adapter and observes `indeterminate`, so the hole is measured rather than assumed. The fix is one line in `readToolCalls` \u2014 refuse an unconstructable binding name as `model.malformed-response` \u2014 but it is an adapter behaviour change and this lane models rather than repairs."
+      "modelled": "The contract's `faults` scenario drives exactly this reply for the real adapter and observes `indeterminate`, so the hole is measured rather than assumed. The fix is one line in `readToolCalls` — refuse an unconstructable binding name as `model.malformed-response` — but it is an adapter behaviour change and this lane models rather than repairs."
     },
     {
       "id": "SVC-F3",
@@ -306,6 +1243,70 @@
       "statement": "The inventory behind this artifact found exactly one network egress in all three packages' src trees: the model provider's fetch. Verified absent everywhere in src: the Workers AI binding (env.AI), Vectorize, KV, D1, Hyperdrive, Browser Rendering, Email, Analytics Engine, Workflows, Containers, Cron Triggers, the Cache API, HTMLRewriter, the Queues producer API, the Durable Object native key/value storage API, a Secrets Store binding, and any generic service binding beyond the three shapes already modelled (Durable Object stub, dispatch-namespace Fetcher, Worker Loader entrypoint). No contract is written for any of them, because a contract for a service the repository does not call would be a specification with no subject.",
       "code": "packages/agent-core-harness/src/model/openai-compatible.ts:66-84 is the only fetch call site in src; the absences were established by search across packages/agent-core/src, packages/agent-core-cloudflare/src and packages/agent-core-harness/src",
       "modelled": "Recorded as an observation rather than a service so that a later reader can tell an unmodelled service from an uncalled one."
+    },
+    {
+      "id": "SVC-F4",
+      "severity": "gap",
+      "service": "web.egress",
+      "statement": "The idempotency obligation and the redirect loop are in direct tension, and the contract now executes it. WebBackend.fetch re-sends every hop under ONE EffectDispatch, while WebTransport's docstring tells the provider to treat dispatch.idempotencyKey as THE dedup key. A provider that does exactly that answers hop two from its own ledger with hop one's redirect, and the chain dies with redirect.denied while the provider is holding the answer the caller asked for. The protocol offers the provider no hop discriminator at all, which is why both contract references had to mix the hop's requested URL into their ledger key — a discriminator the protocol does not declare.",
+      "code": "packages/agent-core/src/facets/web/facet.ts#WebBackend.fetch re-uses one dispatch across the hop loop; #WebTransport states the key obligation",
+      "modelled": "Executed at test/profiles/facets/web-egress-service.test.ts#web egress service protocol cannot follow a redirect when the provider dedups on the idempotency key alone. Any real adapter meets it on its first redirect. Closing it means declaring a per-hop discriminator in WebTransportRequest, which is a SPEC §11 change rather than this lane's."
+    },
+    {
+      "id": "SVC-F5",
+      "severity": "scope",
+      "service": "web.egress",
+      "statement": "One kernel code carries seven detail codes and eleven refusal positions. WebPolicyError passes operation.invalid-input to AgentCoreError for every WebPolicyErrorCode, so a caller outside the facet that catches AgentCoreError and switches on code cannot distinguish an SSRF refusal from a malformed cache key. Only detailCode separates them, and that field lives on DetailedProfileError rather than in the kernel error vocabulary.",
+      "code": "packages/agent-core/src/facets/web/facet.ts#WebPolicyError",
+      "modelled": "The reply vocabulary carries both levels on every refusal, and WebPolicyErrorCode rather than AgentCoreErrorCode is the accountable union for this service, so the taxonomy is complete at the level that actually distinguishes."
+    },
+    {
+      "id": "SVC-F6",
+      "severity": "gap",
+      "service": "web.egress",
+      "statement": "Every P11-WEB-* conformance row is verified against test doubles end to end. The facet has no bound transport and four of its five policy ports have no implementation, so \"verified\" for the WEB family currently means the policy chain behaves given collaborators nobody has written. That is a true statement about the policy chain and not a statement about egress.",
+      "code": "packages/agent-core/src/facets/web/facet.ts#WebBackend takes WebUrlPolicy, WebCallerHeaderPolicy, WebCredentialPolicy, WebRatePolicy, WebTransport and WebResponseCache; only FixedWindowRatePolicy exists",
+      "modelled": "Premises webEgressHasNoBoundAdapter and webUrlPolicyDecidesSsrf state what each absence owes. The contract deliberately does not invent an adapter to make the family look closed."
+    },
+    {
+      "id": "SVC-F7",
+      "severity": "scope",
+      "service": "web.egress",
+      "statement": "WebBackend.search declares Promise<WebResponse> and raises search.invalid synchronously: both refusals precede the first awaitable call, so `backend.search(...).catch(handler)` never sees two of the seven refusals — the throw escapes at the call site instead. readCached is synchronous throughout. The facade happens to be safe because the runtime wraps the handler, but the backend's own surface is a mixed synchronous and asynchronous throw.",
+      "code": "packages/agent-core/src/facets/web/facet.ts#WebBackend.search",
+      "modelled": "The contract's reply function invokes inside the try, so it observes both forms identically; that is a property of the contract rather than of the seam, and it is recorded here rather than presented as the seam being uniform."
+    },
+    {
+      "id": "SVC-F8",
+      "severity": "observation",
+      "service": "web.egress",
+      "statement": "CREDENTIAL_HEADERS is a module-private `new Set([...])` — a static string-keyed membership table, which this repository's own rule says must be a Readonly<Record<string, true>> — and it is not exported. No test can assert over it, so the contract restates the three header names and a drift between the two lists is undetectable. The facet's existing test covers authorization and cookie but never proxy-authorization; the contract covers all three at two casings each.",
+      "code": "packages/agent-core/src/facets/web/facet.ts declares CREDENTIAL_HEADERS beside its schema constants",
+      "modelled": "Restated in the contract body with a comment saying it is a restatement. Exporting the table would let the contract assert over the real one; that is a one-line source change and this lane models rather than repairs."
+    },
+    {
+      "id": "SVC-F9",
+      "severity": "observation",
+      "service": "web.egress",
+      "statement": "FixedWindowRatePolicy defaults its clock to the ambient one. In a repository whose rule is that every clock is injected, the default makes an un-injected rate policy silently time-dependent: tests always pass a clock, and production code that forgot to would not fail anywhere.",
+      "code": "packages/agent-core/src/facets/web/facet.ts#FixedWindowRatePolicy",
+      "modelled": "Out of the reply vocabulary entirely — a rate policy's clock is not a protocol value. Recorded because the rate invariant this contract asserts is only as good as the clock the policy reads."
+    },
+    {
+      "id": "SVC-F10",
+      "severity": "gap",
+      "service": "web.egress",
+      "statement": "WebPolicyError is publicly exported and the backend never wraps what its collaborators throw, so an untrusted transport or policy can forge ANY refusal in the taxonomy — including url.denied — indistinguishably from a backend decision. The facet's own existing DedupWebTransport does exactly this: it signals a crash after send by throwing WebPolicyError(\"url.denied\"), which under this taxonomy classifies a provider crash as a URL-policy refusal.",
+      "code": "packages/agent-core/src/facets/web/facet.ts#WebPolicyError is exported; #WebBackend.fetch calls transport.send and the policy ports without wrapping what they throw",
+      "modelled": "The contract's references throw a TypeError for a crash so its indeterminate case stays honest, and the artifact states plainly that the reply function structurally cannot tell a backend-raised refusal from a transport-forged one. No provenance check was invented, because the protocol offers none."
+    },
+    {
+      "id": "SVC-F11",
+      "severity": "gap",
+      "service": "web.egress",
+      "statement": "A redirect re-sends the caller's method and body unchanged to the redirect target, and WebTransportResponse carries a redirect location with no status, so 301, 302, 303, 307 and 308 are indistinguishable at the seam. A POST body therefore follows a redirect chosen by the first host to a second host, and the 303 downgrade to GET that a normal HTTP client performs cannot be expressed. The credential policy is re-consulted per hop; the body is not re-authorized in any sense.",
+      "code": "packages/agent-core/src/facets/web/facet.ts#WebTransportResponse carries redirect without a status; #WebBackend.fetch re-sends request.method and the buffered body on the next hop",
+      "modelled": "Recorded on the redirect invariant as the half that is not honored and not expressible at this seam, rather than left inside a verdict of honored."
     }
   ]
 }
