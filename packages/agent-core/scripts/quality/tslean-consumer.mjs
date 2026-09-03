@@ -47,6 +47,9 @@ const manifestName = "tslean.manifest.json";
 // The compiler's own runtime module carries no Lean module of its own, which is how the manifest
 // spells "this file is the package's shared runtime" rather than a lowering of a source file.
 const runtimeModuleMarker = "";
+// Where `--regenerate` builds the throwaway tree it compares against. The regeneration modes run
+// from the top-level loop below, so this has to be initialized before it, not beside its reader.
+const SCRATCH_BASE = ["reports", "quality", "tslean-regeneration"];
 // The semantic identity is the canonical JSON of exactly these fields, in this order; the
 // manifest's own header line and this list must move together (tslean's manifest.ts
 // canonicalSemanticIdentity is the one definition).
@@ -62,7 +65,10 @@ const semanticIdentityFields = [
     "inputClosureSha256",
     "semanticIrSha256",
     "certificates",
-    "generatedBodySha256"
+    "generatedBodySha256",
+    "hosts",
+    "helpers",
+    "codecs"
 ];
 
 const options = parseArguments(process.argv.slice(2));
@@ -527,8 +533,6 @@ async function regenerateAndCompare(entry) {
     }
 }
 
-const SCRATCH_BASE = ["reports", "quality", "tslean-regeneration"];
-
 function scratchRootAtCommittedDepth(entry) {
     const committedDepth = relative(packageDir, entry.generatedRoot).split(sep).length;
     const base = [...SCRATCH_BASE, entry.id];
@@ -687,7 +691,22 @@ function canonicalSemanticIdentity(semantic) {
             declaration: certificate.declaration,
             runtimeBodySha256: certificate.runtimeBodySha256
         })),
-        generatedBodySha256: semantic.generatedBodySha256
+        generatedBodySha256: semantic.generatedBodySha256,
+        hosts: semantic.hosts.map((host) => ({
+            declaration: host.declaration,
+            host: host.host,
+            binding: host.binding,
+            module: host.module
+        })),
+        helpers: semantic.helpers.map((helper) => ({
+            role: helper.role,
+            declaration: helper.declaration
+        })),
+        codecs: semantic.codecs.map((codec) => ({
+            declaration: codec.declaration,
+            type: codec.type,
+            statics: codec.statics
+        }))
     };
     return JSON.stringify(canonical);
 }
