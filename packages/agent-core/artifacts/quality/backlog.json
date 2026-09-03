@@ -379,7 +379,7 @@
       "priority": 5,
       "summary": "Advance C13-AUTH-SHARE-OFFER from implemented with exact evidence",
       "notes": [
-        "The status is held at implemented rather than verified because this repair's evidence is written but not executed. The role pin is a wire change — identity.share-offer moves to codec major 2 and the SQLite projection gains a role_digest column — and the run that would execute the new memory and SQLite cases is reserved for integration under the parent's resource rule, so no measured pass exists in this worktree yet. Promotion needs that run and nothing else: the mechanism, the substrate projection and the hostile cases are all present"
+        "The measured run this row was waiting on now exists: all 35 cited selectors were executed title-exact and passed in this worktree — test/identity/share-offer.test.ts, test/authority/share-offer-service.test.ts across both the memory and sqlite Tenant control stores, and test/authority/record-closure.test.ts — so the role pin, its SQLite projection and the hostile cases are evidenced rather than merely written. What blocks promotion is the mutation lane, not the suite: at verified this row reports DISC-STALE, because artifacts/quality/discrimination carries no attribution at all for src/identity/share-offer.ts and the measured bytes of every other cited source — src/identity/repository.ts, src/authority/service.ts, src/authority/closure.ts, src/authority/memory.ts, src/substrates/sqlite/identity.ts and src/substrates/sqlite/tenant.ts — predate the role-pin repair, so no cited selector holds a recorded kill inside a file that still hashes to what was measured. Promotion needs one W0 re-measurement of those areas and nothing else; seeding the discrimination baseline instead would record the gap as debt rather than close it"
       ],
       "oracle": {
         "kind": "conformance-status",
@@ -1596,25 +1596,6 @@
       }
     },
     {
-      "id": "T-TRIAGE:AC-AUTH-001:bd862844400a7cfe1b426e8dacd85a2e97e04596b438376b6b1638150ee09660",
-      "type": "T-TRIAGE",
-      "source": {
-        "kind": "traceability-remaining-evidence",
-        "id": "AC-AUTH-001",
-        "digest": "bd862844400a7cfe1b426e8dacd85a2e97e04596b438376b6b1638150ee09660"
-      },
-      "owner": "maintainer-triage",
-      "priority": 5,
-      "summary": "Type the disposition and oracle for AC-AUTH-001 evidence bd862844400a7cfe1b426e8dacd85a2e97e04596b438376b6b1638150ee09660",
-      "notes": ["guest Grant origin provenance and Membership/GuestTrust verification currency"],
-      "oracle": {
-        "kind": "typed-disposition",
-        "requirementId": "AC-AUTH-001",
-        "evidenceDigest": "bd862844400a7cfe1b426e8dacd85a2e97e04596b438376b6b1638150ee09660",
-        "expected": "migrated-or-permanent"
-      }
-    },
-    {
       "id": "T-TRIAGE:AC-AUTH-RESOLUTION-001:9abf33474d88dfe4fef57fd549f9cb55735c29d0fb721818e3cb746f0e934bf8",
       "type": "T-TRIAGE",
       "source": {
@@ -1920,6 +1901,27 @@
       }
     },
     {
+      "id": "T-TRIAGE:AC-CONTENT-001:1cb03d435f255dd799164f43f4ee6770c6741636ea60f6fa93e690ba7090fc7b",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-CONTENT-001",
+        "digest": "1cb03d435f255dd799164f43f4ee6770c6741636ea60f6fa93e690ba7090fc7b"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-CONTENT-001 evidence 1cb03d435f255dd799164f43f4ee6770c6741636ea60f6fa93e690ba7090fc7b",
+      "notes": [
+        "the coverage half of custody in the model: `own` is a primitive step a transition may take, and nothing here derives owningRecords from what a concrete record type stores in its own fields. The implementation half is no longer false and the parenthetical that said so is withdrawn: every durable kind that declares a ContentRef registers it through src/core/content-ref.ts#contentRetentionFields and src/content/retention.ts#ContentRecordCustody, measured for Turn records by test/agents/runs/content-custody.test.ts#Run content custody on memory registers every Run record ContentRef from immutable record-adjacent projections and its SQLite twin, for Receipts by test/content/record-custody.test.ts#co-transacted record custody on SQLite [C13-CONTENT-CUSTODY] an appended Receipt retains its result in the transaction that wrote it and never releases, and for Slates by test/content/record-custody.test.ts#record custody registration [C13-CONTENT-CUSTODY] a Slate plane write registers every declared ContentRef of all eight Slate kinds"
+      ],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-CONTENT-001",
+        "evidenceDigest": "1cb03d435f255dd799164f43f4ee6770c6741636ea60f6fa93e690ba7090fc7b",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
       "id": "T-TRIAGE:AC-CONTENT-001:677f3dc491662a1b732ba781001acbb6de056d840e90ea7c5f027589c87d58e1",
       "type": "T-TRIAGE",
       "source": {
@@ -1973,27 +1975,6 @@
         "kind": "typed-disposition",
         "requirementId": "AC-CONTENT-001",
         "evidenceDigest": "90740fb65b114d0171320ca88365c497280a398c471c6323c7533df2295c7b20",
-        "expected": "migrated-or-permanent"
-      }
-    },
-    {
-      "id": "T-TRIAGE:AC-CONTENT-001:9a223e05b994e11b03d4142200004c10f6060fedc73bb872561e2062c586fcee",
-      "type": "T-TRIAGE",
-      "source": {
-        "kind": "traceability-remaining-evidence",
-        "id": "AC-CONTENT-001",
-        "digest": "9a223e05b994e11b03d4142200004c10f6060fedc73bb872561e2062c586fcee"
-      },
-      "owner": "maintainer-triage",
-      "priority": 5,
-      "summary": "Type the disposition and oracle for AC-CONTENT-001 evidence 9a223e05b994e11b03d4142200004c10f6060fedc73bb872561e2062c586fcee",
-      "notes": [
-        "the coverage half of custody: deriving ownership registration from concrete record types' own fields (TurnResult, Receipt, Slate, ...) rather than treating `own` as a primitive action -- currently reported false in the implementation (Turn results, Receipts, and Slates never retain)"
-      ],
-      "oracle": {
-        "kind": "typed-disposition",
-        "requirementId": "AC-CONTENT-001",
-        "evidenceDigest": "9a223e05b994e11b03d4142200004c10f6060fedc73bb872561e2062c586fcee",
         "expected": "migrated-or-permanent"
       }
     },
@@ -2255,42 +2236,23 @@
       }
     },
     {
-      "id": "T-TRIAGE:AC-KEY-001:068e8955ccfa78c4a74bda168850e4e189cb9963841afecb9c48ace8d42810f2",
+      "id": "T-TRIAGE:AC-KEY-001:4d500a56bbfcbbfb3c6576a8d6c0a4b9a767783ed2e3056f6b6cbe9ed8de9c2d",
       "type": "T-TRIAGE",
       "source": {
         "kind": "traceability-remaining-evidence",
         "id": "AC-KEY-001",
-        "digest": "068e8955ccfa78c4a74bda168850e4e189cb9963841afecb9c48ace8d42810f2"
+        "digest": "4d500a56bbfcbbfb3c6576a8d6c0a4b9a767783ed2e3056f6b6cbe9ed8de9c2d"
       },
       "owner": "maintainer-triage",
       "priority": 5,
-      "summary": "Type the disposition and oracle for AC-KEY-001 evidence 068e8955ccfa78c4a74bda168850e4e189cb9963841afecb9c48ace8d42810f2",
-      "notes": ["per-key discharge of the delimiter-free side across every record store"],
-      "oracle": {
-        "kind": "typed-disposition",
-        "requirementId": "AC-KEY-001",
-        "evidenceDigest": "068e8955ccfa78c4a74bda168850e4e189cb9963841afecb9c48ace8d42810f2",
-        "expected": "migrated-or-permanent"
-      }
-    },
-    {
-      "id": "T-TRIAGE:AC-KEY-001:47e6f3818e9e46ce626af4d780e62a9d224649358f38d5b87d71b55b85b1d44f",
-      "type": "T-TRIAGE",
-      "source": {
-        "kind": "traceability-remaining-evidence",
-        "id": "AC-KEY-001",
-        "digest": "47e6f3818e9e46ce626af4d780e62a9d224649358f38d5b87d71b55b85b1d44f"
-      },
-      "owner": "maintainer-triage",
-      "priority": 5,
-      "summary": "Type the disposition and oracle for AC-KEY-001 evidence 47e6f3818e9e46ce626af4d780e62a9d224649358f38d5b87d71b55b85b1d44f",
+      "summary": "Type the disposition and oracle for AC-KEY-001 evidence 4d500a56bbfcbbfb3c6576a8d6c0a4b9a767783ed2e3056f6b6cbe9ed8de9c2d",
       "notes": [
-        "distinct JavaScript numbers rendering to distinct tokens (ASM-CANONICAL-KEY-INJECTIVE)"
+        "per-key discharge of the delimiter-free side, for the shapes no proven kind covers: the three §11 Cloudflare-profile keys, whose constrained sides are encodeURIComponent escaping and a positional split of a digest rather than a checked type, and whose evidence lane is that package's own suite; src/operations/command-runtime.ts#install, whose constrained side is OperationRef.facet's single-colon invariant; src/workspaces/source-protocol.ts#routeIdentity, which is length-prefixed rather than delimited; and the four definition-plane sites that receive an already-checked shape as a bare string — src/definition/materialization-store.ts#blueprintKey, src/definition/memory.ts#releaseKey, #blueprintStoreKey and #pointerStoreKey — where the domain is a caller invariant the parameter type does not carry. Every other site's constrained side is one of the kinds test/core/composite-key-discharge.test.ts now decides from the outside — the five closed unions and DigestAlgorithm through compile-time-exhaustive tables, Digest's 64 lowercase hex, the SemVer rendering grammar, a Revision's decimal rendering and every finite double's token — or a fixed literal the site supplies itself"
       ],
       "oracle": {
         "kind": "typed-disposition",
         "requirementId": "AC-KEY-001",
-        "evidenceDigest": "47e6f3818e9e46ce626af4d780e62a9d224649358f38d5b87d71b55b85b1d44f",
+        "evidenceDigest": "4d500a56bbfcbbfb3c6576a8d6c0a4b9a767783ed2e3056f6b6cbe9ed8de9c2d",
         "expected": "migrated-or-permanent"
       }
     },
@@ -2312,44 +2274,6 @@
         "kind": "typed-disposition",
         "requirementId": "AC-KEY-001",
         "evidenceDigest": "76b2b394bf38e8390ab6327b00f144df2c697f01f78e93b2f1b11a81420c5859",
-        "expected": "migrated-or-permanent"
-      }
-    },
-    {
-      "id": "T-TRIAGE:AC-KEY-001:af4a70373c9dd158f37d09c0360ab5b6b4705ce63397106f716c70c1edf6ad12",
-      "type": "T-TRIAGE",
-      "source": {
-        "kind": "traceability-remaining-evidence",
-        "id": "AC-KEY-001",
-        "digest": "af4a70373c9dd158f37d09c0360ab5b6b4705ce63397106f716c70c1edf6ad12"
-      },
-      "owner": "maintainer-triage",
-      "priority": 5,
-      "summary": "Type the disposition and oracle for AC-KEY-001 evidence af4a70373c9dd158f37d09c0360ab5b6b4705ce63397106f716c70c1edf6ad12",
-      "notes": ["UTF-8 byte encoding of the canonical string"],
-      "oracle": {
-        "kind": "typed-disposition",
-        "requirementId": "AC-KEY-001",
-        "evidenceDigest": "af4a70373c9dd158f37d09c0360ab5b6b4705ce63397106f716c70c1edf6ad12",
-        "expected": "migrated-or-permanent"
-      }
-    },
-    {
-      "id": "T-TRIAGE:AC-KEY-001:d901535558e8b8c56b7ea0f162840194d3bfe5c07d5fa38a2fcdf0a88a7a3c2f",
-      "type": "T-TRIAGE",
-      "source": {
-        "kind": "traceability-remaining-evidence",
-        "id": "AC-KEY-001",
-        "digest": "d901535558e8b8c56b7ea0f162840194d3bfe5c07d5fa38a2fcdf0a88a7a3c2f"
-      },
-      "owner": "maintainer-triage",
-      "priority": 5,
-      "summary": "Type the disposition and oracle for AC-KEY-001 evidence d901535558e8b8c56b7ea0f162840194d3bfe5c07d5fa38a2fcdf0a88a7a3c2f",
-      "notes": ["identifier validation excluding the delimiter at the trust boundary"],
-      "oracle": {
-        "kind": "typed-disposition",
-        "requirementId": "AC-KEY-001",
-        "evidenceDigest": "d901535558e8b8c56b7ea0f162840194d3bfe5c07d5fa38a2fcdf0a88a7a3c2f",
         "expected": "migrated-or-permanent"
       }
     },

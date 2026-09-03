@@ -293,7 +293,6 @@
       "remainingEvidence": [
         "concrete canonical Grant/Binding storage and resolver refinement",
         "authenticated Principal, Team, foreign-principal, and tenant inputs",
-        "guest Grant origin provenance and Membership/GuestTrust verification currency",
         "TypeScript refinement, for which oracle agreement is empirical only (NC-DIFFERENTIAL-EMPIRICAL)"
       ]
     },
@@ -557,10 +556,7 @@
         ]
       },
       "remainingEvidence": [
-        "per-key discharge of the delimiter-free side across every record store",
-        "distinct JavaScript numbers rendering to distinct tokens (ASM-CANONICAL-KEY-INJECTIVE)",
-        "UTF-8 byte encoding of the canonical string",
-        "identifier validation excluding the delimiter at the trust boundary",
+        "per-key discharge of the delimiter-free side, for the shapes no proven kind covers: the three §11 Cloudflare-profile keys, whose constrained sides are encodeURIComponent escaping and a positional split of a digest rather than a checked type, and whose evidence lane is that package's own suite; src/operations/command-runtime.ts#install, whose constrained side is OperationRef.facet's single-colon invariant; src/workspaces/source-protocol.ts#routeIdentity, which is length-prefixed rather than delimited; and the four definition-plane sites that receive an already-checked shape as a bare string — src/definition/materialization-store.ts#blueprintKey, src/definition/memory.ts#releaseKey, #blueprintStoreKey and #pointerStoreKey — where the domain is a caller invariant the parameter type does not carry. Every other site's constrained side is one of the kinds test/core/composite-key-discharge.test.ts now decides from the outside — the five closed unions and DigestAlgorithm through compile-time-exhaustive tables, Digest's 64 lowercase hex, the SemVer rendering grammar, a Revision's decimal rendering and every finite double's token — or a fixed literal the site supplies itself",
         "TypeScript refinement, for which oracle agreement is empirical only (NC-DIFFERENTIAL-EMPIRICAL)"
       ]
     },
@@ -2711,7 +2707,7 @@
         "concrete ContentStore put/get/stat transport and persistence conformance",
         "retention/GC policy timing and scheduling over unowned content",
         "the ContentRef wire representation and digest binding to stored bytes",
-        "the coverage half of custody: deriving ownership registration from concrete record types' own fields (TurnResult, Receipt, Slate, ...) rather than treating `own` as a primitive action -- currently reported false in the implementation (Turn results, Receipts, and Slates never retain)"
+        "the coverage half of custody in the model: `own` is a primitive step a transition may take, and nothing here derives owningRecords from what a concrete record type stores in its own fields. The implementation half is no longer false and the parenthetical that said so is withdrawn: every durable kind that declares a ContentRef registers it through src/core/content-ref.ts#contentRetentionFields and src/content/retention.ts#ContentRecordCustody, measured for Turn records by test/agents/runs/content-custody.test.ts#Run content custody on memory registers every Run record ContentRef from immutable record-adjacent projections and its SQLite twin, for Receipts by test/content/record-custody.test.ts#co-transacted record custody on SQLite [C13-CONTENT-CUSTODY] an appended Receipt retains its result in the transaction that wrote it and never releases, and for Slates by test/content/record-custody.test.ts#record custody registration [C13-CONTENT-CUSTODY] a Slate plane write registers every declared ContentRef of all eight Slate kinds"
       ]
     },
     {
