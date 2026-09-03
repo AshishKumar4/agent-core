@@ -34,6 +34,13 @@ import {
 import { EnvironmentSnapshot, EnvironmentSnapshotState } from "./snapshot";
 import { EnvironmentStore } from "./store";
 
+/**
+ * The highest TCP port number. A port is a 16-bit field (RFC 9293 §3.1, registry policy in
+ * RFC 6335 §5), so the ceiling belongs to the transport and not to this implementation;
+ * named so that the comparison cites the field width rather than restating a number.
+ */
+const MAX_TCP_PORT = 65_535;
+
 export class EnvironmentController {
     readonly #liveSessions = new Map<string, LiveEnvironmentSession>();
     readonly #disposedSessions = new WeakSet<object>();
@@ -286,10 +293,10 @@ export class EnvironmentController {
         lease: LeaseToken
     ): Promise<PortExposure> {
         this.requireLease(lease);
-        if (!Number.isSafeInteger(port) || port < 1 || port > 65_535) {
+        if (!Number.isSafeInteger(port) || port < 1 || port > MAX_TCP_PORT) {
             throw new AgentCoreError(
                 "operation.invalid-input",
-                "Port exposure port must be between 1 and 65535"
+                `Port exposure port must be between 1 and ${MAX_TCP_PORT}`
             );
         }
         const session = this.requireCapability(capability);

@@ -1,0 +1,1648 @@
+{
+  "edition": "1.0.0",
+  "owner": "W9",
+  "scope": {
+    "premiseSource": "artifacts/substrate-contracts.json",
+    "roots": [
+      "packages/agent-core/src",
+      "packages/agent-core-cloudflare/src"
+    ],
+    "spec": "SPEC.md"
+  },
+  "detectors": [
+    {
+      "id": "ambient-clock",
+      "statement": "A read of real time or a timer: `Date.now`, `performance.now`, a zero-argument `new Date`, or a timer call. Real time is in no record, so any answer derived from it rests on the host."
+    },
+    {
+      "id": "opaque-catch",
+      "statement": "A `catch` with no binding. The failure's identity is discarded, so whatever the block decides next was decided without evidence about what failed."
+    },
+    {
+      "id": "prefix-dispatch",
+      "statement": "A `startsWith` or `endsWith` test. Deciding what a value is from how its text begins survives renaming the thing it describes, which is the defect."
+    },
+    {
+      "id": "unnamed-bound",
+      "statement": "A numeric literal other than 0, 1 or 2 compared against something. A bound with no name has no declared source and no way to be wrong."
+    }
+  ],
+  "premises": [
+    {
+      "premise": "awaitedTransitionFailureIsOwnedByItsOwnCaller",
+      "statement": "A teardown that awaits an in-flight lifecycle transition only to sequence itself behind it may discard that transition's failure, because the failure is already owned and surfaced by the caller that started the transition. Discarding it drops a duplicate rather than losing a fact.",
+      "channel": "test",
+      "evidence": {
+        "kind": "test",
+        "file": "test/operations/runtime.test.ts",
+        "title": "rolls back already-started Facets after a later start hook fails"
+      }
+    },
+    {
+      "premise": "base64PaddingDeclaresTheDecodedLength",
+      "statement": "A base64 quantum's trailing padding states how many bytes it carries: `==` one, `=` two, none three. The decoder reads the byte count off the padding because the padding is the encoding's declared syntax, not a shape inferred from the text.",
+      "channel": "standard",
+      "evidence": {
+        "kind": "standard",
+        "document": "RFC 4648 \u00a74",
+        "statement": "Padding is part of the encoding, so the padding count is the decoded length.",
+        "probe": {
+          "file": "test/core/host-premises.test.ts",
+          "title": "base64 padding declares the decoded byte length"
+        }
+      }
+    },
+    {
+      "premise": "classConstructorIsObservableOnlyThroughHostReflection",
+      "statement": "Whether a callable is a class constructor is not expressible in the type system and is observable only through host reflection: `Function.prototype.toString` returns the constructor's source text, which begins with `class`, and a class's `prototype` carries non-writable, non-enumerable, non-configurable attributes where an ordinary function's is writable.",
+      "channel": "standard",
+      "evidence": {
+        "kind": "standard",
+        "document": "ECMA-262 \u00a720.2.3.5 (Function.prototype.toString), \u00a715.7.14 (ClassDefinitionEvaluation)",
+        "statement": "A class constructor's source text and its prototype's property attributes are the only reflective discriminators the language provides.",
+        "probe": {
+          "file": "test/core/host-premises.test.ts",
+          "title": "a class constructor is distinguishable only by host reflection"
+        }
+      }
+    },
+    {
+      "premise": "cleanupFailureNeverReplacesTheInFlightCause",
+      "statement": "A throw raised while handling a failure, and caught there, does not disturb the cause the handler goes on to rethrow or record; a `finally` that completes normally leaves the in-flight completion alone.",
+      "channel": "test",
+      "evidence": {
+        "kind": "test",
+        "file": "test/core/host-premises.test.ts",
+        "title": "a cleanup failure never replaces the in-flight cause"
+      }
+    },
+    {
+      "premise": "contributedCodeMayThrowAnything",
+      "statement": "Contributed and provider code \u2014 a Facet lifecycle hook, an Interceptor, an authored module, a remote peer \u2014 is not authored here, so the values it can throw are not enumerable by this repository. SPEC \u00a714 states that operational use rests on external assumptions about provider and network implementations rather than on formal conclusions.",
+      "channel": "spec",
+      "evidence": {
+        "kind": "spec",
+        "clause": "\u00a714",
+        "quote": "command dispatcher, or any concrete persistence, authentication, timing, network,"
+      }
+    },
+    {
+      "premise": "diagnosticSinkFailureIsNotDomainEvidence",
+      "statement": "Telemetry, spans, observers and metrics are diagnostics. SPEC forbids them from substituting for durable evidence, so a failure inside one cannot change a domain outcome and discarding it changes no recorded fact.",
+      "channel": "spec",
+      "evidence": {
+        "kind": "spec",
+        "clause": "\u00a713 C13-AUDIT-TELEMETRY-EXCLUDED",
+        "quote": "Telemetry never substitutes for a Receipt, RouteReservation, WriteRecord, or AuditRecord."
+      }
+    },
+    {
+      "premise": "hostPrimitiveRefusesOnlyMalformedInput",
+      "statement": "The host primitives this kernel parses with \u2014 `JSON.parse`, `atob`, a fatal `TextDecoder`, the URL constructor \u2014 specify a throw for input they cannot parse and specify no other failure for a well-formed argument, so a refusal from one names the input and nothing else.",
+      "channel": "standard",
+      "evidence": {
+        "kind": "standard",
+        "document": "ECMA-262 \u00a725.5.1, WHATWG Encoding \u00a7TextDecoder, WHATWG URL \u00a7constructor",
+        "statement": "Each primitive's specified failure mode is malformed input.",
+        "probe": {
+          "file": "test/core/host-premises.test.ts",
+          "title": "a host primitive refuses exactly its malformed input"
+        }
+      }
+    },
+    {
+      "premise": "jsonSchemaLocalReferenceIsFragmentOnly",
+      "statement": "JSON Schema resolves a reference beginning `#` inside the current document; anything else names another document. The leading `#` is therefore the declared form of a local reference, and this kernel fetches no remote document, so a non-fragment reference is refused rather than resolved.",
+      "channel": "standard",
+      "evidence": {
+        "kind": "standard",
+        "document": "JSON Schema core \u00a78.2.3",
+        "statement": "A fragment-only URI reference is resolved against the current schema resource.",
+        "probe": {
+          "file": "test/core/host-premises.test.ts",
+          "title": "a JSON Schema reference this kernel resolves is fragment-only"
+        }
+      }
+    },
+    {
+      "premise": "kernelDecoderRefusesOnlyMalformedInput",
+      "statement": "A decoder this repository owns \u2014 `decodeBase64`, `decodeCanonicalJson`, a `RecordCodec.decode`, a `fromData` reader \u2014 refuses exactly the inputs it cannot read and performs no other work that could fail, so a refusal from one means the input is malformed.",
+      "channel": "test",
+      "evidence": {
+        "kind": "test",
+        "file": "test/core/host-premises.test.ts",
+        "title": "a kernel decoder refuses malformed input and returns for well-formed input"
+      }
+    },
+    {
+      "premise": "probeAbsenceIsTheQuestionAsked",
+      "statement": "For a host object there is no declaration to read, so attempting the access is how absence is discovered: the refusal is the answer the probe asked for, not a failure the caller has to distinguish.",
+      "channel": "test",
+      "evidence": {
+        "kind": "test",
+        "file": "test/core/host-premises.test.ts",
+        "title": "absence of an optional host member is discovered by attempting it"
+      }
+    },
+    {
+      "premise": "pureLibraryRefusesOnlyMalformedOperands",
+      "statement": "A version-pinned library function that is pure over operands the caller already holds \u2014 no host access, no plugin surface, no I/O \u2014 refuses exactly the operands it cannot interpret, so a refusal from one names the operands and nothing else. This is weaker than a decoder this repository owns, because the failure set is the dependency's to change, and stronger than contributed code, because the dependency is pinned and its argument is a value the caller constructed.",
+      "channel": "test",
+      "evidence": {
+        "kind": "test",
+        "file": "test/composition/json-patch.test.ts",
+        "title": "rejects malformed and inapplicable patches with the exact typed error"
+      }
+    },
+    {
+      "premise": "releasingAReleasedHostResourceIsTheRequestedState",
+      "statement": "Releasing a host resource the host has already released leaves it in the state the caller asked for, so a refusal from a second release carries no information the caller must act on.",
+      "channel": "standard",
+      "evidence": {
+        "kind": "standard",
+        "document": "ECMA-262 \u00a727.3 (disposal), WHATWG DOM \u00a7AbortController.abort, WHATWG WebSocket \u00a7close",
+        "statement": "A repeated release has no further effect.",
+        "probe": {
+          "file": "test/core/host-premises.test.ts",
+          "title": "releasing an already-released host resource is a no-op"
+        }
+      }
+    },
+    {
+      "premise": "retiredSchemaIsIdentifiedByItsOwnTableNames",
+      "statement": "A database written by a retired schema carries no marker this code can read, because the code that wrote it no longer exists; the only surviving evidence of its provenance is the names of the tables it created.",
+      "channel": "test",
+      "evidence": {
+        "kind": "test",
+        "file": "test/substrates/sqlite/materialization-schema.test.ts",
+        "title": "names the exact legacy and unmarked schema reset reasons"
+      }
+    },
+    {
+      "premise": "separatorTerminatedPrefixIsContainmentInSolidusSyntax",
+      "statement": "In a solidus-separated syntax \u2014 a JSON Pointer or a POSIX pathname \u2014 one name contains another exactly when the candidate equals the owner or begins with the owner followed by the separator. A bare textual prefix is not containment: `/a/bc` is not inside `/a/b`.",
+      "channel": "standard",
+      "evidence": {
+        "kind": "standard",
+        "document": "RFC 6901 \u00a73, POSIX.1-2017 \u00a74.13",
+        "statement": "`/` is the component separator, so containment ends at a separator.",
+        "probe": {
+          "file": "test/core/host-premises.test.ts",
+          "title": "containment in a solidus syntax needs the separator"
+        }
+      }
+    },
+    {
+      "premise": "sixteenBitTransportPortField",
+      "statement": "A transport port is a sixteen-bit header field, so 65535 is the transport's ceiling rather than a limit this implementation chose.",
+      "channel": "standard",
+      "evidence": {
+        "kind": "standard",
+        "document": "RFC 9293 \u00a73.1, RFC 6335 \u00a75",
+        "statement": "The TCP header's port fields are 16 bits wide.",
+        "probe": {
+          "file": "test/core/host-premises.test.ts",
+          "title": "a transport port is a sixteen-bit field"
+        }
+      }
+    },
+    {
+      "premise": "timerFiresNoEarlierThanItsDelay",
+      "statement": "A timer scheduled for a delay does not run before that delay has elapsed, so a deadline built on one cannot expire early. It may fire arbitrarily late, which is why every deadline here refuses rather than confirms.",
+      "channel": "standard",
+      "evidence": {
+        "kind": "standard",
+        "document": "HTML \u00a78.6 Timers",
+        "statement": "The task is queued after at least the requested wait.",
+        "probe": {
+          "file": "test/core/host-premises.test.ts",
+          "title": "a timer does not fire before its delay has elapsed"
+        }
+      }
+    },
+    {
+      "premise": "unknownEffectOutcomeIsIndeterminate",
+      "statement": "An effect whose result a host cannot report leaves the attempt in exactly one declared state. SPEC fixes that state as `indeterminate`, and it is the only answer that neither claims a success nor denies an effect that may already have happened, so which failure prevented the report changes nothing about the Receipt recorded.",
+      "channel": "spec",
+      "evidence": {
+        "kind": "spec",
+        "clause": "\u00a77.4",
+        "quote": "known, which \u00a77.4 already fixes as `indeterminate`. Reachability is what separates the two."
+      }
+    },
+    {
+      "premise": "unreadableCommittedContentIsOneReportableOutcome",
+      "statement": "Content a committed record names is retained for the record's life, so a read of it that does not produce bytes has exactly one reportable consequence: the reconstruction that needed them cannot be performed. Which failure prevented the read \u2014 the object is gone, the store is unreachable, the bytes are corrupt \u2014 changes nothing a caller may do about it, because the alternative to refusing is emitting a shorter or approximated request, which the SPEC forbids.",
+      "channel": "test",
+      "evidence": {
+        "kind": "test",
+        "file": "test/agents/runs/model-input.test.ts",
+        "title": "[C13-TURN-MODEL-INPUT-RETENTION-LOSS] never yields a shorter prefix, a partial request, or an approximation"
+      }
+    },
+    {
+      "premise": "unreadableDurableMarkerLeavesTheStoreUnservable",
+      "statement": "A durable schema marker this store cannot read leaves the store unservable: its callers have already compared the marker table's DDL byte for byte against the schema they require, so by the time the read runs, absence and wrong shape are excluded and what remains is a substrate failure. Refusing to open while naming a reset is the conservative answer, and it is conservative in the right direction \u2014 the store declines to serve rather than serving against state it could not read.",
+      "channel": "test",
+      "evidence": {
+        "kind": "test",
+        "file": "test/substrates/sqlite/materialization-schema.test.ts",
+        "title": "names the exact legacy and unmarked schema reset reasons"
+      }
+    },
+    {
+      "premise": "wallClockIsHostSupplied",
+      "statement": "Real time is not in any record: it is read from the host. SPEC \u00a714 names TRUSTED MONOTONIC time as an operational assumption rather than a formal conclusion, and that is the whole content of the premise \u2014 `Date.now` and `new Date()` are wall-clock readings, which a clock adjustment may move backward, and a deadline or expiry check is exactly what a backward jump defeats. Every site that reads a clock, including one that falls back to the ambient clock when a caller declares none, depends on the host honoring monotonicity.",
+      "channel": "spec",
+      "evidence": {
+        "kind": "spec",
+        "clause": "\u00a714",
+        "quote": "trusted monotonic time enforces lease expiry and immutable resolution deadlines;"
+      }
+    }
+  ],
+  "sites": [
+    {
+      "id": "HR-A-ATTEMPT-OUTPUT-PUT",
+      "file": "packages/agent-core/src/invocations/canonical-batch.ts",
+      "line": 872,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "That an attempt's outcome is unknown, from any failure while writing its output to the content store.",
+      "disposition": "bound",
+      "premise": "unknownEffectOutcomeIsIndeterminate",
+      "rationale": "The try is a content store write of an output the handler already produced and validated, so a failure leaves the attempt with no addressable result and no way to tell whether the effect landed. The block records an indeterminate Receipt, which SPEC fixes as the outcome for an attempt whose result is not known, and it is the only answer that neither claims success nor denies an effect that may have happened."
+    },
+    {
+      "id": "HR-A-BOOTSTRAP-EMPTY-PAYLOAD",
+      "file": "packages/agent-core/src/protocol/bootstrap.ts",
+      "line": 265,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "That a Tenant bootstrap payload is not the empty object, from any refusal while reading it.",
+      "disposition": "bound",
+      "premise": "kernelDecoderRefusesOnlyMalformedInput",
+      "rationale": "The try requires an object and then requires it to carry no keys at all, so its two refusals are 'not an object' and 'has a key', which the block reports as one message because the declared payload is exactly the empty object. decodeCanonicalJson has already refused non-canonical bytes before the try opens."
+    },
+    {
+      "id": "HR-A-DISPATCHER-ACTIVATION-PROBE",
+      "file": "packages/agent-core/src/protocol/dispatcher.ts",
+      "line": 814,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "That a host-supplied store is not an Actor activation store, from any refusal raised while probing it.",
+      "disposition": "bound",
+      "premise": "probeAbsenceIsTheQuestionAsked",
+      "rationale": "The try is the probe itself: isActorActivationStore reads members off a value the host supplied, and for a host object there is no declaration to consult, so attempting the reads is how the answer is obtained. A value that refuses the probe is exactly a value that is not an activation store, and the throw below is the same refusal the constructor contract would give it."
+    },
+    {
+      "id": "HR-A-DISPATCHER-ENVELOPE-DECODE",
+      "file": "packages/agent-core/src/protocol/dispatcher.ts",
+      "line": 470,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "That a submitted command envelope is undecodable, from any refusal of the envelope codec.",
+      "disposition": "bound",
+      "premise": "kernelDecoderRefusesOnlyMalformedInput",
+      "rationale": "The try is CommandEnvelopeCodec.decode over caller-supplied bytes whose length was bounded on the line above, and its refusals are the codec's own: unknown major, non-canonical JSON, missing or unknown fields, an invalid field value. The block answers undefined, which the dispatcher turns into rejectedMalformed \u2014 the one outcome SPEC gives an envelope it cannot read."
+    },
+    {
+      "id": "HR-A-FACET-REPLY-REVISION",
+      "file": "packages/agent-core/src/protocol/facet-commands.ts",
+      "line": 441,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "That a Facet Slot command reply's revision is invalid, from any refusal while reading and constructing it.",
+      "disposition": "bound",
+      "premise": "kernelDecoderRefusesOnlyMalformedInput",
+      "rationale": "The try reads the revision with requireNonnegativeInteger and hands it to the Revision constructor, so its refusals are 'not a non-negative integer' and 'not a Revision value'. Both are the single verdict the block reports, and the reply's key set was already checked exactly above the try."
+    },
+    {
+      "id": "HR-A-FENCE-RECOVERY-CONSTRUCT",
+      "file": "packages/agent-core/src/actors/fence.ts",
+      "line": 39,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "That a validated recovery payload nonetheless fails to build its record because the payload is malformed.",
+      "disposition": "bound",
+      "premise": "kernelDecoderRefusesOnlyMalformedInput",
+      "rationale": "The try constructs ActorRef, ActorId and ActorRecoveryState from a payload whose shape isActorRecoveryStatePayload has already accepted, so the only refusals left are those constructors' own value invariants \u2014 an empty or over-long id, a negative epoch. Every one of them means the same thing the block reports: the stored recovery state is malformed."
+    },
+    {
+      "id": "HR-A-INGRESS-LEASE-CLOSE",
+      "file": "packages/agent-core/src/protocol/ingress.ts",
+      "line": 142,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "That a failure closing a prepared payload's content lease may be dropped without changing the command's result.",
+      "disposition": "bound",
+      "premise": "cleanupFailureNeverReplacesTheInFlightCause",
+      "rationale": "The catch sits in a finally that runs after the command's outcome has already been decided, and closing a transient lease is cleanup: the lease's own expiry reclaims it if the close does not. Letting this failure out would replace an already-determined command result with a cleanup error, which is precisely what the premise forbids."
+    },
+    {
+      "id": "HR-A-INVOCATION-PAYLOAD-ID",
+      "file": "packages/agent-core/src/invocations/command.ts",
+      "line": 223,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "That an invocation command payload is malformed, from any refusal while reading its invocation field as a string.",
+      "disposition": "bound",
+      "premise": "kernelDecoderRefusesOnlyMalformedInput",
+      "rationale": "The try is requireString over one field of an object whose key set was already checked above, so the only refusal is that the field is not a string. The InvocationId constructor that consumes it sits deliberately outside this try, so an invalid identity value is refused with its own message rather than as a malformed payload."
+    },
+    {
+      "id": "HR-A-INVOCATION-PAYLOAD-OBJECT",
+      "file": "packages/agent-core/src/invocations/command.ts",
+      "line": 213,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "That a decoded invocation command payload is malformed, from any refusal while reading its exact key set.",
+      "disposition": "bound",
+      "premise": "kernelDecoderRefusesOnlyMalformedInput",
+      "rationale": "The try is requireExactObject over an already-decoded JsonValue, which refuses a non-object or an unexpected key set and does nothing else. The block reports exactly that, and the following body check reports the same verdict for the payload's inner shape."
+    },
+    {
+      "id": "HR-A-MATERIALIZATION-CANONICAL-PLAN",
+      "file": "packages/agent-core/src/protocol/materialization-commands.ts",
+      "line": 221,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "That a stored materialization plan is not the canonical plan for this id, target and Tenant.",
+      "disposition": "bound",
+      "premise": "kernelDecoderRefusesOnlyMalformedInput",
+      "rationale": "The try is requireCanonicalTargetPlan, a repository-owned validator whose refusals are all forms of 'this plan is not the canonical one for these three declared inputs'. The block answers undefined so the caller can raise its own protocol error naming the missing or foreign target, which it does on the lines below."
+    },
+    {
+      "id": "HR-A-MATERIALIZATION-PAYLOAD-JSON",
+      "file": "packages/agent-core/src/protocol/materialization-commands.ts",
+      "line": 175,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "That a local materialization payload is not canonical JSON, from any refusal of the canonical decoder.",
+      "disposition": "bound",
+      "premise": "kernelDecoderRefusesOnlyMalformedInput",
+      "rationale": "The try is decodeCanonicalJson over caller bytes, whose refusals are non-UTF-8 input, invalid JSON, and a non-canonical key order or number form. The block reports exactly 'must be canonical JSON' and nothing further is read from the value until it has passed."
+    },
+    {
+      "id": "HR-A-MATERIALIZATION-PAYLOAD-OBJECT",
+      "file": "packages/agent-core/src/protocol/materialization-commands.ts",
+      "line": 264,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "That a local materialization payload is not an object, from any refusal while reading it as one.",
+      "disposition": "bound",
+      "premise": "kernelDecoderRefusesOnlyMalformedInput",
+      "rationale": "The try is requireObject over an already-decoded value, whose single refusal is that the value is not a JSON object, restated by the block as the payload-specific malformed error the command protocol reports to its caller."
+    },
+    {
+      "id": "HR-A-MATERIALIZATION-PLAN-DIGEST",
+      "file": "packages/agent-core/src/protocol/materialization-commands.ts",
+      "line": 196,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "That a local materialization plan id is not a digest, from any refusal of the Digest constructor.",
+      "disposition": "bound",
+      "premise": "kernelDecoderRefusesOnlyMalformedInput",
+      "rationale": "The try constructs a Digest from a value already established to be a string, so its only refusal is the digest grammar itself \u2014 lowercase sha256 hexadecimal of the exact length. That is the same verdict the string check above reports, stated once for each of the two ways the id can fail."
+    },
+    {
+      "id": "HR-A-MATERIALIZATION-PLAN-STRING",
+      "file": "packages/agent-core/src/protocol/materialization-commands.ts",
+      "line": 189,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "That a local materialization plan id is not a digest, from any refusal while reading it as a string.",
+      "disposition": "bound",
+      "premise": "kernelDecoderRefusesOnlyMalformedInput",
+      "rationale": "The try is requireStringValue over the single declared key, so the only refusal is that the value is not a string; the digest-shape refusal belongs to the separate try below, which is why the two are not merged. The key set was checked exactly on the lines above."
+    },
+    {
+      "id": "HR-A-MEDIATED-EVIDENCE-INVOCATION",
+      "file": "packages/agent-core/src/invocations/operation-mediation.ts",
+      "line": 330,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "That mediated evidence does not identify its Invocation, from any refusal while reading and constructing the id.",
+      "disposition": "bound",
+      "premise": "kernelDecoderRefusesOnlyMalformedInput",
+      "rationale": "The try reads the invocation field with requireString and hands it to the InvocationId constructor; a missing field, a non-string, and an id violating TextId's bounds are all cases of the evidence failing to name an Invocation, which is the verdict the block reports. The isJsonObject guard above has already excluded a non-object."
+    },
+    {
+      "id": "HR-A-REPLAY-RECEIPT-FIELD",
+      "file": "packages/agent-core/src/invocations/replay.ts",
+      "line": 602,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "That a replay Receipt field is malformed, from any refusal while reading it as a nullable string.",
+      "disposition": "bound",
+      "premise": "kernelDecoderRefusesOnlyMalformedInput",
+      "rationale": "The try is requireNullableString over one field of an object requireExactObject already accepted, so the only refusal is that the field is neither absent, null, nor a string. The block restates that as a Receipt-specific message so the replay shape names which field failed."
+    },
+    {
+      "id": "HR-A-RUN-COMMAND-EXPIRATION",
+      "file": "packages/agent-core/src/protocol/run-commands.ts",
+      "line": 599,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "That a Run command expiration is invalid, from any refusal while reading it as a non-negative integer.",
+      "disposition": "bound",
+      "premise": "kernelDecoderRefusesOnlyMalformedInput",
+      "rationale": "The try is requireNonnegativeInteger over one field, so the only refusal is that the field is not a non-negative safe integer. The block reports that, and the finite-Date check below catches the remaining way the value can fail, so neither failure mode is answered by the other."
+    },
+    {
+      "id": "HR-ATTEMPT-BOUND-TIMER",
+      "file": "packages/agent-core/src/invocations/canonical-batch.ts",
+      "line": 1116,
+      "anchor": "const timer = setTimeout(() => reject(new AttemptBoundElapsed(bound)), remaining);",
+      "detector": "ambient-clock",
+      "shape": "timing",
+      "guess": "That an attempt's declared bound has elapsed, decided by a host timer racing the handler's promise.",
+      "disposition": "bound",
+      "rationale": "The bound itself is declared by the resources the attempt was prepared with; what the timer supplies is only the observation that it has passed. The premise is one-directional and that is what makes the race sound: the timer cannot fire early, so a deadline Receipt is never recorded before the declared bound, while a late timer only delays a refusal.",
+      "premise": "timerFiresNoEarlierThanItsDelay"
+    },
+    {
+      "id": "HR-B-CONTENT-REF-SCAN",
+      "file": "packages/agent-core/src/workspaces/persistence.ts",
+      "line": 2029,
+      "anchor": "} catch {}",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "That a string found somewhere in a View or ViewDelta document is not a ContentRef, so it names no content that the record's retention set must cover.",
+      "disposition": "bound",
+      "premise": "kernelDecoderRefusesOnlyMalformedInput",
+      "rationale": "collectContentRefs asks 'is this string a content address?' by constructing ContentRef, whose constructor does nothing but the TextId length and scalar-value check and the /^sha256:([a-f0-9]{64})$/ test, then builds a Digest from the matched hex - so a well-formed ref cannot throw and anything that throws is not a ref. Adding nothing is therefore the same set a pure pattern test would build, which is what requireCompleteRetention then compares exactly against the supplied retentions. The empty block is safe in the direction that matters: it can only drop a string that is not a valid ContentRef, never a real ref that retention would have had to cover."
+    },
+    {
+      "id": "HR-B-IDENTITY-PROJECTED-ID",
+      "file": "packages/agent-core/src/substrates/sqlite/identity.ts",
+      "line": 413,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "That an id string read back out of the tenant identity projection is not a well-formed identifier, so the stored identity state is malformed.",
+      "disposition": "bound",
+      "premise": "kernelDecoderRefusesOnlyMalformedInput",
+      "rationale": "projectedId's try is one `new Constructor(value)` for a branded TextId subclass (TeamId, ProjectId, WorkspaceId, MembershipId, GuestTrustId, ShareOfferId at lines 278-331) over a string that text(row, 'id') already proved to be a string. TextId's constructor refuses only an empty string, one past the 256-character bound, or one carrying non-scalar code units, and these subclasses add nothing but their own name to that refusal, so 'this stored id is not a valid id of that kind' is the only failure the call has available - which is what corruptIdentity() reports. No id constructor touches storage, a clock, or foreign code, so there is no second failure mode for the discarded error to have been."
+    },
+    {
+      "id": "HR-B-JSON-VALUE-PREDICATE",
+      "file": "packages/agent-core/src/core/json.ts",
+      "line": 53,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "That an arbitrary caller-supplied value is not a JsonValue.",
+      "disposition": "bound",
+      "premise": "kernelDecoderRefusesOnlyMalformedInput",
+      "rationale": "The try walks the candidate with this module's own isJsonValueAt, which reads prototypes, Reflect.ownKeys and own data descriptors and deliberately never invokes a user getter (it demands 'value' in descriptor), so the throws still reachable are a proxy meta-trap refusing inspection and stack exhaustion on a graph deeper than the walk recurses. Neither describes a value this kernel accepts as canonical JSON: encodeCanonicalJson gates on this very predicate and canonicalString recurses the same shape, so the walk's own verdict for such a value would also be 'no'. The block returns false, which can only ever refuse a value and never admit one, so an unknown throw cannot widen what counts as JSON."
+    },
+    {
+      "id": "HR-B-MATERIALIZATION-DECODE-DETAIL",
+      "file": "packages/agent-core/src/substrates/sqlite/materialization.ts",
+      "line": 1776,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "That the detail carried on a stored-materialization decode failure stays the default 'Stored materialization codec decode failed' when the thrown value's own message cannot be read.",
+      "disposition": "bound",
+      "premise": "cleanupFailureNeverReplacesTheInFlightCause",
+      "rationale": "This catch sits inside decodeStoredMaterialization's own `catch (error)` handler, and the whole body of its try is reading error.message to enrich a message string after the real failure - a stored codec decode - has already occurred. A hostile thrown value whose message getter traps must not become the failure this store reports: the handler goes on to throw corruptMaterialization(detail) either way, with the generic detail instead of the borrowed one. The verdict (codec.invalid corrupt materialization, distinct from the resetRequired path taken for UnknownMaterializationKindError one branch above) is fixed before this try runs, so an unknown secondary throw can only change wording."
+    },
+    {
+      "id": "HR-B-MATERIALIZATION-SCHEMA-MARKER-READ",
+      "file": "packages/agent-core/src/substrates/sqlite/materialization.ts",
+      "line": 1741,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "That the definition materialization schema marker is malformed, so this database must be reset before the store will open.",
+      "disposition": "bound",
+      "premise": "unreadableDurableMarkerLeavesTheStoreUnservable",
+      "rationale": "The only throwing call inside the try is database.all over MATERIALIZATION_SCHEMA_TABLE, and both callers (the SqliteMaterializationStore constructor at lines 806-807 and 809-810) run requireCompleteMaterializationSchema first, which compares that table's normalized DDL against CREATE_SCHEMA byte for byte - so a missing or wrongly shaped marker table has already been refused, the three selected columns are known to exist, and a marker that reads but disagrees falls through to line 1744 for the same reset demand. What is left reachable in this catch is a substrate read failure: SQLITE_CORRUPT on the marker page, an I/O error, a busy or interrupted statement, or a host-supplied TransactionalSqlite driver misbehaving; only the corruption case is honestly 'malformed', while a transient driver failure gets named codec.invalid reset-required. This needs a premise about substrate reads during store admission - that a marker this store cannot read leaves the store unservable, so refusing to open while naming a reset is the conservative answer - and the register should record that the reset-required taxonomy misnames a transient host failure. probeAbsenceIsTheQuestionAsked does not apply, because existence and shape were established before this read."
+    },
+    {
+      "id": "HR-B-MEMORY-SNAPSHOT-BINDING",
+      "file": "packages/agent-core/src/content/memory.ts",
+      "line": 826,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "That a restored content snapshot row carries Actor/Tenant ownership foreign to this store, so the stored bytes are corrupt rather than the live call invalid.",
+      "disposition": "bound",
+      "premise": "kernelDecoderRefusesOnlyMalformedInput",
+      "rationale": "The try holds one call to requireSameBinding, a require* helper in this same file whose only two failures are an unbound backend (requireBinding) and a binding whose tenant or actor differs from the pair the decoded ContentOwnerEdge or TransientContentLeaseState carries. Both mean exactly one thing to the snapshot readers that reach here (lines 667, 685, 740, 751): these stored bytes do not belong to this store, which is what corruptContent('Stored content state has foreign Actor or Tenant ownership') says. The only value at stake is the taxonomy - invalid-state for a live caller, codec.invalid for stored bytes - and no other operation sits inside the try that could throw for a different reason."
+    },
+    {
+      "id": "HR-B-PERMIT-DECODE-CONSUMED",
+      "file": "packages/agent-core/src/substrates/sqlite/permit.ts",
+      "line": 594,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "That a consumption row's stored permit blob is not an AuthorityPermit record, so the consumption ledger is corrupt.",
+      "disposition": "bound",
+      "premise": "kernelDecoderRefusesOnlyMalformedInput",
+      "rationale": "The try decodes the consumption row's `permit` column - checked as a Uint8Array on line 590 - through AuthorityPermit's RecordCodec, whose only refusal is bytes that are not a well-formed permit record. Every later check in decodeConsumed presupposes a decoded permit: the nonce agreement, the stored digest, the target actor, and the cross-read against this.requested(transaction, expectedNonce) for matching expectation and requestDigest. So a decode refusal is the strictly earlier form of the same corrupt() those checks throw, and since the argument is an owned in-memory copy there is no host operation inside the try to fail for an unrelated reason."
+    },
+    {
+      "id": "HR-B-PERMIT-DECODE-DENIED",
+      "file": "packages/agent-core/src/substrates/sqlite/permit.ts",
+      "line": 623,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "That a denial row's stored blob is not a TargetAuthorityPermitDenial record, so the denial side of this nonce is corrupt.",
+      "disposition": "bound",
+      "premise": "kernelDecoderRefusesOnlyMalformedInput",
+      "rationale": "decodeDenied's try is one TargetAuthorityPermitDenial.decode over an owned copy of the `denial` column that line 619 proved to be a Uint8Array, and that codec refuses only bytes which are not canonical JSON of the denial record shape (which embeds the request it denies). The block answers corrupt(), the same refusal the subsequent agreement checks issue - denial.request.nonce, the row nonce and digest, the target actor, and the denied request's digest matching the request read back from the requested row. A denial that fails to decode cannot be checked against any of those, and no clock, socket, or contributed hook is inside the try to make the failure mean something else."
+    },
+    {
+      "id": "HR-B-PERMIT-DECODE-ISSUED",
+      "file": "packages/agent-core/src/substrates/sqlite/permit.ts",
+      "line": 569,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "That a nonce row standing in the issued state does not hold an AuthorityPermit record, so the issuer-side permit state is corrupt.",
+      "disposition": "bound",
+      "premise": "kernelDecoderRefusesOnlyMalformedInput",
+      "rationale": "decodeIssued's try is one AuthorityPermit.decode over an owned copy of the `record` column, and AuthorityPermit.decode is this repository's AuthorityPermitCodec (a RecordCodec), whose refusals are limited to bytes that are not canonical JSON of the permit record shape, plus the record's own invariants such as expiry after issuance. Every one of those means the same fact - these stored bytes are not a permit this store could have written - which is what corrupt() reports before the issuer-identity check on line 577 can run at all. The bytes are already in memory and detached, so a decode failure cannot be a storage or concurrency failure in disguise."
+    },
+    {
+      "id": "HR-B-PERMIT-DECODE-REQUESTED",
+      "file": "packages/agent-core/src/substrates/sqlite/permit.ts",
+      "line": 548,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "That a nonce row standing in the requested state does not hold a TargetAuthorityPermitRequest record, so the stored permit state is corrupt.",
+      "disposition": "bound",
+      "premise": "kernelDecoderRefusesOnlyMalformedInput",
+      "rationale": "The try is one TargetAuthorityPermitRequest.decode over record.slice(), a detached copy of the `record` column that line 544 already proved to be a Uint8Array; RecordCodec.decode refuses only bytes that are not canonical JSON of its declared request shape. That refusal is exactly the corrupt() the block throws, and the agreement checks that follow - request.nonce, the row's nonce, state 'requested', the stored digest, and the target actor being this owner - are the checks reserved for bytes that do decode. Nothing in the try reaches storage, the clock, or contributed code, so the discarded error had no other shape to take."
+    },
+    {
+      "id": "HR-B-PERMIT-NONCE-STATE-DISCRIMINATOR",
+      "file": "packages/agent-core/src/substrates/sqlite/permit.ts",
+      "line": 662,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "That a nonce row's stored record does not match the state column it declares, so the row is corrupt rather than absent or of the other kind.",
+      "disposition": "bound",
+      "premise": "kernelDecoderRefusesOnlyMalformedInput",
+      "rationale": "requireNonceState decodes the `record` blob with whichever codec the declared state selects - AuthorityPermit under 'issued', TargetAuthorityPermitRequest under 'requested' - and discards the result, so the decode exists purely as a discriminator: each RecordCodec refuses bytes that are not its own record shape, which is how an issued permit resurrected under 'requested' (or a request stored under 'issued') is caught. 'These bytes are not a record of the kind this state declares' is precisely the corrupt() the block throws, and the doc comment above names the alternative it refuses: filtering on state and returning nothing would hand a caller 'no such nonce' for a row that exists. Since the decoded value is never used, the throw is the entire signal and no other operation in the try could raise one."
+    },
+    {
+      "id": "HR-B-PERMIT-STORED-EXPIRY",
+      "file": "packages/agent-core/src/substrates/sqlite/permit.ts",
+      "line": 687,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "That a prune candidate's stored nonce record is corrupt, rather than its expiry merely being unavailable to this side of the permit.",
+      "disposition": "bound",
+      "premise": "kernelDecoderRefusesOnlyMalformedInput",
+      "rationale": "storedExpiry decodes the `record` blob under the state column - AuthorityPermit on the issuer side, TargetAuthorityPermitRequest on the target side, because only the stored side's record is present - and reads expiresAt, which on a decoded record is a getter returning a fresh Date, so getTime() cannot itself fail. Both decodes are RecordCodec refusals over an owned byte copy, leaving 'this row's record is not the record its state declares' as the sole failure and corrupt() as the matching answer. That strictness is load-bearing here in a way it is not at the other decode sites: prune() calls storedExpiry per candidate row (line 518), so refusing an unreadable row rather than treating it as expiry-unknown is what stops the sweep from silently skipping rows it could not read."
+    },
+    {
+      "id": "HR-B-SCHEMA-IDENTIFIER-RESOLVE",
+      "file": "packages/agent-core/src/core/schema.ts",
+      "line": 225,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "That a schema identifier string resolves to no absolute identifier against the current base, so the keyword names nothing this compiler can register or match.",
+      "disposition": "bound",
+      "premise": "hostPrimitiveRefusesOnlyMalformedInput",
+      "rationale": "resolveIdentifier's try is a single `new URL(value, base).href` over a value already narrowed by isJsonString, and WHATWG URL parsing has exactly one specified failure: a TypeError when the input or the base does not parse as a URL. The block answers undefined, which its callers (requireLocalReference at line 237) read as 'this reference resolves to no local resource' - the same verdict a parse refusal states. There is no I/O, clock, or contributed code inside the try to produce a failure that would mean anything else."
+    },
+    {
+      "id": "HR-B-SCHEMA-MUTATION-REENCODE",
+      "file": "packages/agent-core/src/core/schema.ts",
+      "line": 268,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "That an injected JSON Schema validator mutated the candidate document it was handed.",
+      "disposition": "bound",
+      "premise": "kernelDecoderRefusesOnlyMalformedInput",
+      "rationale": "The try re-encodes the candidate with encodeCanonicalJson, the encode half of this repository's canonical JSON codec, whose only refusals are 'value is not canonical JSON data' and the canonicalString refusals for non-finite numbers and non-scalar strings. The caller took `expected` from encodeCanonicalJson of that same object graph immediately before running the validator (schema.ts:126), so an encode that now throws is itself the evidence that the validator turned the candidate into something no longer canonical - precisely the finding requireUnchanged reports. Setting unchanged = false therefore only ever raises the 'must not mutate input' TypeError; no unknown failure can make a mutating validator pass."
+    },
+    {
+      "id": "HR-B-VIEW-POINTER-KEY-DECODE",
+      "file": "packages/agent-core/src/workspaces/persistence.ts",
+      "line": 2001,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "That a View pointer's record key is malformed, so the pointer tuple cannot be recovered from it.",
+      "disposition": "bound",
+      "premise": "kernelDecoderRefusesOnlyMalformedInput",
+      "rationale": "The try UTF-8 encodes the key with TextEncoder (which has no failure mode) and hands the bytes to decodeCanonicalJson, whose refusals are exactly 'not parseable JSON', 'decoded value is not canonical JSON data', and 'bytes are not in canonical form'. decodeViewPointerTuple answers with the single codec.invalid 'View pointer record key is malformed', and the very next line reports that identical message for a key that decodes to a non-array - the function's doc comment states the reason: to a reader, a non-canonical key and a canonical key of the wrong shape are the same fact. So whichever of the decoder's refusals fired, the block gives the answer the function already gives on the non-throwing path."
+    },
+    {
+      "id": "HR-BASE64-PADDING-LENGTH",
+      "file": "packages/agent-core/src/core/base64.ts",
+      "line": 33,
+      "anchor": "const padding = value.endsWith(\"==\") ? 2 : value.endsWith(\"=\") ? 1 : 0;",
+      "detector": "prefix-dispatch",
+      "shape": "magic-literal",
+      "guess": "How many bytes the final base64 quantum carries, decided from the trailing `=` characters.",
+      "disposition": "bound",
+      "rationale": "The padding is not a hint about the text, it is the byte count RFC 4648 requires the encoder to write, and the decoder sizes its output buffer from it. The fact is external because it belongs to the encoding rather than to any declaration this repository owns.",
+      "premise": "base64PaddingDeclaresTheDecodedLength"
+    },
+    {
+      "id": "HR-C-CODE-MANIFEST-MEDIA-TYPE-READ",
+      "file": "packages/agent-core/src/definition/code-manifest.ts",
+      "line": 382,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "That the code module's media hint exposes no readable `mediaType` string data property, which requireMediaType then reports as \"Code module media must be a MediaHint\".",
+      "disposition": "bound",
+      "premise": "probeAbsenceIsTheQuestionAsked",
+      "rationale": "The try is one existence probe over a caller-supplied MediaHint: after the isObjectRecord guard the only operation that can still throw is the `Object.getOwnPropertyDescriptor(value, \"mediaType\")` read, i.e. a proxy trap or revoked proxy refusing it, since isMediaTypeDataProperty is pure. The block answers `undefined`, which is the same answer the probe gives for an absent key or an accessor descriptor: there is no plain mediaType data property to read. requireMediaType turns that single answer into the MediaHint TypeError, so no identity for the refused read could make an unreadable descriptor into a media type."
+    },
+    {
+      "id": "HR-C-COMPATIBILITY-RANGE-CANONICAL",
+      "file": "packages/agent-core/src/definition/compatibility.ts",
+      "line": 89,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "That the spec/host compatibility range string handed to canonicalCompatibilityRange is not a valid semantic version range.",
+      "disposition": "bound",
+      "premise": "pureLibraryRefusesOnlyMalformedOperands",
+      "rationale": "The try calls `new Range(value)` from the `semver` npm dependency (import at line 1) after the blank/untrimmed pre-check, and the block answers with the specific verdict \"must be a valid semantic version range\" that compatibilityAdmits relies on before calling satisfies. No listed premise covers the callee: semver's Range is not a decoder this repository owns, not a host primitive, and not SPEC-contributed extension code, and contributedCodeMayThrowAnything would license only an unknown-failure answer, not this malformed-input-specific one. The site needs a premise for a version-pinned third-party parser whose documented failure for a string argument is exactly \"this text is not a parseable range\" (e.g. pinnedLibraryParserRefusesOnlyMalformedInput), which is the verdict the block reports."
+    },
+    {
+      "id": "HR-C-CONFIG-SECRET-REF-PREDICATE",
+      "file": "packages/agent-core/src/definition/config.ts",
+      "line": 140,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "That the JSON value is not a tagged SecretRef representation, so isSecretRefData reports false.",
+      "disposition": "bound",
+      "premise": "kernelDecoderRefusesOnlyMalformedInput",
+      "rationale": "The try's whole body is a call to this module's own `decodeSecretRef`, used purely as a predicate with its result discarded. For any JsonValue a caller can supply, decodeSecretRef refuses only on shape: non-object, missing or extra keys beside the secret tag, a non-object tagged payload, unknown fields, or non-string source/provider/id, each a TypeError meaning \"this is not a secret reference\". Since \"false\" is precisely that verdict, knowing which of those refusals fired could not turn the value into a SecretRefData."
+    },
+    {
+      "id": "HR-C-ENV-CHILD-DISPOSER-BEST-EFFORT",
+      "file": "packages/agent-core/src/environments/runtime.ts",
+      "line": 765,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "That this live session child needs no further local cleanup or record, so the loop proceeds to the remaining children and then to the handle release.",
+      "disposition": "bound",
+      "premise": "contributedCodeMayThrowAnything",
+      "rationale": "`child.dispose()` is the closure snapshotSessionChildren built around the provider's own dispose function and invokes it through invokeProviderCleanup (Function.prototype.call on the provider object), so its rejection reasons are entirely provider-authored and unenumerable here. No environment record is written from this loop: every disposeHandle caller pairs the local sweep with the authoritative provider call - settleOpen follows it with closeProviderSession, finishClose marks the session closed only when provider.closeSession returns \"succeeded\" - which is what the site's comment means by provider close remaining the final cleanup layer. Aborting the loop on an opaque child failure would only skip the siblings' cleanup, so swallowing it is the answer that holds for any failure."
+    },
+    {
+      "id": "HR-C-ENV-HANDLE-RELEASE-BEST-EFFORT",
+      "file": "packages/agent-core/src/environments/runtime.ts",
+      "line": 771,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "That the in-process live session handle is finished with locally, so disposeHandle returns normally and its caller proceeds to the durable provider close.",
+      "disposition": "bound",
+      "premise": "contributedCodeMayThrowAnything",
+      "rationale": "`handle.release()` is the provider-supplied release function invoked via invokeProviderCleanup, whose failure modes this repository cannot enumerate, and the handle was already added to #disposedSessions before the call so the sweep is one-shot whatever happens. The session's durable state comes from elsewhere: finishClose re-inspects, then marks closed only on a succeeded provider.closeSession outcome, exactly the final cleanup layer the comment cites. Letting an opaque release failure propagate would abort disposeHandle's caller before that close, so producing no signal is the answer that survives any failure identity."
+    },
+    {
+      "id": "HR-C-ENV-PROVIDER-ACTION-INDETERMINATE",
+      "file": "packages/agent-core/src/environments/runtime.ts",
+      "line": 780,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "That a provider action such as closeSession or revokeExposure neither succeeded nor definitively failed - its effect on the provider is unknown.",
+      "disposition": "bound",
+      "premise": "contributedCodeMayThrowAnything",
+      "rationale": "The try awaits a contributed EnvironmentProvider method supplied by whatever provider the registry resolved, so a rejection is opaque third-party code failing at an unknown point, possibly after the remote effect landed. The block answers with ProviderActionOutcome.indeterminate, the weakest of the three action names, and callers such as finishClose and revokeExposureRecord then leave the record in closing/revoking for a later retry instead of marking anything terminal. Any identity for the rejection would still leave the effect unobserved, so knowing it could not license the stronger \"succeeded\" or \"failed\" answer; the normal path still validates a returned outcome via requireProviderActionOutcome."
+    },
+    {
+      "id": "HR-C-ENV-PROVIDER-RESOURCE-INDETERMINATE",
+      "file": "packages/agent-core/src/environments/runtime.ts",
+      "line": 793,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "That a provider resource call such as openSession, inspectSession, createSnapshot or exposePort yielded no observable resource - neither a ready value nor a decision that it is absent or failed.",
+      "disposition": "bound",
+      "premise": "contributedCodeMayThrowAnything",
+      "rationale": "The try awaits a contributed EnvironmentProvider resource method, so the rejection is provider code failing for reasons this repository does not enumerate and cannot correlate with the remote resource's real state. Returning ProviderResourceOutcome.indeterminate withholds both \"ready\" and the terminal \"absent\"/\"failed\", which is what settleOpen needs to keep the session opening rather than persisting failOpen from an unproven absence. No error identity could produce a ready value it never received or prove the resource absent, so the indeterminate answer is invariant under the discarded failure, and a returned outcome still goes through requireProviderResourceOutcome."
+    },
+    {
+      "id": "HR-C-EXPOSURE-PUBLIC-URL-ABSOLUTE",
+      "file": "packages/agent-core/src/environments/exposure.ts",
+      "line": 302,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "That the provider-reported public exposure URL is not an absolute URL, so the port exposure record is rejected.",
+      "disposition": "bound",
+      "premise": "hostPrimitiveRefusesOnlyMalformedInput",
+      "rationale": "The try does nothing but `new URL(value)` with no base argument, whose only specified failure per the URL standard is that the string does not parse as an absolute URL. The block throws \"Port exposure URL must be absolute\", which restates that refusal verbatim, and validatePublicUrl's later scheme, credential, query and fragment checks operate only on a successfully parsed URL. There is no second failure mode for the primitive to distinguish, so the discarded error cannot change the verdict."
+    },
+    {
+      "id": "HR-C-PACKAGE-DEPENDENCY-RANGE-CANONICAL",
+      "file": "packages/agent-core/src/definition/package.ts",
+      "line": 401,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "That the package dependency range string is not a valid semantic version range, so no PackageDependency can be constructed from it.",
+      "disposition": "bound",
+      "premise": "pureLibraryRefusesOnlyMalformedOperands",
+      "rationale": "canonicalPackageRange's try calls `new Range(value)` from the `semver` dependency (import at line 1) to canonicalise the range that PackageDependency's constructor stores and that fromData compares for canonicality, and the block answers \"must be a valid semantic version range\". As at compatibility.ts:89 the callee fits no listed premise: semver's Range is neither repository-owned decoder, nor host primitive, nor contributed extension code, and contributedCodeMayThrowAnything would not justify a malformed-input-specific verdict. The needed premise is the same pinned-third-party-parser one (e.g. pinnedLibraryParserRefusesOnlyMalformedInput): semver's only documented refusal for a string is \"not a parseable range\", which is the answer this block gives."
+    },
+    {
+      "id": "HR-C-PROVIDER-DATA-PROPERTY",
+      "file": "packages/agent-core/src/environments/provider.ts",
+      "line": 313,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "That the provider-supplied object has no readable own non-accessor data property under the requested key.",
+      "disposition": "bound",
+      "premise": "probeAbsenceIsTheQuestionAsked",
+      "rationale": "dataProperty exists to answer one question about an untrusted provider value - \"is there an own data property at `key` I may read?\" - and it answers it by attempting `Object.getOwnPropertyDescriptor(value, key)`, then filtering with the pure isDataDescriptor. A missing key, an accessor or getter/setter descriptor, and a proxy trap that throws instead of reporting are all the same answer: `undefined`, no readable data property. Callers (snapshotProviderOutcome, the session parser) treat that uniformly as a missing field, so learning why the descriptor read refused cannot conjure a property the probe was unable to read."
+    },
+    {
+      "id": "HR-C-PROVIDER-OUTCOME-SNAPSHOT",
+      "file": "packages/agent-core/src/environments/provider.ts",
+      "line": 296,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "That the object a provider returned as its action/resource outcome is not a plain record of own enumerable string-keyed data properties, which both require* entry points report as a malformed outcome.",
+      "disposition": "bound",
+      "premise": "hostPrimitiveRefusesOnlyMalformedInput",
+      "rationale": "Inside the try the only operation that can throw is `Reflect.ownKeys(value)` applied to the provider-returned candidate: isStringPropertyKey is pure, dataProperty is itself guarded and returns undefined instead of throwing, and freezing freshly built tuples cannot fail. Reflect.ownKeys refuses only a non-object receiver or a proxy whose ownKeys trap misbehaves or throws, and either refusal establishes that the candidate is not the plain data-property record this module requires. That is precisely the `undefined` this block returns, which requireProviderActionOutcome and requireProviderResourceOutcome convert into malformedProviderOutcome, so the failure's identity is redundant with the answer."
+    },
+    {
+      "id": "HR-C-PROVIDER-READY-VALUE-PARSE",
+      "file": "packages/agent-core/src/environments/provider.ts",
+      "line": 95,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "That a provider resource outcome which named itself \"ready\" carries a malformed ready value, so the outcome is a malformed provider output rather than a usable resource.",
+      "disposition": "bound",
+      "premise": "kernelDecoderRefusesOnlyMalformedInput",
+      "rationale": "The try calls `parser.parse(ready)` on the snapshotted `value` property, where parser is always one of this file's own ProviderReadyValueParser implementations (contentRef, exposureUrl, liveSession); each refuses only on the shape of the provider-supplied value (\"Content reference is invalid\", \"Provider value must be a string\", \"Provider session must be an object\"/\"is malformed\"/\"children are malformed\"). The block throws malformedProviderOutcome(\"resource\"), the operation.invalid-output verdict that means exactly \"the provider's ready payload is not decodable\". Every refusal the parser can raise already carries that meaning, so the discarded identity only picks between malformed-shape messages and never between malformed and a usable resource."
+    },
+    {
+      "id": "HR-C-PROVIDER-SESSION-CHILDREN-SNAPSHOT",
+      "file": "packages/agent-core/src/environments/provider.ts",
+      "line": 442,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "That a provider session's `children` array is not a well-formed index/length array of dispose-bearing records, which the live-session parser reports as malformed session children.",
+      "disposition": "bound",
+      "premise": "hostPrimitiveRefusesOnlyMalformedInput",
+      "rationale": "After the Array.isArray guard the try's only throwing operation is host reflection over the provider's array: `Reflect.ownKeys(source.value)`, since dataProperty is guarded, the length was already checked to be a non-negative safe integer, and the `Array.from({ length })` materialisation is short-circuited unless keys.length already equals length + 1, which bounds it by the real key count. Such a refusal means the array-like is not the exact index-plus-length record shape required, which is the `undefined` this block returns and which LiveSessionReadyValueParser.parse reports as \"Provider session children are malformed\". Since the wrapped dispose closures are only built, never invoked, here, no unknown failure distinguishes anything but one malformed child shape from another."
+    },
+    {
+      "id": "HR-C-PROVIDER-VERSION-SHAPE",
+      "file": "packages/agent-core/src/environments/provider.ts",
+      "line": 459,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "That a ProviderDescriptor's version text is not an acceptable 1-to-128-character version, so the descriptor constructor rejects it.",
+      "disposition": "bound",
+      "premise": "hostPrimitiveRefusesOnlyMalformedInput",
+      "rationale": "requireProviderVersion's guard calls `value.trim()` on the argument the ProviderDescriptor constructor received; the parameter is typed string but reaches this point from unchecked callers, and String.prototype.trim refuses only a receiver that is not a string or whose primitive coercion refuses - the same \"this is not usable version text\" fact as blank or overlong text. Only the accepting `return` sits inside the try, so a refusal simply falls through, as the site's comment says, to the one stable constructor-shape TypeError naming the 1..128 window. A rejected version therefore stays rejected regardless of which refusal occurred, and no failure can smuggle in an acceptance."
+    },
+    {
+      "id": "HR-C-SLATE-MATERIALIZATION-COPY",
+      "file": "packages/agent-core/src/slates/runtime.ts",
+      "line": 989,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "That the slate provider result's `materialization` field is not a usable ContentRef, so the deployment or resource provider result is malformed.",
+      "disposition": "bound",
+      "premise": "kernelDecoderRefusesOnlyMalformedInput",
+      "rationale": "The try checks `instanceof ContentRef` and then rebuilds the reference with this repository's `new ContentRef(materializationSource.value.value)`, whose sole refusal is non-canonical content-reference text; freezing the one-field wrapper cannot fail. The block throws malformedProviderResult(subject), the very error the try raises on the instanceof branch, so the wrong-instance case, a rejected content-ref text and a throwing `.value` accessor all assert the same thing about the provider's payload. No unknown failure inside a decode-and-copy of a single owned value type could mean anything but \"this materialization is not decodable\"."
+    },
+    {
+      "id": "HR-C-SLATE-OWN-DATA-PROPERTY",
+      "file": "packages/agent-core/src/slates/runtime.ts",
+      "line": 1012,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "That the provider-returned slate result has no readable own enumerable data property under the requested key (outcome, receiptId, value or materialization).",
+      "disposition": "bound",
+      "premise": "probeAbsenceIsTheQuestionAsked",
+      "rationale": "ownDataProperty answers one question about an untrusted slate result - \"is there an enumerable own data property at `key`?\" - by attempting `Object.getOwnPropertyDescriptor(value, key)` and filtering with the pure isSlateResultDataProperty. An absent key, a non-enumerable or accessor descriptor, and a proxy trap that throws rather than reporting are the same answer: `undefined`, nothing readable here. canonicalInvocationResult and canonicalProviderResult treat that as a missing field and reject the result, so knowing why the descriptor read refused could not make the field present or readable."
+    },
+    {
+      "id": "HR-C-SLATE-OWN-STRING-KEYS",
+      "file": "packages/agent-core/src/slates/runtime.ts",
+      "line": 1000,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "That the provider-returned slate result exposes no string-only own-key list, which its callers report as a malformed invocation or provider result.",
+      "disposition": "bound",
+      "premise": "hostPrimitiveRefusesOnlyMalformedInput",
+      "rationale": "The only operation in the try that can throw is `Reflect.ownKeys(value)` over the object a slate provider returned, since `keys.every(isStringKey)` is a pure typeof filter. That primitive refuses only a non-object receiver or a proxy whose ownKeys trap misbehaves or throws, and either refusal means the value is not the plain string-keyed record canonicalInvocationResult and canonicalProviderResult require before their hasExactKeys checks. The block's `undefined` is that same finding, which those callers turn into malformedInvocationResult/malformedProviderResult, so the discarded error adds nothing to the verdict."
+    },
+    {
+      "id": "HR-C-SLATE-RECEIPT-ID-COPY",
+      "file": "packages/agent-core/src/slates/runtime.ts",
+      "line": 950,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "That the slate invocation result's receiptId field is not a usable ReceiptId, so the whole invocation result is malformed.",
+      "disposition": "bound",
+      "premise": "kernelDecoderRefusesOnlyMalformedInput",
+      "rationale": "The try re-validates the provider-supplied receipt with an instanceof check against this repository's ReceiptId and then takes a defensive copy via `new ReceiptId(receiptSource.value.value)`, so the only failures available are the malformedInvocationResult the try itself throws, the ReceiptId constructor refusing non-canonical receipt text, and a hostile `.value` accessor refusing the read. The block throws malformedInvocationResult, the identical error, meaning \"this result cannot be canonicalised\". Each possible failure already asserts that, so the catch only unifies them; none could produce a canonical receipt for canonicalInvocationResult to return."
+    },
+    {
+      "id": "HR-CF-DO-BUDGET-TIMER",
+      "file": "packages/agent-core-cloudflare/src/durable-object.ts",
+      "line": 242,
+      "anchor": "const handle = setTimeout(() => {",
+      "detector": "ambient-clock",
+      "shape": "timing",
+      "guess": "That a Durable Object request has exceeded its budget, decided by a host timer.",
+      "disposition": "bound",
+      "rationale": "The budget is a declared bound on how long the object will wait for its own work; the timer only reports that the bound passed. Its one-directional guarantee is what keeps the refusal from arriving before the budget it names.",
+      "premise": "timerFiresNoEarlierThanItsDelay"
+    },
+    {
+      "id": "HR-CF-PORT-BOUND-WITHHELD",
+      "file": "packages/agent-core-cloudflare/src/environment-provider.ts",
+      "line": 796,
+      "anchor": "if (!Number.isSafeInteger(request.port) || request.port < 1 || request.port > 65_535) {",
+      "detector": "unnamed-bound",
+      "shape": "magic-literal",
+      "guess": "That 65535 is the highest exposable port, written as a literal with no name and no stated source.",
+      "disposition": "withheld",
+      "rationale": "The elimination is the same one already applied to the kernel's own port validator: declare `MAX_TCP_PORT = 65_535` with the RFC citation and compare against it, so the bound names the sixteen-bit transport field it comes from. It is withheld only because this file's bytes are fingerprinted by the committed live-substrate archive, and changing them retracts every conformance row verified from that run until a consented live re-run is performed. The finding stands and is owed.",
+      "premise": "sixteenBitTransportPortField",
+      "frozenBy": "packages/agent-core-cloudflare/src/environment-provider.ts",
+      "owedEdit": "In packages/agent-core-cloudflare/src/environment-provider.ts, declare `const MAX_TCP_PORT = 65_535;` with a comment citing RFC 9293 \u00a73.1 for the sixteen-bit port field, replace `request.port > 65_535` with `request.port > MAX_TCP_PORT`, and interpolate the constant into the refusal message so the bound and the message cannot drift \u2014 exactly the edit already made in packages/agent-core/src/environments/runtime.ts."
+    },
+    {
+      "id": "HR-CF-PROVIDER-CLOCK",
+      "file": "packages/agent-core-cloudflare/src/provider-capability.ts",
+      "line": 116,
+      "anchor": "now: () => Date.now(),",
+      "detector": "ambient-clock",
+      "shape": "external-assumption",
+      "guess": "That the provider session's notion of now is the Workers wall clock.",
+      "disposition": "bound",
+      "rationale": "This is the `ProviderSessionClock` the Cloudflare substrate supplies, and it exists so that everything above it takes time as an injected dependency rather than reading the host directly. The adapter is where the host clock legitimately enters, which is exactly the boundary the premise names.",
+      "premise": "wallClockIsHostSupplied"
+    },
+    {
+      "id": "HR-CF-PROVIDER-SCHEDULE",
+      "file": "packages/agent-core-cloudflare/src/provider-capability.ts",
+      "line": 118,
+      "anchor": "const timer = setTimeout(callback, delayMs);",
+      "detector": "ambient-clock",
+      "shape": "timing",
+      "guess": "That a scheduled provider callback runs no earlier than its requested delay.",
+      "disposition": "bound",
+      "rationale": "The same adapter's `schedule`, returning a canceller so the caller owns the lifetime. Callers use it to bound waiting, so the guarantee they need is that the callback is not early; lateness is absorbed by the cancellation and retry paths above it.",
+      "premise": "timerFiresNoEarlierThanItsDelay"
+    },
+    {
+      "id": "HR-CF-RECONCILIATION-TIMER",
+      "file": "packages/agent-core-cloudflare/src/reconciliation.ts",
+      "line": 255,
+      "anchor": "const handle = setTimeout(() => {",
+      "detector": "ambient-clock",
+      "shape": "timing",
+      "guess": "That a reconciliation sweep has exceeded its deadline, decided by a host timer.",
+      "disposition": "bound",
+      "rationale": "The sweep's deadline bounds one alarm's work so the object cannot be held indefinitely; the outbox state it reconciles is durable, so a late timer costs a retry rather than correctness. Only the not-early direction is load-bearing.",
+      "premise": "timerFiresNoEarlierThanItsDelay"
+    },
+    {
+      "id": "HR-CODEC-CLASS-SOURCE-TEXT",
+      "file": "packages/agent-core/src/core/codec.ts",
+      "line": 464,
+      "anchor": "if (!functionSource.call(value).startsWith(\"class\")) return false;",
+      "detector": "prefix-dispatch",
+      "shape": "external-assumption",
+      "guess": "That a callable handed to a record codec is a class constructor, decided from its source text beginning with `class`.",
+      "disposition": "bound",
+      "rationale": "A codec tuple must name classes because it freezes each one's prototype, and class-ness is not expressible in the type system: the only discriminators the language offers are the constructor's source text and its `prototype` property attributes, both host reflection. This cannot be eliminated by reading a declaration, because the value arrives as a callable with nothing else to read; it is bound to a probe so that a runtime which stops honoring the reflection fails by name instead of mis-sealing a codec.",
+      "premise": "classConstructorIsObservableOnlyThroughHostReflection"
+    },
+    {
+      "id": "HR-COMMAND-POINTER-CONTAINMENT",
+      "file": "packages/agent-core/src/operations/command-runtime.ts",
+      "line": 299,
+      "anchor": "return pointer === requiredPointer || pointer.startsWith(`${requiredPointer}/`);",
+      "detector": "prefix-dispatch",
+      "shape": "prefix-dispatch",
+      "guess": "That a mapping target lies at or under a required property, decided from the pointer text it begins with.",
+      "disposition": "bound",
+      "rationale": "The required pointer is escaped and the separator appended before the test, so `/ab` does not count as being under `/a` and only the property itself or a descendant of it satisfies the requirement. The containment relation belongs to RFC 6901.",
+      "premise": "separatorTerminatedPrefixIsContainmentInSolidusSyntax"
+    },
+    {
+      "id": "HR-CONTENT-MEMORY-CLOCK",
+      "file": "packages/agent-core/src/content/memory.ts",
+      "line": 325,
+      "anchor": "private readonly now: () => Date = () => new Date()",
+      "detector": "ambient-clock",
+      "shape": "silent-default",
+      "guess": "That a caller who declares no clock means the host wall clock, for content lease expiry.",
+      "disposition": "bound",
+      "rationale": "Transient content leases expire at a recorded instant and the comparison needs the current one, which only the host can supply. The declared half \u2014 the expiry \u2014 is in the record; the undeclared half is the present, and that is what the premise covers.",
+      "premise": "wallClockIsHostSupplied"
+    },
+    {
+      "id": "HR-CONTENT-OWNER-NAMESPACE-ACTUAL",
+      "file": "packages/agent-core/src/content/retention.ts",
+      "line": 307,
+      "anchor": "ownerKeyPrefixes.some((prefix) => edge.ownerKey.startsWith(prefix))",
+      "detector": "prefix-dispatch",
+      "shape": "prefix-dispatch",
+      "guess": "That a stored owner edge belongs to the custody namespace under audit, decided from the text its owner key begins with.",
+      "disposition": "declared",
+      "rationale": "Same declared `ownerKeyPrefixes` argument as the expected-side filter directly above, applied to the stored edges so that the two sides of the exact-custody comparison are drawn from one namespace. Using different membership rules on the two sides is what would make the comparison meaningless, which is why both read the same declared list.",
+      "evidence": {
+        "kind": "test",
+        "file": "test/content/record-custody.test.ts",
+        "title": "[C13-CONTENT-CUSTODY] a removal path releases exactly the edges its record named and reclaims their bytes"
+      }
+    },
+    {
+      "id": "HR-CONTENT-OWNER-NAMESPACE-EXPECTED",
+      "file": "packages/agent-core/src/content/retention.ts",
+      "line": 292,
+      "anchor": "if (!ownerKeyPrefixes.some((prefix) => edge.ownerKey.startsWith(prefix))) {",
+      "detector": "prefix-dispatch",
+      "shape": "prefix-dispatch",
+      "guess": "That an expected owner edge belongs to the custody namespace under audit, decided from the text its owner key begins with.",
+      "disposition": "declared",
+      "rationale": "The prefixes are not sniffed from the key: the caller passes them as `ownerKeyPrefixes` and the same method refuses an empty list and an empty prefix five lines above, so the namespace is a declared argument and the prefix test is how membership in it is stated. Custody verification then compares the declared namespace against exactly the stored edges inside it.",
+      "evidence": {
+        "kind": "test",
+        "file": "test/content/record-custody.test.ts",
+        "title": "[C13-CONTENT-CUSTODY] an Event naming content the Actor does not hold is refused before the record lands"
+      }
+    },
+    {
+      "id": "HR-CONTENT-RETENTION-CLOCK",
+      "file": "packages/agent-core/src/content/retention.ts",
+      "line": 180,
+      "anchor": "private readonly now: () => Date = () => new Date()",
+      "detector": "ambient-clock",
+      "shape": "silent-default",
+      "guess": "That a caller who declares no clock means the host wall clock, for retention sweeps.",
+      "disposition": "bound",
+      "rationale": "A sweep releases content whose retention has lapsed, so it compares stored retention instants against now. The set it releases is decided entirely by declared edges and policy except for that one reading of the host clock.",
+      "premise": "wallClockIsHostSupplied"
+    },
+    {
+      "id": "HR-D-ADMISSION-PERMIT-DECODE",
+      "file": "packages/agent-core/src/composition/permit.ts",
+      "line": 576,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "An admission reference that does not rebuild into an AuthorityPermit does not admit this invocation.",
+      "disposition": "bound",
+      "premise": "kernelDecoderRefusesOnlyMalformedInput",
+      "rationale": "`admits` rebuilds the admission reference with this repository's `AuthorityPermit.fromData` before anything is consumed, and answers `false` when it throws \u2014 the identical answer the block returns for a missing expectation, a missing authentication, or a digest that does not match. The rebuild is a pure structural check over an in-memory reference, so its failure can only mean the reference is not a permit. Because it precedes `this.admission.consume(...)`, no unknown failure can burn a permit or admit an invocation; down there only a genuine `authority.denied` shares the `false` answer and every other error is rethrown."
+    },
+    {
+      "id": "HR-D-AUTHORITY-PERMIT-REPLY-DECODE",
+      "file": "packages/agent-core/src/composition/permit.ts",
+      "line": 526,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "An admission reference that does not rebuild into an AuthorityPermit is a malformed permit reply, so the claim is denied.",
+      "disposition": "bound",
+      "premise": "kernelDecoderRefusesOnlyMalformedInput",
+      "rationale": "The try is `AuthorityPermit.fromData(admission.reference)`, this repository's data-record constructor, applied to a reference already in memory; it performs no I/O, so a throw means the reply's fields are not a permit. The port denies with \"Authority permit reply is malformed\" and never reaches `authenticator.authenticate`, the same outcome a permit that rebuilds but fails its digest comparison gets on the next line. Nothing is consumed or recorded before the rebuild, so an unknown failure cannot authenticate anything."
+    },
+    {
+      "id": "HR-D-BINDING-ENDPOINT-URL",
+      "file": "packages/agent-core/src/authority/binding.ts",
+      "line": 403,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "A binding credential endpoint string that the URL parser rejects is not a canonical absolute URL, so the credential is refused.",
+      "disposition": "bound",
+      "premise": "hostPrimitiveRefusesOnlyMalformedInput",
+      "rationale": "The try is `new URL(value)` over the endpoint string of a binding credential being normalized; WHATWG parsing is pure and its only specified failure is that the string is not an absolute URL. The block throws the very same TypeError the canonicality check below throws for an endpoint that parses but carries credentials or is not byte-identical to its own href, so the two rejections are indistinguishable by construction. No credential is stored and no endpoint is contacted before the parse, so an unknown parse failure cannot mean anything but a bad string."
+    },
+    {
+      "id": "HR-D-DISPOSE-AWAIT-START",
+      "file": "packages/agent-core/src/operations/lifecycle.ts",
+      "line": 231,
+      "anchor": "} catch {}",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "The in-flight activation has settled one way or the other, so teardown may proceed and dispose reports only its own stop failures.",
+      "disposition": "bound",
+      "premise": "awaitedTransitionFailureIsOwnedByItsOwnCaller",
+      "rationale": "`dispose()` passes the in-flight activation promise into `stop(pending, starting)`, which awaits it purely to sequence teardown after activation has stopped touching facets, then drains, stops every facet and throws only about failed stop hooks. That awaited rejection is a duplicate: `activate()` returned this exact promise to its own caller, and `start`'s catch already rolled the partial activation back, recorded `#cleanup` and the `cleanup-required`/`inactive` state, and threw `inactive(\"Facet activation failed...\")` there. Discarding it here therefore drops a second copy of a failure already surfaced, and knowing which activation error it was could not change what dispose does next or what it reports."
+    },
+    {
+      "id": "HR-D-FACET-STOP-HOOK",
+      "file": "packages/agent-core/src/operations/lifecycle.ts",
+      "line": 301,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "A Facet whose stop hook throws is a stop failure to be collected, not a reason to skip the remaining facets' teardown.",
+      "disposition": "bound",
+      "premise": "contributedCodeMayThrowAnything",
+      "rationale": "The try awaits `facet.stop(context)`, a Facet author's lifecycle hook, whose failure modes this repository cannot enumerate. `stopAll` records that facet in `failures` \u2014 which callers turn into `#cleanup`, a `cleanup-required` state and an `inactive(\"N Facet stop hook(s) failed\")` throw, or into the rollback tally in `start`'s catch \u2014 and keeps stopping the remaining facets in reverse order, while the `finally` releases that facet's reliance edges per SPEC \u00a74.1 either way. Discriminating the throw changes none of it: every failing hook lands in the same list under its own ref, and no hook's error may abandon a later facet's teardown."
+    },
+    {
+      "id": "HR-D-GUEST-CALLBACK-URL",
+      "file": "packages/agent-core/src/identity/guest-trust.ts",
+      "line": 290,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "A guest callback endpoint string that does not parse is not an absolute HTTPS URL, so the verifier declaration is rejected.",
+      "disposition": "bound",
+      "premise": "hostPrimitiveRefusesOnlyMalformedInput",
+      "rationale": "The try parses `verifier.endpoint` with `new URL` while normalizing a callback guest-trust verifier into its frozen form; parsing is pure and its only specified failure is a string that is not an absolute URL. The block throws the same `TypeError` about an absolute HTTPS endpoint that the check below throws when the parsed URL is not `https:` or does not round-trip to the original string, so an unparseable endpoint and a non-canonical one are one rejection. The verifier is not frozen into the trust state and the endpoint is never contacted before the parse."
+    },
+    {
+      "id": "HR-D-MCP-PROMPT-MATERIALIZE",
+      "file": "packages/agent-core/src/facets/mcp/facet.ts",
+      "line": 206,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "A discovered MCP prompt whose title or body fails the Prompt value constraints is an invalid prompt declaration, so discovery is refused.",
+      "disposition": "bound",
+      "premise": "kernelDecoderRefusesOnlyMalformedInput",
+      "rationale": "Inside the try the peer's declared prompts are only data: each is passed to this repository's `Prompt` constructor, which is `requireNonblank(title)`, `requireNonblank(body)` and a safe-integer check on the literal priority `0`, and then to `PromptContribution`, which merely sorts and freezes. The count and byte bounds were enforced above the try, so the sole remaining failure is a declaration violating those value constraints, and the block reports precisely `schema.invalid \"MCP prompt declaration is invalid at discovery\"`. No peer code executes here and nothing is registered, so an unknown throw is still a verdict about the declaration."
+    },
+    {
+      "id": "HR-D-MCP-SCHEMA-ASSERT",
+      "file": "packages/agent-core/src/facets/mcp/facet.ts",
+      "line": 341,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "A tool or resource schema in the discovery document that the schema boundary refuses is an invalid MCP schema, so discovery is refused.",
+      "disposition": "bound",
+      "premise": "kernelDecoderRefusesOnlyMalformedInput",
+      "rationale": "The try calls `schemas.assertSchema(candidate)` on the `McpSchemaBoundary` seam, whose contract is a pure assertion over one candidate document and whose production filling is the kernel's strict JSON Schema validator (`validateAndCompile`, which throws only \"Unsupported JSON Schema\"). The block restates that as `schema.invalid \"MCP schema is invalid at discovery\"` so a peer-supplied schema surfaces as a discovery verdict rather than a raw validator TypeError. Every call site runs before the matching `OperationDescriptor` is built, so an unknown failure cannot register an operation whose schema never compiled."
+    },
+    {
+      "id": "HR-D-PATCH-APPLY",
+      "file": "packages/agent-core/src/composition/json-patch.ts",
+      "line": 26,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "Any throw out of fast-json-patch's `applyPatch` means the patch does not apply to this document and is therefore invalid.",
+      "disposition": "bound",
+      "premise": "pureLibraryRefusesOnlyMalformedOperands",
+      "rationale": "The try is `applyPatch(document, operations, false, false, true)` from the vendored `fast-json-patch` library, called with mutation off so the caller's document is never written; the operations have already passed both the shape check and `validate`, so the failures left to it are per-document ones \u2014 a `test` op that does not hold, a pointer that does not resolve \u2014 which are still statements about the patch against these operands and nothing about the host. The block answers with the engine's single refusal, `codec.invalid \"Invalid RFC 6902 patch\"`, and returns the untouched document to the caller by never producing a `newDocument`. Since the library is a pure function of the two operands, an unknown throw cannot mean a partially applied patch."
+    },
+    {
+      "id": "HR-D-PATCH-CLONE",
+      "file": "packages/agent-core/src/composition/json-patch.ts",
+      "line": 11,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "A submitted patch array containing a value structuredClone cannot copy is an invalid RFC 6902 patch.",
+      "disposition": "bound",
+      "premise": "hostPrimitiveRefusesOnlyMalformedInput",
+      "rationale": "The try is `structuredClone(patch)`, used to detach the caller's array before the engine reads it; the host primitive's specified failure is a value outside the structured-clone types (a function, a symbol, a non-cloneable host object), which for a parameter typed `readonly JsonValue[]` means the caller handed in something that is not JSON. The block throws `codec.invalid \"Invalid RFC 6902 patch\"`, the identical refusal the `isPatchOperation` check produces one line below. Cloning reads no host state and mutates neither the document nor the patch, so an unknown throw is still only a statement about the submitted patch."
+    },
+    {
+      "id": "HR-D-PATCH-VALIDATE",
+      "file": "packages/agent-core/src/composition/json-patch.ts",
+      "line": 18,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "Any throw out of fast-json-patch's `validate` means the submitted operations are an invalid RFC 6902 patch.",
+      "disposition": "bound",
+      "premise": "pureLibraryRefusesOnlyMalformedOperands",
+      "rationale": "The try is `validate(operations, document)` from the vendored `fast-json-patch` library, run over the engine's own detached clone of the caller's operations and the caller's document; the library reads no host resource and mutates neither operand, so its only failure for operands this caller can supply is \"these operations are not a valid RFC 6902 patch\". That is precisely the answer the block produces, `codec.invalid \"Invalid RFC 6902 patch\"` \u2014 the same one raised two lines later when `validate` returns a `validationError` instead of throwing. Whether the library rejected an op by throwing or by returning therefore cannot change the engine's verdict."
+    },
+    {
+      "id": "HR-D-PERMIT-ISSUER-RECORD-DECODE",
+      "file": "packages/agent-core/src/authority/permit-authentication.ts",
+      "line": 56,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "Bytes the issuer source returned for this nonce and digest that do not decode are a malformed issuer record, so authentication is denied.",
+      "disposition": "bound",
+      "premise": "kernelDecoderRefusesOnlyMalformedInput",
+      "rationale": "The try is `AuthorityPermit.decode(canonicalBytes)`, this repository's own record codec, run over bytes already returned by `source.issued(...)`; the lookup and its distinct `undefined` answer (\"no authenticated issuer record\") are handled above the try, so inside it the decoder is a pure function of those bytes. Its only failure is that the stored record is not an AuthorityPermit, which is exactly the denial the block raises. Equality against the candidate permit runs only on a successful decode, so no unknown failure can turn an unreadable issuer record into an authenticated one."
+    },
+    {
+      "id": "HR-D-PROFILE-WIRE-DECODE",
+      "file": "packages/agent-core/src/facets/profile-runtime/runtime.ts",
+      "line": 469,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "FacetData its ProfileWireCodec cannot parse into the typed value is a wire-invalid payload for that direction.",
+      "disposition": "bound",
+      "premise": "kernelDecoderRefusesOnlyMalformedInput",
+      "rationale": "The try is `codec.decode(data)` on this repository's `ProfileWireCodec`, whose decode half is `require*` checks over `FacetData`, and every caller reaches it only after `validateCanonical` has canonicalized the payload and matched it against the Operation's declared JSON Schema. What is left to refuse is a payload the schema admits but the typed shape does not, which the block reports as `wire.input`/`wire.output` invalidity. Decoding reads nothing but the payload and happens before the handler runs, so no unknown failure can mean the Operation partially executed."
+    },
+    {
+      "id": "HR-D-PROFILE-WIRE-ENCODE",
+      "file": "packages/agent-core/src/facets/profile-runtime/runtime.ts",
+      "line": 440,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "A value its ProfileWireCodec cannot project onto FacetData is a wire-invalid payload for that direction.",
+      "disposition": "bound",
+      "premise": "kernelDecoderRefusesOnlyMalformedInput",
+      "rationale": "The try is `codec.encode(value)` on this repository's `ProfileWireCodec`, the pure projection declared beside each Operation contract from a typed profile value to `FacetData`; it performs no effect, so the only thing it can refuse is the value handed to it. The block turns that into the direction's own wire error \u2014 `wire.input` for a caller's input, `wire.output` for a handler's return \u2014 and stops the un-encodable value from reaching `validateCanonical`, which would otherwise report the same value as a schema mismatch. The authored handler that produced an output value ran outside this try, so its failures stay untouched and cannot be mistaken for an encoding refusal."
+    },
+    {
+      "id": "HR-D-RUNTIME-ACTIVATION-DISPOSE",
+      "file": "packages/agent-core/src/composition/package-runtime.ts",
+      "line": 62,
+      "anchor": "} catch {}",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "The half-activated Facet host has been torn down far enough for the rollback to continue and rethrow the activation failure.",
+      "disposition": "bound",
+      "premise": "cleanupFailureNeverReplacesTheInFlightCause",
+      "rationale": "This catch sits inside `catch (error)` around `host.activate()` plus `materialization.materialize(...)`, wrapping the rollback's `await host.dispose()`; the lines after it dispose the loaded package and `throw error`. The answer the block produces is that the caller sees the activation failure already in hand rather than a teardown failure discovered while unwinding. A host dispose failure cannot be the cause of that activation failure, and letting it out would both mask the cause and skip the `loaded.dispose()` that follows."
+    },
+    {
+      "id": "HR-D-SHELL-CONFIRM-TERMINATED",
+      "file": "packages/agent-core/src/facets/shell/facet.ts",
+      "line": 129,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "A termination probe that fails is a process this boundary cannot confirm as terminated, so its race arm answers \"not terminated\".",
+      "disposition": "bound",
+      "premise": "probeAbsenceIsTheQuestionAsked",
+      "rationale": "The try holds nothing but the probe `await process.confirmTerminated()`, whose entire purpose is to discover whether the killed process is gone; the arm resolves `true` only on a positive confirmation, and as the comment states a probe that throws has answered while a probe reporting \"still running\" has not \u2014 which is why that branch instead returns a promise that never settles and lets the confirmation bound answer. A failing probe therefore returns `false`, losing this arm's claim in `Promise.race` and sending `terminateAfterProcessSettlement` to `fenceAndSettle()`, exactly where the timeout arm sends it. The probe changes no state, so the identity of its failure cannot conjure the confirmation it did not deliver."
+    },
+    {
+      "id": "HR-D-SHELL-FENCE",
+      "file": "packages/agent-core/src/facets/shell/facet.ts",
+      "line": 140,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "The execution settles at the terminated exit code whether or not the backend's fence reported success.",
+      "disposition": "bound",
+      "premise": "releasingAReleasedHostResourceIsTheRequestedState",
+      "rationale": "The try calls `process.fence()`, the backend's release of whatever remote plumbing the execution still held, and the empty catch exists so the `finally` settles the result at the terminated exit code either way. A fence that reports failure describes remote cleanup this boundary does not own; the local half of the release \u2014 marking the boundary not live and resolving `wait()` \u2014 is done by `settle`, which is what every caller of `fenceAndSettle` asked for. Nothing downstream reads the fence's outcome, and `settle` is safe to run again on an execution that already resolved."
+    },
+    {
+      "id": "HR-D-SHELL-FORCE-TERMINATE",
+      "file": "packages/agent-core/src/facets/shell/facet.ts",
+      "line": 107,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "A kill the process backend refuses ends this execution boundary: fence the handle and settle at the terminated exit code without waiting for confirmation.",
+      "disposition": "bound",
+      "premise": "releasingAReleasedHostResourceIsTheRequestedState",
+      "rationale": "The try issues `process.forceTerminate()`, the release itself, as the first step of `terminate()`. A backend that refuses the signal has no process left to kill \u2014 already the state the caller asked for \u2014 or has lost its grip on one it can no longer be asked about; either way nothing further can be done to it from here, so the block skips the confirmation race and calls `fenceAndSettle()`, closing the handle and resolving `wait()` at the terminated exit code. The race below exists only to time a kill that was accepted but not yet effective, and a kill that was not accepted has no such window to wait out."
+    },
+    {
+      "id": "HR-D-TARGET-PERMIT-REQUEST-DECODE",
+      "file": "packages/agent-core/src/composition/permit.ts",
+      "line": 167,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "Attestation request bytes that do not decode are a malformed target lease evidence request, so nothing is attested.",
+      "disposition": "bound",
+      "premise": "kernelDecoderRefusesOnlyMalformedInput",
+      "rationale": "The try is `TargetAuthorityPermitRequest.decode(request)`, this repository's record codec, run over the raw request bytes before the store transaction opens; over a byte array its only failure is that the bytes are not that record, and the block says exactly that with `codec.invalid`. The attestation transaction and the tenant projection below run only on a decoded request, so an unknown decode failure cannot leave a half-issued lease or a projected reply behind."
+    },
+    {
+      "id": "HR-D-TENANT-PROJECTION-DECODE",
+      "file": "packages/agent-core/src/composition/permit.ts",
+      "line": 181,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "Bytes returned by the tenant projection that do not decode are a malformed projection reply, so the attestation is refused.",
+      "disposition": "bound",
+      "premise": "kernelDecoderRefusesOnlyMalformedInput",
+      "rationale": "The try decodes the projection's already-returned bytes with `TargetLeaseEvidence.decode`, a codec this repository owns; every transport and tenant-side failure has settled by the time `projection.project(...)` resolved, so the only failure left inside the try is that the reply bytes are not that record. The block refuses with `codec.invalid \"Tenant projection reply is malformed\"`, while the digest comparison on the next line is what catches a reply that decodes but substitutes different evidence. Neither rejection needs to know which field of the record failed to parse."
+    },
+    {
+      "id": "HR-D-WEB-URL-PARSE",
+      "file": "packages/agent-core/src/facets/web/facet.ts",
+      "line": 320,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "A request URL string the URL parser rejects is a denied URL under web policy.",
+      "disposition": "bound",
+      "premise": "hostPrimitiveRefusesOnlyMalformedInput",
+      "rationale": "`safeUrl` parses the caller's string with `new URL(value)` before any policy check runs; the WHATWG parser is pure and fails only when the string is not an absolute URL. The block throws `WebPolicyError(\"url.denied\", \"URL is invalid\")`, the same denial code the scheme and embedded-credential checks below raise for a URL that parses but is not allowed, so the refusal never depends on which parse rule tripped. No request has been issued and no cache entry read at this point, so an unknown failure cannot leave web egress half-done."
+    },
+    {
+      "id": "HR-DISPATCHER-CLOCK",
+      "file": "packages/agent-core/src/protocol/dispatcher.ts",
+      "line": 221,
+      "anchor": "this.#now = init.now ?? (() => new Date());",
+      "detector": "ambient-clock",
+      "shape": "silent-default",
+      "guess": "That a host which declares no clock means the wall clock, for the instant stamped on every WriteRecord.",
+      "disposition": "bound",
+      "rationale": "Each dispatched command records when it was decided, and that instant is host-supplied; the dispatcher's own decisions \u2014 outcome, duplicate detection, lease validity \u2014 are read from records and tokens. Tests and deterministic hosts pass a clock, so the fallback is the operational path only.",
+      "premise": "wallClockIsHostSupplied"
+    },
+    {
+      "id": "HR-E-CAPABILITY-SOCKET-CLOSE",
+      "file": "packages/agent-core-cloudflare/src/provider-capability.ts",
+      "line": 561,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "A capability-session socket that refuses to close is already closed, so the session counts as released and the release path completes.",
+      "disposition": "bound",
+      "premise": "releasingAReleasedHostResourceIsTheRequestedState",
+      "rationale": "The try asks a host WebSocket (CapabilitySocketLike extends WebSocket) to close with the normal 1000 code, and closeQuietly runs only on release paths: the session's shutdown after disposing its peer stub, and the caller-side scope's Symbol.dispose after disposing the endpoint stub. A platform close refuses precisely when the socket is already closing or closed - the peer having closed first - which is the state both callers were asking for, so the block's answer that the session is released still holds. A failing close cannot leave a socket more open than a successful one, so the failure's identity carries nothing the answer depends on."
+    },
+    {
+      "id": "HR-E-COMMIT-DURABILITY-CHECK",
+      "file": "packages/agent-core/src/agents/runs/executor.ts",
+      "line": 1328,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "A model-input commit the store will not confirm is treated as not durably recorded, which refuses the model call.",
+      "disposition": "bound",
+      "premise": "probeAbsenceIsTheQuestionAsked",
+      "rationale": "The try is the existence question itself: one repository transaction that loads the commit by its id and compares the stored proposal digest, and durablyStored yields nothing but that boolean. Whatever the store did, it did not produce the record, so the answer is the same false it returns for an absent or mismatched row - the failure is the answer rather than an error, and the caller turns that false into the typed turn.model-input-undurable refusal that also carries the append's own error. Since durability must be established by re-reading the commit and never presumed, the absent-record answer and the unreachable-store answer are the one answer this predicate is allowed to give."
+    },
+    {
+      "id": "HR-E-QUEUE-BATCH-OBSERVER",
+      "file": "packages/agent-core-cloudflare/src/worker.ts",
+      "line": 66,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "A batch whose failure report never reached its observer is still a batch whose deliveries were disposed exactly as the adapter decided.",
+      "disposition": "bound",
+      "premise": "diagnosticSinkFailureIsNotDomainEvidence",
+      "rationale": "The try's only call is options.observer.observe(result), the optional sink where one batch's failed deliveries and poison messages are reported, and it runs after options.queue.handle(batch) has already decided and applied every disposition - the interface states the disposition is decided before the sink runs and never by it. The block's answer is that the queue entry point returns successfully, and a reporting sink holds no delivery evidence that could revise it. Letting an unknown sink failure escape would fail the batch handler and redeliver messages the target already accepted, which is the one outcome the settled dispositions rule out."
+    },
+    {
+      "id": "HR-E-RECONCILE-ALARM-REARM",
+      "file": "packages/agent-core-cloudflare/src/reconciliation.ts",
+      "line": 218,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "An interrupted sweep reports its own root cause, not whatever happened while re-arming the alarm on the way out.",
+      "disposition": "bound",
+      "premise": "cleanupFailureNeverReplacesTheInFlightCause",
+      "rationale": "This catch is nested inside the sweep's outer catch (cause), and its try is the compensating write that floors the next wakeup one retry delay out so entries the sweep never reached cannot refire the alarm immediately. The statement right after it is throw cause, so the block's answer is to deliver the outbox failure unchanged as the sweep's result. An unknown alarm failure cannot change that answer: the alarm is not part of the sweep's outcome and is rebuilt from durable outbox state on the next arm or startup, whereas swallowing it is the only way the root cause survives to the caller."
+    },
+    {
+      "id": "HR-E-REPLAY-CONTENT-RESOLVE",
+      "file": "packages/agent-core/src/agents/runs/executor.ts",
+      "line": 934,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "Content a committed model-input record names that the store will not produce is unretained content, so the recorded request is declared unrebuildable.",
+      "disposition": "bound",
+      "premise": "unreadableCommittedContentIsOneReportableOutcome",
+      "rationale": "The try is a payload read - ContentStore.get for a ContentRef the committed record names, sliced into the request being rebuilt - and the block throws run.model-input-unrebuildable naming that ref as unretained. None of the listed premises reaches it: the store is a repository-owned port rather than contributed code, get is neither a decoder nor a host primitive and refuses for more than malformed input (SqliteContentStore.get throws content.not-found, while an R2-backed store can also be unreachable), there is no in-flight cause to protect, and it is not a probe because the bytes are the deliverable and the block refuses the whole reconstruction rather than answering 'absent'. It needs a premise that SPEC section 8.2's finite retention makes every failure to produce committed content one reportable outcome - losing content is permitted, and a records-only replay must name what is missing rather than yield a partial request - so which failure occurred cannot change the refusal."
+    },
+    {
+      "id": "HR-E-SNAPSHOT-BASE64-DECODE",
+      "file": "packages/agent-core-cloudflare/src/environment-provider.ts",
+      "line": 631,
+      "anchor": "} catch {",
+      "detector": "opaque-catch",
+      "shape": "catch-to-domain",
+      "guess": "One snapshot file whose stored payload will not decode is corrupt snapshot content this provider refuses to restore, not a restore that failed operationally.",
+      "disposition": "bound",
+      "premise": "kernelDecoderRefusesOnlyMalformedInput",
+      "rationale": "The try's only call is decodeBase64 on a value isText has already narrowed to a string, and that decoder is this repository's own (core/base64.ts): it throws only for non-canonical RFC 4648 input - a length that is not a multiple of four, a character outside the alphabet, or a re-encode that does not reproduce the input. The block answers by abandoning the whole restore with return undefined, which is exactly the malformed-input verdict, and the same answer the bounds below it give for an over-limit or unaddressable entry. No unknown failure can move that answer because the decoder has no other failure to report for a string."
+    },
+    {
+      "id": "HR-EVENT-PATTERN-MATCH",
+      "file": "packages/agent-core/src/workspaces/policy.ts",
+      "line": 109,
+      "anchor": "return pattern.endsWith(\"*\") ? value.startsWith(pattern.slice(0, -1)) : value === pattern;",
+      "detector": "prefix-dispatch",
+      "shape": "prefix-dispatch",
+      "guess": "Whether a declared Event pattern selects an Event kind or source, decided from a trailing `*`.",
+      "disposition": "declared",
+      "rationale": "SPEC states an EventPattern field is a literal or a `*`-terminated prefix wildcard, and `EventPattern`'s constructor refuses any other placement of `*`, so this test reads a declared form. The second copy of the rule in the Interceptor runner is the same declaration applied to a different pattern record, not a second convention.",
+      "evidence": {
+        "kind": "spec",
+        "clause": "\u00a76.1",
+        "quote": "each a literal or a \"*\"-terminated"
+      }
+    },
+    {
+      "id": "HR-FS-ABSOLUTE-PATH",
+      "file": "packages/agent-core/src/facets/filesystem/path.ts",
+      "line": 6,
+      "anchor": "!value.startsWith(\"/\") ||",
+      "detector": "prefix-dispatch",
+      "shape": "prefix-dispatch",
+      "guess": "That a filesystem path is absolute, decided from a leading separator.",
+      "disposition": "bound",
+      "rationale": "A leading `/` is what makes a pathname absolute in POSIX, so this is a syntax check on the declared form rather than an inference about the value, and the same guard refuses embedded backslashes and NULs. The syntax is POSIX's, not this module's.",
+      "premise": "separatorTerminatedPrefixIsContainmentInSolidusSyntax"
+    },
+    {
+      "id": "HR-FS-MEMORY-CHILD-LISTING",
+      "file": "packages/agent-core/src/facets/filesystem/memory.ts",
+      "line": 81,
+      "anchor": "candidate.startsWith(prefix) &&",
+      "detector": "prefix-dispatch",
+      "shape": "prefix-dispatch",
+      "guess": "That a stored path is a direct child of the directory being listed, decided from the text it begins with.",
+      "disposition": "bound",
+      "rationale": "The prefix is built as the normalized directory plus a separator and the remainder is required to hold no further separator, so this is component containment rather than a textual guess: a sibling sharing a name prefix does not match. The containment rule belongs to POSIX pathname syntax, not to this module.",
+      "premise": "separatorTerminatedPrefixIsContainmentInSolidusSyntax"
+    },
+    {
+      "id": "HR-FS-MEMORY-MOVE-INTO-SELF",
+      "file": "packages/agent-core/src/facets/filesystem/memory.ts",
+      "line": 144,
+      "anchor": "normalizedDestination.startsWith(`${normalizedSource}/`)",
+      "detector": "prefix-dispatch",
+      "shape": "prefix-dispatch",
+      "guess": "That a move would place a directory inside itself, decided from the destination text beginning with the source.",
+      "disposition": "bound",
+      "rationale": "The comparison appends the separator to the source before testing, which is what makes it the containment question \u2014 moving `/a/b` to `/a/bc` is legal and must not be refused, while moving it to `/a/b/c` must be. The rule being applied is POSIX component containment.",
+      "premise": "separatorTerminatedPrefixIsContainmentInSolidusSyntax"
+    },
+    {
+      "id": "HR-FS-MEMORY-MOVE-SUBTREE",
+      "file": "packages/agent-core/src/facets/filesystem/memory.ts",
+      "line": 156,
+      "anchor": "([candidate]) => candidate === normalizedSource || candidate.startsWith(prefix)",
+      "detector": "prefix-dispatch",
+      "shape": "prefix-dispatch",
+      "guess": "That a stored path travels with the subtree being moved, decided from the text it begins with.",
+      "disposition": "bound",
+      "rationale": "The move collects exactly the source node and the paths under its separator-terminated prefix, so a rename relocates a subtree without dragging a same-prefixed sibling along. Same POSIX containment rule as the sibling sites in this file.",
+      "premise": "separatorTerminatedPrefixIsContainmentInSolidusSyntax"
+    },
+    {
+      "id": "HR-FS-MEMORY-SUBTREE-REMOVE",
+      "file": "packages/agent-core/src/facets/filesystem/memory.ts",
+      "line": 129,
+      "anchor": "if (candidate === normalized || candidate.startsWith(prefix))",
+      "detector": "prefix-dispatch",
+      "shape": "prefix-dispatch",
+      "guess": "That a stored path lies inside the subtree being removed, decided from the text it begins with.",
+      "disposition": "bound",
+      "rationale": "The prefix is the separator-terminated directory path and the equality case is tested separately, so removal takes exactly the node and its descendants and cannot take a sibling whose name merely starts the same way. Same POSIX containment rule.",
+      "premise": "separatorTerminatedPrefixIsContainmentInSolidusSyntax"
+    },
+    {
+      "id": "HR-FS-MOUNT-CONTAINMENT",
+      "file": "packages/agent-core/src/facets/filesystem/mount.ts",
+      "line": 119,
+      "anchor": "!normalized.startsWith(`${mount.path}/`)",
+      "detector": "prefix-dispatch",
+      "shape": "prefix-dispatch",
+      "guess": "That a resolved path stays inside the mount it was resolved against, decided from the text it begins with.",
+      "disposition": "bound",
+      "rationale": "This is the escape check on the already-resolved path, so it must be containment and not a prefix: the separator is appended and the mount root itself is admitted by the equality case beside it. Same external containment rule.",
+      "premise": "separatorTerminatedPrefixIsContainmentInSolidusSyntax"
+    },
+    {
+      "id": "HR-FS-MOUNT-RESOLVE",
+      "file": "packages/agent-core/src/facets/filesystem/mount.ts",
+      "line": 103,
+      "anchor": "normalized.startsWith(`${candidate.path}/`)",
+      "detector": "prefix-dispatch",
+      "shape": "prefix-dispatch",
+      "guess": "Which declared mount owns a path, decided from the mount path the text begins with.",
+      "disposition": "bound",
+      "rationale": "The candidate set is the declared mount table and the test appends the separator, so a path resolves to the mount that actually contains it and never to one whose path is a bare textual prefix. Which mounts exist is declared; the containment relation is POSIX's.",
+      "premise": "separatorTerminatedPrefixIsContainmentInSolidusSyntax"
+    },
+    {
+      "id": "HR-GLOB-LITERAL-HEAD",
+      "file": "packages/agent-core/src/facets/glob.ts",
+      "line": 18,
+      "anchor": "!value.startsWith(first) ||",
+      "detector": "prefix-dispatch",
+      "shape": "prefix-dispatch",
+      "guess": "That a value matches the literal text before a glob's wildcard, decided from the text it begins with.",
+      "disposition": "declared",
+      "rationale": "SPEC declares the glob language `policies.placement.trusted` patterns are written in, and matching the literal head and tail around a `*` is that language's semantics rather than a guess: the wildcard's position in the declared pattern is what selects the prefix test. The code-point boundary check beside it keeps the split off a surrogate pair.",
+      "evidence": {
+        "kind": "spec",
+        "clause": "\u00a79",
+        "quote": "`*` matches any sequence of characters, including none, everywhere it appears in the"
+      }
+    },
+    {
+      "id": "HR-GLOB-LITERAL-TAIL",
+      "file": "packages/agent-core/src/facets/glob.ts",
+      "line": 19,
+      "anchor": "!value.endsWith(last) ||",
+      "detector": "prefix-dispatch",
+      "shape": "prefix-dispatch",
+      "guess": "That a value matches the literal text after a glob's wildcard, decided from the text it ends with.",
+      "disposition": "declared",
+      "rationale": "The tail half of the same declared glob semantics: SPEC states `*` matches any sequence anywhere in the pattern, so a pattern's literal tail must match the value's tail exactly. Nothing here reads meaning out of the value's own shape.",
+      "evidence": {
+        "kind": "spec",
+        "clause": "\u00a79",
+        "quote": "`*` matches any sequence of characters, including none, everywhere it appears in the"
+      }
+    },
+    {
+      "id": "HR-INGRESS-CLOCK",
+      "file": "packages/agent-core/src/protocol/ingress.ts",
+      "line": 70,
+      "anchor": "this.#now = init.now ?? (() => new Date());",
+      "detector": "ambient-clock",
+      "shape": "silent-default",
+      "guess": "That a host which declares no clock means the wall clock, for the instant stamped on ingress evidence.",
+      "disposition": "bound",
+      "rationale": "Ingress records when a request arrived, which nothing in the request itself can establish. The same injection seam as the dispatcher, defaulting to the same host clock.",
+      "premise": "wallClockIsHostSupplied"
+    },
+    {
+      "id": "HR-INTERCEPTOR-PATTERN-MATCH",
+      "file": "packages/agent-core/src/operations/interception.ts",
+      "line": 393,
+      "anchor": "return pattern.endsWith(\"*\") ? value.startsWith(pattern.slice(0, -1)) : value === pattern;",
+      "detector": "prefix-dispatch",
+      "shape": "prefix-dispatch",
+      "guess": "Whether a declared Interceptor pattern selects a Facet id or an operation name, decided from a trailing `*`.",
+      "disposition": "declared",
+      "rationale": "The pattern language is declared, not inferred: `OperationPattern` refuses at construction any value whose `*` is not terminal, so by the time this runs a pattern is exactly a literal or a suffix wildcard and the trailing `*` is the declaration rather than a shape read out of the text. A pattern with an interior `*` never reaches here to be silently reinterpreted as a literal.",
+      "evidence": {
+        "kind": "spec",
+        "clause": "\u00a76.1",
+        "quote": "each a literal or a \"*\"-terminated"
+      }
+    },
+    {
+      "id": "HR-JSON-POINTER-SYNTAX",
+      "file": "packages/agent-core/src/facets/mapping.ts",
+      "line": 19,
+      "anchor": "if (value !== \"\" && (!value.startsWith(\"/\") || /~(?:[^01]|$)/.test(value))) {",
+      "detector": "prefix-dispatch",
+      "shape": "prefix-dispatch",
+      "guess": "That a string is a JSON Pointer, decided from a leading solidus and the escape shape.",
+      "disposition": "bound",
+      "rationale": "RFC 6901 defines a pointer as the empty string or a sequence of `/`-prefixed reference tokens with only `~0` and `~1` escapes, so both halves of this guard are the grammar rather than an inference, and a value failing either is refused at construction. The grammar is the RFC's.",
+      "premise": "separatorTerminatedPrefixIsContainmentInSolidusSyntax"
+    },
+    {
+      "id": "HR-LEASE-MEMORY-CLOCK",
+      "file": "packages/agent-core/src/agents/runs/lease-verifier.ts",
+      "line": 10,
+      "anchor": "private readonly now: () => Date = () => new Date()",
+      "detector": "ambient-clock",
+      "shape": "silent-default",
+      "guess": "That a caller who declares no clock means the host wall clock, and that lease expiry may be judged against it.",
+      "disposition": "bound",
+      "rationale": "Lease admission compares a token against the lease's own deadline, and the instant it compares to is read from the host. The default is the seam: every path whose verdict must be reproducible passes a clock, and the ambient fallback is the operational case SPEC names as an external assumption.",
+      "premise": "wallClockIsHostSupplied"
+    },
+    {
+      "id": "HR-LEASE-REPOSITORY-CLOCK",
+      "file": "packages/agent-core/src/agents/runs/lease-verifier.ts",
+      "line": 27,
+      "anchor": "private readonly now: () => Date = () => new Date()",
+      "detector": "ambient-clock",
+      "shape": "silent-default",
+      "guess": "That a caller who declares no clock means the host wall clock, for lease admission read through a repository.",
+      "disposition": "bound",
+      "rationale": "Same admission comparison as the memory verifier, against a Turn loaded inside a transaction; the instant still comes from the host and the deadline still comes from the record. Nothing about the stored lease makes the current time knowable, so the clock is a premise rather than a derivation.",
+      "premise": "wallClockIsHostSupplied"
+    },
+    {
+      "id": "HR-RUN-STORE-CLOCK",
+      "file": "packages/agent-core/src/agents/runs/store.ts",
+      "line": 159,
+      "anchor": "clock: () => Date = () => new Date()",
+      "detector": "ambient-clock",
+      "shape": "silent-default",
+      "guess": "That a caller who declares no clock means the host wall clock, for the instants a Run store stamps.",
+      "disposition": "bound",
+      "rationale": "Run records carry the instant they were written, and that instant is read rather than derived. Callers that need a fixed history inject a clock; the fallback is the operational host clock SPEC names as trusted monotonic time.",
+      "premise": "wallClockIsHostSupplied"
+    },
+    {
+      "id": "HR-SCHEMA-DYNAMIC-REF",
+      "file": "packages/agent-core/src/core/schema.ts",
+      "line": 244,
+      "anchor": "if (isJsonString(value) && !value.startsWith(\"#\")) {",
+      "detector": "prefix-dispatch",
+      "shape": "prefix-dispatch",
+      "guess": "That a `$dynamicRef` addresses the current document rather than a remote one, decided from a leading `#`.",
+      "disposition": "bound",
+      "rationale": "`$dynamicRef` carries the same fragment-only form as `$ref`, and this site refuses every other shape outright rather than attempting resolution, so the syntax decides and no remote document is ever reached. Same external declaration as the `$ref` site.",
+      "premise": "jsonSchemaLocalReferenceIsFragmentOnly"
+    },
+    {
+      "id": "HR-SCHEMA-LOCAL-REF",
+      "file": "packages/agent-core/src/core/schema.ts",
+      "line": 236,
+      "anchor": "if (!isJsonString(value) || value.startsWith(\"#\")) return;",
+      "detector": "prefix-dispatch",
+      "shape": "prefix-dispatch",
+      "guess": "That a `$ref` addresses the current document rather than a remote one, decided from a leading `#`.",
+      "disposition": "bound",
+      "rationale": "The leading `#` is JSON Schema's declared form for a fragment-only reference, so the test reads the reference's syntax rather than guessing at its intent, and anything else is refused rather than fetched. The declaration is the schema vocabulary's, which is outside this repository.",
+      "premise": "jsonSchemaLocalReferenceIsFragmentOnly"
+    },
+    {
+      "id": "HR-SHELL-WAIT-TIMER",
+      "file": "packages/agent-core/src/facets/shell/facet.ts",
+      "line": 51,
+      "anchor": "await new Promise((resolve) => setTimeout(resolve, milliseconds));",
+      "detector": "ambient-clock",
+      "shape": "timing",
+      "guess": "That sleeping on a host timer waits at least the requested number of milliseconds.",
+      "disposition": "bound",
+      "rationale": "This is the shell profile's `wait` operation, whose whole declared effect is elapsed time, so the timer is the operation rather than an implementation detail of one. The premise is the direction that matters: the host may wake it late but not early.",
+      "premise": "timerFiresNoEarlierThanItsDelay"
+    },
+    {
+      "id": "HR-SQLITE-LEGACY-TABLE",
+      "file": "packages/agent-core/src/substrates/sqlite/materialization.ts",
+      "line": 1651,
+      "anchor": "table.startsWith(LEGACY_COMPOSITION_TABLE_PREFIX)",
+      "detector": "prefix-dispatch",
+      "shape": "prefix-dispatch",
+      "guess": "That an existing database was written by the retired composition schema, decided from a table-name prefix.",
+      "disposition": "bound",
+      "rationale": "The prefix is a named constant and the store also refuses an unmarked database through its schema-version marker, but a database written before the marker existed carries no declaration at all \u2014 the table names the retired code created are the only surviving evidence of its provenance. The fact is external because it is about bytes written by code that no longer exists.",
+      "premise": "retiredSchemaIsIdentifiedByItsOwnTableNames"
+    },
+    {
+      "id": "HR-SQLITE-RETENTION-CLOCK",
+      "file": "packages/agent-core/src/substrates/sqlite/content-retention.ts",
+      "line": 237,
+      "anchor": "private readonly now: () => Date = () => new Date()",
+      "detector": "ambient-clock",
+      "shape": "silent-default",
+      "guess": "That a caller who declares no clock means the host wall clock, for retention sweeps against SQLite.",
+      "disposition": "bound",
+      "rationale": "The SQLite adapter runs the same retention comparison as the memory store against rows in a transaction, and reads the present the same way. Keeping the fallback identical across both implementations is what lets the shared seam contract run against either.",
+      "premise": "wallClockIsHostSupplied"
+    },
+    {
+      "id": "HR-WORKSPACE-RETENTION-CLOCK",
+      "file": "packages/agent-core/src/workspaces/retention.ts",
+      "line": 223,
+      "anchor": "private readonly now: () => Date = () => new Date()",
+      "detector": "ambient-clock",
+      "shape": "silent-default",
+      "guess": "That a caller who declares no clock means the host wall clock, for workspace retention.",
+      "disposition": "bound",
+      "rationale": "Workspace retention releases Event payload custody once its window has passed, which again needs the current instant against a recorded one. Everything else in the decision \u2014 which edges exist, which policy applies \u2014 is read from records.",
+      "premise": "wallClockIsHostSupplied"
+    }
+  ]
+}

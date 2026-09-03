@@ -223,6 +223,13 @@ interface MemoryAuthorityPermitScope {
     readonly consumed: Map<string, Uint8Array>;
 }
 
+/**
+ * The shape version the in-memory permit snapshot round-trips. A snapshot is exported and
+ * restored by the same class, so the number is the store's own contract with itself; named
+ * so that a restore refusing an older export names the version it wanted.
+ */
+const MEMORY_PERMIT_SNAPSHOT_VERSION = 4;
+
 export class MemoryAuthorityPermitStore
     implements
         AuthorityPermitTargetStore<MemoryAuthorityPermitTransaction>,
@@ -473,7 +480,7 @@ export class MemoryAuthorityPermitStore
 
     private restore(snapshot: MemoryAuthorityPermitSnapshot): void {
         if (
-            snapshot.version !== 4 ||
+            snapshot.version !== MEMORY_PERMIT_SNAPSHOT_VERSION ||
             !Array.isArray(snapshot.projectedEvidence) ||
             !Array.isArray(snapshot.requested) ||
             !Array.isArray(snapshot.issued) ||

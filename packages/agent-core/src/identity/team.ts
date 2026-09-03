@@ -49,6 +49,9 @@ class TeamRecordCodec extends RecordCodec<Team> {
     }
 }
 
+/** The longest a Team name may be; see `MAX_TEXT_VALUE_LENGTH` in core. */
+const MAX_TEAM_NAME_LENGTH = 256;
+
 export class Team {
     public static get codec(): RecordCodec<Team> {
         return teamCodecInstance;
@@ -90,7 +93,7 @@ export class Team {
         if (
             name.trim() !== name ||
             name.length === 0 ||
-            name.length > 256 ||
+            name.length > MAX_TEAM_NAME_LENGTH ||
             new Set(principals.map((principal) => principal.value)).size !== principals.length
         ) {
             throw new AgentCoreError("protocol.invalid-state", "Team revision is invalid");
@@ -105,8 +108,10 @@ export class Team {
 const teamCodecInstance = new TeamRecordCodec();
 
 function requireName(value: string, subject: string): string {
-    if (value.trim() !== value || value.length === 0 || value.length > 256) {
-        throw new TypeError(`${subject} must contain between 1 and 256 canonical characters`);
+    if (value.trim() !== value || value.length === 0 || value.length > MAX_TEAM_NAME_LENGTH) {
+        throw new TypeError(
+            `${subject} must contain between 1 and ${MAX_TEAM_NAME_LENGTH} canonical characters`
+        );
     }
     return value;
 }

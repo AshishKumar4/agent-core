@@ -24,10 +24,15 @@ function validateRoleRuleOrdinal(ruleOrdinal: number): void {
     }
 }
 
+/** The longest an identity identifier may be; see `MAX_TEXT_VALUE_LENGTH` in core. */
+const MAX_IDENTITY_ID_LENGTH = 256;
+
 function validateIdentityIdValue(value: IdentityIdInput, name: string): string {
     const result = isIdentityIdText(value) ? value : value.value;
-    if (result.length === 0 || result.length > 256) {
-        throw new TypeError(`${name} must contain between 1 and 256 characters`);
+    if (result.length === 0 || result.length > MAX_IDENTITY_ID_LENGTH) {
+        throw new TypeError(
+            `${name} must contain between 1 and ${MAX_IDENTITY_ID_LENGTH} characters`
+        );
     }
     return result;
 }

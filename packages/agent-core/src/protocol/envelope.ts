@@ -119,6 +119,14 @@ class CommandEnvelopeCodecV1 extends RecordCodec<CommandEnvelope> {
     }
 }
 
+/** The longest a command name may be; see `MAX_TEXT_VALUE_LENGTH` in core. */
+const MAX_COMMAND_NAME_LENGTH = 256;
+/**
+ * The longest an idempotency key may be. Twice the identifier bound, because a key is
+ * composed from a caller's own identifiers rather than being one.
+ */
+const MAX_IDEMPOTENCY_KEY_LENGTH = 512;
+
 export class CommandEnvelope {
     public static get codec(): RecordCodec<CommandEnvelope> {
         return commandEnvelopeCodecInstance;
@@ -133,16 +141,22 @@ export class CommandEnvelope {
     public readonly payloadDigest: Digest;
 
     public constructor(init: CommandEnvelopeInit) {
-        if (!isString(init.command) || init.command.length === 0 || init.command.length > 256) {
-            throw new TypeError("Command name must contain between 1 and 256 characters");
+        if (
+            !isString(init.command) ||
+            init.command.length === 0 ||
+            init.command.length > MAX_COMMAND_NAME_LENGTH
+        ) {
+            throw new TypeError(
+                `Command name must contain between 1 and ${MAX_COMMAND_NAME_LENGTH} characters`
+            );
         }
         if (
             !isString(init.idempotencyKey) ||
             init.idempotencyKey.length === 0 ||
-            init.idempotencyKey.length > 512
+            init.idempotencyKey.length > MAX_IDEMPOTENCY_KEY_LENGTH
         ) {
             throw new TypeError(
-                "Command idempotency key must contain between 1 and 512 characters"
+                `Command idempotency key must contain between 1 and ${MAX_IDEMPOTENCY_KEY_LENGTH} characters`
             );
         }
         this.command = init.command;

@@ -167,6 +167,69 @@
       ]
     },
     {
+      "rule": "ACQ-HEURISTIC",
+      "node": "heuristics",
+      "input": "artifacts/quality/heuristic-register.json",
+      "mutations": [
+        {
+          "id": "ACQ-HEURISTIC/a-registered-site-moves-off-the-guess-it-answers",
+          "find": "\"id\": \"HR-CODEC-CLASS-SOURCE-TEXT\",\n      \"file\": \"packages/agent-core/src/core/codec.ts\",\n      \"line\": 464,",
+          "replace": "\"id\": \"HR-CODEC-CLASS-SOURCE-TEXT\",\n      \"file\": \"packages/agent-core/src/core/codec.ts\",\n      \"line\": 504,",
+          "expects": "unregistered semantic heuristic at packages/agent-core/src/core/codec.ts:464 (prefix-dispatch)",
+          "diagnostic": "unregistered semantic heuristic at ",
+          "defect": "A row was pointed at a line its guess does not live on, so the heuristic it was written for went unanswered while the register still carried a row that looked like an answer."
+        },
+        {
+          "id": "ACQ-HEURISTIC/an-answered-site-keeps-a-stale-anchor",
+          "find": "\"id\": \"HR-FS-ABSOLUTE-PATH\",\n      \"file\": \"packages/agent-core/src/facets/filesystem/path.ts\",\n      \"line\": 6,\n      \"anchor\": \"!value.startsWith(\\\"/\\\") ||\",",
+          "replace": "\"id\": \"HR-FS-ABSOLUTE-PATH\",\n      \"file\": \"packages/agent-core/src/facets/filesystem/path.ts\",\n      \"line\": 6,\n      \"anchor\": \"!value.startsWith(SEPARATOR) ||\",",
+          "expects": "heuristic site HR-FS-ABSOLUTE-PATH anchor does not match packages/agent-core/src/facets/filesystem/path.ts:6",
+          "diagnostic": " anchor does not match ",
+          "defect": "A row's anchor stopped describing the code at its own line, which is how a register goes stale in silence: the citation still reads as an answer while the source it cites has moved or changed."
+        },
+        {
+          "id": "ACQ-HEURISTIC/a-bound-site-names-a-premise-the-register-does-not-state",
+          "find": "\"premise\": \"wallClockIsHostSupplied\",\n      \"statement\"",
+          "replace": "\"premise\": \"wallClockIsHostSuppliedSomewhere\",\n      \"statement\"",
+          "expects": "names premise wallClockIsHostSupplied, which this register does not state",
+          "diagnostic": ", which this register does not state",
+          "defect": "A site was left bound to a premise name nothing declares, so eleven clock readings cited a premise with no statement and no evidence behind it."
+        },
+        {
+          "id": "ACQ-HEURISTIC/a-premise-quotes-prose-the-spec-does-not-state",
+          "find": "\"quote\": \"Telemetry never substitutes for a Receipt, RouteReservation, WriteRecord, or AuditRecord.\"",
+          "replace": "\"quote\": \"Telemetry is advisory and may be dropped without recording anything.\"",
+          "expects": "quotes prose SPEC.md does not state",
+          "diagnostic": "quotes prose ",
+          "defect": "A premise's SPEC citation was reworded into prose the SPEC does not contain, which turns a quotation into a paraphrase nobody can check and lets a premise claim the SPEC says something it does not."
+        },
+        {
+          "id": "ACQ-HEURISTIC/the-audited-source-universe-is-narrowed",
+          "find": "\"roots\": [\n      \"packages/agent-core/src\",\n      \"packages/agent-core-cloudflare/src\"\n    ]",
+          "replace": "\"roots\": [\n      \"packages/agent-core/src\"\n    ]",
+          "expects": "Heuristic register scope is not the audited source universe: expected=packages/agent-core/src,packages/agent-core-cloudflare/src",
+          "diagnostic": "scope is not the audited source universe",
+          "defect": "The register's declared scope was narrowed below the sources it must answer, which is how an audit passes by looking at less: every heuristic in the dropped package stops being detected while the artifact still reads as complete."
+        },
+        {
+          "id": "ACQ-HEURISTIC/a-withheld-elimination-hides-behind-an-unfrozen-file",
+          "find": "\"frozenBy\": \"packages/agent-core-cloudflare/src/environment-provider.ts\"",
+          "replace": "\"frozenBy\": \"packages/agent-core-cloudflare/src/provider-capability.ts\"",
+          "expects": "withholds against packages/agent-core-cloudflare/src/provider-capability.ts, not its own file",
+          "diagnostic": ", not its own file",
+          "defect": "A withheld elimination was pointed at a freeze belonging to some other file, which is how a finding gets parked indefinitely: the row names a real frozen path while the code it withholds is free to be fixed today."
+        },
+        {
+          "id": "ACQ-HEURISTIC/a-withheld-elimination-stops-saying-what-it-owes",
+          "find": "\"owedEdit\": \"In packages/agent-core-cloudflare/src/environment-provider.ts, declare `const MAX_TCP_PORT = 65_535;` with a comment citing RFC 9293 \\u00a73.1 for the sixteen-bit port field, replace `request.port > 65_535` with `request.port > MAX_TCP_PORT`, and interpolate the constant into the refusal message so the bound and the message cannot drift \\u2014 exactly the edit already made in packages/agent-core/src/environments/runtime.ts.\"",
+          "replace": "\"owedEdit\": \"\"",
+          "expects": "withholds an unstated edit",
+          "diagnostic": "withholds an unstated edit",
+          "defect": "A withholding lost the edit it owes, which turns a first-class owed finding into an exemption: the site stays counted but nobody can tell what would close it."
+        }
+      ]
+    },
+    {
       "rule": "ACQ-ID",
       "node": "architecture",
       "input": "src/facets/slot-entry.ts",
@@ -235,23 +298,23 @@
           "id": "ACQ-NORM/fenced-code-block-hides-an-anchor",
           "find": "The command protocol MUST contain no Turn-retry command family. This maps to\n**C13-TURN-NO-RETRY-PROTOCOL**.",
           "replace": "```md\nThe command protocol MUST contain no Turn-retry command family. This maps to\n**C13-TURN-NO-RETRY-PROTOCOL**.\n```",
-          "expects": "Authoritative normative atom C13-TURN-NO-RETRY-PROTOCOL must appear exactly once outside §13",
-          "diagnostic": "must appear exactly once outside §13",
+          "expects": "Authoritative normative atom C13-TURN-NO-RETRY-PROTOCOL must appear exactly once outside \u00a713",
+          "diagnostic": "must appear exactly once outside \u00a713",
           "defect": "A fenced example counted as normative prose, so moving a rule into one hid it from the census while its atom still looked anchored."
         },
         {
           "id": "ACQ-NORM/html-comment-hides-an-anchor",
           "find": "The command protocol MUST contain no Turn-retry command family. This maps to\n**C13-TURN-NO-RETRY-PROTOCOL**.",
           "replace": "<!--\nThe command protocol MUST contain no Turn-retry command family. This maps to\n**C13-TURN-NO-RETRY-PROTOCOL**.\n-->",
-          "expects": "Authoritative normative atom C13-TURN-NO-RETRY-PROTOCOL must appear exactly once outside §13",
-          "diagnostic": "must appear exactly once outside §13",
+          "expects": "Authoritative normative atom C13-TURN-NO-RETRY-PROTOCOL must appear exactly once outside \u00a713",
+          "diagnostic": "must appear exactly once outside \u00a713",
           "defect": "An HTML comment counted as normative prose, so commenting a rule out left its atom anchored by text the document never shows."
         },
         {
           "id": "ACQ-NORM/nested-blockquote-heading-impersonates-a-section",
           "find": "### 1.5 Protection domains",
           "replace": "> ### 1.99 Nested\n\nEvery fixture obligation MUST hold.\n\n### 1.5 Protection domains",
-          "expects": "Normative §1.4 rule is bound by no atom and no disposition judges it",
+          "expects": "Normative \u00a71.4 rule is bound by no atom and no disposition judges it",
           "diagnostic": "rule is bound by no atom and no disposition judges it",
           "defect": "A heading nested inside a blockquote or list item took ownership of the rules after it, so unanchored prose was attributed to a section that does not exist."
         },
@@ -261,22 +324,22 @@
           "replace": "## 10..1 The Cloudflare profile (normative)",
           "expects": "SPEC heading is malformed: 10..1 The Cloudflare profile (normative)",
           "diagnostic": "SPEC heading is malformed: ",
-          "defect": "A malformed heading number was matched by prefix, so 10..1 was silently read as §10 and its rules were attributed to the wrong section."
+          "defect": "A malformed heading number was matched by prefix, so 10..1 was silently read as \u00a710 and its rules were attributed to the wrong section."
         },
         {
           "id": "ACQ-NORM/malformed-cross-reference-keeps-its-valid-prefix",
-          "find": "`ContentRef` — resolvable through a ContentStore (§8.2)",
-          "replace": "`ContentRef` — resolvable through a ContentStore (§8..99)",
-          "expects": "Malformed cross-reference §8..99",
+          "find": "`ContentRef` \u2014 resolvable through a ContentStore (\u00a78.2)",
+          "replace": "`ContentRef` \u2014 resolvable through a ContentStore (\u00a78..99)",
+          "expects": "Malformed cross-reference \u00a78..99",
           "diagnostic": "Malformed cross-reference ",
-          "defect": "A malformed cross-reference was matched by prefix, so §8..99 resolved to §8 and pointed at a section it never named."
+          "defect": "A malformed cross-reference was matched by prefix, so \u00a78..99 resolved to \u00a78 and pointed at a section it never named."
         },
         {
           "id": "ACQ-NORM/informative-heading-relocates-atom-prose",
           "find": "Identifiers ending in `Id` or `Name`",
           "replace": "### 1.99 Informative fixture\n\nIdentifiers ending in `Id` or `Name`",
-          "expects": "Authoritative normative atom C13-AUTH-PRINCIPAL-REF is anchored in non-normative §1.99",
-          "diagnostic": "is anchored in non-normative §",
+          "expects": "Authoritative normative atom C13-AUTH-PRINCIPAL-REF is anchored in non-normative \u00a71.99",
+          "diagnostic": "is anchored in non-normative \u00a7",
           "defect": "Inserting an informative heading moved an authoritative atom's prose out of the declared normative sections while the atom still counted as covered."
         },
         {
@@ -335,6 +398,37 @@
       ]
     },
     {
+      "rule": "ACQ-REPAIR",
+      "node": "proof-repair-ledger",
+      "input": "artifacts/quality/proof-repair.json",
+      "mutations": [
+        {
+          "id": "ACQ-REPAIR/ledger-blesses-text-the-reviewed-tree-does-not-carry",
+          "find": "      \"digest\": \"987323073d1397e0bbb7042c8eb49cae5a92f5ca86c7eed4bda20465a96b0be0\",\n      \"path\": \"SpecCnl/Proofs.lean\",\n      \"text\": \"theorem gate_drift_probe : True := trivial\\n\"",
+          "replace": "      \"digest\": \"b5bb745938ab35379541d3f2456691e16030b02dca197de11acc68033a4848c4\",\n      \"path\": \"SpecCnl/Proofs.lean\",\n      \"text\": \"theorem gate_drift_probe : True := trivial -- doctored\\n\"",
+          "expects": "accepted artifact SpecCnl/Proofs.lean is not byte-identical to the reviewed formal tree",
+          "diagnostic": "is not byte-identical to the reviewed ",
+          "defect": "A ledger recorded accepted proof text the reviewed formal tree never carried, so the next candidate would bind its baseline to bytes nobody reviewed and a repair could be credited for a proof the tree does not hold."
+        },
+        {
+          "id": "ACQ-REPAIR/ledger-declares-a-record-version-the-codec-never-produced",
+          "find": "  \"version\": \"1.0\"\n}",
+          "replace": "  \"version\": \"2.0\"\n}",
+          "expects": "declares unknown major 2",
+          "diagnostic": "declares unknown major",
+          "defect": "A committed ledger claimed a record version this codec never produced, so a reader would either refuse every later acceptance or accept a record shape nothing in this tree can write."
+        },
+        {
+          "id": "ACQ-REPAIR/ledger-backdates-a-supersession-to-a-version-that-never-wrote-one",
+          "find": "      \"artifacts\": [\"SpecCnl/Proofs.lean\"],\n      \"candidate\": \"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\n      \"obligation\": {",
+          "replace": "      \"artifacts\": [\"SpecCnl/Proofs.lean\"],\n      \"candidate\": \"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\n      \"superseded\": { \"anchor\": \"SPEC.md:1602\", \"atoms\": [\"C13-RUN-ANCESTRY\"], \"unit\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\" },\n      \"obligation\": {",
+          "expects": "superseded is not a field any writer of this record version produced",
+          "diagnostic": "is not a field any writer of this record version produced",
+          "defect": "A closure carried supersession provenance while its record declared a version written before that field existed, so a doctored ledger could smuggle a superseding form past a reader that tolerates the older minor and claim a closure whose stated form nothing proved."
+        }
+      ]
+    },
+    {
       "rule": "ACQ-SCOPE",
       "node": "scope",
       "input": "artifacts/quality/ownership.json",
@@ -380,6 +474,37 @@
       ]
     },
     {
+      "rule": "ACQ-SUBSTRATE",
+      "node": "substrate-contracts",
+      "input": "artifacts/substrate-contracts.json",
+      "mutations": [
+        {
+          "id": "ACQ-SUBSTRATE/a-premise-cites-an-atom-no-fragment-carries",
+          "find": "\"premise\": \"contentBucketIsTenantOwned\",\n      \"kind\": \"safety\",\n      \"channel\": \"conformanceAtom\",\n      \"atom\": \"C13-CONTENT-RESOLUTION\",",
+          "replace": "\"premise\": \"contentBucketIsTenantOwned\",\n      \"kind\": \"safety\",\n      \"channel\": \"conformanceAtom\",\n      \"atom\": \"C13-CONTENT-RESOLUTION-RETIRED\",",
+          "expects": "premise contentBucketIsTenantOwned cites C13-CONTENT-RESOLUTION-RETIRED, which no indexed fragment carries",
+          "diagnostic": ", which no indexed fragment carries",
+          "defect": "A premise's discharge citation stopped resolving to any indexed conformance row, so a Lean law rested on evidence that no longer exists anywhere in the ledger while the discharge map still read as satisfied."
+        },
+        {
+          "id": "ACQ-SUBSTRATE/a-premise-records-a-status-the-ledger-contradicts",
+          "find": "\"premise\": \"storeCommitAtomic\",\n      \"kind\": \"safety\",\n      \"channel\": \"conformanceAtom\",\n      \"atom\": \"C13-PROTOCOL-ATOMIC-EVIDENCE\",\n      \"atomStatus\": \"verified\",",
+          "replace": "\"premise\": \"storeCommitAtomic\",\n      \"kind\": \"safety\",\n      \"channel\": \"conformanceAtom\",\n      \"atom\": \"C13-PROTOCOL-ATOMIC-EVIDENCE\",\n      \"atomStatus\": \"implemented\",",
+          "expects": "premise storeCommitAtomic records C13-PROTOCOL-ATOMIC-EVIDENCE as implemented; the ledger says verified",
+          "diagnostic": "; the ledger says ",
+          "defect": "A premise recorded a weaker status than the atom it cites actually carries, so the discharge map and the conformance ledger disagreed about what has been verified and neither one reported it."
+        },
+        {
+          "id": "ACQ-SUBSTRATE/a-seam-drops-its-witness-debt-for-a-theorem-that-does-not-exist",
+          "find": "\"witness\": \"owed\",\n      \"owed\": \"list_sorted and list_complete together need a strict total order on ByteArray keys",
+          "replace": "\"witness\": \"AgentCore.Substrate.Witness.store_laws\",\n      \"owed\": \"list_sorted and list_complete together need a strict total order on ByteArray keys",
+          "expects": "seam store claims witness AgentCore.Substrate.Witness.store_laws, absent from Witness.lean",
+          "diagnostic": ", absent from Witness.lean",
+          "defect": "A seam's owed satisfiability witness was replaced with a theorem name Witness.lean does not declare, which is the one status that must not be improvable by editing prose: an unwitnessed law set may be contradictory and every theorem resting on it vacuous."
+        }
+      ]
+    },
+    {
       "rule": "ACQ-TEST",
       "node": "architecture",
       "input": "test/quality/dag.test.ts",
@@ -421,37 +546,6 @@
           "expects": "ACQ-VOCAB:packages/agent-core/src/facets/slot-entry.ts:SlotEntryProbeDisposition:2808b2f8832d Closed string vocabulary is duplicated",
           "diagnostic": "Closed string vocabulary is duplicated",
           "defect": "One closed vocabulary was declared twice, so neither declaration owned it and a value added to one of them left the other silently accepting a narrower set."
-        }
-      ]
-    },
-    {
-      "rule": "ACQ-REPAIR",
-      "node": "proof-repair-ledger",
-      "input": "artifacts/quality/proof-repair.json",
-      "mutations": [
-        {
-          "id": "ACQ-REPAIR/ledger-blesses-text-the-reviewed-tree-does-not-carry",
-          "find": "      \"digest\": \"987323073d1397e0bbb7042c8eb49cae5a92f5ca86c7eed4bda20465a96b0be0\",\n      \"path\": \"SpecCnl/Proofs.lean\",\n      \"text\": \"theorem gate_drift_probe : True := trivial\\n\"",
-          "replace": "      \"digest\": \"b5bb745938ab35379541d3f2456691e16030b02dca197de11acc68033a4848c4\",\n      \"path\": \"SpecCnl/Proofs.lean\",\n      \"text\": \"theorem gate_drift_probe : True := trivial -- doctored\\n\"",
-          "expects": "accepted artifact SpecCnl/Proofs.lean is not byte-identical to the reviewed formal tree",
-          "diagnostic": "is not byte-identical to the reviewed ",
-          "defect": "A ledger recorded accepted proof text the reviewed formal tree never carried, so the next candidate would bind its baseline to bytes nobody reviewed and a repair could be credited for a proof the tree does not hold."
-        },
-        {
-          "id": "ACQ-REPAIR/ledger-declares-a-record-version-the-codec-never-produced",
-          "find": "  \"version\": \"1.0\"\n}",
-          "replace": "  \"version\": \"2.0\"\n}",
-          "expects": "declares unknown major 2",
-          "diagnostic": "declares unknown major",
-          "defect": "A committed ledger claimed a record version this codec never produced, so a reader would either refuse every later acceptance or accept a record shape nothing in this tree can write."
-        },
-        {
-          "id": "ACQ-REPAIR/ledger-backdates-a-supersession-to-a-version-that-never-wrote-one",
-          "find": "      \"artifacts\": [\"SpecCnl/Proofs.lean\"],\n      \"candidate\": \"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\n      \"obligation\": {",
-          "replace": "      \"artifacts\": [\"SpecCnl/Proofs.lean\"],\n      \"candidate\": \"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\n      \"superseded\": { \"anchor\": \"SPEC.md:1602\", \"atoms\": [\"C13-RUN-ANCESTRY\"], \"unit\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\" },\n      \"obligation\": {",
-          "expects": "superseded is not a field any writer of this record version produced",
-          "diagnostic": "is not a field any writer of this record version produced",
-          "defect": "A closure carried supersession provenance while its record declared a version written before that field existed, so a doctored ledger could smuggle a superseding form past a reader that tolerates the older minor and claim a closure whose stated form nothing proved."
         }
       ]
     }

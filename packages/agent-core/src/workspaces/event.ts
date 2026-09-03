@@ -139,6 +139,9 @@ class EventCodecV1 extends RecordCodec<Event> {
     }
 }
 
+/** The longest an Event idempotency key may be; the command envelope's bound. */
+const MAX_IDEMPOTENCY_KEY_LENGTH = 512;
+
 export class Event {
     public static get codec(): RecordCodec<Event> {
         return eventCodecInstance;
@@ -172,11 +175,11 @@ export class Event {
         }
         if (
             init.idempotencyKey.length === 0 ||
-            init.idempotencyKey.length > 512 ||
+            init.idempotencyKey.length > MAX_IDEMPOTENCY_KEY_LENGTH ||
             init.idempotencyKey.trim() !== init.idempotencyKey
         ) {
             throw new TypeError(
-                "Event idempotency key must be a canonical string of at most 512 characters"
+                `Event idempotency key must be a canonical string of at most ${MAX_IDEMPOTENCY_KEY_LENGTH} characters`
             );
         }
         if (init.trust === "self" && init.provenance.verification.kind !== "host") {

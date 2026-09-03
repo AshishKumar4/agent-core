@@ -225,6 +225,14 @@ const harnesses = {
         scaffold: substitute,
         argv: (root) => [script(root, "quality/doctrine.mjs")]
     },
+    heuristics: {
+        sources: ["scripts/quality/heuristics.mjs"],
+        scaffold: substitute,
+        // The building stage is the whole check: this gate carries no stage-dependent
+        // leniency, because a heuristic the register does not answer is a defect at every
+        // stage rather than debt the building stage tolerates.
+        argv: (root) => [script(root, "quality/heuristics.mjs"), "--stage", "building"]
+    },
     imports: {
         sources: ["scripts/check-import-boundaries.mjs"],
         scaffold: substitute,
@@ -269,6 +277,11 @@ const harnesses = {
         `import { validateCompleteOwnership } from ${specifier(script(root, "quality/ownership.mjs"))};`,
         "console.log(`exclusive ownership: ${await validateCompleteOwnership()} path(s)`);"
     ]),
+    "substrate-contracts": {
+        sources: ["scripts/check-substrate-contracts.mjs"],
+        scaffold: substitute,
+        argv: (root) => [script(root, "check-substrate-contracts.mjs")]
+    },
     seams: {
         sources: [
             "scripts/quality/seams.mjs",
@@ -812,9 +825,20 @@ function validateCorpus(value, ruleRegistry, dag, sources) {
     if (value.edition !== "1.0.0") throw new TypeError("Gate corpus edition is unsupported");
     assertArray(value.gates, "quality/gate-corpus.json gates");
     assertUniqueStrings(value.unregistered, "quality/gate-corpus.json unregistered");
-    assertUniqueIds(value.gates, (gate) => gate.rule, "quality/gate-corpus.json gates");
+    // A rule may guard more than one input — ACQ-GENERATED holds four generated packages,
+    // one per catalog entry — so a gate is identified by the pair, not by the rule alone.
+    // Keying by rule alone did not merely collide: it made the whole corpus unvalidatable,
+    // and a control keyed by rule would have proven one input and left the rest unguarded.
+    // Every input still gets its own control and its own mutation below, and a genuine
+    // duplicate — the same rule against the same input twice — is still refused here.
+    assertUniqueIds(
+        value.gates,
+        (gate) => `${gate.rule}\u0000${gate.input}`,
+        "quality/gate-corpus.json gates"
+    );
     const nodes = new Map(ruleRegistry.rules.map((rule) => [rule.id, rule.node]));
     const seen = new Set();
+    const mutationIds = new Set();
     for (const gate of value.gates) {
         assertExactKeys(gate, gateFields, "quality/gate-corpus.json gate");
         assertString(gate.rule, "quality/gate-corpus.json gate rule");
@@ -835,13 +859,8 @@ function validateCorpus(value, ruleRegistry, dag, sources) {
         if (gate.mutations.length === 0) {
             throw new TypeError(`Gate ${gate.rule} registers no mutation of its own input`);
         }
-        assertUniqueIds(
-            gate.mutations,
-            (mutation) => mutation.id,
-            `quality/gate-corpus.json ${gate.rule} mutations`
-        );
         for (const mutation of gate.mutations) {
-            validateMutation(mutation, gate, sources.get(gate.node), seen);
+            validateMutation(mutation, gate, sources.get(gate.node), seen, mutationIds);
         }
     }
     // A harness for a node no rule is bound to can never be exercised by any corpus, so it
@@ -855,7 +874,7 @@ function validateCorpus(value, ruleRegistry, dag, sources) {
     }
 }
 
-function validateMutation(mutation, gate, sources, seen) {
+function validateMutation(mutation, gate, sources, seen, mutationIds) {
     assertExactKeys(mutation, mutationFields, `quality/gate-corpus.json ${gate.rule} mutation`);
     for (const field of mutationFields) {
         assertString(mutation[field], `quality/gate-corpus.json mutation ${field}`);
@@ -863,6 +882,10 @@ function validateMutation(mutation, gate, sources, seen) {
     if (!mutation.id.startsWith(`${gate.rule}/`)) {
         throw new TypeError(`Gate mutation ${mutation.id} is not named for rule ${gate.rule}`);
     }
+    if (mutationIds.has(mutation.id)) {
+        throw new TypeError(`Gate mutation ${mutation.id} is named twice`);
+    }
+    mutationIds.add(mutation.id);
     if (mutation.find === mutation.replace) {
         throw new TypeError(`Gate mutation ${mutation.id} leaves its input unchanged`);
     }

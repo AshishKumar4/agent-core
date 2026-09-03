@@ -57,6 +57,9 @@ const progressKind = Object.freeze(new ProgressPremiseKind());
  * substitutes for durable domain evidence" is enforced by the compiler rather than reviewed at
  * each call site.
  */
+/** The longest a domain evidence record name may be; see `MAX_TEXT_VALUE_LENGTH` in core. */
+const MAX_RECORD_NAME_LENGTH = 256;
+
 export class DomainEvidenceRef {
     public constructor(
         public readonly recordKind: string,
@@ -65,8 +68,14 @@ export class DomainEvidenceRef {
         if (!isJsonString(recordKind) || !/^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/.test(recordKind)) {
             throw new TypeError("Domain evidence record kind must be a dotted lowercase kind");
         }
-        if (!isJsonString(recordName) || recordName.length === 0 || recordName.length > 256) {
-            throw new TypeError("Domain evidence record name must contain 1 to 256 characters");
+        if (
+            !isJsonString(recordName) ||
+            recordName.length === 0 ||
+            recordName.length > MAX_RECORD_NAME_LENGTH
+        ) {
+            throw new TypeError(
+                `Domain evidence record name must contain 1 to ${MAX_RECORD_NAME_LENGTH} characters`
+            );
         }
         Object.freeze(this);
     }

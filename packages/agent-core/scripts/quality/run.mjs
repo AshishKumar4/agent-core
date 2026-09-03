@@ -275,6 +275,11 @@ async function execute(node, context) {
         migrations: () => runNode("migrations", context),
         architecture: () => runNode("architecture", context),
         coherence: () => runNode("coherence", context),
+        heuristics: () => runNode("heuristics", context),
+        "substrate-contracts": () =>
+            run(process.execPath, [resolve(packageRoot, "scripts/check-substrate-contracts.mjs")], {
+                cwd: packageRoot
+            }),
         "tslean-consumer": () => runNode("tslean-consumer", context),
         "proof-repair-ledger": () => runNode("proof-repair-ledger", context),
         "gate-integrity": () => runNode("gate-integrity", context),

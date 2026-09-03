@@ -35,7 +35,14 @@ import {
 } from "../../src/protocol/payload";
 import * as protocol from "../../src/protocol";
 import { CommandCallerPolicy } from "../../src/protocol/policy";
-import { WriteRecord, WriteRecordCodec, type WriteRecordInit } from "../../src/protocol/write";
+import {
+    WriteRecord,
+    WriteRecordCodec,
+    commandOutcomeRefused,
+    isCommandOutcome,
+    type CommandOutcome,
+    type WriteRecordInit
+} from "../../src/protocol/write";
 import { expectAgentCoreError } from "./error-assertion";
 
 const actor = new ActorRef("run", new ActorId("codec-actor"));
@@ -558,6 +565,41 @@ describe("payload preparation values", () => {
             );
         }
     );
+});
+
+describe("command outcome dispositions", () => {
+    // Stated, not derived from the shared `rejected` prefix: filtering the vocabulary with
+    // the very rule this suite replaced would make the expectation circular.
+    const refusals = [
+        "rejectedAuthentication",
+        "rejectedAuthority",
+        "rejectedLease",
+        "rejectedLifecycle",
+        "rejectedMalformed",
+        "rejectedRevision"
+    ] as const satisfies readonly CommandOutcome[];
+    const commits = ["committed", "duplicate"] as const satisfies readonly CommandOutcome[];
+
+    test("classifies every declared outcome from the declared partition", { tags: "p0" }, () => {
+        for (const outcome of refusals) expect(commandOutcomeRefused(outcome)).toBe(true);
+        for (const outcome of commits) expect(commandOutcomeRefused(outcome)).toBe(false);
+        expect([...refusals, ...commits].length).toBe(8);
+    });
+
+    test("refuses an outcome no vocabulary declares", { tags: "p0" }, () => {
+        expect(isCommandOutcome("rejectedByHand")).toBe(false);
+        expect(isCommandOutcome("committedByHand")).toBe(false);
+        expect(isCommandOutcome(undefined)).toBe(false);
+        expect(
+            commandOutcomeRefused(
+                // @ts-expect-error An outcome outside SPEC §8.5's vocabulary must not typecheck.
+                "rejectedByHand"
+            )
+        ).toBe(false);
+        for (const outcome of [...refusals, ...commits]) {
+            expect(isCommandOutcome(outcome)).toBe(true);
+        }
+    });
 });
 
 describe("WriteRecord codec and invariants", () => {

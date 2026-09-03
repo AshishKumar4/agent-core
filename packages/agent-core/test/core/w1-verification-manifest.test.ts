@@ -86,6 +86,7 @@ describe("W1 verification manifest", () => {
             "test/content/record-custody.test.ts",
             "test/core/composite-key-discharge.test.ts",
             "test/core/errors.test.ts",
+            "test/core/host-premises.test.ts",
             "test/core/narrow.test.ts"
         ]);
         expect(discoveredSources).toEqual(

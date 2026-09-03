@@ -1949,10 +1949,19 @@ function validateStorageText(value: string, maximum: number, subject: string): v
     }
 }
 
+/** `["ingress-endpoint.record", <endpoint id>, <revision>]`. */
+const INGRESS_POINTER_TUPLE_ARITY = 3;
+/** `["view.revision", <Surface id>, <epoch>, <revision>]`. */
+const VIEW_POINTER_TUPLE_ARITY = 4;
+
 function pointerRevision(recordKey: string, namespace: string): number {
     if (namespace === "ingress.current") {
         const tuple = decodeCanonicalJson(new TextEncoder().encode(recordKey));
-        if (!Array.isArray(tuple) || tuple.length !== 3 || tuple[0] !== "ingress-endpoint.record") {
+        if (
+            !Array.isArray(tuple) ||
+            tuple.length !== INGRESS_POINTER_TUPLE_ARITY ||
+            tuple[0] !== "ingress-endpoint.record"
+        ) {
             throw new AgentCoreError("codec.invalid", "Ingress endpoint pointer key is malformed");
         }
         const parser = jsonDataParser((message) => new AgentCoreError("codec.invalid", message));
@@ -1964,7 +1973,7 @@ function pointerRevision(recordKey: string, namespace: string): number {
         // revision is read back by decoding that tuple. Recovering it by scanning for a
         // separator would reintroduce the non-injective read the key shape exists to prevent.
         const tuple = decodeViewPointerTuple(recordKey);
-        if (tuple.length !== 4 || tuple[0] !== "view.revision") {
+        if (tuple.length !== VIEW_POINTER_TUPLE_ARITY || tuple[0] !== "view.revision") {
             throw new AgentCoreError("codec.invalid", "View pointer record key is malformed");
         }
         const parser = jsonDataParser((message) => new AgentCoreError("codec.invalid", message));

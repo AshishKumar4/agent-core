@@ -339,8 +339,16 @@ export class InvalidationWatermark {
 
 const invalidationWatermarkCodecInstance = new InvalidationWatermarkCodecV1();
 
+/**
+ * The deepest authority path: the longest exact Scope chain the enumeration below admits,
+ * `tenant,project,workspace`. Named rather than written as a literal, because its source
+ * is that enumeration and not a chosen ceiling — adding a Scope kind to the chain set is
+ * what may move it.
+ */
+const MAX_AUTHORITY_PATH_SCOPES = 3;
+
 function validatePath(path: readonly ScopeEpoch[]): void {
-    if (path.length < 1 || path.length > 3) {
+    if (path.length < 1 || path.length > MAX_AUTHORITY_PATH_SCOPES) {
         throw new TypeError("Authority path must contain one to three Scopes");
     }
     const kinds = path.map((entry) => entry.scope.kind).join(",");

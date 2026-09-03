@@ -136,7 +136,7 @@ export class RunAdmissionRegistry extends CodecRecord {
             const key = runObligationKey(reservation.obligation);
             return this.reserved.some((value) => runObligationKey(value) === key);
         } catch (error) {
-            if (error instanceof TypeError) return false;
+            if (error instanceof InvalidRunObligation) return false;
             throw error;
         }
     }
@@ -235,7 +235,7 @@ export class RunAdmissionRegistry extends CodecRecord {
             const key = runObligationKey(reservation.obligation);
             return this.reserved.some((value) => runObligationKey(value) === key) ? key : undefined;
         } catch (error) {
-            if (error instanceof TypeError) return undefined;
+            if (error instanceof InvalidRunObligation) return undefined;
             throw error;
         }
     }
@@ -304,9 +304,9 @@ export function copyRunObligation(obligation: RunObligation): RunObligation {
             if (obligation.invocation.constructor !== InvocationId) {
                 requireExactIdentity("Invocation");
             }
-            requireEpoch(obligation.itemIndex, "Run invocation item index");
+            requireObligationEpoch(obligation.itemIndex, "Run invocation item index");
             if (obligation.itemKey.length === 0) {
-                throw new TypeError("Run invocation item key must be non-empty");
+                throw new InvalidRunObligation("Run invocation item key must be non-empty");
             }
             return Object.freeze({
                 kind: obligation.kind,
@@ -335,7 +335,7 @@ export function copyRunObligation(obligation: RunObligation): RunObligation {
             }
             return Object.freeze({ kind: obligation.kind, acceptance: obligation.acceptance });
         default:
-            throw new TypeError("Run obligation kind is invalid");
+            throw new InvalidRunObligation("Run obligation kind is invalid");
     }
 }
 
@@ -437,14 +437,34 @@ function canonicalObligations(
     return Object.freeze(result);
 }
 
+/**
+ * The refusal `copyRunObligation` raises when an obligation's own shape is what fails.
+ *
+ * Two registry queries answer "not reserved" for an obligation the SPEC's vocabulary does
+ * not describe, and they used to reach that answer by catching every `TypeError` the key
+ * derivation could raise. That swept up an open class: a bug reading an identity, a future
+ * refusal added under the derivation, any `TypeError` at all became an ordinary registry
+ * miss. Naming the shape refusal separates the two — a shape violation is still a
+ * `TypeError` carrying the same message, so nothing observable about a malformed obligation
+ * changes, while a failure that is not about the obligation's shape now leaves the query
+ * instead of being answered by it.
+ */
+class InvalidRunObligation extends TypeError {}
+
 function requireEpoch(value: number, subject: string): void {
     if (!Number.isSafeInteger(value) || value < 0) {
         throw new TypeError(`${subject} must be a non-negative safe integer`);
     }
 }
 
+function requireObligationEpoch(value: number, subject: string): void {
+    if (!Number.isSafeInteger(value) || value < 0) {
+        throw new InvalidRunObligation(`${subject} must be a non-negative safe integer`);
+    }
+}
+
 function requireExactIdentity(subject: string): never {
-    throw new TypeError(`${subject} obligation requires an exact canonical ID`);
+    throw new InvalidRunObligation(`${subject} obligation requires an exact canonical ID`);
 }
 
 function invalid(message: string): AgentCoreError {

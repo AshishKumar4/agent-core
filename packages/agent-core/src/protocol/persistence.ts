@@ -15,7 +15,13 @@ import {
 } from "../invocations";
 import type { CommandIdentity, ProtocolPersistence } from "./dispatcher";
 import { commandCallersEqual, type CommandCaller } from "./envelope";
-import { WriteRecord, WriteRecordCodec, writeReservesIdentity, type CommandOutcome } from "./write";
+import {
+    WriteRecord,
+    WriteRecordCodec,
+    commandOutcomeRefused,
+    writeReservesIdentity,
+    type CommandOutcome
+} from "./write";
 
 export type ProtocolCallerProjection =
     | { readonly kind: "principal"; readonly tenantId: TenantId; readonly id: string }
@@ -423,7 +429,7 @@ function validateWriteAuditCause(audit: AuditRecord, audits: AuditRecordLookup):
         throw corruptProtocol("Write audit evidence kind is invalid");
     }
     if (audit.cause === undefined) {
-        if (!audit.kind.outcome.startsWith("rejected")) {
+        if (!commandOutcomeRefused(audit.kind.outcome)) {
             throw corruptProtocol("Only rejected writes may have a cause-free audit root");
         }
         return;

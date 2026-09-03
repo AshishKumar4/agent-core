@@ -75,7 +75,7 @@ class BootstrapMarkerCodec extends RecordCodec<TenantBootstrapMarker> {
     }
 
     protected decodePayload(payload: JsonValue): TenantBootstrapMarker {
-        if (!isJsonObject(payload) || Object.keys(payload).length !== 3) {
+        if (!isJsonObject(payload) || Object.keys(payload).length !== MARKER_FIELD_COUNT) {
             throw new TypeError("Tenant bootstrap marker payload is malformed");
         }
         if (
@@ -134,6 +134,9 @@ const CREATE_BOOTSTRAP_MARKER = `CREATE TABLE IF NOT EXISTS tenant_bootstrap_mar
     revision INTEGER NOT NULL CHECK (revision >= 0),
     record BLOB NOT NULL
 ) STRICT`;
+
+/** The fields `encodePayload` writes: `ownerPrincipalId`, `revision`, `tenantId`. */
+const MARKER_FIELD_COUNT = 3;
 
 export class SqliteTenantControlStore
     extends SqliteIdentityReader

@@ -5,6 +5,7 @@ import {
     decodeBase64,
     encodeBase64,
     hasExactJsonKeys,
+    isJsonString,
     type JsonValue,
     type RecordVersion,
     TextId
@@ -28,6 +29,43 @@ export type CommandOutcome =
     | "rejectedRevision"
     | "rejectedLease"
     | "duplicate";
+
+/**
+ * SPEC §8.5 partitions its outcome vocabulary: a write either records a decision the
+ * dispatcher committed — `committed`, or `duplicate` for a replayed idempotent command —
+ * or records the command's refusal. The partition is declared here as data rather than
+ * read off the `rejected` prefix in each label's spelling, because a prefix test answers
+ * from how a name is written: renaming one case would silently change the dispatcher's
+ * behavior, and any string that begins the same way — a corrupted stored record, a forged
+ * envelope — would classify as a refusal without ever having been admitted to the
+ * vocabulary. Keyed by `CommandOutcome`, so a new outcome does not compile until this
+ * table states which half it belongs to.
+ */
+/** The longest an idempotency key a write may echo; the envelope bound it was decoded from. */
+const MAX_IDEMPOTENCY_KEY_LENGTH = 512;
+
+const COMMAND_OUTCOME_DISPOSITIONS: {
+    readonly [outcome in CommandOutcome]: "committed" | "refused";
+} = Object.freeze({
+    committed: "committed",
+    duplicate: "committed",
+    rejectedAuthentication: "refused",
+    rejectedAuthority: "refused",
+    rejectedLease: "refused",
+    rejectedLifecycle: "refused",
+    rejectedMalformed: "refused",
+    rejectedRevision: "refused"
+});
+
+/** Whether an outcome records the command's refusal, read from the declared partition. */
+export function commandOutcomeRefused(outcome: CommandOutcome): boolean {
+    return COMMAND_OUTCOME_DISPOSITIONS[outcome] === "refused";
+}
+
+/** Whether a decoded value is an outcome SPEC §8.5 declares, decided from the same table. */
+export function isCommandOutcome(value: JsonValue | undefined): value is CommandOutcome {
+    return isJsonString(value) && Object.hasOwn(COMMAND_OUTCOME_DISPOSITIONS, value);
+}
 
 class WriteRecordCodecV2 extends RecordCodec<WriteRecord> {
     public constructor() {
@@ -173,9 +211,12 @@ export class WriteRecord {
         }
         if (
             init.idempotencyKey !== undefined &&
-            (init.idempotencyKey.length === 0 || init.idempotencyKey.length > 512)
+            (init.idempotencyKey.length === 0 ||
+                init.idempotencyKey.length > MAX_IDEMPOTENCY_KEY_LENGTH)
         ) {
-            throw new TypeError("Write idempotency key must contain between 1 and 512 characters");
+            throw new TypeError(
+                `Write idempotency key must contain between 1 and ${MAX_IDEMPOTENCY_KEY_LENGTH} characters`
+            );
         }
         const requiresIdentity =
             init.outcome !== "rejectedMalformed" && init.outcome !== "rejectedAuthentication";
@@ -256,17 +297,6 @@ function requireActorKind(value: JsonValue | undefined): ActorKind {
 }
 
 function requireOutcome(value: JsonValue | undefined): CommandOutcome {
-    if (
-        value === "committed" ||
-        value === "rejectedMalformed" ||
-        value === "rejectedAuthentication" ||
-        value === "rejectedAuthority" ||
-        value === "rejectedLifecycle" ||
-        value === "rejectedRevision" ||
-        value === "rejectedLease" ||
-        value === "duplicate"
-    ) {
-        return value;
-    }
+    if (isCommandOutcome(value)) return value;
     throw new TypeError("Write record outcome is invalid");
 }

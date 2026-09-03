@@ -571,7 +571,6 @@ function readonlyDate(value: Date, context: ReadonlyContext): Date {
         defineProperty: immutableRead,
         deleteProperty: immutableRead,
         get(target, property) {
-            if (isStringProperty(property) && property.startsWith("set")) return immutableRead;
             if (property === Symbol.toPrimitive) {
                 // A Proxy cannot carry the Date internal slot, so new Date(view)
                 // falls back to ToPrimitive — and the native default hint stringifies
@@ -588,7 +587,9 @@ function readonlyDate(value: Date, context: ReadonlyContext): Date {
             if (member.kind === "missing") return undefined;
             const accessed: unknown =
                 member.kind === "accessor" ? member.descriptor.get?.call(target) : member.value;
-            return isFunctionValue(accessed) ? accessed.bind(target) : accessed;
+            if (!isFunctionValue(accessed)) return accessed;
+            const allowed = isStringProperty(property) && SAFE_DATE_MEMBERS.has(property);
+            return allowed ? accessed.bind(target) : immutableRead;
         },
         set: immutableRead
     });
@@ -727,15 +728,6 @@ function readonlyArrayBufferView(
     // is constructed, leaving ArrayBuffer as the only possible backing buffer here.
     const sourceBuffer = value.buffer as ArrayBuffer;
     const copy = cloneView(value, clonedBuffer(sourceBuffer, context));
-    const mutators = new Set([
-        "copyWithin",
-        "fill",
-        "reverse",
-        "set",
-        "sort",
-        "subarray",
-        "valueOf"
-    ]);
     const proxy = new Proxy(copy, {
         defineProperty: immutableRead,
         deleteProperty: immutableRead,
@@ -746,11 +738,10 @@ function readonlyArrayBufferView(
             const accessed: unknown =
                 member.kind === "accessor" ? member.descriptor.get?.call(target) : member.value;
             if (!isFunctionValue(accessed)) return accessed;
-            if (!isStringProperty(property) || mutators.has(property) || property.startsWith("set"))
-                return immutableRead;
+            if (!isStringProperty(property)) return immutableRead;
             const allowed =
                 target instanceof DataView
-                    ? property.startsWith("get")
+                    ? SAFE_DATA_VIEW_MEMBERS.has(property)
                     : SAFE_TYPED_ARRAY_METHODS.has(property);
             return allowed ? accessed.bind(target) : immutableRead;
         },
@@ -960,4 +951,65 @@ const SAFE_TYPED_ARRAY_METHODS = new Set([
     "toLocaleString",
     "toString",
     "values"
+]);
+
+/**
+ * The `Date` members a read view may hand out, and the `DataView` members it may bind.
+ *
+ * Both were `startsWith("set")` and `startsWith("get")` tests, which decided whether a
+ * member mutates by reading how it is spelled. That answer is right only because
+ * ECMA-262 happens to name every `Date` mutator `setX` and every `DataView` writer
+ * `setX`, which is a convention about the standard library rather than anything this
+ * codebase declares: a member added under another name — a host extension, an Annex B
+ * alias, a future `withX` — would be admitted by the prefix rule and would mutate the
+ * snapshot a read view exists to protect. Enumerating the members instead makes the
+ * decision a lookup in declared data and makes the unknown case fail closed. Annex B's
+ * `getYear` and `toGMTString` are named because they read; their `set` counterparts are
+ * absent because they write.
+ */
+const SAFE_DATE_MEMBERS = new Set([
+    "getDate",
+    "getDay",
+    "getFullYear",
+    "getHours",
+    "getMilliseconds",
+    "getMinutes",
+    "getMonth",
+    "getSeconds",
+    "getTime",
+    "getTimezoneOffset",
+    "getUTCDate",
+    "getUTCDay",
+    "getUTCFullYear",
+    "getUTCHours",
+    "getUTCMilliseconds",
+    "getUTCMinutes",
+    "getUTCMonth",
+    "getUTCSeconds",
+    "getYear",
+    "toDateString",
+    "toGMTString",
+    "toISOString",
+    "toJSON",
+    "toLocaleDateString",
+    "toLocaleString",
+    "toLocaleTimeString",
+    "toString",
+    "toTimeString",
+    "toUTCString",
+    "valueOf"
+]);
+
+const SAFE_DATA_VIEW_MEMBERS = new Set([
+    "getBigInt64",
+    "getBigUint64",
+    "getFloat16",
+    "getFloat32",
+    "getFloat64",
+    "getInt16",
+    "getInt32",
+    "getInt8",
+    "getUint16",
+    "getUint32",
+    "getUint8"
 ]);

@@ -67,7 +67,16 @@ const writeOutcomes = [
     "duplicate"
 ] as const satisfies readonly WriteAuditOutcome[];
 
-const rejectedWriteOutcomes = writeOutcomes.filter((outcome) => outcome.startsWith("rejected"));
+// Stated, not filtered by the `rejected` prefix: deriving the expectation with the rule
+// under test would make this suite agree with the implementation by construction.
+const rejectedWriteOutcomes = [
+    "rejectedAuthentication",
+    "rejectedAuthority",
+    "rejectedLease",
+    "rejectedLifecycle",
+    "rejectedMalformed",
+    "rejectedRevision"
+] as const satisfies readonly WriteAuditOutcome[];
 
 const codecKinds: readonly (readonly [string, AuditKind])[] = [
     ["invocation", { kind: "invocation", id: new InvocationId("invocation") }],
@@ -810,6 +819,23 @@ describe("AuditRecord stored shape relation", () => {
         { tags: "p1" },
         (_name, kind) => {
             expect(() => validateStoredAuditLinkage(audit(kind), lookup())).toThrow(
+                /Stored audit root kind is invalid/
+            );
+        }
+    );
+
+    test(
+        "refuses a cause-free stored write root whose outcome no vocabulary declares",
+        { tags: "p0" },
+        () => {
+            const forged: AuditKind = {
+                kind: "write",
+                id: new WriteRecordId("stored-root-forged"),
+                // @ts-expect-error An outcome outside SPEC §8.5's vocabulary must not typecheck.
+                outcome: "rejectedByHand"
+            };
+
+            expect(() => validateStoredAuditLinkage(audit(forged), lookup())).toThrow(
                 /Stored audit root kind is invalid/
             );
         }

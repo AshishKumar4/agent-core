@@ -29,6 +29,12 @@ import { isPlatformMethod, isPlatformObject, isText } from "./platform-value.js"
  */
 
 /** The path a provider Actor answers capability sessions on. */
+/**
+ * The status a WebSocket handshake answers with (RFC 6455 §1.3, status registry in
+ * RFC 9110 §15.2.2). Named because the number is the protocol's, not a choice made here.
+ */
+const HTTP_STATUS_SWITCHING_PROTOCOLS = 101;
+
 export const PROVIDER_CAPABILITY_PATH = "/agent-core/provider-capability";
 
 /**
@@ -475,7 +481,7 @@ export class ProviderCapabilityScope implements Disposable {
                 { value: cause }
             );
         }
-        if (response.status !== 101 || response.webSocket === null) {
+        if (response.status !== HTTP_STATUS_SWITCHING_PROTOCOLS || response.webSocket === null) {
             operationalFailure(
                 errors,
                 "protocol.invalid-state",

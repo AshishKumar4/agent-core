@@ -37,6 +37,9 @@ class ProjectRecordCodec extends RecordCodec<Project> {
     }
 }
 
+/** The longest a Project name may be; see `MAX_TEXT_VALUE_LENGTH` in core. */
+const MAX_PROJECT_NAME_LENGTH = 256;
+
 export class Project {
     public static get codec(): RecordCodec<Project> {
         return projectCodecInstance;
@@ -49,8 +52,10 @@ export class Project {
         name: string,
         public readonly revision: Revision
     ) {
-        if (name.trim() !== name || name.length === 0 || name.length > 256) {
-            throw new TypeError("Project name must contain between 1 and 256 canonical characters");
+        if (name.trim() !== name || name.length === 0 || name.length > MAX_PROJECT_NAME_LENGTH) {
+            throw new TypeError(
+                `Project name must contain between 1 and ${MAX_PROJECT_NAME_LENGTH} canonical characters`
+            );
         }
         this.name = name;
         Object.freeze(this);
@@ -65,10 +70,10 @@ export class Project {
     }
 
     public rename(name: string): Project {
-        if (name.trim() !== name || name.length === 0 || name.length > 256) {
+        if (name.trim() !== name || name.length === 0 || name.length > MAX_PROJECT_NAME_LENGTH) {
             throw new AgentCoreError(
                 "protocol.invalid-state",
-                "Project name must contain between 1 and 256 canonical characters"
+                `Project name must contain between 1 and ${MAX_PROJECT_NAME_LENGTH} canonical characters`
             );
         }
         if (this.revision.value === Number.MAX_SAFE_INTEGER) {

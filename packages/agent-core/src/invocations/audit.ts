@@ -4,6 +4,7 @@ import {
     RecordCodec,
     encodeCanonicalJson,
     hasExactJsonKeys,
+    isJsonString,
     type JsonValue,
     type RecordVersion,
     TextId
@@ -27,6 +28,39 @@ import { invocationError } from "./error";
 export type ApprovalAuditPhase = "pending" | "approved" | "denied" | "expired" | "consumed";
 export type ReceiptAuditOutcome = PreEffectReceiptOutcome | AttemptReceiptOutcome;
 export type WriteAuditOutcome = CommandOutcome;
+
+/**
+ * SPEC §7.4 admits a cause-free write audit root only for a command the dispatcher
+ * refused, so this context has to know which outcomes are refusals. It reads that from a
+ * declared table rather than from the `rejected` prefix the labels happen to share: a
+ * stored record is untrusted input, and a prefix test would hand a cause-free root — the
+ * one shape that breaks the audit chain — to any outcome string spelled to look like a
+ * refusal. Keyed by `WriteAuditOutcome`, so an outcome SPEC §8.5 adds does not compile
+ * until this table classifies it, and an outcome no vocabulary declares is absent here and
+ * therefore never a refusal.
+ */
+const WRITE_AUDIT_DISPOSITIONS: {
+    readonly [outcome in WriteAuditOutcome]: "committed" | "refused";
+} = Object.freeze({
+    committed: "committed",
+    duplicate: "committed",
+    rejectedAuthentication: "refused",
+    rejectedAuthority: "refused",
+    rejectedLease: "refused",
+    rejectedLifecycle: "refused",
+    rejectedMalformed: "refused",
+    rejectedRevision: "refused"
+});
+
+/** Whether a write audit records a refusal, read from the declared partition. */
+function writeAuditRefused(outcome: WriteAuditOutcome): boolean {
+    return WRITE_AUDIT_DISPOSITIONS[outcome] === "refused";
+}
+
+/** Whether a decoded value is an outcome the same table declares. */
+function isWriteAuditOutcome(value: JsonValue | undefined): value is WriteAuditOutcome {
+    return isJsonString(value) && Object.hasOwn(WRITE_AUDIT_DISPOSITIONS, value);
+}
 
 export type AuditKind =
     | { readonly kind: "invocation"; readonly id: InvocationId }
@@ -294,7 +328,7 @@ export function validateStoredAuditLinkage(record: AuditRecord, records: AuditRe
         const permittedRoot =
             record.kind.kind === "invocation" ||
             record.kind.kind === "routeProjected" ||
-            (record.kind.kind === "write" && record.kind.outcome.startsWith("rejected"));
+            (record.kind.kind === "write" && writeAuditRefused(record.kind.outcome));
         if (!permittedRoot) {
             throw invocationError("audit.invalid-root", "Stored audit root kind is invalid");
         }
@@ -333,7 +367,7 @@ function validateRoot(
     }
     if (
         record.kind.kind === "write" &&
-        record.kind.outcome.startsWith("rejected") &&
+        writeAuditRefused(record.kind.outcome) &&
         admission?.kind === "commandRejection"
     ) {
         return;
@@ -686,17 +720,6 @@ function requireReceiptOutcome(value: JsonValue | undefined): ReceiptAuditOutcom
 }
 
 function requireWriteOutcome(value: JsonValue | undefined): WriteAuditOutcome {
-    if (
-        value === "committed" ||
-        value === "rejectedMalformed" ||
-        value === "rejectedAuthentication" ||
-        value === "rejectedAuthority" ||
-        value === "rejectedLifecycle" ||
-        value === "rejectedRevision" ||
-        value === "rejectedLease" ||
-        value === "duplicate"
-    ) {
-        return value;
-    }
+    if (isWriteAuditOutcome(value)) return value;
     throw new TypeError("Audit write outcome is invalid");
 }

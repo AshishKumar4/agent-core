@@ -313,12 +313,15 @@ function decodeOrigin(value: JsonValue | undefined): GrantOrigin {
     throw new TypeError("Grant origin kind is invalid");
 }
 
+/** The longest a materializing Role's name may be; see `MAX_TEXT_VALUE_LENGTH` in core. */
+const MAX_ROLE_NAME_LENGTH = 256;
+
 function validateOrigin(origin: GrantOrigin): void {
     if (origin.kind === "direct") return;
     if (
         !(origin.membershipId instanceof MembershipId) ||
         origin.roleName.length === 0 ||
-        origin.roleName.length > 256 ||
+        origin.roleName.length > MAX_ROLE_NAME_LENGTH ||
         !Number.isSafeInteger(origin.ruleOrdinal) ||
         origin.ruleOrdinal < 0
     ) {

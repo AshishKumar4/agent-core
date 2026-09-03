@@ -35,7 +35,12 @@ import {
     type PreparedCommandPayload
 } from "./payload";
 import type { ExpectedRevisionPolicy, ProtocolCommand } from "./registration";
-import { WriteRecord, type CommandOutcome, type WriteRecordInit } from "./write";
+import {
+    WriteRecord,
+    commandOutcomeRefused,
+    type CommandOutcome,
+    type WriteRecordInit
+} from "./write";
 
 export type {
     CurrentLease,
@@ -614,7 +619,7 @@ export class CommandDispatcher<
                 : this.usableCause(transaction, envelope.callerCause);
         let auditCause = cause?.id;
 
-        if (auditCause === undefined && !isRejected(decision.outcome)) {
+        if (auditCause === undefined && !commandOutcomeRefused(decision.outcome)) {
             const root = new AuditRecord({
                 id: this.#ids.auditRecordId(transaction),
                 actor: this.#actor,
@@ -819,10 +824,6 @@ function revisionFieldIsValid(
     return policy === "required"
         ? revision !== undefined
         : policy !== "forbidden" || revision === undefined;
-}
-
-function isRejected(outcome: CommandOutcome): boolean {
-    return outcome.startsWith("rejected");
 }
 
 function isForgedCommitUnknown(cause: unknown): cause is CommandCommitUnknownError {
