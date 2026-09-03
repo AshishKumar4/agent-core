@@ -107,6 +107,11 @@
       "description": "Every public export's words are SPEC vocabulary; foreign terms are never reviewable and reviewed words carry a written, current reason"
     },
     {
+      "id": "ACQ-SERVICE",
+      "node": "service-contracts",
+      "description": "Every external service the runtime crosses a trust boundary to has a modelled protocol whose vocabularies match their own source and whose refusal taxonomy is total in both directions"
+    },
+    {
       "id": "ACQ-SUBSTRATE",
       "node": "substrate-contracts",
       "description": "The substrate premise discharge map names exactly the premises Lean states, with the channel Lean states and the status the conformance ledger carries today"

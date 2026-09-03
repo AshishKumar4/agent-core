@@ -277,6 +277,11 @@ const harnesses = {
         `import { validateCompleteOwnership } from ${specifier(script(root, "quality/ownership.mjs"))};`,
         "console.log(`exclusive ownership: ${await validateCompleteOwnership()} path(s)`);"
     ]),
+    "service-contracts": {
+        sources: ["scripts/check-service-contracts.mjs"],
+        scaffold: substitute,
+        argv: (root) => [script(root, "check-service-contracts.mjs")]
+    },
     "substrate-contracts": {
         sources: ["scripts/check-substrate-contracts.mjs"],
         scaffold: substitute,

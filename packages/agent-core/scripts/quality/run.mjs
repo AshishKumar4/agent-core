@@ -276,6 +276,10 @@ async function execute(node, context) {
         architecture: () => runNode("architecture", context),
         coherence: () => runNode("coherence", context),
         heuristics: () => runNode("heuristics", context),
+        "service-contracts": () =>
+            run(process.execPath, [resolve(packageRoot, "scripts/check-service-contracts.mjs")], {
+                cwd: packageRoot
+            }),
         "substrate-contracts": () =>
             run(process.execPath, [resolve(packageRoot, "scripts/check-substrate-contracts.mjs")], {
                 cwd: packageRoot

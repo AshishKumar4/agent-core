@@ -298,23 +298,23 @@
           "id": "ACQ-NORM/fenced-code-block-hides-an-anchor",
           "find": "The command protocol MUST contain no Turn-retry command family. This maps to\n**C13-TURN-NO-RETRY-PROTOCOL**.",
           "replace": "```md\nThe command protocol MUST contain no Turn-retry command family. This maps to\n**C13-TURN-NO-RETRY-PROTOCOL**.\n```",
-          "expects": "Authoritative normative atom C13-TURN-NO-RETRY-PROTOCOL must appear exactly once outside \u00a713",
-          "diagnostic": "must appear exactly once outside \u00a713",
+          "expects": "Authoritative normative atom C13-TURN-NO-RETRY-PROTOCOL must appear exactly once outside §13",
+          "diagnostic": "must appear exactly once outside §13",
           "defect": "A fenced example counted as normative prose, so moving a rule into one hid it from the census while its atom still looked anchored."
         },
         {
           "id": "ACQ-NORM/html-comment-hides-an-anchor",
           "find": "The command protocol MUST contain no Turn-retry command family. This maps to\n**C13-TURN-NO-RETRY-PROTOCOL**.",
           "replace": "<!--\nThe command protocol MUST contain no Turn-retry command family. This maps to\n**C13-TURN-NO-RETRY-PROTOCOL**.\n-->",
-          "expects": "Authoritative normative atom C13-TURN-NO-RETRY-PROTOCOL must appear exactly once outside \u00a713",
-          "diagnostic": "must appear exactly once outside \u00a713",
+          "expects": "Authoritative normative atom C13-TURN-NO-RETRY-PROTOCOL must appear exactly once outside §13",
+          "diagnostic": "must appear exactly once outside §13",
           "defect": "An HTML comment counted as normative prose, so commenting a rule out left its atom anchored by text the document never shows."
         },
         {
           "id": "ACQ-NORM/nested-blockquote-heading-impersonates-a-section",
           "find": "### 1.5 Protection domains",
           "replace": "> ### 1.99 Nested\n\nEvery fixture obligation MUST hold.\n\n### 1.5 Protection domains",
-          "expects": "Normative \u00a71.4 rule is bound by no atom and no disposition judges it",
+          "expects": "Normative §1.4 rule is bound by no atom and no disposition judges it",
           "diagnostic": "rule is bound by no atom and no disposition judges it",
           "defect": "A heading nested inside a blockquote or list item took ownership of the rules after it, so unanchored prose was attributed to a section that does not exist."
         },
@@ -324,22 +324,22 @@
           "replace": "## 10..1 The Cloudflare profile (normative)",
           "expects": "SPEC heading is malformed: 10..1 The Cloudflare profile (normative)",
           "diagnostic": "SPEC heading is malformed: ",
-          "defect": "A malformed heading number was matched by prefix, so 10..1 was silently read as \u00a710 and its rules were attributed to the wrong section."
+          "defect": "A malformed heading number was matched by prefix, so 10..1 was silently read as §10 and its rules were attributed to the wrong section."
         },
         {
           "id": "ACQ-NORM/malformed-cross-reference-keeps-its-valid-prefix",
-          "find": "`ContentRef` \u2014 resolvable through a ContentStore (\u00a78.2)",
-          "replace": "`ContentRef` \u2014 resolvable through a ContentStore (\u00a78..99)",
-          "expects": "Malformed cross-reference \u00a78..99",
+          "find": "`ContentRef` — resolvable through a ContentStore (§8.2)",
+          "replace": "`ContentRef` — resolvable through a ContentStore (§8..99)",
+          "expects": "Malformed cross-reference §8..99",
           "diagnostic": "Malformed cross-reference ",
-          "defect": "A malformed cross-reference was matched by prefix, so \u00a78..99 resolved to \u00a78 and pointed at a section it never named."
+          "defect": "A malformed cross-reference was matched by prefix, so §8..99 resolved to §8 and pointed at a section it never named."
         },
         {
           "id": "ACQ-NORM/informative-heading-relocates-atom-prose",
           "find": "Identifiers ending in `Id` or `Name`",
           "replace": "### 1.99 Informative fixture\n\nIdentifiers ending in `Id` or `Name`",
-          "expects": "Authoritative normative atom C13-AUTH-PRINCIPAL-REF is anchored in non-normative \u00a71.99",
-          "diagnostic": "is anchored in non-normative \u00a7",
+          "expects": "Authoritative normative atom C13-AUTH-PRINCIPAL-REF is anchored in non-normative §1.99",
+          "diagnostic": "is anchored in non-normative §",
           "defect": "Inserting an informative heading moved an authoritative atom's prose out of the declared normative sections while the atom still counted as covered."
         },
         {
@@ -470,6 +470,29 @@
           "expects": "ACQ-SPEC-VOCAB:packages/agent-core/artifacts/quality/spec-vocabulary.json:anchorage:c1101bcb1164 Reviewed vocabulary \"anchorage\" is no longer used by any public export",
           "diagnostic": " is no longer used by any public export",
           "defect": "A reviewed word stayed on the register after the export that earned it was renamed, so the written reason described a name the surface no longer has and the review stood for nothing."
+        }
+      ]
+    },
+    {
+      "rule": "ACQ-SERVICE",
+      "node": "service-contracts",
+      "input": "src/facets/web/facet.ts",
+      "mutations": [
+        {
+          "id": "ACQ-SERVICE/a-taxonomy-maps-a-code-its-union-stopped-carrying",
+          "find": "    | \"cache.invalid\";",
+          "replace": "    | \"cache.absent\";",
+          "expects": "maps cache.invalid, which its declared code union does not carry",
+          "diagnostic": ", which its declared code union does not carry",
+          "defect": "A service's refusal taxonomy went on citing a code its own declaring union no longer carries, so the artifact promised a caller a stable code that no longer exists and every reader of the taxonomy was told a failure was classified when nothing classifies it."
+        },
+        {
+          "id": "ACQ-SERVICE/a-code-union-grows-a-code-no-taxonomy-maps",
+          "find": "    | \"search.invalid\"",
+          "replace": "    | \"search.invalid\"\n    | \"search.unmapped\"",
+          "expects": "carries search.unmapped and no service taxonomy maps it",
+          "diagnostic": " and no service taxonomy maps it",
+          "defect": "An accountable code union gained a way of failing that no service protocol maps and no entry excuses, so the taxonomy silently stopped being complete: a caller could receive a code the contract never names and the artifact would still read as closed."
         }
       ]
     },
