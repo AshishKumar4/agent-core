@@ -6,7 +6,11 @@ import {
     PathEpochEvidence,
     ScopeEpoch
 } from "@agent-core/core/authority";
-import type { ContentStore } from "@agent-core/core/content";
+import type {
+    ContentCustodyPort,
+    ContentStore,
+    RetainedContentRecord
+} from "@agent-core/core/content";
 import {
     CompatRange,
     Digest,
@@ -482,6 +486,24 @@ class MemorySchedule implements ReconciliationSchedulePort {
     }
 }
 
+/**
+ * The custody registrations a store makes while the harness drives one conversation. The
+ * harness asserts the Invocation, Receipt and AuditRecord chain rather than content
+ * retention, so it records what a store named and holds nothing itself; the store's own
+ * contract suites in `@agent-core/core` are what prove the retention behaviour.
+ */
+class RecordedCustody implements ContentCustodyPort<MediationState> {
+    public readonly retained: RetainedContentRecord[] = [];
+
+    public retain(_transaction: MediationState, record: RetainedContentRecord): void {
+        this.retained.push(record);
+    }
+
+    public release(_transaction: MediationState, record: RetainedContentRecord): void {
+        this.retained.push(record);
+    }
+}
+
 export async function mediationHarness(
     token: LeaseToken,
     content: ContentStore,
@@ -489,7 +511,8 @@ export async function mediationHarness(
 ): Promise<MediationHarness> {
     const transactions = new MemoryMediationTransactions();
     const persistence = new MemoryInvocationPersistence(
-        mediationInvocationCodecs(demoAdmissionCodec)
+        mediationInvocationCodecs(demoAdmissionCodec),
+        new RecordedCustody()
     );
     const evidence = new MemoryInvocationMediationPersistence();
     const authority = new DemoAuthorityState(token);

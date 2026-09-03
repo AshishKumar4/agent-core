@@ -30,6 +30,8 @@ import {
 import { isPlatformMethod, isPlatformObject } from "../src/platform-value.js";
 import { expectOperationalFailure, malformedInput } from "./assertions.js";
 import { queueCodecs } from "./queue-codecs.js";
+import type { QueueBatchResult } from "../src/queue.js";
+import type { QueueBatchObserver } from "../src/worker.js";
 
 const source = Object.freeze({
     compatibilityDate: "2026-07-10",
@@ -69,11 +71,16 @@ describe("Cloudflare hosting adapters", () => {
             );
 
             adapter.load(source, {}, requireFetchService)[Symbol.dispose]();
-            adapter.load(
-                { ...source, modules: { "index.js": "export default { fetch() { return 1 } }" } },
-                {},
-                requireFetchService
-            )[Symbol.dispose]();
+            adapter
+                .load(
+                    {
+                        ...source,
+                        modules: { "index.js": "export default { fetch() { return 1 } }" }
+                    },
+                    {},
+                    requireFetchService
+                )
+                [Symbol.dispose]();
 
             // The submission never states its own budget, so both loads carry the same
             // one: an omitted `limits` is the account's whole Workers-plan budget.
@@ -262,6 +269,56 @@ describe("Cloudflare hosting adapters", () => {
         expect(router.requests).toHaveLength(1);
         expect(deliveries).toEqual([new RouteReservationId("authoritative")]);
         expect(message.acknowledgements).toBe(1);
+    });
+
+    test("reports a batch's non-acknowledged dispositions once, and never fails the batch for the report", async () => {
+        const observed: QueueBatchResult<RouteReservationId>[] = [];
+        const build = (
+            deliver: (id: RouteReservationId) => Promise<{ disposition: "ack" | "retry" }>,
+            observer: QueueBatchObserver<RouteReservationId>
+        ) =>
+            createCloudflareWorker({
+                router: new FakeWorkerRouter<Record<string, never>>(),
+                queue: new AtLeastOnceQueueAdapter({ deliver }, queueCodecs, fakeErrors),
+                observer
+            });
+        const acked = async () => ({ disposition: "ack" as const });
+        const context = new FakeExecutionContext();
+        const delivered = (id: string) =>
+            new FakeQueueMessage("platform", { deliveryId: id, payload: null });
+
+        // An acknowledged batch has nothing to report, so the sink is never called.
+        const quiet = build(acked, { observe: (result) => observed.push(result) });
+        await quiet.queue({ messages: [delivered("acknowledged")] }, {}, context);
+        expect(observed).toHaveLength(0);
+
+        // A poison body is a non-acknowledged disposition, so it reaches the sink once.
+        const poison = new FakeQueueMessage("platform", { unreadable: true });
+        const reporting = build(acked, { observe: (result) => observed.push(result) });
+        await reporting.queue({ messages: [poison] }, {}, context);
+        expect(observed).toHaveLength(1);
+        expect(observed[0]?.poisonMessages).toHaveLength(1);
+        expect(poison.retries).toHaveLength(1);
+
+        // The disposition is decided before the sink runs, so a throwing sink must not turn
+        // a retried message into a failed batch handler.
+        const failing = new FakeQueueMessage("platform", {
+            deliveryId: "unreachable",
+            payload: null
+        });
+        const throwing = build(
+            async () => {
+                throw new Error("target unreachable");
+            },
+            {
+                observe: () => {
+                    throw new Error("sink unavailable");
+                }
+            }
+        );
+        await throwing.queue({ messages: [failing] }, {}, context);
+        expect(failing.retries).toHaveLength(1);
+        expect(failing.acknowledgements).toBe(0);
     });
 
     test("runs migrations synchronously and delegates DO lifecycle hooks to the host", async () => {
