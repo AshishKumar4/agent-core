@@ -1103,10 +1103,7 @@ describe("Turn model input", () => {
             );
             expect(deriveBatchOutcome(1, [Receipt.decode(completeBytes)])).toBe("succeeded");
             expect(
-                deriveBatchOutcome(2, [
-                    Receipt.decode(pageBytes),
-                    Receipt.decode(uncoveredBytes)
-                ])
+                deriveBatchOutcome(2, [Receipt.decode(pageBytes), Receipt.decode(uncoveredBytes)])
             ).toBe("partiallySucceeded");
 
             // One request record, two worlds. The omission is a count of withheld bytes and

@@ -390,9 +390,9 @@ describe("Turn-bound interceptor cut points", () => {
                 );
             });
 
-            await expect(
-                base.host(executor, chain).execute(base.seeded.token)
-            ).rejects.toThrow("Prompt section contains missing or unknown fields");
+            await expect(base.host(executor, chain).execute(base.seeded.token)).rejects.toThrow(
+                "Prompt section contains missing or unknown fields"
+            );
             // The refusal landed on the first answer: the second rewriter was never run,
             // and no model input was recorded for either.
             expect(chain.reached).toEqual(["first"]);

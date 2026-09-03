@@ -198,11 +198,15 @@ describe("one durable owner per record kind", () => {
             expect(() => validateSubscriptionWriteMediation(discovered)).not.toThrow();
             // The funnel is one private member, discovered rather than declared, so the
             // negative claim this row rests on is a fact about the tree.
-            expect(discovered.writers.map((writer: SubscriptionWriter) => writer.selector)).toEqual([
-                SUBSCRIPTION_NAMESPACE.writer
-            ]);
-            expect(discovered.entries.map((entry: SubscriptionWriter) => entry.member).sort()).toEqual(
-                SUBSCRIPTION_ENTRY_POINTS.map((entry: SubscriptionEntryPoint) => entry.member).sort()
+            expect(discovered.writers.map((writer: SubscriptionWriter) => writer.selector)).toEqual(
+                [SUBSCRIPTION_NAMESPACE.writer]
+            );
+            expect(
+                discovered.entries.map((entry: SubscriptionWriter) => entry.member).sort()
+            ).toEqual(
+                SUBSCRIPTION_ENTRY_POINTS.map(
+                    (entry: SubscriptionEntryPoint) => entry.member
+                ).sort()
             );
 
             // A second raw writer is refused wherever it lives: attribution fixity is
@@ -214,7 +218,8 @@ describe("one durable owner per record kind", () => {
                     writers: [
                         ...discovered.writers,
                         {
-                            selector: "src/substrates/sqlite/events/subscription.ts#SqliteSubscriptions.put",
+                            selector:
+                                "src/substrates/sqlite/events/subscription.ts#SqliteSubscriptions.put",
                             member: "put"
                         }
                     ]
@@ -231,7 +236,8 @@ describe("one durable owner per record kind", () => {
                     entries: [
                         ...discovered.entries,
                         {
-                            selector: "src/workspaces/persistence.ts#WorkspacePersistence.importSubscription",
+                            selector:
+                                "src/workspaces/persistence.ts#WorkspacePersistence.importSubscription",
                             member: "importSubscription"
                         }
                     ]

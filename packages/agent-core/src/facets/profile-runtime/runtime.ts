@@ -77,6 +77,18 @@ export class EffectDispatch {
 }
 
 /**
+ * A handler's own bound, as a duration this context will accept. A bound that is not a
+ * non-negative safe integer is a caller shape fault, not an operational refusal: there is
+ * no invocation state in which it could be the right answer.
+ */
+function requireBoundMilliseconds(milliseconds: number): number {
+    if (!Number.isSafeInteger(milliseconds) || milliseconds < 0) {
+        throw new TypeError("Profile effect bound must be a non-negative safe integer");
+    }
+    return milliseconds;
+}
+
+/**
  * The invocation a profile handler is running under, as the handler sees it: the identity an
  * external effect carries to its transport, and the cancellation of the Turn or Run that
  * owns the invocation (SPEC §4.1, C13-FACET-CANCELLATION-REACH).
@@ -148,10 +160,10 @@ export class ProfileEffectContext {
      * narrower deadline goes through here and carries the upstream link with it.
      */
     public bound(milliseconds: number): AbortSignal {
-        if (!Number.isSafeInteger(milliseconds) || milliseconds < 0) {
-            throw new TypeError("Profile effect bound must be a non-negative safe integer");
-        }
-        return AbortSignal.any([this.cancellation, AbortSignal.timeout(milliseconds)]);
+        return AbortSignal.any([
+            this.cancellation,
+            AbortSignal.timeout(requireBoundMilliseconds(milliseconds))
+        ]);
     }
 
     public dispatch(): EffectDispatch {

@@ -11,8 +11,12 @@ import {
     type OperationContext
 } from "../../src/facets";
 import { DecisionSurfacePresentation } from "../../src/composition";
-import { MemoryWorkspaceRecords, View, WorkspacePersistence } from "../../src/workspaces";
-import { EventCursor } from "../../src/workspaces/id";
+import {
+    EventCursor,
+    MemoryWorkspaceRecords,
+    View,
+    WorkspacePersistence
+} from "../../src/workspaces";
 import { prepared } from "../invocations/fixture";
 import {
     DeterministicJsonPatchEngine,
@@ -90,7 +94,7 @@ function harness(answer: FacetData): Harness {
         { records: new MemoryWorkspaceRecords() },
         (state) => ({ records: state.records.clone() })
     );
-    const transaction = <Result,>(
+    const transaction = <Result>(
         operation: (state: DecisionState) => Result,
         ...guard: SynchronousResultGuard<Result>
     ): Result => store.transaction(operation, ...guard);

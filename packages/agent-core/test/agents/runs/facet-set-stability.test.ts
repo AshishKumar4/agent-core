@@ -238,7 +238,9 @@ describe("a Turn's captured FacetSet under a mid-Turn install, withdrawal, and G
                     fixture,
                     [withdrawnOperation],
                     new ScriptedTurnExecutor(async (context) => {
-                        catalog.push(...context.operations.map((operation) => operation.facet.value));
+                        catalog.push(
+                            ...context.operations.map((operation) => operation.facet.value)
+                        );
                         throw stop;
                     })
                 ).execute(fixture.token)

@@ -106,4 +106,3 @@ export class DecisionSurfacePresentation<Transaction> {
         return published;
     }
 }
-

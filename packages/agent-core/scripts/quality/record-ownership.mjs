@@ -328,7 +328,10 @@ export function discoverSubscriptionWriters(project) {
                 const selector = `${path}#${statement.name.text}.${name}`;
                 const text = member.getText(source);
                 if (SUBSCRIPTION_WRITE.test(text)) writers.push({ selector, member: name });
-                if (SUBSCRIPTION_FUNNEL.test(text) && !SUBSCRIPTION_NAMESPACE.funnel.includes(name)) {
+                if (
+                    SUBSCRIPTION_FUNNEL.test(text) &&
+                    !SUBSCRIPTION_NAMESPACE.funnel.includes(name)
+                ) {
                     entries.push({ selector, member: name });
                 }
             }
@@ -343,7 +346,10 @@ export function discoverSubscriptionWriters(project) {
  * halves are one rule: a second raw writer bypasses attribution fixity, and an undeclared
  * entry point reaches it with provenance nothing reviewed.
  */
-export function validateSubscriptionWriteMediation(discovered, declared = SUBSCRIPTION_ENTRY_POINTS) {
+export function validateSubscriptionWriteMediation(
+    discovered,
+    declared = SUBSCRIPTION_ENTRY_POINTS
+) {
     if (!isJsonObject(discovered) || !Array.isArray(discovered.writers)) {
         throw new TypeError("Subscription writers must be a discovered writer set");
     }

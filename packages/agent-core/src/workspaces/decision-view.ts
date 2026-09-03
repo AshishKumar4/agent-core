@@ -122,7 +122,9 @@ export class DecisionPlacement {
                 requireString(object["position"], "Decision placement position")
             ),
             source:
-                source === undefined ? undefined : requireString(source, "Decision placement source")
+                source === undefined
+                    ? undefined
+                    : requireString(source, "Decision placement source")
         });
     }
 }

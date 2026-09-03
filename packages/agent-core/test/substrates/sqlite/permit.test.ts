@@ -1638,7 +1638,7 @@ describe("SQLite target lease evidence projection", () => {
 
 describe("SQLite authority permit read-time refusals", () => {
     test(
-        "[C13-AUTHORITY-PERMIT-ONCE] a nonce another Actor holds is refused as theirs, never as this Actor's replay",
+        "a nonce another Actor holds is refused as theirs, never as this Actor's replay",
         { tags: "p0" },
         () => {
             const database = new TestSqlite();
@@ -1672,7 +1672,7 @@ describe("SQLite authority permit read-time refusals", () => {
     );
 
     test(
-        "[C13-AUTHORITY-PERMIT-ONCE] a nonce this owner spent in one role is never reused in the other",
+        "a nonce this owner spent in one role is never reused in the other",
         { tags: "p0" },
         async () => {
             const database = new TestSqlite();
@@ -1756,7 +1756,7 @@ describe("SQLite authority permit read-time refusals", () => {
     );
 
     test(
-        "[C13-AUTHORITY-PERMIT-ONCE] a consumed nonce that also carries a denial is refused from the consumption side",
+        "a consumed nonce that also carries a denial is refused from the consumption side",
         { tags: "p0" },
         async () => {
             const database = new TestSqlite();

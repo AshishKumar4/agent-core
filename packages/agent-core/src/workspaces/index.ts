@@ -172,12 +172,7 @@ export {
     createTargetProjectionProtocolCommand
 } from "./target-protocol";
 export type { TargetProjectionAdmission } from "./target-protocol";
-export {
-    EventProvenance,
-    EventVerification,
-    canonicalJson,
-    readJsonPointer
-} from "./value";
+export { EventProvenance, EventVerification, canonicalJson, readJsonPointer } from "./value";
 export type {
     DerivedEventTrust,
     EventProvenanceInit,

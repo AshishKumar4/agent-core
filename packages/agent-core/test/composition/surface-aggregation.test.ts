@@ -3,8 +3,12 @@ import { MemoryActorStore, type SynchronousResultGuard } from "../../src/actors"
 import { Revision, isJsonObject, type JsonValue } from "../../src/core";
 import { SlotCatalog, SlotEntry, SlotName, SurfaceId } from "../../src/facets";
 import { SurfaceAggregation } from "../../src/composition";
-import { MemoryWorkspaceRecords, View, WorkspacePersistence } from "../../src/workspaces";
-import { EventCursor } from "../../src/workspaces/id";
+import {
+    EventCursor,
+    MemoryWorkspaceRecords,
+    View,
+    WorkspacePersistence
+} from "../../src/workspaces";
 import { attribution } from "../w3/slot-store-contract";
 import {
     DeterministicJsonPatchEngine,
@@ -69,7 +73,7 @@ function harness(): Harness {
         { records: new MemoryWorkspaceRecords() },
         (state) => ({ records: state.records.clone() })
     );
-    const transaction = <Result,>(
+    const transaction = <Result>(
         operation: (state: AggregateState) => Result,
         ...guard: SynchronousResultGuard<Result>
     ): Result => store.transaction(operation, ...guard);
