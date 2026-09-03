@@ -17,6 +17,78 @@ import {
     type AuthoredCodeDelegationRequest,
     type OperationGateway
 } from "../operations";
+import { TurnBoundOperation } from "../agents";
+
+/**
+ * The capability set an isolate is passed, assembled from the one declared set the Turn
+ * already captured (SPEC §4.7, C13-FACET-CODE-AVAILABILITY).
+ *
+ * A submission names Bindings and never Operations, so the declared Operations each passed
+ * name conveys have to be attached by the composition — and they are attached from the
+ * Turn's own resolved `TurnBoundOperation`s, which §5.3 fixed against the Turn's FacetSet
+ * and which the offered catalog is drawn from and checked against. That is what makes the
+ * catalog the model was offered and the set the isolate can reach one declared set rather
+ * than two a host keeps in agreement: there is no second source of descriptors here to
+ * disagree with, and a host that read the Scope's current install records instead would be
+ * building exactly that second source.
+ *
+ * Attaching is also what gives the §4.7 availability bound something to bite on. The set
+ * refuses a `native` Operation rather than dropping it, so a submission that names a
+ * Binding the model may call and the isolate may not is refused whole, before any Grant is
+ * delegated and before any package code loads.
+ */
+export class TurnAuthoredCodeAvailability {
+    readonly #declared: ReadonlyMap<string, TurnBoundOperation>;
+
+    public constructor(operations: readonly TurnBoundOperation[]) {
+        const declared = new Map<string, TurnBoundOperation>();
+        for (const operation of operations) {
+            if (!(operation instanceof TurnBoundOperation)) {
+                throw new TypeError(
+                    "A Turn's declared Operations use the canonical bound Operation contract"
+                );
+            }
+            if (declared.has(operation.binding.value)) {
+                throw new TypeError("A Turn binds each Operation name once");
+            }
+            declared.set(operation.binding.value, operation);
+        }
+        this.#declared = declared;
+        Object.freeze(this);
+    }
+
+    /**
+     * The requested names carrying the Operations this Turn declares for them. A name this
+     * Turn does not bind reaches nothing and is refused here rather than at the isolate's
+     * first call, and a request naming another Facet for a name this Turn binds is refused
+     * too: the passed capability pins a Facet, and a pin the Turn's own composition
+     * contradicts is not a narrowing but a different capability.
+     */
+    public passed(requested: AuthoredCodeCapabilitySet): AuthoredCodeCapabilitySet {
+        return new AuthoredCodeCapabilitySet(
+            requested.names.map((name) => {
+                const asked = required(
+                    requested.capability(name),
+                    "Requested capability disappeared between reads"
+                );
+                const bound = this.#declared.get(name.value);
+                if (bound === undefined) {
+                    throw denied(
+                        `Passed capability ${name.value} is bound by no Operation of this Turn`
+                    );
+                }
+                if (!bound.facet.equals(asked.facet)) {
+                    throw denied(
+                        `Passed capability ${name.value} names ${asked.facet.value} where this Turn binds ${bound.facet.value}`
+                    );
+                }
+                return new AuthoredCodeCapability(name, bound.facet, asked.capability, [
+                    bound.descriptor
+                ]);
+            })
+        );
+    }
+}
 
 /**
  * How the isolate's own Invocations reach the authority plane. The factory is given the

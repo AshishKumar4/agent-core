@@ -11,9 +11,23 @@ import {
     TenantAuthorityRuntime,
     type PathEpochEvidence
 } from "../../src/authority";
-import { TenantAuthoredCodeDelegationPort, isolateDomain } from "../../src/composition";
-import { Digest, Revision, encodeCanonicalJson } from "../../src/core";
-import { BindingName, CapabilitySpec, FacetRef, ProtectionDomain } from "../../src/facets";
+import {
+    TenantAuthoredCodeDelegationPort,
+    TurnAuthoredCodeAvailability,
+    isolateDomain
+} from "../../src/composition";
+import { TurnBoundOperation } from "../../src/agents";
+import { Digest, JsonSchema, Revision, encodeCanonicalJson } from "../../src/core";
+import {
+    BindingName,
+    CapabilitySpec,
+    FacetRef,
+    OperationAvailability,
+    OperationDescriptor,
+    OperationName,
+    OperationRef,
+    ProtectionDomain
+} from "../../src/facets";
 import { PrincipalId, ScopeRef, SubjectRef, TenantId, WorkspaceId } from "../../src/identity";
 import {
     AuthoredCodeCapability,
@@ -387,4 +401,114 @@ class UnusedGateway extends OperationGateway {
     public resolve(): never {
         throw new TypeError("The delegation fixture never resolves through the isolate gateway");
     }
+}
+
+/**
+ * SPEC §4.7 (C13-FACET-CODE-AVAILABILITY): the passed set is assembled from the one
+ * declared set the Turn captured. A submission names Bindings and never Operations, so the
+ * declared Operations each name conveys are attached here — from the Turn's own resolved
+ * bound Operations — and nowhere else.
+ */
+describe("the passed capability set a Turn's declared Operations assemble", () => {
+    const submitted = new AuthoredCodeCapabilitySet([
+        new AuthoredCodeCapability(mailBinding, mailFacet)
+    ]);
+
+    test(
+        "[C13-FACET-CODE-AVAILABILITY] attaches the Turn's declared Operations and carries them through delegation",
+        { tags: "p0" },
+        async () => {
+            const availability = new TurnAuthoredCodeAvailability([
+                boundOperation(OperationAvailability.code)
+            ]);
+
+            // A submission carries no Operations at all, so the isolate reaches exactly what
+            // the Turn's composition declared for that name.
+            expect(submitted.capability(mailBinding)?.operations).toEqual([]);
+            const passed = availability.passed(submitted);
+            const attached = passed.capability(mailBinding);
+            expect(attached?.operations.map((operation) => operation.name.value)).toEqual(["read"]);
+            expect(attached?.operations[0]?.availability.reachableByAuthoredCode).toBe(true);
+
+            // The screen runs on the set the backing actually receives: delegation rebuilds
+            // each capability and carries the declared Operations with it.
+            const fixture = createFixture();
+            const delegation = await fixture.delegate(passed);
+            expect(
+                delegation.capabilities
+                    .capability(mailBinding)
+                    ?.operations.map((operation) => operation.availability.label)
+            ).toEqual(["code"]);
+            await delegation[Symbol.asyncDispose]();
+        }
+    );
+
+    test(
+        "[C13-FACET-CODE-AVAILABILITY] refuses a submission naming a Binding whose Operation the Turn declares native",
+        { tags: "p0" },
+        () => {
+            const availability = new TurnAuthoredCodeAvailability([
+                boundOperation(OperationAvailability.native)
+            ]);
+
+            // Refused whole rather than filtered, and refused before any Grant is minted: an
+            // Operation the model was offered and the isolate cannot reach is the one
+            // disagreement the declaration exists to prevent.
+            expect(() => availability.passed(submitted)).toThrow(
+                "Operation read is declared native and is not passable to agent-authored code"
+            );
+        }
+    );
+
+    test(
+        "[C13-FACET-CODE-AVAILABILITY] refuses a name the Turn does not bind and a Facet its composition contradicts",
+        { tags: "p1" },
+        () => {
+            const availability = new TurnAuthoredCodeAvailability([
+                boundOperation(OperationAvailability.both)
+            ]);
+
+            expect(() =>
+                availability.passed(
+                    new AuthoredCodeCapabilitySet([
+                        new AuthoredCodeCapability(new BindingName("secrets"), mailFacet)
+                    ])
+                )
+            ).toThrow("Passed capability secrets is bound by no Operation of this Turn");
+            expect(() =>
+                availability.passed(
+                    new AuthoredCodeCapabilitySet([
+                        new AuthoredCodeCapability(mailBinding, new FacetRef("mail:impostor"))
+                    ])
+                )
+            ).toThrow("Passed capability mail names mail:impostor where this Turn binds");
+
+            // The Turn's own set is canonical too: one Operation per bound name, and only the
+            // bound Operation contract the executor validated against the FacetSet.
+            expect(
+                () =>
+                    new TurnAuthoredCodeAvailability([
+                        boundOperation(OperationAvailability.both),
+                        boundOperation(OperationAvailability.code)
+                    ])
+            ).toThrow("A Turn binds each Operation name once");
+        }
+    );
+});
+
+function boundOperation(availability: OperationAvailability): TurnBoundOperation {
+    return new TurnBoundOperation(
+        mailBinding,
+        mailFacet,
+        new OperationRef("mail:read"),
+        new OperationDescriptor(
+            new OperationName("read"),
+            "observe",
+            new JsonSchema({ type: "object" }),
+            new JsonSchema({ type: "object" }),
+            undefined,
+            undefined,
+            availability
+        )
+    );
 }

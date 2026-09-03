@@ -642,6 +642,7 @@ describe("Device consent boundaries and error identity", () => {
                         "camera",
                         cameraInput(),
                         new ProfileEffectContext(
+                            new AbortController().signal,
                             new InvocationId("device-malformed-admission"),
                             0,
                             "device-malformed-admission-key",
@@ -1080,6 +1081,7 @@ function inputDevice(input: JsonValue): DeviceId {
 
 function effectContext(admission: DeviceAdmission | undefined): ProfileEffectContext {
     return new ProfileEffectContext(
+        new AbortController().signal,
         new InvocationId("device-test-invocation"),
         0,
         "device-test-key",

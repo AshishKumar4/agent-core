@@ -162,6 +162,107 @@ export function requireOfferedCapability(
     return value;
 }
 
+/**
+ * The declared names an Operation's `input` schema may not offer (SPEC §4.1,
+ * C13-FACET-CANCELLATION-REACH). Cancellation reaches a handler through its
+ * `OperationContext` and never through the declared input, so a schema offering a field
+ * that claims to carry it is refused where the declaration is read rather than where an
+ * invocation would fail: the input schema is the surface a model authors against, and a
+ * cancellation nameable there is omittable and shadowable by an ordinary field.
+ *
+ * The screen is exact rather than by substring, because the defect is the claim and not the
+ * spelling: `cancelReason` states a datum a caller authors, while `cancellation` states the
+ * thing only the host owns. Names are compared with separators and case removed, so
+ * `abort_signal` and `abortSignal` are one name.
+ */
+const CANCELLATION_FIELD_NAMES = {
+    abort: true,
+    abortcontroller: true,
+    abortsignal: true,
+    cancel: true,
+    cancellation: true,
+    cancellationsignal: true,
+    cancellationtoken: true,
+    cancelsignal: true,
+    canceltoken: true,
+    signal: true
+} satisfies Record<string, true>;
+
+/** The keywords whose value is itself one schema, so a nested claim is reached too. */
+const SCHEMA_VALUED_KEYWORDS: readonly string[] = [
+    "additionalProperties",
+    "contains",
+    "else",
+    "if",
+    "items",
+    "not",
+    "propertyNames",
+    "then",
+    "unevaluatedItems",
+    "unevaluatedProperties"
+];
+
+/** The keywords whose value maps or lists schemas, each of which is screened in turn. */
+const SCHEMA_COLLECTION_KEYWORDS: readonly string[] = [
+    "$defs",
+    "allOf",
+    "anyOf",
+    "definitions",
+    "dependentSchemas",
+    "oneOf",
+    "patternProperties",
+    "prefixItems",
+    "properties"
+];
+
+/**
+ * SPEC §4.1 (C13-FACET-CANCELLATION-REACH): refuses a declared schema that offers a
+ * cancellation-carrying field, at any depth. A nested object is the same authored surface
+ * one level down, so screening only the top level would leave the claim expressible. A
+ * schema requires a name it never declares is screened as well, because a name required
+ * where additional properties are admitted is still offered.
+ */
+export function requireCancellationFreeSchema(
+    document: JsonSchemaDocument,
+    subject: string
+): JsonSchemaDocument {
+    if (document === true || document === false) return document;
+    const properties = document["properties"];
+    const required = document["required"];
+    const declared = [
+        ...(isJsonObject(properties) ? Object.keys(properties) : []),
+        ...(isArray(required) ? required.filter(isString) : [])
+    ];
+    for (const name of declared) {
+        const canonical = name.replaceAll(/[\s_-]+/gu, "").toLowerCase();
+        if (Object.hasOwn(CANCELLATION_FIELD_NAMES, canonical)) {
+            throw new TypeError(
+                `${subject} must not declare ${name}: cancellation reaches a handler through its OperationContext and never through a declared input`
+            );
+        }
+    }
+    for (const keyword of SCHEMA_VALUED_KEYWORDS) {
+        const nested = document[keyword];
+        if (isSchemaDocument(nested)) requireCancellationFreeSchema(nested, subject);
+    }
+    for (const keyword of SCHEMA_COLLECTION_KEYWORDS) {
+        const nested = document[keyword];
+        const entries = isArray(nested)
+            ? nested
+            : isJsonObject(nested)
+              ? Object.values(nested)
+              : undefined;
+        for (const entry of entries ?? []) {
+            if (isSchemaDocument(entry)) requireCancellationFreeSchema(entry, subject);
+        }
+    }
+    return document;
+}
+
+function isSchemaDocument(value: FacetData | undefined): value is JsonSchemaDocument {
+    return value === true || value === false || isJsonObject(value);
+}
+
 export function requireSafeInteger(value: FacetData | undefined, subject: string): number {
     if (!isSafeInteger(value)) {
         throw new TypeError(`${subject} must be a safe integer`);

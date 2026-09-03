@@ -284,7 +284,15 @@ export class ShellBackend<Receipt> {
         }
     }
 
-    public async run(request: ShellRunInput): Promise<number> {
+    /**
+     * SPEC §4.1 (C13-FACET-CANCELLATION-REACH): this call awaits the process under the
+     * invocation's own lifetime, so it passes that invocation's cancellation on to the side
+     * effect it owns. Cancellation runs the same termination a §11.2 `cancel` runs — the
+     * force-terminate, the confirmation bound, and the fence — because a cancelled Turn and
+     * an explicit cancel end one execution the same way, and the run still returns the exit
+     * code the boundary settled on rather than abandoning its own wait.
+     */
+    public async run(request: ShellRunInput, cancellation?: AbortSignal): Promise<number> {
         const executionKey = request.executionId.value;
         if (this.#executions.has(executionKey)) {
             throw new ShellError(
@@ -313,9 +321,17 @@ export class ShellBackend<Receipt> {
         // the run's own finally always frees the key before any cancel resumes — which
         // is also why no second run can claim the key while this one is registered.
         this.#executions.set(executionKey, execution);
+        const terminate = (): void => {
+            void execution.terminate();
+        };
+        // An already-aborted signal fires no listener, so the two arms are one decision:
+        // cancellation that arrived before the process started still reaches it.
+        if (cancellation?.aborted === true) terminate();
+        else cancellation?.addEventListener("abort", terminate, { once: true });
         try {
             return await execution.wait();
         } finally {
+            cancellation?.removeEventListener("abort", terminate);
             this.#executions.delete(executionKey);
         }
     }
@@ -341,8 +357,8 @@ export class ShellFacet<Receipt> {
             manifest,
             runtime: this.runtime,
             operations: [
-                this.runtime.operation(SHELL_OPERATION_CONTRACTS.run, (input) =>
-                    this.backend.run(input)
+                this.runtime.operation(SHELL_OPERATION_CONTRACTS.run, (input, context) =>
+                    this.backend.run(input, context.cancellation)
                 ),
                 this.runtime.operation(SHELL_OPERATION_CONTRACTS.cancel, (input) =>
                     this.backend.cancel(input.executionId)
@@ -352,8 +368,8 @@ export class ShellFacet<Receipt> {
     }
 
     public run(input: ShellRunInput): Promise<number> {
-        return this.runtime.invoke(SHELL_OPERATION_CONTRACTS.run, input, (admitted) =>
-            this.backend.run(admitted)
+        return this.runtime.invoke(SHELL_OPERATION_CONTRACTS.run, input, (admitted, context) =>
+            this.backend.run(admitted, context.cancellation)
         );
     }
 

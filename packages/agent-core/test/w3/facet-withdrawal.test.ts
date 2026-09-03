@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import type { SynchronousResultGuard } from "../../src/actors";
-import { Digest, Revision } from "../../src/core";
+import { Digest, JsonSchema, Revision } from "../../src/core";
 import { AuditRecordId, InvocationId } from "../../src/interaction-references";
 import {
     CapabilitySpec,
@@ -11,6 +11,10 @@ import {
     Facet,
     FacetManifest,
     FacetRef,
+    Operation,
+    OperationAvailability,
+    OperationDescriptor,
+    OperationName,
     Prompt,
     PromptContribution,
     PromptSection,
@@ -25,11 +29,10 @@ import {
     SurfaceId,
     SurfaceRegistration,
     type ContributionAttribution,
+    type FacetData,
     type FacetLifecycleContext,
     type Interceptor,
     type InterceptorDeclaration,
-    type Operation,
-    type OperationName,
     type Surface,
     type WorkspaceSlotStore
 } from "../../src/facets";
@@ -1834,4 +1837,134 @@ function objectTransaction<Result>(
     ..._guard: SynchronousResultGuard<Result>
 ): Result {
     return operation(testWorkspaceTransaction);
+}
+
+/**
+ * SPEC §4.7 (C13-FACET-CODE-AVAILABILITY): availability is a property of the composition,
+ * so the declaration lives in the `OperationDescriptor` an `operations` contribution
+ * materializes and leaves the Scope with the Facet that declared it.
+ */
+describe("Facet withdrawal of a declared authored-code availability", () => {
+    test(
+        "[C13-FACET-CODE-AVAILABILITY] retires the availability declaration with the contributor that declared it",
+        { tags: "p0" },
+        async () => {
+            const harness = crossPlaneHarness();
+            const contributor = attribution("workspace:availability");
+            const facet = new OperationContributingFacet(
+                activationFacet(contributor.contributor, () => undefined)
+            );
+
+            const outcome = await activationFor(harness, contributor, {
+                manifest: facet.manifest
+            }).activate(
+                validatedActivationFacet(facet),
+                harness.database,
+                { installationId: "installation" },
+                { signal: new AbortController().signal }
+            );
+            expect(outcome).toEqual({ kind: "active", facet: contributor.contributor });
+
+            // The availability travels inside the descriptor the contribution materializes, so
+            // one record carries both the declaration and the attribution it retires under.
+            const entries = harness.persistence
+                .listCatalogEntries(harness.records)
+                .filter((record) => record.kind === "operation");
+            const materialized = entries[0];
+            if (entries.length !== 1 || materialized === undefined) {
+                throw new TypeError("Expected exactly one materialized Operation catalog entry");
+            }
+            const descriptor = materialized.declaration;
+            if (!(descriptor instanceof OperationDescriptor)) {
+                throw new TypeError("Expected an Operation declaration");
+            }
+            expect(materialized.attribution?.equals(contributor)).toBe(true);
+            expect(descriptor.availability.equals(OperationAvailability.code)).toBe(true);
+            expect(descriptor.availability.reachableByAuthoredCode).toBe(true);
+
+            // It is in the withdrawal set for exactly that contributor, by the same attribution
+            // query every other contributed record is found by.
+            expect(
+                harness.withdrawal.plan(contributor).records.catalogEntries.map((id) => id.value)
+            ).toEqual([materialized.id.value]);
+
+            const result = retired(harness.withdrawal.withdraw(contributor));
+
+            expect(result.records.catalogEntries.map((id) => id.value)).toEqual([
+                materialized.id.value
+            ]);
+            // Nothing in the Scope declares that Operation reachable by agent-authored code
+            // any more: the availability had no record of its own to survive in.
+            expect(harness.persistence.listCatalogEntries(harness.records)).toEqual([]);
+            expect(harness.withdrawal.plan(contributor).records.catalogEntries).toEqual([]);
+        }
+    );
+});
+
+const contributedOperation = new OperationDescriptor(
+    new OperationName("summarize"),
+    "observe",
+    new JsonSchema({ type: "object" }),
+    new JsonSchema({ type: "object" }),
+    undefined,
+    undefined,
+    OperationAvailability.code
+);
+
+class ContributedOperation extends Operation {
+    public readonly descriptor = contributedOperation;
+
+    public async execute(): Promise<FacetData> {
+        return {};
+    }
+}
+
+/**
+ * A Facet contributing one `code`-available Operation, so an activation materializes the
+ * availability declaration as an attributed catalog entry and a withdrawal has one to retire.
+ */
+class OperationContributingFacet extends Facet {
+    public readonly manifest: FacetManifest;
+
+    public constructor(private readonly inner: Facet) {
+        super();
+        this.manifest = new FacetManifest({
+            id: inner.manifest.id,
+            version: inner.manifest.version,
+            compat: inner.manifest.compat,
+            isolation: inner.manifest.isolation,
+            bindings: inner.manifest.bindings,
+            contributions: new Contributions([
+                new Contribution(new SlotName("operations"), [contributedOperation.toData()])
+            ])
+        });
+    }
+
+    public get ref(): FacetRef {
+        return this.inner.ref;
+    }
+
+    public operation(name: OperationName): Operation | undefined {
+        return name.equals(contributedOperation.name) ? new ContributedOperation() : undefined;
+    }
+
+    public surface(id: SurfaceId): Surface | undefined {
+        return this.inner.surface(id);
+    }
+
+    public interceptor(id: InterceptorDeclaration["id"]): Interceptor | undefined {
+        return this.inner.interceptor(id);
+    }
+
+    public children(): readonly Facet[] {
+        return this.inner.children();
+    }
+
+    public start(context: FacetLifecycleContext): Promise<void> {
+        return this.inner.start(context);
+    }
+
+    public stop(context: FacetLifecycleContext): Promise<void> {
+        return this.inner.stop(context);
+    }
 }

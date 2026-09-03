@@ -186,6 +186,7 @@ describe("Approval gateway protected provider profile", () => {
             {}
         );
         const attemptless = new ProfileEffectContext(
+            new AbortController().signal,
             new InvocationId("admitted"),
             0,
             "approval-key",
@@ -345,6 +346,7 @@ function inputDigest(resource: string): Digest {
 
 function effectContext(invocation: InvocationId, intentDigest: Digest): ProfileEffectContext {
     return new ProfileEffectContext(
+        new AbortController().signal,
         invocation,
         0,
         "approval-key",

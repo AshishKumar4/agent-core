@@ -7,6 +7,7 @@ import {
     canonicalFacetData,
     compareText,
     requireArray,
+    requireCancellationFreeSchema,
     requireDataObject,
     requireExactFields,
     requireNonblank,
@@ -66,6 +67,11 @@ export class OperationDescriptor {
             "Operation interceptable declaration"
         );
         this.availability = availability ?? OperationAvailability.native;
+        // SPEC §4.1 (C13-FACET-CANCELLATION-REACH): cancellation never travels in a declared
+        // input, and the refusal belongs here rather than at the first invocation — every
+        // path that declares an Operation, in code or by decoding a pinned manifest at
+        // install, builds this record first, so there is no declaration the screen misses.
+        requireCancellationFreeSchema(input.document, `Operation ${name.value} input schema`);
         Object.freeze(this);
     }
 

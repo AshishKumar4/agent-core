@@ -1756,3 +1756,112 @@ describe("the detached execution plane the composition root owns", () => {
         }
     );
 });
+
+/**
+ * SPEC §4.1 (C13-FACET-CANCELLATION-REACH) over the concrete published pipeline: the
+ * cancellation an `OperationContext` conveys is observable throughout the handler's
+ * execution, not merely present at its entry, and it is what separates §7.4's `aborted`
+ * from `indeterminate`.
+ */
+describe("the published mediation composition root under its Turn's cancellation", () => {
+    it(
+        "[C13-FACET-CANCELLATION-REACH] fires the suspended handler's own context signal when its Turn is cancelled mid-execution",
+        { tags: "p0" },
+        async () => {
+            const value = await harness();
+            const controller = new AbortController();
+            const running = inFlight();
+            let observedWhileSuspended = false;
+            value.observed.hold = (signal) =>
+                new Promise<void>((_resolve, reject) => {
+                    running.reached();
+                    signal.addEventListener(
+                        "abort",
+                        () => {
+                            observedWhileSuspended = true;
+                            reject(new TypeError("recall ended under its own signal"));
+                        },
+                        { once: true }
+                    );
+                });
+
+            const invoking = value.pipeline.invocations.invoke(
+                invocationRequest(controller.signal, "cancelled-mid-execution")
+            );
+            await running.promise;
+
+            // The handler is suspended on work under this invocation's lifetime, holding the
+            // Turn's own signal rather than a substitute, and nothing has cancelled yet.
+            expect(value.observed.signal).toBe(controller.signal);
+            expect(value.observed.signal?.aborted).toBe(false);
+
+            controller.abort();
+
+            // Availability at entry and observability during execution are different claims,
+            // and this is the second one: the signal the handler is holding fires while it is
+            // still suspended, and the attempt it ends is classified from that fact.
+            expect(value.observed.signal?.aborted).toBe(true);
+            await expect(invoking).rejects.toThrow();
+            expect(observedWhileSuspended).toBe(true);
+
+            const receipt = storedAttemptReceipt(value);
+            expect(receipt.outcome).toBe("failed");
+            expect(receipt.failure?.kind).toBe("aborted");
+            await value.pipeline.dispose();
+        }
+    );
+
+    it(
+        "[C13-FACET-CANCELLATION-REACH] records aborted where the handler observed its cancellation and indeterminate where the host abandoned its wait",
+        { tags: "p0" },
+        async () => {
+            // The two attempts differ in exactly one fact — whether cancellation reached the
+            // handler — and §7.4 records two different kinds for it. A never-abort substitute
+            // for the context signal collapses the first case into the second rather than
+            // leaving both green, which is what makes this a discrimination and not a pair of
+            // independent assertions.
+            const reached = await harness();
+            const controller = new AbortController();
+            const running = inFlight();
+            reached.observed.hold = (signal) =>
+                new Promise<void>((_resolve, reject) => {
+                    running.reached();
+                    signal.addEventListener(
+                        "abort",
+                        () => reject(new TypeError("recall ended under its own signal")),
+                        { once: true }
+                    );
+                });
+            const invoking = reached.pipeline.invocations.invoke(
+                invocationRequest(controller.signal, "aborted-attempt")
+            );
+            await running.promise;
+            expect(reached.observed.signal).toBe(controller.signal);
+            controller.abort();
+            expect(reached.observed.signal?.aborted).toBe(true);
+            await expect(invoking).rejects.toThrow();
+
+            const aborted = storedAttemptReceipt(reached);
+            expect(aborted.outcome).toBe("failed");
+            expect(aborted.failure?.kind).toBe("aborted");
+            await reached.pipeline.dispose();
+
+            // The same rejection with no cancellation behind it: the host holds no
+            // determination, so §7.4 leaves the attempt indeterminate and names no kind.
+            const abandoned = await harness();
+            abandoned.observed.hold = () =>
+                Promise.reject(new TypeError("the host stopped waiting on this attempt"));
+            await expect(
+                abandoned.pipeline.invocations.invoke(
+                    invocationRequest(new AbortController().signal, "indeterminate-attempt")
+                )
+            ).rejects.toThrow();
+
+            const indeterminate = storedAttemptReceipt(abandoned);
+            expect(indeterminate.outcome).toBe("indeterminate");
+            expect(indeterminate.failure).toBeUndefined();
+            expect(abandoned.observed.signal?.aborted).toBe(false);
+            await abandoned.pipeline.dispose();
+        }
+    );
+});

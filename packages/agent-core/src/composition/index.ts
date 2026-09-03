@@ -1,4 +1,8 @@
-export { TenantAuthoredCodeDelegationPort, isolateDomain } from "./authored-code";
+export {
+    TenantAuthoredCodeDelegationPort,
+    TurnAuthoredCodeAvailability,
+    isolateDomain
+} from "./authored-code";
 export type { IsolateGatewayFactory, TenantAuthoredCodeDelegationInit } from "./authored-code";
 export {
     MEDIATED_STALE_DENIAL_REASON,

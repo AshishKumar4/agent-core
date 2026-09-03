@@ -443,6 +443,7 @@ function isDeviceAdmission(admission: unknown): admission is DeviceAdmission {
 function effectContext(admission: DeviceAdmission): ProfileEffectContext {
     if (!isObjectRecord(admission)) throw new TypeError("Expected Device admission object");
     return new ProfileEffectContext(
+        new AbortController().signal,
         new InvocationId("device-admitted"),
         0,
         "device-admitted-key",

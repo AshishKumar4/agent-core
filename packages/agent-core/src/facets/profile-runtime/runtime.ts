@@ -76,8 +76,20 @@ export class EffectDispatch {
     }
 }
 
+/**
+ * The invocation a profile handler is running under, as the handler sees it: the identity an
+ * external effect carries to its transport, and the cancellation of the Turn or Run that
+ * owns the invocation (SPEC §4.1, C13-FACET-CANCELLATION-REACH).
+ *
+ * The cancellation is here because a handler that awaits further asynchronous work under
+ * its own invocation's lifetime has to pass it on, and a derivation that dropped it left
+ * every profile handler unable to — availability at the `Operation.execute` boundary and
+ * availability inside the handler that boundary calls are the same requirement, so this
+ * context conveys exactly the signal its `OperationContext` conveyed and never a substitute.
+ */
 export class ProfileEffectContext {
     public constructor(
+        public readonly cancellation: AbortSignal,
         public readonly invocation: InvocationId,
         public readonly itemIndex: number,
         public readonly idempotencyKey: string,
@@ -86,6 +98,9 @@ export class ProfileEffectContext {
         public readonly intentDigest: Digest | undefined,
         public readonly targetAdmission: ObjectRecord | undefined = undefined
     ) {
+        if (!(cancellation instanceof AbortSignal)) {
+            throw new TypeError("Profile effect cancellation must be the invocation's own signal");
+        }
         if (!Number.isSafeInteger(itemIndex) || itemIndex < 0) {
             throw new TypeError("Profile effect item index must be a non-negative safe integer");
         }
@@ -114,6 +129,7 @@ export class ProfileEffectContext {
     public static fromOperation(context: OperationContext): ProfileEffectContext {
         const admission = context.targetAdmission;
         return new ProfileEffectContext(
+            context.signal,
             context.invocation,
             context.itemIndex,
             context.idempotencyKey,
@@ -122,6 +138,20 @@ export class ProfileEffectContext {
             context.attempt?.intentDigest,
             isObjectRecord(admission) ? admission : undefined
         );
+    }
+
+    /**
+     * A bound of the handler's own that stays linked to the cancellation it derived from
+     * (SPEC §4.1): the returned signal aborts when this bound elapses *or* when the
+     * invocation's cancellation fires. A handler that built an independent timer would
+     * satisfy its own seam while dropping cancellation at the next one, so deriving a
+     * narrower deadline goes through here and carries the upstream link with it.
+     */
+    public bound(milliseconds: number): AbortSignal {
+        if (!Number.isSafeInteger(milliseconds) || milliseconds < 0) {
+            throw new TypeError("Profile effect bound must be a non-negative safe integer");
+        }
+        return AbortSignal.any([this.cancellation, AbortSignal.timeout(milliseconds)]);
     }
 
     public dispatch(): EffectDispatch {

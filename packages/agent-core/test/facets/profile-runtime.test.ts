@@ -128,6 +128,7 @@ describe("W3 profile runtime", () => {
             expect(
                 () =>
                     new ProfileEffectContext(
+                        new AbortController().signal,
                         new InvocationId("partial"),
                         0,
                         "key",
@@ -139,6 +140,7 @@ describe("W3 profile runtime", () => {
             for (const invalid of [
                 () =>
                     new ProfileEffectContext(
+                        new AbortController().signal,
                         new InvocationId("invalid-index"),
                         -1,
                         "key",
@@ -148,6 +150,7 @@ describe("W3 profile runtime", () => {
                     ),
                 () =>
                     new ProfileEffectContext(
+                        new AbortController().signal,
                         new InvocationId("invalid-key"),
                         0,
                         " key",
@@ -157,12 +160,24 @@ describe("W3 profile runtime", () => {
                     ),
                 () =>
                     new ProfileEffectContext(
+                        new AbortController().signal,
                         new InvocationId("invalid-ordinal"),
                         0,
                         "key",
                         new EffectAttemptId("attempt"),
                         -1,
                         new Digest("a".repeat(64))
+                    ),
+                () =>
+                    new ProfileEffectContext(
+                        // @ts-expect-error A context whose cancellation is absent is not constructible.
+                        undefined,
+                        new InvocationId("absent-cancellation"),
+                        0,
+                        "key",
+                        undefined,
+                        undefined,
+                        undefined
                     )
             ]) {
                 expect(invalid).toThrow(TypeError);
@@ -595,6 +610,7 @@ describe("W3 effect dispatch identity", () => {
             expect(
                 () =>
                     new ProfileEffectContext(
+                        new AbortController().signal,
                         new InvocationId("partial"),
                         0,
                         "key",
@@ -607,6 +623,7 @@ describe("W3 effect dispatch identity", () => {
         expect(
             () =>
                 new ProfileEffectContext(
+                    new AbortController().signal,
                     new InvocationId("blank-key"),
                     0,
                     "   ",
@@ -621,6 +638,7 @@ describe("W3 effect dispatch identity", () => {
         expect(
             () =>
                 new ProfileEffectContext(
+                    new AbortController().signal,
                     new InvocationId("empty-key"),
                     0,
                     "",
