@@ -38,6 +38,12 @@ import {
 import { requireTerminalOutcome } from "./outcome";
 import { BlueprintPin, RunPins } from "./pins";
 import {
+    CancelledTurnStatus,
+    FailedTurnStatus,
+    QueuedTurnStatus,
+    RunningTurnStatus,
+    SucceededTurnStatus,
+    SuspendedTurnStatus,
     TurnStatus,
     ofTerminalOutcome,
     type Option,
@@ -47,8 +53,8 @@ import {
 /**
  * The Turn status vocabulary and every transition it admits are lowered by the TSLean
  * compiler from `formal/AgentCore/Extract/TurnStatus.lean`, the module the Lean kernel
- * checks: the abstract base, the singleton per case, and the four moves. A move the table
- * refuses answers `none`, and `admittedStatus` turns that into this context's stable
+ * checks: the abstract base, the frozen singleton per case, and the four moves. A move the
+ * table refuses answers `none`, and `admittedStatus` turns that into this context's stable
  * `turn.invalid-state` refusal — the code and the message are runtime taxonomy, so they
  * stay here, while which moves exist is decided once, in Lean.
  */
@@ -71,21 +77,6 @@ function admittedStatus(next: Option<TurnStatus>, refusal: string): TurnStatus {
 function completedStatus(status: TurnStatus, outcome: TerminalOutcome): TurnStatus {
     if (!status.completes()) throw invalidTurn(`Cannot complete a ${status.kind} Turn`);
     return ofTerminalOutcome(outcome);
-}
-
-// The lowering emits one singleton per case but does not freeze them, and a record this
-// context hands out is frozen. Freezing here — where the lowered vocabulary enters the
-// domain, not inside the generated tree a regeneration would overwrite — is what keeps
-// `Object.isFrozen` true for every status a caller can reach.
-for (const status of [
-    TurnStatus.queued,
-    TurnStatus.running,
-    TurnStatus.suspended,
-    TurnStatus.succeeded,
-    TurnStatus.failed,
-    TurnStatus.cancelled
-]) {
-    Object.freeze(status);
 }
 
 export interface TurnInit {
@@ -367,6 +358,12 @@ class TurnRecordCodec extends RecordCodec<Turn> {
                 Revision,
                 TextId,
                 TurnStatus,
+                QueuedTurnStatus,
+                RunningTurnStatus,
+                SuspendedTurnStatus,
+                SucceededTurnStatus,
+                FailedTurnStatus,
+                CancelledTurnStatus,
                 SemVer,
                 TurnLease,
                 RunPins,

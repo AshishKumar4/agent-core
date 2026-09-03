@@ -40,7 +40,7 @@ export const POLICY_IMPACTS: readonly Impact[] = Object.freeze([
  * branches own disjoint Environments, and a merge that would need a side is rejected
  * rather than guessed (C13-RUN-TREE-CONFLICT-EXPLICIT).
  *
- * The vocabulary, both facts, and the singleton per case are lowered by the TSLean
+ * The vocabulary, both facts, and the frozen singleton per case are lowered by the TSLean
  * compiler from `formal/AgentCore/Extract/TreeMerge.lean`; only the absence-tolerant
  * decode below is this context's, because absence is a Blueprint fact and not a merge one.
  */
@@ -51,14 +51,6 @@ export type TreeMergeSetting = TreeMergePolicyData;
 export function treeMergePolicyFromData(value: JsonValue | undefined): TreeMergePolicy | undefined {
     if (value === undefined || value === null) return undefined;
     return TreeMergePolicy.fromData(value);
-}
-
-// The lowering emits one singleton per case but does not freeze them, and a record this
-// context hands out is frozen. Freezing here — where the lowered vocabulary enters the
-// domain, not inside the generated tree a regeneration would overwrite — is what keeps
-// `Object.isFrozen` true for every policy a caller can reach.
-for (const policy of [TreeMergePolicy.ours, TreeMergePolicy.theirs, TreeMergePolicy.perPath]) {
-    Object.freeze(policy);
 }
 
 export interface PolicySetInit {
