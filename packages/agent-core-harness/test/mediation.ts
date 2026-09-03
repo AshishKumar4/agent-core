@@ -20,7 +20,7 @@ import {
     isJsonObject,
     type JsonValue
 } from "@agent-core/core/core";
-import { PackageId, PackagePin, PolicySet } from "@agent-core/core/definition";
+import { PackageId, PackagePin, PlacementPolicy, PolicySet } from "@agent-core/core/definition";
 import {
     BindingName,
     Contribution,
@@ -265,7 +265,9 @@ export class DemoAuthorityState implements OperationAuthorityStatePort<MediatedT
             ),
             placement,
             owner,
-            policies: [new PolicySet({})],
+            // The harness drives one demo Package, so its placement policy states the
+            // permissive trust set explicitly rather than inheriting one.
+            policies: [new PolicySet({ placement: PlacementPolicy.all() })],
             turnOwnedSession: false,
             sessionFilesystemTarget: false,
             // A dedicated Run Actor holds no local Binding projection, so §7.2 keeps
