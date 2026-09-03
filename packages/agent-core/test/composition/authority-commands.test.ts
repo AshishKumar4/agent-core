@@ -1430,9 +1430,12 @@ describe("the Tenant authority runtime command backend", () => {
         }
     );
 
+    // Eight dispatches through the production command harness, each digesting and
+    // signing real evidence: about a second of work alone, so the default per-test
+    // budget is what a parallel run starves, not this backend.
     test(
         "projects source evidence idempotently before issuing the exact permit",
-        { tags: "p0" },
+        { tags: "p0", timeout: 120_000 },
         async () => {
             const harness = createProductionCommandHarness();
             const lease = { turn: authorityTurn, holder: principal, epoch: 2 };
@@ -1494,9 +1497,9 @@ describe("the Tenant authority runtime command backend", () => {
             ]);
             expect(concurrentLeft.reply).toEqual(concurrentRight.reply);
             const permit = AuthorityPermitIssuanceReply.decode(issued.reply).requirePermit();
-            expect(permit.requestDigest.equals(projectedRequest.request.targetRequest.digest())).toBe(
-                true
-            );
+            expect(
+                permit.requestDigest.equals(projectedRequest.request.targetRequest.digest())
+            ).toBe(true);
             expect(harness.issued(permit.nonce)?.digest().equals(permit.digest())).toBe(true);
         }
     );
@@ -1581,7 +1584,6 @@ class LeasedProductionCommandState extends TenantAuthorityCommandStatePort<Autho
             expiresAt: new Date(at.getTime() + 5_000)
         };
     }
-
 }
 
 function createProductionCommandHarness(
@@ -1815,7 +1817,6 @@ class ProductionCommandState extends TenantAuthorityCommandStatePort<AuthorityCo
     public currentCheckLease(): undefined {
         return undefined;
     }
-
 }
 
 const productionCommandState = new ProductionCommandState();
