@@ -250,6 +250,137 @@ export function validateClosedNamespaceStructure(structures) {
     }
 }
 
+/**
+ * The Subscription record namespace (§6.2, §8.4 rule 6): the storage kind the Workspace
+ * Actor keeps its Subscriptions in, the pointer namespace that names the current revision
+ * of each, and the one private member allowed to write either.
+ *
+ * C13-SUBSCRIPTION-ATTRIBUTION-FIXED turns on a negative claim — that no writer outside
+ * the declared entry points can put a Subscription into the record plane — and source
+ * inspection cannot establish a negative about writers that do not exist yet. This is the
+ * ACQ-OWNER-shaped form of it: the funnel is discovered from the tree, so a second writer
+ * fails the check the moment it is added rather than the next time somebody reads the file.
+ */
+const SUBSCRIPTION_NAMESPACE = Object.freeze({
+    kind: "subscription",
+    pointer: "subscription.current",
+    writer: "src/workspaces/persistence.ts#WorkspacePersistence.writeSubscription",
+    /**
+     * The funnel's own members, excluded from the entry-point set because they are the
+     * funnel: `writeSubscription` writes the namespace and `createSubscription` is the
+     * revision-zero gate every initial write passes through on its way there.
+     */
+    funnel: Object.freeze(["createSubscription", "writeSubscription"])
+});
+
+/**
+ * Every entry point that reaches the funnel, and what authorizes the attribution each one
+ * may write. `saveSubscription` is generic and refuses attribution on an initial write;
+ * the other two are the attributed paths, and they differ in what stands behind the pair:
+ * `materializeSubscription` consumes the one-use capability authenticated package
+ * installation provenance minted, while `putManagedSubscription` is reached only from the
+ * composition root's managed materialization, which derives the attribution from the
+ * validated Facet correspondence and its PackagePin rather than from anything a caller
+ * sent. A caller-facing method that wrote attribution on either footing would be a third
+ * kind of provenance, so the set is declared rather than counted.
+ */
+const SUBSCRIPTION_ENTRY_POINTS = Object.freeze([
+    Object.freeze({
+        member: "saveSubscription",
+        attribution: "refused on an initial write; immutable across every later revision"
+    }),
+    Object.freeze({
+        member: "materializeSubscription",
+        attribution: "consumed from the one-use authenticated package-installation capability"
+    }),
+    Object.freeze({
+        member: "putManagedSubscription",
+        attribution: "derived inside the composition root from the validated Facet's PackagePin"
+    })
+]);
+/**
+ * A storage write whose own statement names the Subscription namespace. Anchoring on the
+ * statement is what separates a write from a read: `listRecords("subscription")` and
+ * `findPointer("subscription.current", …)` name the same strings and are not writers.
+ */
+const SUBSCRIPTION_WRITE =
+    /\b(?:append|insertUnique|insertRecord|compareAndSetPointer|replace)\s*\([^;]*"subscription(?:\.current)?"/su;
+/** The private funnel's own callers, named as they are called. */
+const SUBSCRIPTION_FUNNEL = /\bthis\.(?:writeSubscription|createSubscription)\s*\(/u;
+
+export { SUBSCRIPTION_ENTRY_POINTS, SUBSCRIPTION_NAMESPACE };
+
+/**
+ * Every member anywhere in `src` that writes the Subscription namespace, and every member
+ * that reaches the private funnel. Discovery is separated from the rule so a test can hold
+ * a writer the tree does not contain against it: a validator that can only read the tree
+ * cannot be shown to refuse anything.
+ */
+export function discoverSubscriptionWriters(project) {
+    const writers = [];
+    const entries = [];
+    for (const [path, source] of agentCoreSources(project)) {
+        for (const statement of source.statements) {
+            if (!ts.isClassDeclaration(statement) || statement.name === undefined) continue;
+            for (const member of statement.members) {
+                if (!ts.isMethodDeclaration(member) && !ts.isPropertyDeclaration(member)) continue;
+                const name = member.name?.getText(source) ?? "<anonymous>";
+                const selector = `${path}#${statement.name.text}.${name}`;
+                const text = member.getText(source);
+                if (SUBSCRIPTION_WRITE.test(text)) writers.push({ selector, member: name });
+                if (SUBSCRIPTION_FUNNEL.test(text) && !SUBSCRIPTION_NAMESPACE.funnel.includes(name)) {
+                    entries.push({ selector, member: name });
+                }
+            }
+        }
+    }
+    return { writers, entries };
+}
+
+/**
+ * SPEC §8.4 rule 6 and C13-SUBSCRIPTION-ATTRIBUTION-FIXED: the Subscription namespace has
+ * one writer, and the members that reach it are exactly the declared entry points. The two
+ * halves are one rule: a second raw writer bypasses attribution fixity, and an undeclared
+ * entry point reaches it with provenance nothing reviewed.
+ */
+export function validateSubscriptionWriteMediation(discovered, declared = SUBSCRIPTION_ENTRY_POINTS) {
+    if (!isJsonObject(discovered) || !Array.isArray(discovered.writers)) {
+        throw new TypeError("Subscription writers must be a discovered writer set");
+    }
+    for (const writer of discovered.writers) {
+        if (!isJsonObject(writer) || !isNonEmptyString(writer.selector)) {
+            throw new TypeError("Subscription writer is malformed");
+        }
+        if (writer.selector !== SUBSCRIPTION_NAMESPACE.writer) {
+            throw new TypeError(
+                `Subscription namespace is written outside ${SUBSCRIPTION_NAMESPACE.writer}: ${writer.selector}`
+            );
+        }
+    }
+    if (!discovered.writers.some((writer) => writer.selector === SUBSCRIPTION_NAMESPACE.writer)) {
+        throw new TypeError(
+            `Subscription namespace writer is missing: ${SUBSCRIPTION_NAMESPACE.writer}`
+        );
+    }
+    for (const entry of declared) {
+        if (!isJsonObject(entry) || !isNonEmptyString(entry.attribution)) {
+            throw new TypeError("Subscription entry point is malformed");
+        }
+    }
+    const admitted = declared.map((entry) => entry.member);
+    const reached = [...new Set(discovered.entries.map((entry) => entry.member))].sort();
+    const undeclared = reached.filter((member) => !admitted.includes(member));
+    if (undeclared.length > 0) {
+        throw new TypeError(
+            `Subscription funnel is reached by an undeclared writer: ${undeclared.join(", ")}`
+        );
+    }
+    const absent = admitted.filter((member) => !reached.includes(member));
+    if (absent.length > 0) {
+        throw new TypeError(`Subscription entry point names no such writer: ${absent.join(", ")}`);
+    }
+}
+
 /** Package-relative `src` paths and their parsed sources, from the one shared program. */
 function agentCoreSources(project) {
     const sources = [];

@@ -24,7 +24,7 @@ import {
 } from "./codec";
 import { ActionId, EventCursor } from "./id";
 import { SurfaceEpoch, decodeSurfaceEpoch, surfaceRevisionKey } from "./surface-epoch";
-import { canonicalJson } from "./value";
+import { canonicalJson, readJsonPointer } from "./value";
 
 export interface ActionDescriptorInit {
     readonly id: ActionId;
@@ -531,27 +531,8 @@ function compareViewMarks(left: ViewMark, right: ViewMark): number {
 }
 
 function requireMarkedValue(body: JsonValue, pointer: string): void {
-    let value = body;
-    for (const token of new JsonPointer(pointer).tokens) {
-        if (Array.isArray(value)) {
-            if (!/^(?:0|[1-9][0-9]*)$/u.test(token)) {
-                throw new TypeError("View mark path does not resolve within the View body");
-            }
-            const index = Number(token);
-            const next = Number.isSafeInteger(index) ? value[index] : undefined;
-            if (next === undefined) {
-                throw new TypeError("View mark path does not resolve within the View body");
-            }
-            value = next;
-        } else if (isJsonObject(value) && Object.hasOwn(value, token)) {
-            const next = value[token];
-            if (next === undefined) {
-                throw new TypeError("View mark path does not resolve within the View body");
-            }
-            value = next;
-        } else {
-            throw new TypeError("View mark path does not resolve within the View body");
-        }
+    if (readJsonPointer(body, pointer) === undefined) {
+        throw new TypeError("View mark path does not resolve within the View body");
     }
 }
 

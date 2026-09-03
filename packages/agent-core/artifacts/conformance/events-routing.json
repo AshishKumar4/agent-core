@@ -259,29 +259,31 @@
       "prerequisites": [],
       "sourceSymbols": [
         "src/workspaces/persistence.ts#WorkspacePersistence.materializeSubscription",
+        "src/workspaces/persistence.ts#WorkspacePersistence.putManagedSubscription",
         "src/workspaces/persistence.ts#WorkspacePersistence.saveSubscription",
         "src/workspaces/subscription-materializer.ts#WorkspaceSubscriptionMaterializer",
         "src/workspaces/subscription.ts#Subscription",
         "src/workspaces/withdrawal.ts#WorkspaceRoutingWithdrawal.contributed"
       ],
       "testSelectors": [
-        "test/events/persistence-memory.test.ts#memory workspace persistence [C13-SUBSCRIPTION-ATTRIBUTION-FIXED] refuses a caller-supplied attribution before it can enter a withdrawal set",
+        "test/conformance/ownership.test.ts#one durable owner per record kind [C13-SUBSCRIPTION-ATTRIBUTION-FIXED] [C13-OWNERSHIP-SINGLE-OWNER] the Subscription namespace has one writer and exactly the declared entry points reach it",
         "test/events/persistence-memory.test.ts#memory workspace persistence [C13-SUBSCRIPTION-ATTRIBUTION-FIXED] materializes attribution from authenticated provenance and refuses every later rewrite",
+        "test/events/persistence-memory.test.ts#memory workspace persistence [C13-SUBSCRIPTION-ATTRIBUTION-FIXED] refuses a caller-supplied attribution before it can enter a withdrawal set",
         "test/events/persistence-memory.test.ts#memory workspace persistence [C13-SUBSCRIPTION-ATTRIBUTION-FIXED] refuses forged, replayed, expired, and drifted contribution provenance",
-        "test/substrates/sqlite/events-persistence.test.ts#SQLite workspace persistence [C13-SUBSCRIPTION-ATTRIBUTION-FIXED] refuses a caller-supplied attribution before it can enter a withdrawal set",
         "test/substrates/sqlite/events-persistence.test.ts#SQLite workspace persistence [C13-SUBSCRIPTION-ATTRIBUTION-FIXED] materializes attribution from authenticated provenance and refuses every later rewrite",
+        "test/substrates/sqlite/events-persistence.test.ts#SQLite workspace persistence [C13-SUBSCRIPTION-ATTRIBUTION-FIXED] refuses a caller-supplied attribution before it can enter a withdrawal set",
         "test/substrates/sqlite/events-persistence.test.ts#SQLite workspace persistence [C13-SUBSCRIPTION-ATTRIBUTION-FIXED] refuses forged, replayed, expired, and drifted contribution provenance",
         "test/workspaces/codec-id-mutations.test.ts#Subscription mutation coverage [C13-SUBSCRIPTION-ATTRIBUTION-FIXED] carries both attribution halves at major 2 and omits the field where no Facet contributed",
         "test/workspaces/withdrawal.test.ts#routing withdrawal sweep [C13-SUBSCRIPTION-ATTRIBUTION-FIXED] a Subscription no Facet contributed belongs to no withdrawal set"
       ],
       "checkerInvariants": ["ACQ-ATTRIBUTION", "ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": [
-        "Citation discrimination is unmeasured for this area rather than measured and weak: artifacts/quality/discrimination/ holds no attribution file for src/workspaces, so discrimination.mjs cannot judge whether these citations constrain Subscription, WorkspacePersistence.saveSubscription, WorkspacePersistence.materializeSubscription, WorkspaceSubscriptionMaterializer, or the membership query, and the mutation campaign that would produce one is halted. The row stays implemented until a W7 mutation run records a symbol-tier kill inside each. The present evidence is public behavioral evidence, not a mutation claim: the shared memory and SQLite contract refuses an attributed initial generic write, accepts a direct unattributed one, materializes both exact fields only through current authenticated package-installation provenance, refuses caller-supplied record state, a structural lookalike, a public PackageInstallationRef, a replayed or expired token, a failed resolve, and package or Facet drift, then proves legal immutable revision and restart. The codec and withdrawal tests separately prove major-2 absence encoding and withdrawal-set membership",
-        "The record has two intentional initial-write paths rather than the one this row previously claimed: WorkspacePersistence.saveSubscription writes a caller-created Subscription only when it carries no attribution, and WorkspacePersistence.materializeSubscription writes a contributed Subscription only after it consumes the opaque one-use capability PackageInstallationProvenancePort issued inside its synchronous current-provenance callback. Both converge on private writeSubscription. Source inspection finds no other production initial writer, but no record-plane gate proves that negative claim or proves every future writer reaches those two paths. Closure needs an ACQ-OWNER-shaped assertion over the subscription namespace, not a stronger status string"
+        "Citation discrimination is stale for this area rather than measured and weak: artifacts/quality/discrimination/workspaces.json is W0-owned, was measured at be905bac, and every file it covers has changed since \u2014 subscription.ts and persistence.ts among them \u2014 while subscription-materializer.ts and withdrawal.ts appear in no attribution at all, so discrimination.mjs cannot judge whether these citations constrain Subscription, WorkspacePersistence.saveSubscription, WorkspacePersistence.materializeSubscription, WorkspacePersistence.putManagedSubscription, WorkspaceSubscriptionMaterializer, or the membership query. The row stays implemented until a W7 mutation run over the exact head records a symbol-tier kill inside each. The present evidence is public behavioral evidence, not a mutation claim: the shared memory and SQLite contract refuses an attributed initial generic write, accepts a direct unattributed one, materializes both exact fields only through current authenticated package-installation provenance, refuses caller-supplied record state, a structural lookalike, a public PackageInstallationRef, a replayed or expired token, a failed resolve, and package or Facet drift, then proves legal immutable revision and restart. The codec and withdrawal tests separately prove major-2 absence encoding and withdrawal-set membership",
+        "The negative claim is a gate now rather than a reading, and the gate corrected the claim. The Subscription namespace has exactly one writer \u2014 WorkspacePersistence.writeSubscription, discovered from the tree rather than declared \u2014 and the members reaching it through the revision-zero gate are exactly three, not the two this row previously named: saveSubscription, which refuses attribution on an initial write; materializeSubscription, which consumes the one-use capability PackageInstallationProvenancePort minted inside its synchronous current-provenance callback; and putManagedSubscription, reached only from the composition root's managed materialization, which derives the pair from the validated Facet correspondence and its PackagePin rather than from anything a caller sent. The assertion is ACQ-OWNER-shaped and lives with the other record-plane rules, discovered from the compiler's own view of src: it refuses a second raw writer wherever it is added, an undeclared member reaching the funnel, and a declaration whose writer was deleted, so the negative fails closed for a writer that does not exist yet. What remains here is the mutation evidence above, not this negative"
       ],
       "bounds": [
         "This rule does not claim the withdrawal sweep. That a withdrawal retires exactly the contributed Subscriptions, and terminates their unadmitted reservations, is C13-FACET-WITHDRAWAL-EXACT's mechanism and evidence; the citation here is WorkspaceRoutingWithdrawal.contributed, the membership query, because the discriminator is what attribution fixity decides.",
-        "This rule does not claim §4.2's materialization half. C13-FACET-CONTRIBUTION-ATTRIBUTION requires every record a contribution materializes into to carry the same pair, but four kinds still have no runtime materialized record: catalog entry, prompt section, ingress endpoint, and merged settings fragment. The Subscription is one kind that does exist; nothing here promotes the W3 atom or stands in for those four."
+        "This rule does not claim \u00a74.2's materialization half. C13-FACET-CONTRIBUTION-ATTRIBUTION requires every record a contribution materializes into to carry the same pair, but four kinds still have no runtime materialized record: catalog entry, prompt section, ingress endpoint, and merged settings fragment. The Subscription is one kind that does exist; nothing here promotes the W3 atom or stands in for those four."
       ]
     },
     {
@@ -367,7 +369,7 @@
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": [
         "src/workspaces/coherence.ts carries no mutation attribution yet, so discrimination.mjs cannot judge whether these citations constrain authorizeObservedIntervention; the row stays implemented until a W7 mutation run records a symbol-tier kill inside it",
-        "The authorized-intervention path through the §4.4 turn.step cut point is C13-INTERCEPTOR-STEP-STOP's mechanism; this row proves only that observation authority never supplies it"
+        "The authorized-intervention path through the \u00a74.4 turn.step cut point is C13-INTERCEPTOR-STEP-STOP's mechanism; this row proves only that observation authority never supplies it"
       ]
     },
     {
@@ -442,16 +444,28 @@
       "owner": "W7",
       "specAnchor": "C13-VIEW-APPROVAL-PROVENANCE",
       "specTextSha256": "sha256:707f894dd630e89eb7aec98fe130f0cc039e30d347ff88c14ceca840a661e76d",
-      "status": "planned",
+      "status": "implemented",
       "prerequisites": [],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
+      "sourceSymbols": [
+        "src/composition/decision-presentation.ts#DecisionSurfacePresentation",
+        "src/workspaces/decision-view.ts#DecidedInput",
+        "src/workspaces/decision-view.ts#DecisionRendering",
+        "src/workspaces/decision-view.ts#ViewPosition",
+        "src/workspaces/decision-view.ts#composeDecisionView"
+      ],
+      "testSelectors": [
+        "test/composition/decision-presentation.test.ts#the decision presentation path [C13-VIEW-APPROVAL-PROVENANCE] composes a decision View from the exact prepared intent and marks every value the host did not originate",
+        "test/composition/decision-presentation.test.ts#the decision presentation path [C13-VIEW-APPROVAL-PROVENANCE] takes every mark's tier from the arrival record rather than from the Surface's answer",
+        "test/composition/decision-presentation.test.ts#the decision presentation path [C13-VIEW-APPROVAL-PROVENANCE] refuses a Surface that renders someone else's input as platform voice, alters it, invents it, or leaves it undeclared",
+        "test/composition/decision-presentation.test.ts#the decision presentation path [C13-VIEW-APPROVAL-PROVENANCE] carries a decision onto the next revision of an ordinary stream and replaces it on the one after"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": [
-        "6.3 defines every term by composition and the durable half is implemented: a decision View is discriminated by the presence of intentDigest, provenance travels in marks whose path reuses the existing FieldMapping and PayloadMapping JSON Pointer vocabulary (6.2), and platform voice is defined functionally as any rendered position a viewer would attribute to the platform rather than to the marked value's own source.",
-        "The durable record and replay prerequisite is implemented and unaffected by the epoch work: the View codec omits provenance on ordinary Views, requires both intentDigest and marks on decision Views, rejects inconsistent provenance shapes and marks outside the exact body, and preserves decision provenance through memory snapshot restore and file-backed SQLite reopen.",
-        "The rendering conjunct still has no production enforcement point, and this wave removed the one thing that resembled one. A helper that composed slot-contributed child Views existed in src/workspaces with no production caller and was deleted rather than left standing as evidence, so no production path composes a Surface into a View at all. Facet Surface.render and ProfileRuntimeEffectsPort.render still return generic FacetData, and nothing constructs or validates a decision View.",
-        "Closing the atom requires one canonical production presentation path that constructs a decision View from the exact prepared intent (7.3, W6's PreparedInvocation), proves every non-host body value is marked with its actual TrustTier, and constrains marked values to data presentation rather than platform voice. That path spans W3's Surface render contract and W6's prepared intent, so W7 cannot build it alone: a codec-only change could preserve marks and still render a marked value as a headline, a button label, or unattributed host prose."
+        "The rendering conjunct has a production enforcement point now, and it is one path rather than a helper with no caller. DecisionSurfacePresentation is the only production route from a \u00a77.3 prepared intent to a \u00a76.3 decision View: it asks the \u00a74 Surface to render, decodes that generic FacetData answer into a DecisionRendering, composes the View in the Workspace plane, and publishes it as the stream's next revision. The three conjuncts hold by construction rather than by a caller remembering them \u2014 the intent digest is the prepared intent's own, the marks are derived from the decided input and never accepted from the answer, and every rendered position is declared as data or as platform voice with an attributed value refused at the second. The render is awaited before the transaction opens, so the guarded read and the write stay one synchronous span.",
+        "The tier is host-derived because it is read off a record the host owns: DecidedInput.delivered takes the arrival Event and answers that Event's own trust, and DecidedInput.emitted is the Turn-assembled case \u00a76.1 tiers `self`. A Surface cannot state a tier at all \u2014 the rendering's exact field set has none \u2014 which is C13-TRUST-HOST-DERIVED's half of this rule, and the cited case presents one identical answer marking `owner`, `external` and `self` purely from what arrived.",
+        "What is enforced of \"as data rather than as platform voice\" is position and copying, not visual treatment. A marked value is refused at a platform-voice position, refused when the Surface altered it, refused when it attributes a value the intent does not hold, and refused when host prose or a button label repeats text the decided input carries; a rendered position no placement declares is refused too, which closes the undeclared-copy hole. What no records-only rule reaches is whether a viewer reads a declared data position as someone else's input \u2014 that is a property of the client's presentation, and this row does not claim it.",
+        "No shipped profile Surface answers this contract yet. ApprovalGatewayFacet's Surface still returns generic FacetData, so the cited case drives the path with a scripted Surface rather than through the \u00a711.4 gateway, and the composition root holding the presentation is not yet wired into a profile's approval flow. Promotion needs that wiring plus the W3-owned Surface that renders a decision.",
+        "Recorded discrimination is owed and is not this row's to write. artifacts/quality/discrimination/ is W0-owned, its workspaces attribution was measured at be905bac and has drifted from every file it covers, and src/workspaces/decision-view.ts and src/composition/decision-presentation.ts appear in no attribution at all, so nothing can judge whether these citations constrain composeDecisionView, the placement refusals, or the tier derivation. Promotion needs a mutation run over the exact head recording a symbol-tier kill inside each."
       ]
     },
     {
@@ -500,13 +514,14 @@
         "C13-VIEW-NO-LIVE-STATE"
       ],
       "sourceSymbols": [
-        "src/workspaces/surface-epoch.ts#SurfaceEpoch",
-        "src/workspaces/view.ts#View",
-        "src/workspaces/view.ts#ViewDelta",
-        "src/workspaces/persistence.ts#WorkspacePersistence.retireSurfaceRegistration",
+        "src/composition/surface-aggregation.ts#SurfaceAggregation",
         "src/workspaces/persistence.ts#WorkspacePersistence.currentSurfaceEpoch",
+        "src/workspaces/persistence.ts#WorkspacePersistence.findCursorRevision",
+        "src/workspaces/persistence.ts#WorkspacePersistence.retireSurfaceRegistration",
+        "src/workspaces/surface-epoch.ts#SurfaceEpoch",
         "src/workspaces/view-replay.ts#ViewReplayProtocol",
-        "src/workspaces/persistence.ts#WorkspacePersistence.findCursorRevision"
+        "src/workspaces/view.ts#View",
+        "src/workspaces/view.ts#ViewDelta"
       ],
       "testSelectors": [
         "test/workspaces/surface-retirement.test.ts#Surface retirement and re-registration [C13-VIEW-WITHDRAWAL-TERMINAL] nothing revives a retired epoch and nothing deletes its terminal View",
@@ -522,16 +537,18 @@
         "test/events/persistence-memory.test.ts#memory workspace persistence [C13-VIEW-WITHDRAWAL-TERMINAL] refuses a delta built against the pre-terminal head and a snapshot offered after it",
         "test/substrates/sqlite/events-persistence.test.ts#SQLite workspace persistence [C13-VIEW-WITHDRAWAL-TERMINAL] retires a Surface stream and opens the next epoch for a later release",
         "test/substrates/sqlite/events-persistence.test.ts#SQLite workspace persistence [C13-VIEW-WITHDRAWAL-TERMINAL] refuses a delta built against the pre-terminal head and a snapshot offered after it",
-        "test/substrates/sqlite/events-persistence.test.ts#[C13-VIEW-WITHDRAWAL-TERMINAL] file-backed SQLite answers the current epoch and the retired terminal revision after reopen"
+        "test/substrates/sqlite/events-persistence.test.ts#[C13-VIEW-WITHDRAWAL-TERMINAL] file-backed SQLite answers the current epoch and the retired terminal revision after reopen",
+        "test/composition/surface-aggregation.test.ts#an aggregating Surface over slot-contributed child Views [C13-VIEW-WITHDRAWAL-TERMINAL] drops a retired child's entry at its next revision and keeps every live one",
+        "test/composition/surface-aggregation.test.ts#an aggregating Surface over slot-contributed child Views [C13-VIEW-WITHDRAWAL-TERMINAL] rejoins a re-registered child at its new epoch and composes nothing for one that never rendered"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": [
         "A View stream is now the pair of a SurfaceId and the SurfaceEpoch its registration assigned. View carries the terminal field and ViewDelta carries the epoch, both at bumped codec majors with no reader left for the previous ones. Retirement emits exactly one terminal ViewDelta whose cursor is the base View's own, because that patch consumes no Event, and every later snapshot or delta for that epoch is refused by reading the terminal View rather than a second liveness flag.",
         "An epoch belongs to a registration rather than to a retirement. WorkspacePersistence requires a current SurfaceRegistration for the exact SurfaceId before a stream opens and before any revision advances, so retirement alone cannot open epoch 2 and only a reinstallation can. currentSurfaceEpoch derives the next epoch from the stored Views, which compaction cannot delete for a retired epoch, so a later PackagePin registering the same static SurfaceId opens a fresh stream at the next epoch while every earlier terminal View stays readable at the revision it ended on.",
         "Resume is keyed on the opaque EventCursor the record defines, not on a revision a client would have to derive. ViewReplayProtocol.replay resolves a presented cursor against the stored Views and deltas of that exact stream, refuses an unknown cursor and a cursor of another stream by name, and yields a retired epoch's terminal revision through the same reader live resume uses. A client detects retirement from the returned View alone, holding no live handle.",
-        "The aggregating conjunct is NOT claimed and its owner is outside this wave, but its call-into-this-plane half is no longer missing. §6.3 requires an aggregating Surface to drop a retired child's entry at its next revision, and no production Surface composes the surface-backed slot entries §4.2 describes. The withdrawal path does now reach this plane and is exercised end to end: src/composition/facet-withdrawal.ts retires the SurfaceRegistrations of one exact contribution, which terminates each stream through WorkspacePersistence.retireSurfaceRegistration at the epoch that registration assigned, and a later PackagePin re-registering the same static SurfaceId opens the next epoch — evidenced by C13-FACET-WITHDRAWAL-EXACT's own W3-owned case, which requireEvidenceOwner keeps out of this row's selectors. What is still owed is only the composition of child Views from contributor attribution; a helper that composed them existed here with no production caller and was deleted rather than left standing as evidence, because AGENTS.md requires an unimplemented piece to be absent instead of fake.",
-        "The row cannot rise above implemented for a second, independent reason, though that reason has shrunk. Its prerequisite C13-FACET-WITHDRAWAL-EXACT is W3-owned and still implemented — its authority, Surface-retirement and retained-ContentRef items have closed, and what remains there is W0's mutation campaign over the exact head plus maintainer review — and the ledger refuses a verified row whose prerequisite is unverified.",
-        "Recorded discrimination is owed and is not this row's to write. artifacts/quality/discrimination/ is W0-owned and holds no attribution file for src/workspaces, so nothing can judge whether these citations constrain SurfaceEpoch, the terminal refusals, the registration requirement, currentSurfaceEpoch, or the cursor resume path. Promotion needs a W7 mutation run recording a symbol-tier kill inside each."
+        "The aggregating conjunct is claimed now, and claimed as a composition rather than as a helper nothing calls. SurfaceAggregation is the production path a parent Surface composes its \u00a74.2 surface-backed slot entries through: it reads each child's current stream and publishes the parent's next revision as one ViewDelta over exactly the live children. Dropping a retired child needs no liveness flag and no retirement notice, because currentSurfaceEpoch answers the epoch a View written now would belong to and a retired child's last stream is behind it \u2014 so the child contributes nothing at the parent's next revision while its terminal View stays exactly as readable as before, nothing having deleted it. A child that never rendered contributes nothing for the same reason and consumes no epoch, and a re-registered one rejoins at its new epoch and never at the retired one. The withdrawal path reaches this plane end to end: src/composition/facet-withdrawal.ts retires the SurfaceRegistrations of one exact contribution, which terminates each stream through WorkspacePersistence.retireSurfaceRegistration at the epoch that registration assigned \u2014 evidenced by C13-FACET-WITHDRAWAL-EXACT's own W3-owned case, which requireEvidenceOwner keeps out of this row's selectors.",
+        "The row cannot rise above implemented for a second, independent reason, though that reason has shrunk. Its prerequisite C13-FACET-WITHDRAWAL-EXACT is W3-owned and still implemented \u2014 its authority, Surface-retirement and retained-ContentRef items have closed, and what remains there is W0's mutation campaign over the exact head plus maintainer review \u2014 and the ledger refuses a verified row whose prerequisite is unverified.",
+        "Recorded discrimination is owed and is not this row's to write. artifacts/quality/discrimination/ is W0-owned, its workspaces attribution was measured at be905bac and every file it covers has drifted since, while src/workspaces/surface-epoch.ts, src/workspaces/withdrawal.ts and src/composition/surface-aggregation.ts appear in no attribution at all, so nothing can judge whether these citations constrain SurfaceEpoch, the terminal refusals, the registration requirement, currentSurfaceEpoch, the cursor resume path, or the aggregate's drop. Promotion needs a W7 mutation run over the exact head recording a symbol-tier kill inside each."
       ],
       "bounds": [
         "This rule does not claim which Facet withdrawal retires which Surface. That membership is C13-FACET-WITHDRAWAL-EXACT's mechanism; the citation here is the retirement path a withdrawal calls, because the discriminator is what terminality and re-registration decide."

@@ -10,6 +10,19 @@ export {
 } from "../interaction-references";
 export { Event } from "./event";
 export type { EventInit } from "./event";
+export {
+    DecidedInput,
+    DecisionPlacement,
+    DecisionRendering,
+    ViewPosition,
+    composeDecisionView,
+    decisionViewPatch
+} from "./decision-view";
+export type {
+    DecisionPlacementInit,
+    DecisionRenderingInit,
+    DecisionViewCompositionInit
+} from "./decision-view";
 export { IngressEndpoint } from "./ingress-endpoint";
 export type { IngressEndpointInit, IngressEndpointMaterializationInit } from "./ingress-endpoint";
 export {
@@ -159,7 +172,12 @@ export {
     createTargetProjectionProtocolCommand
 } from "./target-protocol";
 export type { TargetProjectionAdmission } from "./target-protocol";
-export { EventProvenance, EventVerification, canonicalJson } from "./value";
+export {
+    EventProvenance,
+    EventVerification,
+    canonicalJson,
+    readJsonPointer
+} from "./value";
 export type {
     DerivedEventTrust,
     EventProvenanceInit,

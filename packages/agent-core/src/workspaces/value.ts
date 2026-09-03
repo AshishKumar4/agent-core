@@ -9,7 +9,7 @@ import {
     type JsonValue,
     TextId
 } from "../core";
-import type { BindingName, FacetPackageId, TrustTier } from "../facets";
+import { JsonPointer, type BindingName, type FacetPackageId, type TrustTier } from "../facets";
 import { PrincipalId, PrincipalRef, TenantId } from "../identity";
 import { decodeOptionalPrincipalRef, encodeOptionalPrincipalRef } from "./codec";
 
@@ -178,6 +178,34 @@ export interface DerivedEventTrust {
 
 export function canonicalJson(value: JsonValue): JsonValue {
     return deepFreeze(decodeCanonicalJson(encodeCanonicalJson(value)));
+}
+
+/**
+ * The value one RFC 6901 pointer names inside a document, or nothing when the document
+ * does not hold that position. Absence is the return rather than a throw because the two
+ * callers owe different refusals for it — a View mark that resolves nowhere is a malformed
+ * record, a decision placement that resolves nowhere is a rejected rendering — while the
+ * traversal itself is one fact about pointers. A JSON `null` the document does hold is a
+ * value and answers as one.
+ */
+export function readJsonPointer(document: JsonValue, pointer: string): JsonValue | undefined {
+    let current: JsonValue = document;
+    for (const token of new JsonPointer(pointer).tokens) {
+        if (Array.isArray(current)) {
+            if (!/^(?:0|[1-9][0-9]*)$/u.test(token)) return undefined;
+            const index = Number(token);
+            const entry = Number.isSafeInteger(index) ? current[index] : undefined;
+            if (entry === undefined) return undefined;
+            current = entry;
+        } else if (isJsonObject(current) && Object.hasOwn(current, token)) {
+            const entry = current[token];
+            if (entry === undefined) return undefined;
+            current = entry;
+        } else {
+            return undefined;
+        }
+    }
+    return current;
 }
 
 function deepFreeze(value: JsonValue): JsonValue {

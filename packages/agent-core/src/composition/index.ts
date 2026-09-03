@@ -49,6 +49,13 @@ export type { WorkspaceFacetMaterializationResult } from "./workspace-facet-mate
 export { createClosedCommandDispatcher } from "./dispatcher";
 export type { ClosedCommandFamilies, ClosedDispatcherInit } from "./dispatcher";
 export { DeviceConsentFinalAdmissionPort } from "./device-consent";
+export { DecisionSurfacePresentation } from "./decision-presentation";
+export type {
+    DecisionPresentationInit,
+    DecisionPresentationRequest
+} from "./decision-presentation";
+export { SurfaceAggregation } from "./surface-aggregation";
+export type { AggregatedChild, SurfaceAggregationInit } from "./surface-aggregation";
 export { InvocationComposition } from "./invocation";
 export { DetachedMediationTarget } from "./detached-target";
 export type { InvocationCompositionInit } from "./invocation";

@@ -52,9 +52,34 @@ export interface DeclaredNamespace {
     readonly member: string;
 }
 
+/** One member that writes the Subscription namespace or reaches its private funnel. */
+export interface SubscriptionWriter {
+    readonly selector: string;
+    readonly member: string;
+}
+
+/** The discovered write surface of the Subscription namespace. */
+export interface SubscriptionWriters {
+    readonly writers: readonly SubscriptionWriter[];
+    readonly entries: readonly SubscriptionWriter[];
+}
+
+/** One declared entry point, and what authorizes the attribution it may write. */
+export interface SubscriptionEntryPoint {
+    readonly member: string;
+    readonly attribution: string;
+}
+
 export const AUTHORITY_RECORD_CLASSES: readonly string[];
 export const DERIVED_CACHE_INVENTORY: readonly DerivedCacheEntry[];
 export const NAMESPACE_STRUCTURES: readonly DeclaredNamespace[];
+export const SUBSCRIPTION_NAMESPACE: {
+    readonly kind: string;
+    readonly pointer: string;
+    readonly writer: string;
+    readonly funnel: readonly string[];
+};
+export const SUBSCRIPTION_ENTRY_POINTS: readonly SubscriptionEntryPoint[];
 
 export function discoverPersistenceSurfaces(project: Project): PersistenceSurface[];
 export function validateAuthorityPlaneExclusivity(surfaces: readonly PersistenceSurface[]): void;
@@ -65,3 +90,8 @@ export function validateDerivedCacheInventory(
 ): void;
 export function discoverNamespaceStructures(project: Project): NamespaceStructure[];
 export function validateClosedNamespaceStructure(structures: readonly NamespaceStructure[]): void;
+export function discoverSubscriptionWriters(project: Project): SubscriptionWriters;
+export function validateSubscriptionWriteMediation(
+    discovered: SubscriptionWriters,
+    declared?: readonly SubscriptionEntryPoint[]
+): void;

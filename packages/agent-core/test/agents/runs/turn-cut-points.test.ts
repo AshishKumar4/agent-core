@@ -100,6 +100,52 @@ function isStop(value: FacetData | TurnStopRequest): value is TurnStopRequest {
     );
 }
 
+/**
+ * A schedule of two rewriters at one cut point, which is the smallest shape the
+ * per-rewriter half of §4.4 is observable in. The runner applies the cut point's rule to
+ * each interceptor's OWN answer, so this mirrors that loop exactly — admit, then carry the
+ * answer forward — while the rule itself stays the real one the host supplied. A rule
+ * applied only to the schedule's final value would let a malformed intermediate answer
+ * reach the next rewriter and be overwritten there, and that is what this discriminates.
+ */
+class ScriptedRewriteChain extends TurnCutPointPort {
+    public readonly reached: string[] = [];
+
+    public constructor(
+        private readonly cutPoint: TurnBoundCutPoint,
+        private readonly answers: readonly (readonly [string, FacetData])[]
+    ) {
+        super();
+    }
+
+    public override run(
+        cutPoint: TurnBoundCutPoint,
+        _turn: TurnId,
+        value: FacetData,
+        admit: TurnRewriteRule
+    ): TurnInterceptionResult {
+        let carried = value;
+        if (cutPoint !== this.cutPoint) {
+            return Object.freeze({ value: carried, traces: Object.freeze([]), stop: undefined });
+        }
+        for (const [interceptor, answer] of this.answers) {
+            this.reached.push(interceptor);
+            admit(
+                carried,
+                answer,
+                new InterceptorDeclaration(
+                    new InterceptorId(interceptor),
+                    cutPoint,
+                    "rewrite",
+                    this.reached.length - 1
+                )
+            );
+            carried = answer;
+        }
+        return Object.freeze({ value: carried, traces: Object.freeze([]), stop: undefined });
+    }
+}
+
 function declarationFor(cutPoint: TurnBoundCutPoint): InterceptorDeclaration {
     return new InterceptorDeclaration(new InterceptorId("supervisor"), cutPoint, "rewrite", 0);
 }
@@ -315,6 +361,42 @@ describe("Turn-bound interceptor cut points", () => {
                 "Prompt section contains missing or unknown fields",
                 "A model input records at least one prompt section"
             ]);
+        }
+    );
+
+    it(
+        "[C13-TURN-PROMPT-ASSEMBLE] refuses a malformed answer at the rewriter that gave it, so a later rewriter never overwrites the refusal",
+        { tags: "p0" },
+        async () => {
+            // Two rewriters: the first answers something that is not a section list, and
+            // the second ignores what it received and answers a well-formed one. Decoding
+            // only the schedule's final value would admit this Turn, because the final
+            // value parses — the malformed answer would have reached the second
+            // interceptor as though it were sections, which §4.4 forbids per rewriter.
+            const chain = new ScriptedRewriteChain("prompt.assemble", [
+                ["first", [{ name: "broken" }]],
+                ["second", [section("recovered", "recovered body").toData()]]
+            ]);
+            const base = await fixture(chain);
+            const executor = new FunctionExecutor(async (turn) => {
+                await turn.model.call({
+                    covers: await turn.modelInput.accountable(),
+                    sections: [section("first", "first body")],
+                    catalog: [],
+                    admitted: []
+                });
+                return turn.outcome.succeed(
+                    resultCommit(turn, "chain-unreached", ids.root, base.output)
+                );
+            });
+
+            await expect(
+                base.host(executor, chain).execute(base.seeded.token)
+            ).rejects.toThrow("Prompt section contains missing or unknown fields");
+            // The refusal landed on the first answer: the second rewriter was never run,
+            // and no model input was recorded for either.
+            expect(chain.reached).toEqual(["first"]);
+            expect(base.port.bytes).toEqual([]);
         }
     );
 

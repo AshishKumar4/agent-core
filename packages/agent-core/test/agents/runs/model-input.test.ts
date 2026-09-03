@@ -52,6 +52,9 @@ import {
     OperationName,
     OperationRef
 } from "../../../src/facets";
+import { AttemptReceipt, Receipt, deriveBatchOutcome } from "../../../src/invocations";
+import { EffectAttemptId, ReceiptId } from "../../../src/invocation-references";
+import { attemptCompletion, failedByAbort } from "../../invocations/fixture";
 import {
     TestEvidencePort,
     TestMergePort,
@@ -1024,6 +1027,110 @@ describe("Turn model input", () => {
             const withCoverage = mutableData(abridgedComplete.toData());
             withCoverage["partiallySucceeded"] = true;
             expect(() => TurnModelInput.fromData(withCoverage)).toThrow(TypeError);
+        }
+    );
+
+    it(
+        "[C13-TURN-MODEL-INPUT-ABRIDGED] tells a budget omission from an incompletely covered source only by reading the §7.4 Receipt beside the request",
+        { tags: "p0" },
+        async () => {
+            const base = await fixture();
+            const whole = encoder.encode("0123456789");
+            const shown = whole.slice(0, 4);
+            const wholeRef = (await base.content.put(whole)).ref;
+            const pageRef = (await base.content.put(shown)).ref;
+            let exchange: TurnModelExchange | undefined;
+            const executor = new FunctionExecutor(async (context) => {
+                exchange = await context.model.call({
+                    covers: await context.modelInput.accountable(),
+                    sections: [
+                        section(
+                            "result",
+                            TurnShownContent.inline(shown),
+                            TurnOmission.exact(whole.length - shown.length)
+                        )
+                    ],
+                    catalog: [],
+                    admitted: []
+                });
+                return context.outcome.succeed(
+                    resultCommit(context, "abridged-composed", exchange.input, base.output)
+                );
+            });
+            await expect(base.host(executor).execute(base.seeded.token)).resolves.toMatchObject({
+                kind: "succeeded"
+            });
+            const replayed = await new TurnModelInputReplay({
+                repository: base.seeded.repository,
+                content: base.content
+            }).reconstruct(exchange!.input);
+            const request = replayed.sections[0]!;
+            expect(request.omission).toEqual(TurnOmission.exact(6));
+
+            // Two §7.4 Receipts for the same shown bytes, each read back from its own
+            // record. One attempt retained the whole result; the other is a source that
+            // covered less than was asked — a page — whose sibling item never covered the
+            // rest, so the derived batch outcome reports the incompleteness.
+            const completeBytes = Receipt.encode(
+                new AttemptReceipt(
+                    new ReceiptId("abridged-complete"),
+                    new EffectAttemptId("abridged-attempt-complete"),
+                    attemptCompletion("succeeded"),
+                    undefined,
+                    new Date(3_000),
+                    wholeRef
+                )
+            );
+            const pageBytes = Receipt.encode(
+                new AttemptReceipt(
+                    new ReceiptId("abridged-page"),
+                    new EffectAttemptId("abridged-attempt-page"),
+                    attemptCompletion("succeeded"),
+                    undefined,
+                    new Date(3_000),
+                    pageRef
+                )
+            );
+            const uncoveredBytes = Receipt.encode(
+                new AttemptReceipt(
+                    new ReceiptId("abridged-uncovered"),
+                    new EffectAttemptId("abridged-attempt-uncovered"),
+                    failedByAbort,
+                    undefined,
+                    new Date(3_000),
+                    undefined
+                )
+            );
+            expect(deriveBatchOutcome(1, [Receipt.decode(completeBytes)])).toBe("succeeded");
+            expect(
+                deriveBatchOutcome(2, [
+                    Receipt.decode(pageBytes),
+                    Receipt.decode(uncoveredBytes)
+                ])
+            ).toBe("partiallySucceeded");
+
+            // One request record, two worlds. The omission is a count of withheld bytes and
+            // says nothing about the source's own coverage, so the request is the same
+            // record in both; what the withheld bytes ARE is answered by the Receipt's own
+            // retained result, and only there.
+            const withheldAtSource = async (bytes: Uint8Array): Promise<number | undefined> => {
+                const receipt = Receipt.decode(bytes);
+                if (!(receipt instanceof AttemptReceipt) || receipt.result === undefined) {
+                    return undefined;
+                }
+                return (await base.content.get(receipt.result)).length - request.bytes.length;
+            };
+            expect(await withheldAtSource(completeBytes)).toBe(request.omission.withheldBytes);
+            // The source held nothing beyond what the model saw: the same "6 withheld
+            // bytes" that is true beside the first Receipt is refuted beside this one.
+            expect(await withheldAtSource(pageBytes)).toBe(0);
+            expect(await withheldAtSource(uncoveredBytes)).toBeUndefined();
+
+            // Neither record can express the other's fact, which is why the pair is what
+            // discriminates: the Receipt carries no withheld amount, and the request's
+            // omission has no case for a source that covered less.
+            expect("withheldBytes" in Receipt.decode(completeBytes)).toBe(false);
+            expect(() => TurnOmission.fromData({ kind: "partiallySucceeded" })).toThrow(TypeError);
         }
     );
 

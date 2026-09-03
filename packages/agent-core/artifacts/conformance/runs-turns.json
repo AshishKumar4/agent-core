@@ -1179,7 +1179,7 @@
       "owner": "W5",
       "specAnchor": "C13-TURN-MODEL-INPUT-ABRIDGED",
       "specTextSha256": "sha256:83c2c34d2be4cfd461b90399f1ea7cd0e28d0ed119919d36e12b222688e6f258",
-      "status": "implemented",
+      "status": "verified",
       "prerequisites": ["C13-TURN-MODEL-INPUT-RECONSTRUCTABLE"],
       "sourceSymbols": [
         "src/agents/runs/executor.ts#TurnModelInput",
@@ -1187,12 +1187,17 @@
         "src/agents/runs/executor.ts#TurnPromptSection",
         "src/agents/runs/executor.ts#TurnShownContent"
       ],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "One of this rule's four adversarial cases is not closable inside the request record, and it is the only reason this row is not verified: a host reporting a byte-ranged `read` or a `list` page as an omission under a bound. An omission is a count of withheld bytes and says nothing about the source's own coverage, so that report is byte-for-byte indistinguishable from a truthful budget omission of the same size, and closing it here would mean carrying source coverage on the request, which this rule's own separation clause forbids. Discharging it needs the \u00a77.4 Receipt for the same Invocation read alongside the request, so what is owed is a composition test across the two records rather than further work on this one",
-        "The other three adversarial cases are closed by construction and covered by executed tests: a host recording the whole result plus a shortened flag cannot mislead, because src/agents/runs/executor.ts#ScopedModelHandle issues the reconstruction of the record and a model therefore observes exactly the shown form the record holds; a digest of the shown bytes is not an expressible shown form, because src/agents/runs/executor.ts#TurnShownContent admits inline bytes or a resolving `ContentRef` and rejects every other shape; and an omission under a bound cannot be recorded as source incompleteness, because src/agents/runs/executor.ts#TurnOmission has no case for it and the record's exact field set admits no completeness field",
-        "testSelectors and checkerInvariants stay empty because scripts/quality/ledger.mjs#validateStatus admits them only on a row whose remaining evidence is empty. The three executed [C13-TURN-MODEL-INPUT-ABRIDGED] cases in test/agents/runs/model-input.test.ts already cover the four owed shapes, the record-level separation, and the three closed adversarial cases; they move onto this row together with the composition test above"
+      "testSelectors": [
+        "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-ABRIDGED] reconstructs exactly the abridged bytes the model observed and states the withheld amount",
+        "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-ABRIDGED] distinguishes withholding nothing from withholding an unknown amount and refuses to express a guess as exact",
+        "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-ABRIDGED] records a budget omission and an incompletely covered source as different requests, neither reachable from the other's inputs",
+        "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-ABRIDGED] tells a budget omission from an incompletely covered source only by reading the \u00a77.4 Receipt beside the request"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": [],
+      "bounds": [
+        "The fourth adversarial case is closed across two records rather than inside this one, and that is the rule's own separation clause rather than a gap: an omission is a count of withheld bytes and says nothing about the source's own coverage, so one request record is byte-for-byte the same in a truthful budget omission and in a misreported page. The cited composition case reads the \u00a77.4 Receipt for the same Invocation beside the reconstructed request and shows the pair discriminating them \u2014 the retained result the Receipt names either holds the withheld bytes or does not \u2014 while neither record can express the other's fact, the Receipt carrying no withheld amount and TurnOmission having no case for source incompleteness.",
+        "This rule does not claim the bytes are true. A records-only reconstruction establishes that a request was rebuilt, never that it was the request a host actually sent, exactly as \u00a75.6's own paragraph says of a byte-compare; the \u00a77.4 half of the composition is W6's record and is reached here only through the W5 case that reads it."
       ]
     },
     {
@@ -1473,11 +1478,12 @@
       ],
       "testSelectors": [
         "test/agents/runs/turn-cut-points.test.ts#Turn-bound interceptor cut points [C13-TURN-PROMPT-ASSEMBLE] records and reconstructs the rewritten sections, not the ones the executor assembled",
-        "test/agents/runs/turn-cut-points.test.ts#Turn-bound interceptor cut points [C13-TURN-PROMPT-ASSEMBLE] refuses a rewrite that is not a section list and one that leaves no section at all"
+        "test/agents/runs/turn-cut-points.test.ts#Turn-bound interceptor cut points [C13-TURN-PROMPT-ASSEMBLE] refuses a rewrite that is not a section list and one that leaves no section at all",
+        "test/agents/runs/turn-cut-points.test.ts#Turn-bound interceptor cut points [C13-TURN-PROMPT-ASSEMBLE] refuses a malformed answer at the rewriter that gave it, so a later rewriter never overwrites the refusal"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": [
-        "Recorded discrimination, which is not this row's to write: artifacts/quality/discrimination/*.json is W0-owned and has no attribution for a test file that post-dates the last mutation run, so a verified status would be a DISC-STALE addition rather than a green. Measured by hand in a detached worktree, 15 mutants over the whole Turn-bound cut-point change with a clean-tree control run first: replacing the assembleSections call in ScopedModelHandle.call with assembly.sections kills the reconstruction selector (2 of 7 dead). One mutant SURVIVED and is recorded rather than omitted: making admitAssembledSections a no-op leaves both selectors passing, because decodeSections still runs once on the schedule's final value and refuses a malformed answer there. So this row's cited admitAssembledSections is undiscriminated by these selectors -- its only observable effect needs two rewriters where the first answers malformed and the second ignores its input, which the single-rewriter schedule here never builds. The per-rewriter property itself is evidenced at the runner instead, under C13-INTERCEPTOR-TURN-REWRITE, where deleting the admit call kills its selector.",
+        "Recorded discrimination, which is not this row's to write: artifacts/quality/discrimination/*.json is W0-owned, its agents and workspaces attributions were measured at be905bac, and every file they cover has drifted since, so a verified status would be a DISC-STALE addition rather than a green. What the last hand measurement recorded as SURVIVED is killed now and is no longer this row's weakness. Making admitAssembledSections a no-op left both earlier selectors passing, because decodeSections still ran once on the schedule's final value; the third selector added here is exactly the schedule that mutant survives on \u2014 two rewriters, the first answering something that is not a section list and the second ignoring what it received. Re-measured by hand in a worktree by applying that mutant and reverting it: the two earlier selectors still pass and the new one fails, so this row's cited admitAssembledSections is discriminated by this row's own citations. The recorded kill still owes a W0 run over the exact head.",
         "The reconstruction selector is a join, not two adjacent facts: the recorded section names are the rewritten ones AND the bytes a records-only replay rebuilds equal the bytes the model port received. Either half alone passes against a host that recorded the rewrite but sent the original, which is exactly the drift SPEC 5.6 forbids.",
         "One clause of the anchoring paragraph is stated but not evidenced here: a rewrite offered after the model input commit is refused. No such call exists to make -- the cut point is reachable only from inside ScopedModelHandle.call, before the commit -- so the refusal is structural rather than a code path a test can drive, and the row does not claim it as demonstrated."
       ]

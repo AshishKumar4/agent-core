@@ -14,10 +14,16 @@ import { sourceProject } from "../../scripts/quality/evidence.mjs";
 import {
     AUTHORITY_RECORD_CLASSES,
     DERIVED_CACHE_INVENTORY,
+    SUBSCRIPTION_ENTRY_POINTS,
+    SUBSCRIPTION_NAMESPACE,
     discoverDerivedCaches,
     discoverPersistenceSurfaces,
+    discoverSubscriptionWriters,
     validateAuthorityPlaneExclusivity,
-    validateDerivedCacheInventory
+    validateDerivedCacheInventory,
+    validateSubscriptionWriteMediation,
+    type SubscriptionEntryPoint,
+    type SubscriptionWriter
 } from "../../scripts/quality/record-ownership.mjs";
 
 interface ContractActor {
@@ -181,6 +187,64 @@ describe("one durable owner per record kind", () => {
             expect(() => validateDerivedCacheInventory([])).toThrow(
                 /Derived cache inventory names no such cache/
             );
+        }
+    );
+
+    test(
+        "[C13-SUBSCRIPTION-ATTRIBUTION-FIXED] [C13-OWNERSHIP-SINGLE-OWNER] the Subscription namespace has one writer and exactly the declared entry points reach it",
+        { tags: "p0", timeout: 60_000 },
+        () => {
+            const discovered = discoverSubscriptionWriters(sourceProject());
+            expect(() => validateSubscriptionWriteMediation(discovered)).not.toThrow();
+            // The funnel is one private member, discovered rather than declared, so the
+            // negative claim this row rests on is a fact about the tree.
+            expect(discovered.writers.map((writer: SubscriptionWriter) => writer.selector)).toEqual([
+                SUBSCRIPTION_NAMESPACE.writer
+            ]);
+            expect(discovered.entries.map((entry: SubscriptionWriter) => entry.member).sort()).toEqual(
+                SUBSCRIPTION_ENTRY_POINTS.map((entry: SubscriptionEntryPoint) => entry.member).sort()
+            );
+
+            // A second raw writer is refused wherever it lives: attribution fixity is
+            // enforced on the way through the funnel, so a path around it is the defect
+            // no amount of source reading can rule out for a writer added later.
+            expect(() =>
+                validateSubscriptionWriteMediation({
+                    ...discovered,
+                    writers: [
+                        ...discovered.writers,
+                        {
+                            selector: "src/substrates/sqlite/events/subscription.ts#SqliteSubscriptions.put",
+                            member: "put"
+                        }
+                    ]
+                })
+            ).toThrow(
+                "Subscription namespace is written outside src/workspaces/persistence.ts#WorkspacePersistence.writeSubscription: src/substrates/sqlite/events/subscription.ts#SqliteSubscriptions.put"
+            );
+
+            // And an entry point nothing declared is refused too, because what authorizes
+            // the attribution each one writes is reviewed per path rather than counted.
+            expect(() =>
+                validateSubscriptionWriteMediation({
+                    ...discovered,
+                    entries: [
+                        ...discovered.entries,
+                        {
+                            selector: "src/workspaces/persistence.ts#WorkspacePersistence.importSubscription",
+                            member: "importSubscription"
+                        }
+                    ]
+                })
+            ).toThrow("Subscription funnel is reached by an undeclared writer: importSubscription");
+
+            // A declaration whose writer was deleted is stale rather than silently kept.
+            expect(() =>
+                validateSubscriptionWriteMediation(discovered, [
+                    ...SUBSCRIPTION_ENTRY_POINTS,
+                    { member: "adoptSubscription", attribution: "nothing this tree contains" }
+                ])
+            ).toThrow("Subscription entry point names no such writer: adoptSubscription");
         }
     );
 });
