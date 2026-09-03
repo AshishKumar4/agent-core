@@ -13,6 +13,7 @@ import AgentCore.Kernel.Runs.Settlement
 import AgentCore.Kernel.Runs.Spawn
 import AgentCore.Kernel.Runs.TreeMerge
 import AgentCore.Kernel.Runs.Lifecycle
+import AgentCore.Kernel.Assurance
 
 /-!
 # The executable Agent Core kernel
@@ -46,6 +47,14 @@ transitions are `Extract.TurnStatus`'s table read through the refusal channel,
 `Runs.TreeMerge` reads which side a merge records and whether a path is a conflict off
 `Extract.TreeMergePolicy`. Where a decision has one Lean statement, this library points at
 it.
+
+A fifth rule is what `AgentCore.Kernel.Assurance` exists for. A per-record contract cannot
+state a property of every *reachable* state, because a state is a Run together with its
+registry, its Turns, and its commit log, and the interesting failures are disagreements
+between them. `Assurance` holds the transition system over those components and proves the
+safety invariants by induction over it, the progress results under fairness stated as named
+premises, and the total correctness of every operation's outcome channel. Two properties
+that are false as informally stated are corrected there rather than quietly weakened.
 
 Nothing in `AgentCore` imports this library, so no designated theorem of the model can
 depend on an executable definition.

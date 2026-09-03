@@ -154,6 +154,18 @@ lists the four gaps, so promoting one without editing the list fails to elaborat
 `host.isolate.load`, `host.isolate.call`, `host.rpc.call`, `host.rpc.dispose` — so a kernel
 that avoids them rests on no undischarged premise beyond the SPEC's own non-claims.
 
+The two `declared assumption` rows for fairness — `alarmEventuallyFires` and
+`queueAtLeastOnceDelivery` — now have a *consumer*, which is what "no designated liveness
+theorem" leaves room for. `AgentCore.Kernel.Assurance.Liveness` takes them as named
+trace-level hypotheses (`Fairness.wakeupScheduled`) and proves what they buy over the Run
+lifecycle: that no Run is permanently blocked and that every admitted obligation is eventually
+discharged or terminalized. `fairnessPremises_are_progress` there proves both tags are
+`PremiseKind.progress`, so the fairness set cannot quietly acquire a safety premise, and
+`progress_is_exactly_eventual` above says those two are the only progress premises there are.
+Nothing about that promotes either row: they remain §14 declared assumptions, the liveness
+theorems remain undesignated `component-shape-nonclaim` declarations, and
+`formal/ASSURANCE.md` records which hypotheses each result rests on.
+
 ## Findings against the adapter code
 
 Every law above was checked against `packages/agent-core/src` and
