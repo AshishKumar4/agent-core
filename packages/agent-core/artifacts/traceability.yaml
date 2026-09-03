@@ -3730,7 +3730,7 @@
         },
         "substrateContract": {
           "status": "open",
-          "reason": "Session state is provider-held, not Memory/SQLite record storage.",
+          "reason": "Session state is durable record storage after all — artifacts/records/profiles-cloudflare.json registers environment.session, and the other four environment kinds, against src/environments/store.ts#EnvironmentStore — so the earlier reason was wrong about the state and right about the link. The mechanical reason it stays open is that EnvironmentStore ships exactly one backing, MemoryEnvironmentStore, and this link requires at least two: there is no SQLite environment store anywhere under src/substrates. Closing it means a second backing plus a shared EnvironmentStore contract suite the checker can execute, not a re-reading of this state.",
           "suite": "",
           "paths": [],
           "backings": []

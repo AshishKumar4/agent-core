@@ -36,6 +36,15 @@ import {
 import { AgentCoreError } from "../../src/errors";
 import { TenantId } from "../../src/identity";
 import {
+    Slate,
+    SlateDeployment,
+    SlatePreview,
+    SlatePublication,
+    SlateResource,
+    SlateSkeleton,
+    SlateVersion
+} from "../../src/slates";
+import {
     DeferredManagedRecord,
     PackageId,
     PackagePin,
@@ -395,6 +404,50 @@ describe("same-Actor additive materialization", () => {
                 /Unsupported materialization record kind/
             );
             expectEmpty(store);
+        }
+    );
+
+    /**
+     * SPEC §9.2 gives a Blueprint no Slate to declare, so §9.3 materialization has none to
+     * place. The negative half — a `slates` field is inadmissible in a Blueprint declaration
+     * — is asserted through Blueprint's own decoder in test/slates; this is the positive half
+     * at the materializer itself, and it is exhaustive rather than fixture-shaped: the closed
+     * materialization vocabulary holds no Slate kind, read off the Slate record codecs rather
+     * than spelled out here so renaming one cannot quietly make this pass, and a plan forged
+     * to carry one is refused before a transaction opens. The Blueprint-level corroboration
+     * is the exact projected-kind set asserted in materialize-blueprint.test.ts, which fails
+     * the moment any kind joins it.
+     */
+    test(
+        "[C13-SLATE-SKELETON-ARTIFACT] materializes no Slate record kind and refuses a forged one before writing",
+        { tags: "p0" },
+        () => {
+            const supported = new Set(ManagedStateRecord.supportedRecordKinds());
+            const slateKinds = [
+                Slate.codec.kind,
+                SlateVersion.codec.kind,
+                SlatePublication.codec.kind,
+                SlateSkeleton.codec.kind,
+                SlateDeployment.codec.kind,
+                SlateResource.codec.kind,
+                SlatePreview.codec.kind
+            ];
+            expect(slateKinds).toHaveLength(7);
+
+            for (const kind of slateKinds) {
+                expect(supported.has(kind)).toBe(false);
+                const actor = actorRef("tenant-slate", "tenant");
+                const store = new MemoryMaterializationStore(actor);
+                const materializer = localMaterializer(actor, store);
+                const valid = actorPlan(actor, origin(1, "config-slate"), [
+                    projection("policy:tenant", { value: 1 })
+                ]);
+
+                expect(() => materializer.apply(forgeActorPlanKind(valid, kind))).toThrow(
+                    /Unsupported materialization record kind/
+                );
+                expectEmpty(store);
+            }
         }
     );
 

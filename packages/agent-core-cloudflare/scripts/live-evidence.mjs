@@ -39,6 +39,7 @@ const fingerprintSources = [
     "packages/agent-core-cloudflare/live/worker.ts",
     "packages/agent-core-cloudflare/live/wrangler.live.jsonc",
     "packages/agent-core-cloudflare/test/live/harness.ts",
+    "packages/agent-core-cloudflare/test/live/phase-1-alarm-exhaustion.test.ts",
     "packages/agent-core-cloudflare/test/live/phase-1.test.ts",
     "packages/agent-core-cloudflare/test/live/phase-2.test.ts",
     "packages/agent-core-cloudflare/test/live/phase-3.test.ts",
@@ -145,6 +146,14 @@ async function awaitReady(url, release) {
     );
 }
 
+/**
+ * One phase may hold its scenarios in more than one file, and the filter is a prefix for
+ * that reason: `test/live/phase-1.test.ts` and `test/live/phase-1-alarm-exhaustion.test.ts`
+ * both belong to phase 1 and land in phase 1's report. A scenario whose evidence the
+ * archive does not yet carry has to arrive as a new file, because the archived manifest
+ * fingerprints the four phase files and staling it would invalidate every verified live
+ * row until the lane is re-run.
+ */
 function runPhase(url, phase, stateFile, reportPath) {
     const result = run(
         "corepack",
@@ -155,7 +164,7 @@ function runPhase(url, phase, stateFile, reportPath) {
             "run",
             "--config",
             "test/live/vitest.config.mjs",
-            `test/live/phase-${phase}.test.ts`,
+            `test/live/phase-${phase}`,
             "--reporter=json",
             `--outputFile=${reportPath}`
         ],
