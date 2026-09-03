@@ -1,0 +1,311 @@
+{
+  "edition": "1.0.0",
+  "owner": "W8",
+  "codeUnions": [
+    {
+      "union": "HarnessErrorCode",
+      "source": "packages/agent-core-harness/src/error.ts",
+      "statement": "The kernel's AgentCoreErrorCode is a closed union with no model-provider case, so the harness owns the one failure domain it introduces. Accountable in full because every member of it is either a model-service answer or a harness-internal ceiling, and the distinction is the whole content of the taxonomy.",
+      "outsideServiceTaxonomy": [
+        {
+          "code": "loop.step-budget-exhausted",
+          "reason": "The agent loop's own step ceiling (packages/agent-core-harness/src/executor/loop.ts), raised before or between model calls and never in answer to one. Mapping it to a refusal would report the runtime's decision to stop as something the inference service said."
+        }
+      ],
+      "selectors": [
+        "harness/test/model-service.test.ts#model inference service protocol leaves no HarnessError code outside the service taxonomy without saying so"
+      ]
+    }
+  ],
+  "services": [
+    {
+      "service": "model.inference",
+      "boundary": "SPEC \u00a714's trust boundary in the plain case: the destination is a third party reached over a network the platform does not own, so the request is externalSend and reading the reply is observe (SPEC.md:2781-2789). Workers AI's REST route and AI Gateway are both third-party inference endpoints from the Tenant's side.",
+      "direction": "outbound",
+      "transport": "HTTPS POST of an OpenAI chat-completions body with a Bearer credential, through an injected fetch. workersAiEndpoint and aiGatewayEndpoint are the only two routes the repository spells; the endpoint and the credential are host-supplied options.",
+      "adapters": [
+        "packages/agent-core-harness/src/model/openai-compatible.ts#OpenAiCompatibleModelProvider",
+        "packages/agent-core-harness/src/model/provider.ts#ModelProvider",
+        "packages/agent-core-harness/src/model/port.ts#TranscriptTurnModelPort"
+      ],
+      "operations": ["complete"],
+      "operationSource": "packages/agent-core-harness/test/model-service-contract.ts#MODEL_SERVICE_OPERATIONS",
+      "refusals": [
+        "model.malformed-response",
+        "model.rejected",
+        "model.unavailable",
+        "model.unknown-tool"
+      ],
+      "refusalSource": "packages/agent-core-harness/test/model-service-contract.ts#MODEL_SERVICE_REFUSALS",
+      "replies": ["answered", "unsendable", "refused", "abandoned", "indeterminate"],
+      "replySource": "packages/agent-core-harness/test/model-service-contract.ts#ModelServiceReply",
+      "taxonomy": [
+        {
+          "failure": "The endpoint answered 5xx or 429, or the fetch itself threw while the caller's signal was not aborted.",
+          "code": "model.unavailable",
+          "union": "HarnessErrorCode",
+          "reply": "refused",
+          "mechanism": "packages/agent-core-harness/src/model/openai-compatible.ts:50-58,73-83"
+        },
+        {
+          "failure": "The endpoint answered a non-ok status that is neither 429 nor 5xx: the service understood the request and declined it.",
+          "code": "model.rejected",
+          "union": "HarnessErrorCode",
+          "reply": "refused",
+          "mechanism": "packages/agent-core-harness/src/model/openai-compatible.ts:50-58"
+        },
+        {
+          "failure": "The reply was not JSON, not JSON data, carried no choices, or carried a field of the wrong type anywhere the reader narrows one \u2014 including a usage count that is not a non-negative safe integer.",
+          "code": "model.malformed-response",
+          "union": "HarnessErrorCode",
+          "reply": "refused",
+          "mechanism": "packages/agent-core-harness/src/model/openai-compatible.ts:135-242"
+        },
+        {
+          "failure": "The reply named a tool the request's catalog did not declare, so the service answered outside the vocabulary it was given.",
+          "code": "model.unknown-tool",
+          "union": "HarnessErrorCode",
+          "reply": "refused",
+          "mechanism": "packages/agent-core-harness/src/model/port.ts:96-108"
+        },
+        {
+          "failure": "The request was not renderable: the reconstruction showed a section count other than one, or a transcript message of a kind renderMessages does not spell. Nothing crossed the boundary.",
+          "code": "transcript.invalid",
+          "union": "HarnessErrorCode",
+          "reply": "unsendable",
+          "mechanism": "packages/agent-core-harness/src/model/port.ts:66-82; packages/agent-core-harness/src/model/openai-compatible.ts:120-123"
+        }
+      ],
+      "invariants": [
+        {
+          "invariant": "no streaming grammar: the protocol admits exactly one whole reply",
+          "verdict": "honored",
+          "code": "packages/agent-core-harness/src/model/openai-compatible.ts:59 reads response.text() whole and readCompletion parses one document, so a streamed endpoint is unreachable through this adapter and no partial-reply grammar exists to get wrong"
+        },
+        {
+          "invariant": "the reply is content-addressed before it is a Turn's answer",
+          "verdict": "honored",
+          "code": "packages/agent-core-harness/src/model/port.ts:36-40 puts AssistantMessageCodec.encode(message) into the ContentStore and returns the ref, so a Turn's model output names exactly the bytes the provider produced"
+        },
+        {
+          "invariant": "not idempotent, and nothing at this seam pretends otherwise",
+          "verdict": "honored-with-scope",
+          "code": "packages/agent-core-harness/src/model/openai-compatible.ts:32-49 builds the request body from the model and the messages alone; there is no idempotency key, no attempt identity and no dedup header",
+          "scope": "A repeated completion is a second inference, so this seam is not retry-safe and the adapter never retries. What makes a replay safe is the kernel side: the reply is content-addressed (port.ts:36-40) and a Turn's model input is reconstructed from committed records, so a re-run compares bytes rather than trusting the provider. The premise modelEndpointDeduplicatesNothing records what would be needed to claim more."
+        },
+        {
+          "invariant": "no ordering obligation: one request, one reply, no session",
+          "verdict": "honored",
+          "code": "packages/agent-core-harness/src/model/provider.ts:22-27 ModelProvider offers exactly complete(request); the adapter holds no connection, cursor or sequence across calls"
+        },
+        {
+          "invariant": "a caller's withdrawal is not a service answer",
+          "verdict": "honored",
+          "code": "packages/agent-core-harness/src/model/openai-compatible.ts:74-75 re-throws the original failure unclassified when the signal is aborted, rather than reporting an unreachable endpoint"
+        },
+        {
+          "invariant": "credential resolution is not in the taxonomy",
+          "verdict": "honored-with-scope",
+          "code": "packages/agent-core-harness/src/model/openai-compatible.ts:63-66 resolves the credential before the try block on purpose, so a credential failure is not misreported as an unreachable endpoint",
+          "scope": "The consequence is that it is not reported as anything: whatever the host's closure threw escapes as itself, and the contract answers indeterminate. That is honest but it means a credential outage and a broken adapter are indistinguishable to a caller reading codes alone. Recorded as finding SVC-F1."
+        },
+        {
+          "invariant": "an undeclared throw is never dressed up as a refusal",
+          "verdict": "honored-with-scope",
+          "code": "packages/agent-core-harness/test/model-service-contract.ts serviceReply maps a HarnessError in the declared vocabulary and nothing else, so every other throw answers indeterminate carrying its cause",
+          "scope": "The adapter itself has such a path: a reply whose tool name passes every check readToolCalls makes and then fails new BindingName(name) throws a TypeError out of complete(). The contract observes it rather than papering over it. Recorded as finding SVC-F2."
+        }
+      ],
+      "suite": {
+        "body": "packages/agent-core-harness/test/model-service-contract.ts",
+        "implementations": [
+          {
+            "name": "reference",
+            "kind": "reference",
+            "lane": "packages/agent-core-harness test/vitest.config.mjs",
+            "runner": "packages/agent-core-harness/test/model-service.test.ts"
+          },
+          {
+            "name": "OpenAI-compatible adapter",
+            "kind": "adapter",
+            "lane": "packages/agent-core-harness test/vitest.config.mjs",
+            "runner": "packages/agent-core-harness/test/model-service.test.ts"
+          }
+        ],
+        "selectors": [
+          "harness/test/model-service.test.ts#reference model inference service contract answers a completion as one content-addressed assistant message",
+          "harness/test/model-service.test.ts#reference model inference service contract answers every refusal the taxonomy declares, and declares every refusal it answers",
+          "harness/test/model-service.test.ts#reference model inference service contract refuses an unrenderable request without reaching the service",
+          "harness/test/model-service.test.ts#reference model inference service contract answers a caller abort as abandoned rather than as a service refusal",
+          "harness/test/model-service.test.ts#reference model inference service contract answers an unclassified transport failure as indeterminate rather than as a refusal",
+          "harness/test/model-service.test.ts#OpenAI-compatible adapter model inference service contract answers a completion as one content-addressed assistant message",
+          "harness/test/model-service.test.ts#OpenAI-compatible adapter model inference service contract answers every refusal the taxonomy declares, and declares every refusal it answers",
+          "harness/test/model-service.test.ts#OpenAI-compatible adapter model inference service contract refuses an unrenderable request without reaching the service",
+          "harness/test/model-service.test.ts#OpenAI-compatible adapter model inference service contract answers a caller abort as abandoned rather than as a service refusal",
+          "harness/test/model-service.test.ts#OpenAI-compatible adapter model inference service contract answers an unclassified transport failure as indeterminate rather than as a refusal"
+        ]
+      },
+      "premises": [
+        "modelReplyIsTheModelsOwn",
+        "modelEndpointDeduplicatesNothing",
+        "modelAbortStopsTheInference",
+        "modelServiceRefusalsAreTotal"
+      ]
+    }
+  ],
+  "premises": [
+    {
+      "premise": "modelServiceRefusalsAreTotal",
+      "kind": "safety",
+      "channel": "contractSuite",
+      "atom": null,
+      "atomStatus": null,
+      "declaration": null,
+      "owed": null,
+      "selectors": [
+        "harness/test/model-service.test.ts#reference model inference service contract answers every refusal the taxonomy declares, and declares every refusal it answers",
+        "harness/test/model-service.test.ts#OpenAI-compatible adapter model inference service contract answers every refusal the taxonomy declares, and declares every refusal it answers"
+      ]
+    },
+    {
+      "premise": "modelReplyIsTheModelsOwn",
+      "kind": "safety",
+      "channel": "declaredAssumption",
+      "atom": null,
+      "atomStatus": null,
+      "declaration": "SPEC \u00a714's boundary rule (SPEC.md:2781-2789): the trust boundary encloses the protection domains the Tenant controls, and a third party is not one of them. Nothing the runtime can observe distinguishes an endpoint that ran the pinned model from one that answered from a cache, another model, or an interposing proxy.",
+      "owed": null,
+      "selectors": null
+    },
+    {
+      "premise": "modelEndpointDeduplicatesNothing",
+      "kind": "safety",
+      "channel": "gap",
+      "atom": null,
+      "atomStatus": null,
+      "declaration": null,
+      "owed": "The seam carries no idempotency key, so the claim that a repeated completion is a second inference rather than a deduplicated one is a claim about the endpoint. Discharging it needs a live lane against a real endpoint that sends the same body twice and observes two distinct completions and two charges. Until then the runtime's replay safety rests on the kernel's content-addressed reply and reconstructed request, not on the provider.",
+      "selectors": null
+    },
+    {
+      "premise": "modelAbortStopsTheInference",
+      "kind": "progress",
+      "channel": "gap",
+      "atom": null,
+      "atomStatus": null,
+      "declaration": null,
+      "owed": "The contract observes that an aborted call answers abandoned rather than a refusal; it cannot observe that the endpoint stopped generating. Discharging it needs a live lane that aborts a real in-flight completion and reads the provider's own accounting for the abandoned request.",
+      "selectors": null
+    }
+  ],
+  "citedElsewhere": [
+    {
+      "service": "durable-object.storage",
+      "coveredBy": "artifacts/substrate-contracts.json#seams[store]",
+      "seam": "store",
+      "premises": [
+        "storeSpanExclusive",
+        "storeCommitAtomic",
+        "storeDeclaredBoundAccepted",
+        "storeRestartResumesDurableState"
+      ],
+      "statement": "Every durable read and write in packages/agent-core-cloudflare goes through CloudflareSqlite inside storage.transactionSync; the substrate contracts model it as the store seam with its own laws, adapters and premises. Restating it here would give one seam two contracts that could disagree."
+    },
+    {
+      "service": "durable-object.alarm",
+      "coveredBy": "artifacts/substrate-contracts.json#seams[alarm]",
+      "seam": "alarm",
+      "premises": [
+        "alarmDurableAcrossInstanceLoss",
+        "alarmFiresNoEarlierThanArmed",
+        "alarmEventuallyFires"
+      ],
+      "statement": "The single physical alarm slot, its claim arbitration and its fenced release are the alarm seam's laws. Reconciliation, resumable operations and permit retention all ride that one alarm rather than any external scheduler, so they inherit the seam's contract."
+    },
+    {
+      "service": "r2.content-objects",
+      "coveredBy": "artifacts/substrate-contracts.json#seams[content]",
+      "seam": "content",
+      "premises": [
+        "contentBucketIsTenantOwned",
+        "contentRetentionUntilReleased",
+        "contentDigestCollisionResistant"
+      ],
+      "statement": "R2 is reached only through R2ContentObjectRepository and R2ContentStore, whose content-addressing, digest verification, tenant-scoped keys and buffered bound are the content seam's laws and finding SC-F3's disposition. The environment and slate providers use the same injected repository."
+    },
+    {
+      "service": "queues.consumer",
+      "coveredBy": "artifacts/substrate-contracts.json#seams[queue]",
+      "seam": "queue",
+      "premises": [
+        "queueAtLeastOnceDelivery",
+        "queueAckedNeverRedelivered",
+        "queueDeadLetterCustody"
+      ],
+      "statement": "The queue disposition protocol \u2014 independent per-message dispositions, an undecodable body retried rather than acknowledged, dead-letter custody by configuration \u2014 is the queue seam's law set. No queue producer call exists anywhere in src, so only the consumer side has a protocol to model."
+    },
+    {
+      "service": "worker-loader.isolate",
+      "coveredBy": "artifacts/substrate-contracts.json#seams[isolate]",
+      "seam": "isolate",
+      "premises": [
+        "isolateNoAmbientEgress",
+        "isolateBoundEnforcedByRuntime",
+        "isolatePrivateStoreUnreadable",
+        "isolateFreshLoadPerSubmission"
+      ],
+      "statement": "Dynamic Worker Loader loads \u2014 for authored code, for hosted facets and for the dynamic half of a deployment \u2014 are the isolate seam: a required compute bound, a fresh isolate per submission, no ambient egress, and reach limited to the passed capabilities."
+    },
+    {
+      "service": "durable-object.rpc",
+      "coveredBy": "artifacts/substrate-contracts.json#seams[rpc]",
+      "seam": "rpc",
+      "premises": [
+        "rpcStubLifetimeBoundedByContext",
+        "rpcRedeliveryPreservesIntent",
+        "rpcDisposalReleasesRemoteResources"
+      ],
+      "statement": "Namespace lookup, fresh-stub retry and stub-failure classification are the rpc seam. The tenant.authority service modelled here rides that transport and adds its own request and reply vocabulary on top of it; the transport's own laws are not restated."
+    },
+    {
+      "service": "worker.ingress",
+      "coveredBy": "packages/agent-core-cloudflare/src/worker.ts; packages/agent-core-cloudflare/src/durable-object.ts",
+      "seam": null,
+      "premises": [],
+      "statement": "There is no HTTP ingress protocol in these packages to model. createCloudflareWorker forwards fetch(request, environment, context) verbatim to a host-supplied AuthoritativeWorkerRouter and delegates queue(batch) to the queue seam; the Durable Object entrypoint delegates fetch, alarm, webSocketMessage, webSocketClose and webSocketError to a host-supplied serving object once its schema and startup admission clear. Zero `new Response(` constructors exist anywhere in the three src trees, so routes, status codes and bodies are entirely the composition root's. The one inbound protocol these packages do own is the hibernating view stream, modelled here as view.stream, and the one admission rule they own is the provider capability handshake, modelled here as part of provider.capability."
+    },
+    {
+      "service": "device.egress",
+      "coveredBy": "packages/agent-core/src/facets/device/facet.ts#ReverseDeviceTransportBackend",
+      "seam": null,
+      "premises": [],
+      "statement": "The device facet declares an outbound transport port with no implementation anywhere in src, exactly as the web facet does. It is recorded rather than modelled because it has neither a bound adapter nor a reference implementation nor a \u00a713 atom of its own to anchor a taxonomy; inventing one would be inventing a contract for a service this repository does not call. The web.egress contract states the shape both share, and premise webEgressHasNoBoundAdapter states what an unbound port owes."
+    }
+  ],
+  "findings": [
+    {
+      "id": "SVC-F1",
+      "severity": "gap",
+      "service": "model.inference",
+      "statement": "A credential resolution failure has no code. `send` resolves the credential before the try block deliberately, so it is not misreported as an unreachable endpoint \u2014 but nothing then classifies it, and whatever the host's closure threw escapes `complete()` as itself. A caller reading codes cannot distinguish a credential outage from a broken adapter, and no retry policy can key on it.",
+      "code": "packages/agent-core-harness/src/model/openai-compatible.ts:63-66",
+      "modelled": "The reply vocabulary answers it as `indeterminate` carrying the cause, which is the honest reading rather than a refusal the service never gave. The contract pins it at test/model-service.test.ts#model inference service protocol leaves a credential resolution failure outside the taxonomy entirely. Closing it would mean adding a `model.credential-unavailable` code to HarnessErrorCode, which is a taxonomy change and not this lane's to make unilaterally."
+    },
+    {
+      "id": "SVC-F2",
+      "severity": "gap",
+      "service": "model.inference",
+      "statement": "A malformed provider reply can escape the `model.malformed-response` taxonomy as a raw TypeError. `readToolCalls` narrows the tool name to a string and then hands it to `new BindingName(name)`, whose TextId constructor refuses an empty or over-long value with a TypeError. A reply carrying `function.name: \"\"` therefore passes every check the reader makes and throws a platform error type out of the adapter.",
+      "code": "packages/agent-core-harness/src/model/openai-compatible.ts:150-166; packages/agent-core/src/core/id.ts:8-16",
+      "modelled": "The contract's `faults` scenario drives exactly this reply for the real adapter and observes `indeterminate`, so the hole is measured rather than assumed. The fix is one line in `readToolCalls` \u2014 refuse an unconstructable binding name as `model.malformed-response` \u2014 but it is an adapter behaviour change and this lane models rather than repairs."
+    },
+    {
+      "id": "SVC-F3",
+      "severity": "observation",
+      "service": "model.inference",
+      "statement": "The inventory behind this artifact found exactly one network egress in all three packages' src trees: the model provider's fetch. Verified absent everywhere in src: the Workers AI binding (env.AI), Vectorize, KV, D1, Hyperdrive, Browser Rendering, Email, Analytics Engine, Workflows, Containers, Cron Triggers, the Cache API, HTMLRewriter, the Queues producer API, the Durable Object native key/value storage API, a Secrets Store binding, and any generic service binding beyond the three shapes already modelled (Durable Object stub, dispatch-namespace Fetcher, Worker Loader entrypoint). No contract is written for any of them, because a contract for a service the repository does not call would be a specification with no subject.",
+      "code": "packages/agent-core-harness/src/model/openai-compatible.ts:66-84 is the only fetch call site in src; the absences were established by search across packages/agent-core/src, packages/agent-core-cloudflare/src and packages/agent-core-harness/src",
+      "modelled": "Recorded as an observation rather than a service so that a later reader can tell an unmodelled service from an uncalled one."
+    }
+  ]
+}
