@@ -18,7 +18,7 @@ import {
     type OperationResolutionState
 } from "../../src/composition";
 import { Digest, JsonSchema, Revision, SemVer, encodeCanonicalJson } from "../../src/core";
-import { PackageId, PackagePin, PolicySet } from "../../src/definition";
+import { PackageId, PackagePin, PlacementPolicy, PolicySet } from "../../src/definition";
 import { AgentCoreError } from "../../src/errors";
 import {
     BindingName,
@@ -86,7 +86,9 @@ const turn = new TurnId("membrane-turn");
 const originalLease = TurnLease.restore(turn, principal, 1, LEASE_EXPIRES_AT);
 const leaseToken: LeaseToken = { turn, holder: principal, epoch: 1 };
 const route = new RouteReservationId("membrane-route");
-const policies: readonly PolicySet[] = [new PolicySet({ maxDirectRevocationWindowMs: WINDOW_MS })];
+const policies: readonly PolicySet[] = [
+    new PolicySet({ placement: PlacementPolicy.all(), maxDirectRevocationWindowMs: WINDOW_MS })
+];
 
 const schema = new JsonSchema({});
 const capability = new CapabilitySpec({
@@ -403,7 +405,10 @@ describe("Tenant operation authority membrane", () => {
             // window nothing else reads the missing date, so admitting the resolution is
             // silent rather than a crash, and only the denial distinguishes it.
             for (const [reason, governing] of [
-                ["without a revocation window", [new PolicySet({})]],
+                [
+                    "without a revocation window",
+                    [new PolicySet({ placement: PlacementPolicy.all() })]
+                ],
                 ["with a revocation window", policies]
             ] as const) {
                 const { authority } = membrane(
@@ -428,7 +433,10 @@ describe("Tenant operation authority membrane", () => {
             const { authority } = membrane(
                 leasedCandidate({
                     policies: [
-                        new PolicySet({ maxDirectRevocationWindowMs: Number.MAX_SAFE_INTEGER })
+                        new PolicySet({
+                            placement: PlacementPolicy.all(),
+                            maxDirectRevocationWindowMs: Number.MAX_SAFE_INTEGER
+                        })
                     ]
                 })
             );
@@ -445,7 +453,7 @@ describe("Tenant operation authority membrane", () => {
         { tags: "p0" },
         async () => {
             const { authority, resolution } = await resolveOf(
-                leasedCandidate({ policies: [new PolicySet({})] })
+                leasedCandidate({ policies: [new PolicySet({ placement: PlacementPolicy.all() })] })
             );
 
             expect(resolution.resolutionDeadline).toBeUndefined();
@@ -551,8 +559,14 @@ describe("Tenant operation authority membrane", () => {
                     reason: "policy tightened the tier to mediated",
                     candidate: leasedCandidate({
                         policies: [
-                            new PolicySet({ maxDirectRevocationWindowMs: WINDOW_MS }),
-                            new PolicySet({ tiers: { observe: "mediated" } })
+                            new PolicySet({
+                                placement: PlacementPolicy.all(),
+                                maxDirectRevocationWindowMs: WINDOW_MS
+                            }),
+                            new PolicySet({
+                                placement: PlacementPolicy.all(),
+                                tiers: { observe: "mediated" }
+                            })
                         ]
                     })
                 },

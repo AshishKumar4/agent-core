@@ -39,12 +39,13 @@ import {
     PackageLock,
     PackagePin,
     PackageRelease,
+    PlacementPolicy,
     PlacementSourcePort,
+    planMaterialization,
     PlatformCompatibility,
     PolicySet,
-    ValidatedBlueprint,
-    planMaterialization,
-    validateBlueprint
+    validateBlueprint,
+    ValidatedBlueprint
 } from "../../src/definition";
 import { Blueprint } from "../../src/definition/blueprint";
 import { LocalMaterializationStore, LocalMaterializer } from "../../src/definition/materializer";
@@ -119,200 +120,231 @@ const topology = new (class extends MaterializationTopologyPort {
 })();
 
 describe("complete Blueprint materialization", () => {
-    test("projects every Blueprint construct to a record under its owning Actor", { tags: "p1" }, () => {
-        const validated = fullBlueprint();
-        const plan = planMaterialization({
-            validatedBlueprint: validated,
-            tenantId,
-            deploymentKey,
-            generation: 1,
-            topology
-        });
-
-        const managed = applyPlan(plan);
-
-        expect(managed.get(actorKey(tenantActor))).toEqual(["policy:platform", "scope:platform"]);
-        expect(managed.get(actorKey(environmentActor))).toEqual(["environment:0"]);
-        expect(managed.get(actorKey(workspaceActor))).toEqual([
-            "agent:0",
-            "contribution:blueprint:slots:0",
-            "contribution:core.deploy.facet:automations:0",
-            "contribution:core.deploy.facet:commands:0",
-            "contribution:core.deploy.facet:custom.card:0",
-            "contribution:core.deploy.facet:events:0",
-            "contribution:core.deploy.facet:operations:0",
-            "contribution:core.deploy.facet:slots:0",
-            "contribution:core.deploy.facet:surfaces:0",
-            "install:core.deploy:core.deploy.facet",
-            "placement:core.deploy:core.deploy.facet",
-            "subscription:automation:core.deploy.facet:0",
-            "subscription:blueprint:0",
-            "subscription:command:core.deploy.facet:deploy",
-            "surface:platform"
-        ]);
-    });
-
-    test("carries each contribution's source pin into its slot-entry record", { tags: "p1" }, () => {
-        const validated = fullBlueprint();
-        const plan = planMaterialization({
-            validatedBlueprint: validated,
-            tenantId,
-            deploymentKey,
-            generation: 1,
-            topology
-        });
-        const desiredOf = (logicalKey: string): JsonValue => {
-            const found = plan.actors
-                .flatMap((actor) => actor.projections)
-                .find((candidate) => candidate.logicalKey === logicalKey);
-            if (found === undefined) throw new Error(`No projection for ${logicalKey}`);
-            return found.desired;
-        };
-        const release = validated.releases[0]!;
-        const pin = new PackagePin(
-            release.id,
-            release.version,
-            release.manifestDigest,
-            release.codeDigest
-        );
-
-        expect(desiredOf("contribution:core.deploy.facet:custom.card:0")).toEqual({
-            contributor: "core.deploy.facet",
-            index: 0,
-            slot: "custom.card",
-            value: { title: "Card" },
-            package: {
-                codeDigest: pin.codeDigest.value,
-                id: pin.id.value,
-                manifestDigest: pin.manifestDigest.value,
-                version: pin.version.toString()
-            }
-        });
-        // A Blueprint-declared slot (§9.2) is read from no release, so its record
-        // carries no source pin: absence of the field is the encoding (ACQ-PRESENCE).
-        expect(desiredOf("contribution:blueprint:slots:0")).toEqual({
-            contributor: "blueprint",
-            index: 0,
-            slot: "slots",
-            value: new SlotDeclaration(
-                new SlotName("board.card"),
-                objectSchema,
-                new SlotAuthorityPolicy(["*"], ["*"])
-            ).toData()
-        });
-    });
-
-    test("materializes each supported record kind and covers every Blueprint field", { tags: "p1" }, () => {
-        const plan = planMaterialization({
-            validatedBlueprint: fullBlueprint(),
-            tenantId,
-            deploymentKey,
-            generation: 1,
-            topology
-        });
-        const kinds = new Set(
-            plan.actors.flatMap((actor) =>
-                actor.projections.map((projection) => projection.recordKind)
-            )
-        );
-
-        for (const kind of ManagedStateRecord.supportedRecordKinds()) {
-            expect(kinds.has(kind)).toBe(true);
-        }
-        // Every Blueprint field surfaces as at least one projected record kind.
-        expect(kinds).toEqual(
-            new Set([
-                "agent-profile",
-                "environment",
-                "facet-install",
-                "facet-placement",
-                "policy-set",
-                "scope-scaffold",
-                "slot-entry",
-                "subscription",
-                "surface-layout"
-            ])
-        );
-    });
-
-    test("each materialized record kind lands under exactly one owning Actor", { tags: "p0" }, () => {
-        const plan = planMaterialization({
-            validatedBlueprint: fullBlueprint(),
-            tenantId,
-            deploymentKey,
-            generation: 1,
-            topology
-        });
-        const ownersByKind = new Map<string, Set<string>>();
-        for (const actor of plan.actors) {
-            for (const projection of actor.projections) {
-                const owners = ownersByKind.get(projection.recordKind) ?? new Set<string>();
-                owners.add(actorKey(actor.actor));
-                ownersByKind.set(projection.recordKind, owners);
-            }
-        }
-        for (const owners of ownersByKind.values()) {
-            expect(owners.size).toBe(1);
-        }
-    });
-
-    test("[C13-BLUEPRINT-REMATERIALIZE] re-applying an unchanged Blueprint reconciles to a semantic no-op", { tags: "p1" }, () => {
-        const validated = fullBlueprint();
-        const plan = planMaterialization({
-            validatedBlueprint: validated,
-            tenantId,
-            deploymentKey,
-            generation: 1,
-            topology
-        });
-        const stores = new Map<string, TestStore>();
-        const first = plan.actors.map((actor) => applyActor(actor, stores));
-        expect(first.every((result) => result.insertedRecords.length > 0)).toBe(true);
-
-        const second = plan.actors.map((actor) => applyActor(actor, stores));
-        expect(second.every((result) => result.semanticNoop)).toBe(true);
-        expect(second.every((result) => result.insertedRecords.length === 0)).toBe(true);
-        expect(second.every((result) => !result.pointerChanged)).toBe(true);
-    });
-
-    test("mutating a single construct reconciles only that construct's record", { tags: "p1" }, () => {
-        const stores = new Map<string, TestStore>();
-        const first = planMaterialization({
-            validatedBlueprint: fullBlueprint(),
-            tenantId,
-            deploymentKey,
-            generation: 1,
-            topology
-        });
-        for (const actor of first.actors) applyActor(actor, stores);
-
-        const mutated = planMaterialization({
-            validatedBlueprint: fullBlueprint({ approvals: ["execute"] }),
-            tenantId,
-            deploymentKey,
-            generation: 2,
-            topology
-        });
-        const results = new Map(
-            mutated.actors.map((actor) => [actorKey(actor.actor), applyActor(actor, stores)])
-        );
-
-        expect(results.get(actorKey(tenantActor))?.actions).toContain("update");
-        expect(results.get(actorKey(workspaceActor))?.semanticNoop).toBe(true);
-        expect(results.get(actorKey(environmentActor))?.semanticNoop).toBe(true);
-    });
-
-    test("rejects a contribution that violates its slot's contribute-authority", { tags: "p0" }, () => {
-        expect(() =>
-            planMaterialization({
-                validatedBlueprint: fullBlueprint({ slotContributor: "stranger.facet" }),
+    test(
+        "projects every Blueprint construct to a record under its owning Actor",
+        { tags: "p1" },
+        () => {
+            const validated = fullBlueprint();
+            const plan = planMaterialization({
+                validatedBlueprint: validated,
                 tenantId,
                 deploymentKey,
                 generation: 1,
                 topology
-            })
-        ).toThrow(/may not contribute to slot custom.card/);
-    });
+            });
+
+            const managed = applyPlan(plan);
+
+            expect(managed.get(actorKey(tenantActor))).toEqual([
+                "policy:platform",
+                "scope:platform"
+            ]);
+            expect(managed.get(actorKey(environmentActor))).toEqual(["environment:0"]);
+            expect(managed.get(actorKey(workspaceActor))).toEqual([
+                "agent:0",
+                "contribution:blueprint:slots:0",
+                "contribution:core.deploy.facet:automations:0",
+                "contribution:core.deploy.facet:commands:0",
+                "contribution:core.deploy.facet:custom.card:0",
+                "contribution:core.deploy.facet:events:0",
+                "contribution:core.deploy.facet:operations:0",
+                "contribution:core.deploy.facet:slots:0",
+                "contribution:core.deploy.facet:surfaces:0",
+                "install:core.deploy:core.deploy.facet",
+                "placement:core.deploy:core.deploy.facet",
+                "subscription:automation:core.deploy.facet:0",
+                "subscription:blueprint:0",
+                "subscription:command:core.deploy.facet:deploy",
+                "surface:platform"
+            ]);
+        }
+    );
+
+    test(
+        "carries each contribution's source pin into its slot-entry record",
+        { tags: "p1" },
+        () => {
+            const validated = fullBlueprint();
+            const plan = planMaterialization({
+                validatedBlueprint: validated,
+                tenantId,
+                deploymentKey,
+                generation: 1,
+                topology
+            });
+            const desiredOf = (logicalKey: string): JsonValue => {
+                const found = plan.actors
+                    .flatMap((actor) => actor.projections)
+                    .find((candidate) => candidate.logicalKey === logicalKey);
+                if (found === undefined) throw new Error(`No projection for ${logicalKey}`);
+                return found.desired;
+            };
+            const release = validated.releases[0]!;
+            const pin = new PackagePin(
+                release.id,
+                release.version,
+                release.manifestDigest,
+                release.codeDigest
+            );
+
+            expect(desiredOf("contribution:core.deploy.facet:custom.card:0")).toEqual({
+                contributor: "core.deploy.facet",
+                index: 0,
+                slot: "custom.card",
+                value: { title: "Card" },
+                package: {
+                    codeDigest: pin.codeDigest.value,
+                    id: pin.id.value,
+                    manifestDigest: pin.manifestDigest.value,
+                    version: pin.version.toString()
+                }
+            });
+            // A Blueprint-declared slot (§9.2) is read from no release, so its record
+            // carries no source pin: absence of the field is the encoding (ACQ-PRESENCE).
+            expect(desiredOf("contribution:blueprint:slots:0")).toEqual({
+                contributor: "blueprint",
+                index: 0,
+                slot: "slots",
+                value: new SlotDeclaration(
+                    new SlotName("board.card"),
+                    objectSchema,
+                    new SlotAuthorityPolicy(["*"], ["*"])
+                ).toData()
+            });
+        }
+    );
+
+    test(
+        "materializes each supported record kind and covers every Blueprint field",
+        { tags: "p1" },
+        () => {
+            const plan = planMaterialization({
+                validatedBlueprint: fullBlueprint(),
+                tenantId,
+                deploymentKey,
+                generation: 1,
+                topology
+            });
+            const kinds = new Set(
+                plan.actors.flatMap((actor) =>
+                    actor.projections.map((projection) => projection.recordKind)
+                )
+            );
+
+            for (const kind of ManagedStateRecord.supportedRecordKinds()) {
+                expect(kinds.has(kind)).toBe(true);
+            }
+            // Every Blueprint field surfaces as at least one projected record kind.
+            expect(kinds).toEqual(
+                new Set([
+                    "agent-profile",
+                    "environment",
+                    "facet-install",
+                    "facet-placement",
+                    "policy-set",
+                    "scope-scaffold",
+                    "slot-entry",
+                    "subscription",
+                    "surface-layout"
+                ])
+            );
+        }
+    );
+
+    test(
+        "each materialized record kind lands under exactly one owning Actor",
+        { tags: "p0" },
+        () => {
+            const plan = planMaterialization({
+                validatedBlueprint: fullBlueprint(),
+                tenantId,
+                deploymentKey,
+                generation: 1,
+                topology
+            });
+            const ownersByKind = new Map<string, Set<string>>();
+            for (const actor of plan.actors) {
+                for (const projection of actor.projections) {
+                    const owners = ownersByKind.get(projection.recordKind) ?? new Set<string>();
+                    owners.add(actorKey(actor.actor));
+                    ownersByKind.set(projection.recordKind, owners);
+                }
+            }
+            for (const owners of ownersByKind.values()) {
+                expect(owners.size).toBe(1);
+            }
+        }
+    );
+
+    test(
+        "[C13-BLUEPRINT-REMATERIALIZE] re-applying an unchanged Blueprint reconciles to a semantic no-op",
+        { tags: "p1" },
+        () => {
+            const validated = fullBlueprint();
+            const plan = planMaterialization({
+                validatedBlueprint: validated,
+                tenantId,
+                deploymentKey,
+                generation: 1,
+                topology
+            });
+            const stores = new Map<string, TestStore>();
+            const first = plan.actors.map((actor) => applyActor(actor, stores));
+            expect(first.every((result) => result.insertedRecords.length > 0)).toBe(true);
+
+            const second = plan.actors.map((actor) => applyActor(actor, stores));
+            expect(second.every((result) => result.semanticNoop)).toBe(true);
+            expect(second.every((result) => result.insertedRecords.length === 0)).toBe(true);
+            expect(second.every((result) => !result.pointerChanged)).toBe(true);
+        }
+    );
+
+    test(
+        "mutating a single construct reconciles only that construct's record",
+        { tags: "p1" },
+        () => {
+            const stores = new Map<string, TestStore>();
+            const first = planMaterialization({
+                validatedBlueprint: fullBlueprint(),
+                tenantId,
+                deploymentKey,
+                generation: 1,
+                topology
+            });
+            for (const actor of first.actors) applyActor(actor, stores);
+
+            const mutated = planMaterialization({
+                validatedBlueprint: fullBlueprint({ approvals: ["execute"] }),
+                tenantId,
+                deploymentKey,
+                generation: 2,
+                topology
+            });
+            const results = new Map(
+                mutated.actors.map((actor) => [actorKey(actor.actor), applyActor(actor, stores)])
+            );
+
+            expect(results.get(actorKey(tenantActor))?.actions).toContain("update");
+            expect(results.get(actorKey(workspaceActor))?.semanticNoop).toBe(true);
+            expect(results.get(actorKey(environmentActor))?.semanticNoop).toBe(true);
+        }
+    );
+
+    test(
+        "rejects a contribution that violates its slot's contribute-authority",
+        { tags: "p0" },
+        () => {
+            expect(() =>
+                planMaterialization({
+                    validatedBlueprint: fullBlueprint({ slotContributor: "stranger.facet" }),
+                    tenantId,
+                    deploymentKey,
+                    generation: 1,
+                    topology
+                })
+            ).toThrow(/may not contribute to slot custom.card/);
+        }
+    );
 
     test(
         "matches wildcard-heavy slot authority without backtracking",
@@ -424,7 +456,7 @@ function fullBlueprint(options: FullBlueprintOptions = {}): ValidatedBlueprint {
                 ? [command.toData(), duplicate.toData()]
                 : options.straddlingCommands === true
                   ? [straddleLeft.toData(), straddleRight.toData()]
-                : [command.toData()]
+                  : [command.toData()]
         ),
         new Contribution(new SlotName("automations"), [
             new Automation({
@@ -484,7 +516,10 @@ function fullBlueprint(options: FullBlueprintOptions = {}): ValidatedBlueprint {
                 config: new Config({})
             })
         ],
-        policies: new PolicySet({ approvals: options.approvals ?? [] }),
+        policies: new PolicySet({
+            placement: PlacementPolicy.all(),
+            approvals: options.approvals ?? []
+        }),
         scopes: { projects: [{ key: "default" }] },
         agents: [{ instructions: "Help.", model: { policy: "balanced" }, name: "helper" }],
         slots: [boardSlot],
@@ -526,16 +561,19 @@ function applyActor(actorPlan: ActorPlan, stores: Map<string, TestStore>) {
 
 function packageRelease(id: string, contributions: Contributions): PackageRelease {
     const version = new SemVer("1.0.0");
-    const manifests = requireNonempty([
-        new FacetManifest({
-            id: new FacetPackageId(`${id}.facet`),
-            version,
-            compat: CompatRange.any(),
-            isolation: ["dynamic"],
-            bindings: [],
-            contributions
-        })
-    ], "Facet manifests");
+    const manifests = requireNonempty(
+        [
+            new FacetManifest({
+                id: new FacetPackageId(`${id}.facet`),
+                version,
+                compat: CompatRange.any(),
+                isolation: ["dynamic"],
+                bindings: [],
+                contributions
+            })
+        ],
+        "Facet manifests"
+    );
     const codeManifest = new PackageCodeManifest({
         compatibilityDate: "2026-07-10",
         modules: [

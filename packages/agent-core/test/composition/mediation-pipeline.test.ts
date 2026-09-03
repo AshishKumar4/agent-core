@@ -28,7 +28,7 @@ import {
     jsonDataParser,
     type JsonValue
 } from "../../src/core";
-import { PackageId, PackagePin, PolicySet } from "../../src/definition";
+import { PackageId, PackagePin, PlacementPolicy, PolicySet } from "../../src/definition";
 import {
     BindingName,
     CapabilitySpec,
@@ -404,7 +404,11 @@ class DemoAuthorityState implements OperationAuthorityStatePort<MediatedTurnCall
             ),
             owner,
             policies: [
-                new PolicySet(this.directEligible ? { maxDirectRevocationWindowMs: 60_000 } : {})
+                new PolicySet(
+                    this.directEligible
+                        ? { maxDirectRevocationWindowMs: 60_000, placement: PlacementPolicy.all() }
+                        : { placement: PlacementPolicy.all() }
+                )
             ],
             turnOwnedSession: false,
             sessionFilesystemTarget: false,

@@ -15,9 +15,10 @@ import {
     MaterializationGeneration,
     MaterializationGenerationPointer,
     MaterializationPlan,
-    PolicySet,
+    PlacementPolicy,
     placementProjection,
     policyProjection,
+    PolicySet,
     selectPlacement
 } from "../../../src/definition";
 import { TenantId } from "../../../src/identity";
@@ -816,7 +817,10 @@ function supportedPlan(actor: ReturnType<typeof actorRef>, seed: string): Materi
                     ),
                     policyProjection(
                         `policy:${seed}`,
-                        new PolicySet({ tiers: { execute: "mediated" } })
+                        new PolicySet({
+                            placement: PlacementPolicy.all(),
+                            tiers: { execute: "mediated" }
+                        })
                     )
                 ]
             })

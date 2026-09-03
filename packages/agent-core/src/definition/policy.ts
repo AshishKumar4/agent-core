@@ -56,7 +56,11 @@ export function treeMergePolicyFromData(value: JsonValue | undefined): TreeMerge
 export interface PolicySetInit {
     readonly tiers?: EnforcementTierOverrides;
     readonly approvals?: readonly Impact[];
-    readonly placement?: PlacementPolicy;
+    // Required for the same reason the wire form requires it (fromData): an unspecified
+    // placement policy is not a policy, and the permissive answer it used to silently
+    // substitute (every mode allowed, every Package trusted) is a statement a caller
+    // makes through PlacementPolicy.all() or an explicit PlacementPolicy.
+    readonly placement: PlacementPolicy;
     readonly maxDirectRevocationWindowMs?: number;
     readonly treeMerge?: TreeMergePolicy;
 }
@@ -103,10 +107,13 @@ export class PolicySet {
      */
     public readonly treeMerge: TreeMergePolicy | undefined;
 
-    public constructor(init: PolicySetInit = {}) {
+    public constructor(init: PolicySetInit) {
         this.tiers = canonicalTiers(init.tiers ?? {});
         this.approvals = canonicalApprovals(init.approvals ?? []);
-        this.placement = init.placement ?? PlacementPolicy.all();
+        if (!(init.placement instanceof PlacementPolicy)) {
+            throw new TypeError("Policy set requires an explicit placement policy");
+        }
+        this.placement = init.placement;
         this.maxDirectRevocationWindowMs = validateDirectRevocationWindow(
             init.maxDirectRevocationWindowMs
         );
@@ -242,7 +249,10 @@ export function mergePolicySets(policies: readonly PolicySet[]): PolicySet {
         // the §4.7 consumer → backing mapping — are single Blueprint statements with no
         // tightening semantics to merge, so callers that need them read the Blueprint's
         // own PlacementPolicy (definition/validator.ts, composition) rather than this.
-        placement: new PlacementPolicy(placement)
+        // The trust globs are therefore carried through verbatim rather than merged, and
+        // the one glob this record can state is the explicit `*` below — a reader looking
+        // for who trusted everyone finds it here, not in a defaulted constructor.
+        placement: new PlacementPolicy(placement, ["*"])
     };
     if (maxDirectRevocationWindowMs !== undefined) {
         merged = { ...merged, maxDirectRevocationWindowMs };
@@ -348,4 +358,7 @@ function requireObject(
     return value;
 }
 
-const emptyPolicySet = new PolicySet();
+// The empty PolicySet is the one place that states "no policy declared, so the most
+// permissive admissible policy applies" (every mode allowed, every Package trusted).
+// A caller reading `.placement.trusts(id)` off it gets exactly this named statement.
+const emptyPolicySet = new PolicySet({ placement: PlacementPolicy.all() });

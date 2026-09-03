@@ -17,7 +17,7 @@ import {
 } from "../../src/composition";
 import { MemoryContentStore } from "../../src/content";
 import { CompatRange, Digest, JsonSchema, SemVer } from "../../src/core";
-import { PackageId, PackagePin, PolicySet } from "../../src/definition";
+import { PackageId, PackagePin, PlacementPolicy, PolicySet } from "../../src/definition";
 import {
     BindingName,
     CapabilitySpec,
@@ -158,7 +158,10 @@ describe("direct authority through the protected Operation gateway", () => {
             state.resolutionDeadline!.setTime(10_000);
             state.originalLeaseExpiresAt!.setTime(10_000);
             candidateToken.epoch = 99;
-            candidatePolicies[0] = new PolicySet({ maxDirectRevocationWindowMs: 1_000 });
+            candidatePolicies[0] = new PolicySet({
+                placement: PlacementPolicy.all(),
+                maxDirectRevocationWindowMs: 1_000
+            });
 
             harness.state.lease = harness.state.lease.renew(
                 principal,
@@ -271,7 +274,9 @@ class DirectAuthorityState implements OperationAuthorityStatePort<PrincipalRef> 
             new Date(leaseExpiry)
         );
         this.token = { turn: this.lease.turn, holder: principal, epoch: 1 };
-        this.policies = [new PolicySet({ maxDirectRevocationWindowMs: window })];
+        this.policies = [
+            new PolicySet({ placement: PlacementPolicy.all(), maxDirectRevocationWindowMs: window })
+        ];
     }
 
     public resolve(caller: PrincipalRef): OperationResolutionCandidate | undefined {

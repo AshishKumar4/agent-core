@@ -34,16 +34,17 @@ import {
     PackageLock,
     PackagePin,
     PackageRelease,
-    PlatformCompatibility,
     PlacementInput,
+    PlacementPolicy,
+    placementProjection,
     PlacementSelection,
     PlacementSourcePort,
-    PolicySet,
-    ValidatedBlueprint,
-    placementProjection,
-    policyProjection,
-    selectPlacement,
     planMaterialization,
+    PlatformCompatibility,
+    policyProjection,
+    PolicySet,
+    selectPlacement,
+    ValidatedBlueprint,
     type BlueprintInit
 } from "../../src/definition";
 import { AgentCoreError } from "../../src/errors";
@@ -167,7 +168,10 @@ describe("materialization planning", () => {
         { tags: "p1" },
         () => {
             const approvals: ("execute" | "externalSend")[] = ["execute"];
-            const projection = policyProjection("policy:dashboard", new PolicySet({ approvals }));
+            const projection = policyProjection(
+                "policy:dashboard",
+                new PolicySet({ placement: PlacementPolicy.all(), approvals })
+            );
             const origin = managedOrigin();
             const actorPlan = new ActorPlan({
                 actor: new ActorRef("workspace", new ActorId("workspace-a")),
@@ -241,7 +245,10 @@ describe("materialization planning", () => {
                             projection,
                             policyProjection(
                                 "scope:default",
-                                new PolicySet({ approvals: ["execute"] })
+                                new PolicySet({
+                                    placement: PlacementPolicy.all(),
+                                    approvals: ["execute"]
+                                })
                             )
                         ]
                     })
@@ -419,7 +426,7 @@ describe("materialization planning", () => {
         });
         const canonical = policyProjection(
             "policy:canonical",
-            new PolicySet({ approvals: ["execute", "mutate"] })
+            new PolicySet({ placement: PlacementPolicy.all(), approvals: ["execute", "mutate"] })
         );
 
         expect(noncanonical.desired).toEqual(canonical.desired);
@@ -570,6 +577,7 @@ describe("materialization planning", () => {
             const projection = policyProjection(
                 "agent:helper",
                 new PolicySet({
+                    placement: PlacementPolicy.all(),
                     tiers: { execute: "mediated" }
                 })
             );

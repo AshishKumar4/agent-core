@@ -17,7 +17,13 @@ import {
 } from "../../src/composition";
 import { MemoryContentStore } from "../../src/content";
 import { CompatRange, ContentRef, Digest, JsonSchema, SemVer } from "../../src/core";
-import { AuthoredCodeBackingPolicy, PackageId, PackagePin, PolicySet } from "../../src/definition";
+import {
+    AuthoredCodeBackingPolicy,
+    PackageId,
+    PackagePin,
+    PlacementPolicy,
+    PolicySet
+} from "../../src/definition";
 import {
     AuthoredCodeBackingId,
     AuthoredCodeSource,
@@ -792,7 +798,7 @@ class IsolateAuthorityState implements OperationAuthorityStatePort<PrincipalRef>
             package: packagePin(),
             placement: bundledPlacement(),
             owner,
-            policies: [new PolicySet()],
+            policies: [new PolicySet({ placement: PlacementPolicy.all() })],
             turnOwnedSession: false,
             sessionFilesystemTarget: false,
             turnActorAuthorityLocal: false,

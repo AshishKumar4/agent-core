@@ -33,7 +33,7 @@ import {
     type ActorAuthorityHost,
     type OperationResolutionCandidate
 } from "../../src/composition";
-import { PackageId, PackagePin, PolicySet } from "../../src/definition";
+import { PackageId, PackagePin, PlacementPolicy, PolicySet } from "../../src/definition";
 import { TurnId, TurnLease, type LeaseToken } from "../../src/agents";
 import { AuditRecordId, CorrelationId, InvocationId } from "../../src/interaction-references";
 import { ReceiptId } from "../../src/invocation-references";
@@ -989,7 +989,12 @@ class StaleDenialHarness implements ActorAuthorityHost {
                 selected: "bundled"
             }),
             owner: workspaceActor,
-            policies: [new PolicySet({ maxDirectRevocationWindowMs: DIRECT_WINDOW_MS })],
+            policies: [
+                new PolicySet({
+                    placement: PlacementPolicy.all(),
+                    maxDirectRevocationWindowMs: DIRECT_WINDOW_MS
+                })
+            ],
             turnOwnedSession: true,
             sessionFilesystemTarget: false,
             turnActorAuthorityLocal: true,

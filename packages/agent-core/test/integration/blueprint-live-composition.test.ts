@@ -26,10 +26,11 @@ import {
     type JsonValue
 } from "../../src/core";
 import {
+    Blueprint,
     BlueprintDeclarationCodecPort,
-    type BlueprintDeclarationField,
     Config,
     DeploymentKey,
+    MaterializationTopologyPort,
     MetadataSnapshot,
     PackageCodeEntrypoint,
     PackageCodeManifest,
@@ -40,15 +41,15 @@ import {
     PackageLock,
     PackagePin,
     PackageRelease,
+    PlacementPolicy,
     PlacementSourcePort,
+    planMaterialization,
     PlatformCompatibility,
     PolicySet,
-    ValidatedBlueprint,
-    Blueprint,
-    planMaterialization,
     validateBlueprint,
-    type DesiredProjection,
-    MaterializationTopologyPort
+    ValidatedBlueprint,
+    type BlueprintDeclarationField,
+    type DesiredProjection
 } from "../../src/definition";
 import {
     Automation,
@@ -272,7 +273,14 @@ function resolutionWith(
         }),
         owner,
         policies:
-            policies.length === 0 ? [new PolicySet({ maxDirectRevocationWindowMs: 50 })] : policies,
+            policies.length === 0
+                ? [
+                      new PolicySet({
+                          placement: PlacementPolicy.all(),
+                          maxDirectRevocationWindowMs: 50
+                      })
+                  ]
+                : policies,
         turnOwnedSession: true,
         sessionFilesystemTarget: false,
         turnActorAuthorityLocal: true,
@@ -295,7 +303,7 @@ describe("a declared Blueprint is what executes", () => {
         { tags: "p0" },
         () => {
             const projections = materializedProjections(
-                new PolicySet({ tiers: { observe: "mediated" } })
+                new PolicySet({ placement: PlacementPolicy.all(), tiers: { observe: "mediated" } })
             );
             const record = projectionOfKind(projections, "policy-set");
             const materialized = PolicySet.fromData(record.desired);
@@ -315,7 +323,9 @@ describe("a declared Blueprint is what executes", () => {
         "the Automation subscription projection targets exactly the declared Operation",
         { tags: "p1" },
         () => {
-            const projections = materializedProjections(new PolicySet({}));
+            const projections = materializedProjections(
+                new PolicySet({ placement: PlacementPolicy.all() })
+            );
             const record = projections.find(
                 (projection) =>
                     projection.recordKind === "subscription" &&
@@ -342,7 +352,9 @@ describe("a declared Blueprint is what executes", () => {
         "the placement record pins the declared isolation and forecloses the direct tier",
         { tags: "p0" },
         () => {
-            const projections = materializedProjections(new PolicySet({}));
+            const projections = materializedProjections(
+                new PolicySet({ placement: PlacementPolicy.all() })
+            );
             const record = projectionOfKind(projections, "facet-placement");
             if (!isFacetDataMap(record.desired)) {
                 throw new TypeError("Facet placement projection must be an object");

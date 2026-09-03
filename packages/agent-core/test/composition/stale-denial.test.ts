@@ -16,7 +16,7 @@ import {
     type OperationResolutionState
 } from "../../src/composition";
 import { Digest, JsonSchema, SemVer } from "../../src/core";
-import { PackageId, PackagePin, PolicySet } from "../../src/definition";
+import { PackageId, PackagePin, PlacementPolicy, PolicySet } from "../../src/definition";
 import {
     BindingName,
     CapabilitySpec,
@@ -202,7 +202,9 @@ class StaleAuthorityState implements OperationAuthorityStatePort<PrincipalRef> {
                 selected: "bundled"
             }),
             owner,
-            policies: [new PolicySet({ maxDirectRevocationWindowMs: 50 })],
+            policies: [
+                new PolicySet({ placement: PlacementPolicy.all(), maxDirectRevocationWindowMs: 50 })
+            ],
             turnOwnedSession: true,
             sessionFilesystemTarget: false,
             turnActorAuthorityLocal: true,

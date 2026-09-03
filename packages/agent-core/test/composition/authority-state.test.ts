@@ -18,7 +18,7 @@ import {
 } from "../../src/composition";
 import { OperationResolutionState } from "../../src/composition/authority";
 import { Digest, JsonSchema, SemVer } from "../../src/core";
-import { PackageId, PackagePin, PolicySet } from "../../src/definition";
+import { PackageId, PackagePin, PlacementPolicy, PolicySet } from "../../src/definition";
 import { AgentCoreError } from "../../src/errors";
 import {
     BindingName,
@@ -139,7 +139,12 @@ class StateHarness implements ActorAuthorityHost {
                 selected: "bundled"
             }),
             owner,
-            policies: [new PolicySet({ maxDirectRevocationWindowMs: WINDOW_MS })],
+            policies: [
+                new PolicySet({
+                    placement: PlacementPolicy.all(),
+                    maxDirectRevocationWindowMs: WINDOW_MS
+                })
+            ],
             turnOwnedSession: true,
             sessionFilesystemTarget: false,
             turnActorAuthorityLocal: true,

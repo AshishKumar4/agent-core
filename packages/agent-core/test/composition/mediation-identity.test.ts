@@ -15,7 +15,7 @@ import type {
     OperationResolutionState
 } from "../../src/composition";
 import { Digest, JsonSchema, Revision, SemVer } from "../../src/core";
-import { PackageId, PackagePin, PolicySet } from "../../src/definition";
+import { PackageId, PackagePin, PlacementPolicy, PolicySet } from "../../src/definition";
 import { TurnId } from "../../src/execution-references";
 import {
     BindingName,
@@ -172,7 +172,7 @@ async function resolution(
             selected: "bundled"
         }),
         owner,
-        policies: [new PolicySet({})],
+        policies: [new PolicySet({ placement: PlacementPolicy.all() })],
         turnOwnedSession: false,
         sessionFilesystemTarget: false,
         turnActorAuthorityLocal: false,

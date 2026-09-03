@@ -268,7 +268,7 @@ describe("definition value boundaries", () => {
                 PlacementPolicy.fromData({ allowed: ["bundled"], backings: {}, trusted: ["*"] })
                     .allowed
             ).toEqual(["bundled"]);
-            expect(() => new PlacementPolicy([forged<IsolationMode>("invalid")])).toThrow(
+            expect(() => new PlacementPolicy([forged<IsolationMode>("invalid")], ["*"])).toThrow(
                 /unknown/
             );
             expect(() =>
@@ -291,13 +291,18 @@ describe("definition value boundaries", () => {
                     treeMerge: null
                 })
             ).toThrow(/array/);
-            expect(() => new PolicySet({ approvals: [forged<Impact>("invalid")] })).toThrow(
-                /impact/
-            );
+            expect(
+                () =>
+                    new PolicySet({
+                        placement: PlacementPolicy.all(),
+                        approvals: [forged<Impact>("invalid")]
+                    })
+            ).toThrow(/impact/);
             expect(() => PolicySet.fromData(null)).toThrow(/object/);
             expect(
                 () =>
                     new PolicySet({
+                        placement: PlacementPolicy.all(),
                         tiers: forged<EnforcementTierOverrides>({ unknown: "direct" })
                     })
             ).toThrow(/unknown impact/);

@@ -15,12 +15,13 @@ import {
     MetadataSnapshot,
     PackageLock,
     PackageRelease,
+    PlacementPolicy,
     PlacementSourcePort,
+    planMaterialization,
     PlatformCompatibility,
     PolicySet,
-    ValidatedBlueprint,
-    planMaterialization,
     validateBlueprint,
+    ValidatedBlueprint,
     type BlueprintDeclarationField,
     type DesiredProjection,
     type MaterializationPlan
@@ -81,7 +82,10 @@ describe("declared Blueprint to applied materialization journey", () => {
         "applies the planned records of a declared Blueprint through the command protocol",
         { tags: "p1" },
         async () => {
-            const declared = new PolicySet({ tiers: { execute: "mediated" } });
+            const declared = new PolicySet({
+                placement: PlacementPolicy.all(),
+                tiers: { execute: "mediated" }
+            });
             const plan = planFor(declared);
             const harness = new MaterializationHarness();
 
@@ -110,7 +114,7 @@ describe("declared Blueprint to applied materialization journey", () => {
     );
 
     test("applies a replayed materialization envelope at most once", { tags: "p0" }, async () => {
-        const plan = planFor(new PolicySet({}));
+        const plan = planFor(new PolicySet({ placement: PlacementPolicy.all() }));
         const harness = new MaterializationHarness();
         const raw = harness.envelope(plan, { key: "blueprint-journey-replay" });
 

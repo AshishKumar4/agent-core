@@ -16,10 +16,11 @@ import {
 } from "../../src/composition";
 import { Digest, JsonSchema, SemVer } from "../../src/core";
 import {
+    evaluatePolicy,
     PackageId,
     PackagePin,
+    PlacementPolicy,
     PolicySet,
-    evaluatePolicy,
     type EnforcementTier
 } from "../../src/definition";
 import {
@@ -104,7 +105,10 @@ function resolution(init: {
         package: pin,
         placement: placementPin(init.placement),
         owner,
-        policies: [new PolicySet({ maxDirectRevocationWindowMs: 50 }), ...init.policies],
+        policies: [
+            new PolicySet({ placement: PlacementPolicy.all(), maxDirectRevocationWindowMs: 50 }),
+            ...init.policies
+        ],
         turnOwnedSession: init.sessionOwned ?? init.turnOwned,
         sessionFilesystemTarget: false,
         turnActorAuthorityLocal: init.turnOwned,
@@ -133,7 +137,9 @@ describe("runtime enforcement tier is the single evaluatePolicy call site", () =
         "workspace policy raising observe to mediated is honored on a bundled leased facet",
         { tags: "p0" },
         () => {
-            const policies = [new PolicySet({ tiers: { observe: "mediated" } })];
+            const policies = [
+                new PolicySet({ placement: PlacementPolicy.all(), tiers: { observe: "mediated" } })
+            ];
             const resolved = resolution({ turnOwned: true, placement: "bundled", policies });
             expect(authority.tier(resolved, descriptorFor("observe"), false)).toBe("mediated");
         }
@@ -144,7 +150,9 @@ describe("runtime enforcement tier is the single evaluatePolicy call site", () =
         { tags: "p0" },
         () => {
             for (const impact of ["observe", "execute"] as const) {
-                const policies = [new PolicySet({ approvals: [impact] })];
+                const policies = [
+                    new PolicySet({ placement: PlacementPolicy.all(), approvals: [impact] })
+                ];
                 const resolved = resolution({ turnOwned: true, placement: "bundled", policies });
                 const decision = evaluatePolicy({
                     impact,
@@ -191,12 +199,22 @@ describe("runtime enforcement tier is the single evaluatePolicy call site", () =
     test("tier decision equals evaluatePolicy over the full policy matrix", { tags: "p0" }, () => {
         const policySets: readonly (readonly PolicySet[])[] = [
             [],
-            [new PolicySet({ tiers: { observe: "mediated", execute: "mediated" } })],
-            [new PolicySet({ tiers: { mutate: "direct" } })],
-            [new PolicySet({ approvals: ["observe", "execute", "mutate"] })],
             [
-                new PolicySet({ tiers: { execute: "mediated" } }),
-                new PolicySet({ approvals: ["observe"] })
+                new PolicySet({
+                    placement: PlacementPolicy.all(),
+                    tiers: { observe: "mediated", execute: "mediated" }
+                })
+            ],
+            [new PolicySet({ placement: PlacementPolicy.all(), tiers: { mutate: "direct" } })],
+            [
+                new PolicySet({
+                    placement: PlacementPolicy.all(),
+                    approvals: ["observe", "execute", "mutate"]
+                })
+            ],
+            [
+                new PolicySet({ placement: PlacementPolicy.all(), tiers: { execute: "mediated" } }),
+                new PolicySet({ placement: PlacementPolicy.all(), approvals: ["observe"] })
             ]
         ];
         for (const impact of IMPACTS) {

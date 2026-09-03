@@ -889,6 +889,13 @@
       "occurrence": 1
     },
     {
+      "declarationSha256": "c1b591b56014a3e599a0bab1d7801313ab7b55f71bc1570a78ff12af69bb9d0d",
+      "file": "src/definition/placement.ts",
+      "symbol": "PlacementPolicy.constructor",
+      "statementSha256": "ccd18fe06b8fba37d7c8fa74daa6c5c34f597147182163d242f44b73db5e6b8d",
+      "occurrence": 1
+    },
+    {
       "declarationSha256": "c2d4c90da69ad3f6b69b1eb43f7e05b0c7335aa87daef55df7f6d8a95287f121",
       "file": "src/definition/placement.ts",
       "symbol": "PlacementPolicy.fromData",
@@ -1054,6 +1061,13 @@
       "file": "src/definition/plan.ts",
       "symbol": "validatePlacementSelection",
       "statementSha256": "08a92977c3b173c8eb27c0232eb5ff34e2cde70b3eef7eb212970b52be6aec24",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "856e837f6da599a1dc56f20222a9719a87198f3d5237c477a93696cd38fab6f3",
+      "file": "src/definition/policy.ts",
+      "symbol": "PolicySet.constructor",
+      "statementSha256": "c399f08b60fa3f05e9ee2f0b7a942140327cc96ae14710cd3e1e373164382b9a",
       "occurrence": 1
     },
     {
@@ -1348,7 +1362,7 @@
   ],
   "expected": {
     "agentCoreOperationalThrows": 266,
-    "allowedTypeErrors": 189,
+    "allowedTypeErrors": 191,
     "preservedRethrows": 1,
     "bareErrors": 0
   },

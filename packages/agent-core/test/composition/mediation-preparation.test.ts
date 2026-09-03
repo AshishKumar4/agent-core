@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { ActorId, ActorRef } from "../../src/actors";
 import { Binding, GrantId, PathEpochEvidence, ScopeEpoch } from "../../src/authority";
 import { Digest, JsonSchema, SemVer, type JsonValue } from "../../src/core";
-import { PackageId, PackagePin, PolicySet } from "../../src/definition";
+import { PackageId, PackagePin, PlacementPolicy, PolicySet } from "../../src/definition";
 import {
     BindingName,
     FacetRef,
@@ -126,7 +126,7 @@ function intent(
         owner,
         "lease" in overrides ? overrides.lease : token,
         overrides.route,
-        overrides.policies ?? [new PolicySet({})]
+        overrides.policies ?? [new PolicySet({ placement: PlacementPolicy.all() })]
     );
 }
 
@@ -379,7 +379,14 @@ describe("mediated preparation freezes the effect intent", () => {
             expect(port.prepare(request()).header.operation.approvalRequired).toBe(false);
             const gated = port.prepare(
                 request({
-                    authorization: intent({ policies: [new PolicySet({ approvals: ["observe"] })] })
+                    authorization: intent({
+                        policies: [
+                            new PolicySet({
+                                placement: PlacementPolicy.all(),
+                                approvals: ["observe"]
+                            })
+                        ]
+                    })
                 })
             );
             expect(gated.header.operation.approvalRequired).toBe(true);

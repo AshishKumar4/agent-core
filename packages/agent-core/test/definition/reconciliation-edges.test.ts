@@ -3,9 +3,10 @@ import { ActorId, ActorRef } from "../../src/actors";
 import { Digest, Revision, SemVer } from "../../src/core";
 import {
     ActorPlan,
+    applyReconciliation,
+    DeferredManagedRecord,
     DeploymentId,
     DeploymentKey,
-    DeferredManagedRecord,
     ManagedOrigin,
     ManagedStateRecord,
     MaterializationGeneration,
@@ -14,14 +15,14 @@ import {
     PackagePinHolder,
     PackageRetentionObligation,
     PendingObligationSet,
+    PlacementPolicy,
+    planReconciliation,
+    policyProjection,
     PolicySet,
     ReconciliationDeferral,
     ReconciliationPlan,
     RelianceHoldObligation,
     RunPinEvidence,
-    applyReconciliation,
-    planReconciliation,
-    policyProjection,
     type ManagedResourceChange,
     type ManagedResourceSnapshot
 } from "../../src/definition";
@@ -61,7 +62,11 @@ describe("reconciliation adversarial boundaries", () => {
 
     test("rejects missing occupied foreign and removal drift", { tags: "p0" }, () => {
         const previous = record(1, "policy:a", PolicySet.empty());
-        const desired = record(2, "policy:a", new PolicySet({ approvals: ["execute"] }));
+        const desired = record(
+            2,
+            "policy:a",
+            new PolicySet({ placement: PlacementPolicy.all(), approvals: ["execute"] })
+        );
         const state = memoryState();
         const port = new MemoryManagedResourcePort<MemoryManagedResourceState>();
         expect(() => planReconciliation(state, port, owner(), [previous], [desired])).toThrow(
@@ -101,7 +106,11 @@ describe("reconciliation adversarial boundaries", () => {
         { tags: "p0" },
         () => {
             const previous = record(1, "policy:a", PolicySet.empty());
-            const desired = record(2, "policy:a", new PolicySet({ approvals: ["execute"] }));
+            const desired = record(
+                2,
+                "policy:a",
+                new PolicySet({ placement: PlacementPolicy.all(), approvals: ["execute"] })
+            );
             const state = memoryState(snapshotOf(previous));
             const malformed =
                 new (class extends MemoryManagedResourcePort<MemoryManagedResourceState> {
@@ -239,7 +248,7 @@ describe("reconciliation ordering and persistence proof", () => {
             const updateDesired = record(
                 2,
                 updatePrevious.logicalKey,
-                new PolicySet({ approvals: ["execute"] })
+                new PolicySet({ placement: PlacementPolicy.all(), approvals: ["execute"] })
             );
             const noop = ranked[1]!;
             const removeSmall = ranked[2]!;
@@ -285,7 +294,11 @@ describe("reconciliation ordering and persistence proof", () => {
 
     test("sorts the pending set canonically across obligation kinds", { tags: "p1" }, () => {
         const updatePrevious = record(1, "policy:update", PolicySet.empty());
-        const updateDesired = record(2, "policy:update", new PolicySet({ approvals: ["execute"] }));
+        const updateDesired = record(
+            2,
+            "policy:update",
+            new PolicySet({ placement: PlacementPolicy.all(), approvals: ["execute"] })
+        );
         const removed = record(1, "policy:removed", PolicySet.empty());
         const state = memoryState();
         state.resources.set(updatePrevious.resourceId.value, snapshotOf(updatePrevious));
@@ -377,7 +390,11 @@ describe("reconciliation ordering and persistence proof", () => {
 
     test("rejects owner adapters that persist stale desired state", { tags: "p0" }, () => {
         const previous = record(1, "policy:a", PolicySet.empty());
-        const desired = record(2, "policy:a", new PolicySet({ approvals: ["execute"] }));
+        const desired = record(
+            2,
+            "policy:a",
+            new PolicySet({ placement: PlacementPolicy.all(), approvals: ["execute"] })
+        );
         const state = memoryState(snapshotOf(previous));
         const stale = new (class extends MemoryManagedResourcePort<MemoryManagedResourceState> {
             public override update(

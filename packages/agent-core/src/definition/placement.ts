@@ -133,9 +133,11 @@ export class PlacementPolicy {
     }
     public readonly allowed: NonemptyIsolationModes;
     // Package-name globs admitted to the trust set (SPEC §9.2 policies.placement.trusted).
-    // Defaults to "everything" so callers that only care about `allowed` (most tests, and
-    // PlacementPolicy.all()) are unaffected; a Blueprint parsed from data always states
-    // this explicitly (see fromData), so no platform silently inherits a permissive default.
+    // The trust globs are required at construction — exactly as the wire form requires
+    // them — so no caller silently inherits a permissive trust set: a PlacementPolicy
+    // built without one is a construction error, not a policy (C13-PLACEMENT-
+    // UNTRUSTED-BUNDLED: the trust set excludes `bundled` for every Package no glob
+    // matches, and an implicit `*` would admit every Package instead).
     public readonly trusted: readonly string[];
     // Which backing serves which §4.7 consumer. Partial by design: an unnamed consumer
     // falls back to the substrate profile's declared default, which is why this record
@@ -144,10 +146,13 @@ export class PlacementPolicy {
 
     public constructor(
         allowed: readonly IsolationMode[],
-        trusted: readonly string[] = ["*"],
+        trusted: readonly string[],
         backings: AuthoredCodeBackingPolicy = AuthoredCodeBackingPolicy.unmapped
     ) {
         this.allowed = canonicalModes(allowed, "Placement policy");
+        if (!Array.isArray(trusted)) {
+            throw new TypeError("Placement policy trust patterns must be an array");
+        }
         this.trusted = canonicalGlobs(trusted);
         this.backings = backings;
         Object.freeze(this);
@@ -373,4 +378,7 @@ const trustedPlacementModes = Object.freeze(
 );
 const untrustedPlacementModes = Object.freeze(["dynamic", "provider"] as const);
 const unmappedBackingPolicy = new AuthoredCodeBackingPolicy(new Map());
-const allPlacementPolicy = new PlacementPolicy(PLACEMENT_PREFERENCE);
+// The all-trusting singleton is the one place that states "every Package is trusted for
+// bundled placement" (SPEC §9.2 policies.placement.trusted `["*"]`), so a reader looking
+// for who admitted everything finds it here and nowhere else.
+const allPlacementPolicy = new PlacementPolicy(PLACEMENT_PREFERENCE, ["*"]);

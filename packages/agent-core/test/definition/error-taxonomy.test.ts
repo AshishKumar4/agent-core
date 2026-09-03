@@ -45,7 +45,7 @@ describe("W4 error taxonomy", () => {
                 )
             );
             expect(taxonomy.edition).toBe("3.0.0");
-            expect(taxonomy.allowedTypeErrorSites).toHaveLength(189);
+            expect(taxonomy.allowedTypeErrorSites).toHaveLength(191);
             expect(taxonomy.allowedTypeErrorSites[0]).toEqual({
                 declarationSha256: expect.stringMatching(/^[0-9a-f]{64}$/u),
                 file: expect.stringMatching(/^src\/.+\.ts$/u),
@@ -55,7 +55,7 @@ describe("W4 error taxonomy", () => {
             });
             expect(taxonomy.expected).toEqual({
                 agentCoreOperationalThrows: 266,
-                allowedTypeErrors: 189,
+                allowedTypeErrors: 191,
                 preservedRethrows: 1,
                 bareErrors: 0
             });

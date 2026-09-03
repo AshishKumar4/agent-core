@@ -57,6 +57,7 @@ import {
     PackageId,
     PackageInstallationProvenancePort,
     PackagePin,
+    PlacementPolicy,
     PolicySet
 } from "../../../src/definition";
 import { AgentCoreError } from "../../../src/errors";
@@ -1736,7 +1737,9 @@ class AuthorityState implements OperationAuthorityStatePort<PrincipalRef> {
             package: this.#pin,
             placement: this.#placement,
             owner,
-            policies: [new PolicySet({ maxDirectRevocationWindowMs: 50 })],
+            policies: [
+                new PolicySet({ placement: PlacementPolicy.all(), maxDirectRevocationWindowMs: 50 })
+            ],
             turnOwnedSession: true,
             sessionFilesystemTarget: false,
             turnActorAuthorityLocal: true,

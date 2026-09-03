@@ -3,24 +3,25 @@ import { ActorId, ActorRef } from "../../src/actors";
 import { Digest, Revision, SemVer, canonicalTupleKey } from "../../src/core";
 import {
     ActorPlan,
+    AdoptedManagedRecord,
     DeferredManagedRecord,
     DeploymentId,
     DeploymentKey,
     InvocationDrainObligation,
     ManagedOrigin,
-    AdoptedManagedRecord,
     PackageId,
     PackagePin,
     PackagePinHolder,
     PackageRetentionObligation,
     PendingObligationSet,
+    PlacementPolicy,
+    policyProjection,
     PolicySet,
     ReconciliationDeferral,
     ReconciliationPlan,
     RecordedRunPinsReservationPort,
     RelianceHoldObligation,
     RouteReservationObligation,
-    policyProjection,
     type DefinitionPinSet,
     type DesiredProjection,
     type ManagedResourceChange,
@@ -474,7 +475,11 @@ function plan(generation: number, projections: readonly DesiredProjection[]): Ac
 function projection(logicalKey: string, value: number): DesiredProjection {
     return policyProjection(
         logicalKey,
-        new PolicySet(value === 1 ? {} : { maxDirectRevocationWindowMs: value * 1000 })
+        new PolicySet(
+            value === 1
+                ? { placement: PlacementPolicy.all() }
+                : { maxDirectRevocationWindowMs: value * 1000, placement: PlacementPolicy.all() }
+        )
     );
 }
 

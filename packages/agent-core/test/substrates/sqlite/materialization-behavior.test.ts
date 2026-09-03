@@ -10,8 +10,9 @@ import {
     ManagedStateRecord,
     MaterializationGeneration,
     MaterializationGenerationPointer,
-    PolicySet,
-    policyProjection
+    PlacementPolicy,
+    policyProjection,
+    PolicySet
 } from "../../../src/definition";
 import { TenantId } from "../../../src/identity";
 import { SqliteMaterializationStore } from "../../../src/substrates";
@@ -208,7 +209,10 @@ describe("SQLite materialization store durability and ownership behavior", () =>
             generationId: generation.id,
             logicalKey: "slot:unreferenced",
             recordKind: "policy-set",
-            desired: new PolicySet({ approvals: ["execute"] }).toData()
+            desired: new PolicySet({
+                placement: PlacementPolicy.all(),
+                approvals: ["execute"]
+            }).toData()
         });
 
         expect(() =>
@@ -249,7 +253,10 @@ describe("SQLite materialization store durability and ownership behavior", () =>
                     generationId: closure.generation.id,
                     logicalKey: replaced.logicalKey,
                     recordKind: "policy-set",
-                    desired: new PolicySet({ approvals: ["externalSend"] }).toData()
+                    desired: new PolicySet({
+                        placement: PlacementPolicy.all(),
+                        approvals: ["externalSend"]
+                    }).toData()
                 })
             );
 
@@ -1133,7 +1140,10 @@ class ListRowsSqlite extends TestSqlite {
     public table = "";
     public order: readonly number[] = [];
 
-    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+    protected override query(
+        statement: string,
+        bindings: readonly SqliteValue[]
+    ): readonly SqliteRow[] {
         const rows = super.query(statement, bindings);
         if (
             this.table === "" ||
@@ -1152,15 +1162,23 @@ class SubstituteRowSqlite extends TestSqlite {
     public pattern: RegExp | undefined;
     public rows: readonly SqliteRow[] = [];
 
-    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
-        return this.pattern?.test(statement) === true ? this.rows : super.query(statement, bindings);
+    protected override query(
+        statement: string,
+        bindings: readonly SqliteValue[]
+    ): readonly SqliteRow[] {
+        return this.pattern?.test(statement) === true
+            ? this.rows
+            : super.query(statement, bindings);
     }
 }
 
 class TruncatedCasSqlite extends TestSqlite {
     public truncate = false;
 
-    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+    protected override query(
+        statement: string,
+        bindings: readonly SqliteValue[]
+    ): readonly SqliteRow[] {
         const rows = super.query(statement, bindings);
         if (!this.truncate || !/INTO definition_materialization_pointers/u.test(statement)) {
             return rows;
@@ -1198,7 +1216,10 @@ function blueprintRows(database: TestSqlite, name: string, version: string): rea
 class PointerReadbackFaultSqlite extends TestSqlite {
     #armed = false;
 
-    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+    protected override query(
+        statement: string,
+        bindings: readonly SqliteValue[]
+    ): readonly SqliteRow[] {
         if (/INSERT INTO definition_materialization_pointers/u.test(statement)) {
             const rows = super.query(statement, bindings);
             this.#armed = true;
@@ -1232,7 +1253,10 @@ class WriteDropSqlite extends TestSqlite {
 class BlueprintRowFaultSqlite extends TestSqlite {
     public fault = false;
 
-    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+    protected override query(
+        statement: string,
+        bindings: readonly SqliteValue[]
+    ): readonly SqliteRow[] {
         if (this.fault && /FROM definition_blueprints/u.test(statement)) {
             return [
                 {
@@ -1272,7 +1296,10 @@ function twoRecordClosure(
         origin,
         projections: [
             policyProjection(keys[0], PolicySet.empty()),
-            policyProjection(keys[1], new PolicySet({ approvals: ["execute"] }))
+            policyProjection(
+                keys[1],
+                new PolicySet({ placement: PlacementPolicy.all(), approvals: ["execute"] })
+            )
         ]
     });
     const materializationGeneration = MaterializationGeneration.fromActorPlan(actorPlan);

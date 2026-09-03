@@ -937,7 +937,10 @@ function actorPlan(
 }
 
 function projection(logicalKey: string, desired: { readonly value: number }): DesiredProjection {
-    const tiered: PolicySetInit = desired.value % 2 === 0 ? { tiers: { execute: "mediated" } } : {};
+    const tiered: PolicySetInit =
+        desired.value % 2 === 0
+            ? { placement: Definition.PlacementPolicy.all(), tiers: { execute: "mediated" } }
+            : { placement: Definition.PlacementPolicy.all() };
     const approved: PolicySetInit =
         desired.value % 3 === 0 ? { ...tiered, approvals: ["externalSend"] } : tiered;
     return policyProjection(logicalKey, new PolicySet(approved));

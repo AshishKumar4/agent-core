@@ -20,8 +20,9 @@ import {
     MaterializationGeneration,
     MaterializationGenerationPointer,
     MaterializationPlan,
-    PolicySet,
-    policyProjection
+    PlacementPolicy,
+    policyProjection,
+    PolicySet
 } from "../../src/definition";
 import { LocalMaterializer } from "../../src/definition/materializer";
 import { PrincipalId, PrincipalRef, TenantId } from "../../src/identity";
@@ -462,6 +463,7 @@ export function projection(logicalKey: string): DesiredProjection {
     return policyProjection(
         logicalKey,
         new PolicySet({
+            placement: PlacementPolicy.all(),
             tiers: logicalKey.length % 2 === 0 ? { execute: "mediated" } : {}
         })
     );
