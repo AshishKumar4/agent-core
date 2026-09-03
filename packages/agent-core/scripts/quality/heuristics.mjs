@@ -68,7 +68,12 @@ import {
  * evidence that can fail; whether the host honors it is what the evidence measures.
  */
 
-const DETECTORS = Object.freeze(["ambient-clock", "opaque-catch", "prefix-dispatch", "unnamed-bound"]);
+const DETECTORS = Object.freeze([
+    "ambient-clock",
+    "opaque-catch",
+    "prefix-dispatch",
+    "unnamed-bound"
+]);
 const DISPOSITIONS = Object.freeze(["bound", "declared", "eliminated", "withheld"]);
 const PREMISE_CHANNELS = Object.freeze(["spec", "standard", "substrateContract", "test"]);
 const SHAPES = Object.freeze([
@@ -125,7 +130,12 @@ await writeCanonicalJson(resolve(options.reportRoot, "heuristics.json"), {
     // totalled them would let one quietly become permanent.
     withheld: register.sites
         .filter((site) => site.disposition === "withheld")
-        .map((site) => ({ id: site.id, file: site.file, line: site.line, owedEdit: site.owedEdit })),
+        .map((site) => ({
+            id: site.id,
+            file: site.file,
+            line: site.line,
+            owedEdit: site.owedEdit
+        })),
     failures
 });
 if (failures.length > 0) {
@@ -274,7 +284,17 @@ function validateSites(value) {
     const premises = new Set(value.premises.map((premise) => premise.premise));
     const located = new Set();
     for (const site of value.sites) {
-        const keys = ["anchor", "detector", "disposition", "file", "guess", "id", "line", "rationale", "shape"];
+        const keys = [
+            "anchor",
+            "detector",
+            "disposition",
+            "file",
+            "guess",
+            "id",
+            "line",
+            "rationale",
+            "shape"
+        ];
         const optional = {
             bound: ["premise"],
             declared: ["evidence"],
@@ -345,9 +365,13 @@ function validateSites(value) {
         }
     }
     const cited = new Set(value.sites.map((site) => site.premise).filter(isNonEmptyString));
-    const unused = [...premises].filter((premise) => !cited.has(premise)).sort(compareCanonicalText);
+    const unused = [...premises]
+        .filter((premise) => !cited.has(premise))
+        .sort(compareCanonicalText);
     if (unused.length > 0) {
-        throw new TypeError(`Heuristic register states a premise no site binds: ${unused.join(", ")}`);
+        throw new TypeError(
+            `Heuristic register states a premise no site binds: ${unused.join(", ")}`
+        );
     }
 }
 
@@ -483,7 +507,9 @@ async function checkEvidence(value) {
             failures.push(`${owner} quotes prose ${value.scope.spec} does not state`);
         }
         if (evidence.kind === "premise" && !substratePremises.has(evidence.premise)) {
-            failures.push(`${owner} cites substrate premise ${evidence.premise}, which is not declared`);
+            failures.push(
+                `${owner} cites substrate premise ${evidence.premise}, which is not declared`
+            );
         }
         if (evidence.kind === "test" && !(await titleHolds(evidence.file, evidence.title))) {
             failures.push(`${owner} cites a test title ${evidence.file} does not carry`);
@@ -526,7 +552,8 @@ function parseArguments(args) {
     for (let index = 0; index < args.length; index += 1) {
         const argument = args[index];
         if (argument === "--stage") stage = required(args, ++index, argument);
-        else if (argument === "--register") selectedRegister = resolve(required(args, ++index, argument));
+        else if (argument === "--register")
+            selectedRegister = resolve(required(args, ++index, argument));
         else if (argument === "--report-root")
             selectedReportRoot = resolve(required(args, ++index, argument));
         else throw new TypeError(`Unknown heuristics argument ${argument}`);

@@ -192,7 +192,10 @@
         "test/workspaces/conformance.test.ts#[C13-ROUTE-SOURCE-EVENT] reservation identifies its exact Event"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
-      "remainingEvidence": []
+      "remainingEvidence": [],
+      "bounds": [
+        "SPEC 6.2 declares EventPattern.source as one optional string, \"Facet/Actor id, prefix-wildcarded\" (SPEC.md:2415-2421), so src/workspaces/policy.ts#eventMatches compares the bare id text and src/workspaces/policy.ts#eventSourceId discards EventSource.kind. A pattern written for a Facet source therefore also matches an Actor-emitted Event whose ActorId text equals that FacetPackageId text; the two id classes share no namespace prefix that would prevent it. The implementation is exact to the declared interface, so this row claims kind-blind source matching and nothing stronger; qualifying a pattern's source by its EventSource kind would be a SPEC change."
+      ]
     },
     {
       "id": "C13-ROUTE-SOURCE-OWNED",

@@ -3,10 +3,7 @@
   "owner": "W9",
   "scope": {
     "premiseSource": "artifacts/substrate-contracts.json",
-    "roots": [
-      "packages/agent-core/src",
-      "packages/agent-core-cloudflare/src"
-    ],
+    "roots": ["packages/agent-core/src", "packages/agent-core-cloudflare/src"],
     "spec": "SPEC.md"
   },
   "detectors": [

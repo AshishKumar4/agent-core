@@ -70,7 +70,8 @@ export interface AuthorityPermitEvidenceProjectionStore<Transaction> {
 }
 
 export interface AuthorityPermitIssueStore<Transaction>
-    extends AuthorityPermitTransactionStore<Transaction>,
+    extends
+        AuthorityPermitTransactionStore<Transaction>,
         AuthorityPermitEvidenceProjectionStore<Transaction> {
     issued(transaction: Transaction, nonce: string): AuthorityPermit | undefined;
     issue(transaction: Transaction, permit: AuthorityPermit): AuthorityPermit;
@@ -321,7 +322,9 @@ export class MemoryAuthorityPermitStore
         if (existingBytes !== undefined) {
             const existing = TargetLeaseEvidence.decode(existingBytes.slice());
             if (!existing.digest().equals(evidence.digest())) {
-                throw denied("Target lease evidence projection key is bound to another attestation");
+                throw denied(
+                    "Target lease evidence projection key is bound to another attestation"
+                );
             }
             return existing;
         }

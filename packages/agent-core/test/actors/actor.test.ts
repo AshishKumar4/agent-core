@@ -2252,18 +2252,13 @@ describe("MemoryActorStore readonly view members", () => {
             });
             try {
                 const instant = new Date("2024-01-01T00:00:00.000Z");
-                const store = new MemoryActorStore<{ at: Date }>(
-                    { at: instant },
-                    structuredClone
-                );
+                const store = new MemoryActorStore<{ at: Date }>({ at: instant }, structuredClone);
 
                 store.transaction((transaction) =>
                     store.read(transaction, (view) => {
                         expect(view.at.getTime()).toBe(instant.getTime());
                         expect(view.at.toISOString()).toBe("2024-01-01T00:00:00.000Z");
-                        expect(() => view.at.setUTCFullYear(2030)).toThrow(
-                            IMMUTABLE_READ_MESSAGE
-                        );
+                        expect(() => view.at.setUTCFullYear(2030)).toThrow(IMMUTABLE_READ_MESSAGE);
                         // SAFETY: the host-added member is deliberately outside Date's
                         // declared type, so reaching it is what the assertion is about.
                         const advanced = view.at as Date & { readonly advance: () => void };
@@ -2271,54 +2266,48 @@ describe("MemoryActorStore readonly view members", () => {
                     })
                 );
 
-                expect(store.snapshot().state.at.toISOString()).toBe(
-                    "2024-01-01T00:00:00.000Z"
-                );
+                expect(store.snapshot().state.at.toISOString()).toBe("2024-01-01T00:00:00.000Z");
             } finally {
                 Reflect.deleteProperty(Date.prototype, "advance");
             }
         }
     );
 
-    test(
-        "refuses a DataView reader the read view does not declare",
-        { tags: "p0" },
-        () => {
-            // The replaced rule admitted any DataView member whose name began with `get`,
-            // so a host-added accessor returning the live backing buffer escaped the copy
-            // the read view exists to hand out.
-            const getBackingBuffer = function getBackingBuffer(this: DataView): ArrayBuffer {
-                // SAFETY: the probe is built over a DataView this test constructed on an
-                // ArrayBuffer, so the backing buffer is never a SharedArrayBuffer here.
-                return this.buffer as ArrayBuffer;
-            };
-            Object.defineProperty(DataView.prototype, "getBackingBuffer", {
-                configurable: true,
-                value: getBackingBuffer,
-                writable: true
-            });
-            try {
-                const store = new MemoryActorStore<{ data: DataView }>(
-                    { data: new DataView(Uint8Array.of(9, 8, 7).buffer) },
-                    structuredClone
-                );
+    test("refuses a DataView reader the read view does not declare", { tags: "p0" }, () => {
+        // The replaced rule admitted any DataView member whose name began with `get`,
+        // so a host-added accessor returning the live backing buffer escaped the copy
+        // the read view exists to hand out.
+        const getBackingBuffer = function getBackingBuffer(this: DataView): ArrayBuffer {
+            // SAFETY: the probe is built over a DataView this test constructed on an
+            // ArrayBuffer, so the backing buffer is never a SharedArrayBuffer here.
+            return this.buffer as ArrayBuffer;
+        };
+        Object.defineProperty(DataView.prototype, "getBackingBuffer", {
+            configurable: true,
+            value: getBackingBuffer,
+            writable: true
+        });
+        try {
+            const store = new MemoryActorStore<{ data: DataView }>(
+                { data: new DataView(Uint8Array.of(9, 8, 7).buffer) },
+                structuredClone
+            );
 
-                store.transaction((transaction) =>
-                    store.read(transaction, (view) => {
-                        expect(view.data.getUint8(0)).toBe(9);
-                        // SAFETY: the host-added reader is deliberately outside DataView's
-                        // declared type, so reaching it is what the assertion is about.
-                        const leaky = view.data as DataView & {
-                            readonly getBackingBuffer: () => ArrayBuffer;
-                        };
-                        expect(() => leaky.getBackingBuffer()).toThrow(IMMUTABLE_READ_MESSAGE);
-                    })
-                );
-            } finally {
-                Reflect.deleteProperty(DataView.prototype, "getBackingBuffer");
-            }
+            store.transaction((transaction) =>
+                store.read(transaction, (view) => {
+                    expect(view.data.getUint8(0)).toBe(9);
+                    // SAFETY: the host-added reader is deliberately outside DataView's
+                    // declared type, so reaching it is what the assertion is about.
+                    const leaky = view.data as DataView & {
+                        readonly getBackingBuffer: () => ArrayBuffer;
+                    };
+                    expect(() => leaky.getBackingBuffer()).toThrow(IMMUTABLE_READ_MESSAGE);
+                })
+            );
+        } finally {
+            Reflect.deleteProperty(DataView.prototype, "getBackingBuffer");
         }
-    );
+    });
 
     test("keeps plain arrays array-like through read views", { tags: "p1" }, () => {
         const store = new MemoryActorStore<{ list: number[] }>(

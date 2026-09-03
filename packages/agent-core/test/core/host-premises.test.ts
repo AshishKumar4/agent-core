@@ -232,9 +232,9 @@ test("a JSON Schema reference this kernel resolves is fragment-only", { tags: "p
     // document. Anything else names another document, which this kernel does not fetch, so
     // the leading `#` is the declared syntax the check reads rather than a guess about the
     // string. A remote reference is refused rather than silently resolved as local.
-    expect(new JsonSchema({ $ref: "#/$defs/held", $defs: { held: { type: "integer" } } })).toBeInstanceOf(
-        JsonSchema
-    );
+    expect(
+        new JsonSchema({ $ref: "#/$defs/held", $defs: { held: { type: "integer" } } })
+    ).toBeInstanceOf(JsonSchema);
     expect(() =>
         new JsonSchema({ $ref: "https://example.test/remote.json" }).accepts(1, {
             validate: () => true
