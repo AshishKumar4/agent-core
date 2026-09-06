@@ -20,3 +20,4 @@ export {
     PortExposureId,
     ProviderId
 } from "./id";
+export { EnvironmentSessionCapability } from "./session";

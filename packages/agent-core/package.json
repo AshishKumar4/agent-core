@@ -67,6 +67,10 @@
       "types": "./dist/slates/public.d.ts",
       "import": "./dist/slates/public.js"
     },
+    "./slates": {
+      "types": "./dist/slates/index.d.ts",
+      "import": "./dist/slates/index.js"
+    },
     "./substrates/sqlite": {
       "types": "./dist/substrates/sqlite/index.d.ts",
       "import": "./dist/substrates/sqlite/index.js"

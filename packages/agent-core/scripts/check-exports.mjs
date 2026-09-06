@@ -161,6 +161,9 @@ try {
             'import * as packedAuthority from "@agent-core/core/authority";',
             'import * as packedProtocol from "@agent-core/core/protocol";',
             'import * as packedRoot from "@agent-core/core";',
+            'import { Slate, SlateId, SlateRuntime, SlateStore, SlateMutationSeam, SlateInvocationSeam, SlatePreviewValidationSeam, SlateIdSource } from "@agent-core/core/slates";',
+            'import { EnvironmentId, EnvironmentSessionId, EnvironmentSessionCapability } from "@agent-core/core/environment-provider";',
+            'import { Revision, WorkspaceId } from "@agent-core/core";',
             ...specifiers.map(
                 (specifier, index) =>
                     `import * as module${index} from ${JSON.stringify(specifier)};`
@@ -228,6 +231,13 @@ try {
             "            throw new Error(`packed boundary type is not constructible: ${lane}#${symbol}`);",
             "        }",
             "    }",
+            "}",
+            'const slate = Slate.initial(new SlateId("packed-slate"), new WorkspaceId("packed-workspace"), new ContentRef("sha256:" + "a".repeat(64)));',
+            'if (!Slate.decode(Slate.encode(slate)).id.equals(slate.id)) throw new Error("packed Slate codec lost identity");',
+            'const capability = new EnvironmentSessionCapability(new EnvironmentId("packed-environment"), new EnvironmentSessionId("packed-session"), new Revision(0), 0);',
+            'if (capability.sessionId.value !== "packed-session") throw new Error("packed Environment capability lost session");',
+            "for (const seam of [SlateRuntime, SlateStore, SlateMutationSeam, SlateInvocationSeam, SlatePreviewValidationSeam, SlateIdSource]) {",
+            '    if (typeof seam !== "function") throw new Error("packed Slate runtime seam is unavailable");',
             "}",
             "const packedStatefulCodec = { mode: 'a', encode() { return this.mode; }, decode() { return this.mode; } };",
             "let packedStatefulRejected = false;",
@@ -374,6 +384,11 @@ try {
                     `import * as module${index} from ${JSON.stringify(specifier)};`
             ),
             `void [${specifiers.map((_, index) => `module${index}`).join(", ")}];`,
+            'import { SlateId, SlateRuntime } from "@agent-core/core/slates";',
+            'import { EnvironmentId, EnvironmentSessionId, EnvironmentSessionCapability, PortExposureId } from "@agent-core/core/environment-provider";',
+            'import { Revision } from "@agent-core/core";',
+            "declare const slateRuntime: SlateRuntime;",
+            'void slateRuntime.linkPreview(new SlateId("consumer-slate"), new EnvironmentSessionCapability(new EnvironmentId("consumer-environment"), new EnvironmentSessionId("consumer-session"), new Revision(0), 0), new PortExposureId("consumer-port"));',
             ...Object.entries(registry.forbiddenSymbols ?? {}).flatMap(([specifier, symbols]) =>
                 symbols.flatMap((symbol, index) => [
                     `// @ts-expect-error ${specifier}#${symbol} has no public value export`,
