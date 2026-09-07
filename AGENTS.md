@@ -40,9 +40,9 @@ migration is a domain operation with durable evidence, not legacy compatibility.
 
 **Organize code:** Organize code in a logical and consistent manner. Use consistent naming conventions and file structure.
 
-**Formal verification:** Use formal verification tools to ensure logical correctness and reliability.
+**Formal verification:** the formal model in `packages/agent-core/formal/` covers abstract requirement categories, and it makes no implementation-refinement claim (SPEC §14). Treat a formal trace id as coverage of a category, never as proof that the code implementing it is correct — the conformance tests carry that. `pnpm check:traceability` governs the mapping.
 
-**Research, ideate and architecture first:** Always research, ideate and architecture before implementing any code. This ensures that the code is well-designed and follows best practices.
+**Research and design before substantive work:** a new bounded context, a record or codec shape, a concurrency, authority or placement rule, or anything the SPEC constrains is designed against `packages/agent-core/SPEC.md` before it is coded. A contained fix inside one module is not.
 
 **Audit and review:** Regularly audit and review code to ensure it meets the established standards and best practices.
 
@@ -52,18 +52,14 @@ migration is a domain operation with durable evidence, not legacy compatibility.
 
 ​
 ## 2. Testing & Quality Assurance
-​
-**Unit Tests:** Every new feature or fix must be accompanied by comprehensive unit tests that cover core functionality and edge cases.
 
-**Test Coverage:** *Requirement:* Code coverage must not decrease below the established project threshold (e.g., 80%).
+`pnpm check` is the building-stage quality run and `pnpm check:final` is the release gate. `pnpm test` runs the anti-slop rules and then every package's `vitest run`. Single-dimension stages exist for a focused loop: `check:types`, `check:conformance`, `check:coverage`, `check:normative`, `check:traceability`, `check:doctrine`, `check:exports`, `check:hermetic`, `check:change-control`.
 
-**Integration Tests:** Implement tests to verify the agent's interaction with external APIs and databases.
-​
-**Test Framework:** Specify the required testing framework (e.g., Jest, Pytest).
-​
-**Mocking:** Use mocking for external service dependencies to ensure tests are fast, reliable, and isolated. But rely on real services whenever possible, such as using wrangler/vitest for durable objects.
+§ Tests states what a test must prove and § Working style states what must be green before a commit. Thresholds live in `packages/agent-core/scripts/quality/`, which is the only place a number stays true — do not restate one here.
 
-**Functional Testing:** Implement tests to verify every component's ability to perform its intended functions.
+Scope a change's tests to what that change can break: the SPEC §13 MUST it touches, the seam contract it implements, the package boundary a consumer sees. There is no per-change test quota.
+
+**Mocking:** mock only at real seams. Prefer a real service where one runs locally, such as wrangler/vitest for Durable Objects.
 
 **Always write tests decoupled from the implementation details.**
 
