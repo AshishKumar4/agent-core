@@ -1,12 +1,19 @@
 import {
     AlarmOutboxReconciler,
+    PERMIT_PRUNE_LIMIT,
+    PERMIT_RETENTION_INTERVAL_MILLISECONDS,
+    PERMIT_RETENTION_MILLISECONDS,
+    PERMIT_RETENTION_PAGE_DELAY_MILLISECONDS,
     PermitRetentionSweep,
     ReconciliationOutboxId,
     ScheduledPermitRetention,
     SqliteReconciliationOutbox,
-    cloudflareRuntimeMigrations
+    cloudflareRuntimeMigrations,
+    type SynchronousResultGuard,
+    type SynchronousSqlitePort
 } from "../src/index.js";
 import { SqliteApplicationMigrator } from "../src/migration.js";
+import { expectOperationalFailure } from "./assertions.js";
 import { FakeAlarmStorage, fakeErrors } from "./fakes.js";
 import { NodeSqlite } from "./node-sqlite.js";
 
@@ -21,6 +28,8 @@ const PAGE = 2;
  */
 class ScriptedPermitStore {
     public readonly cursors: string[] = [];
+    /** What each page was asked for, so the window and the bound are observable. */
+    public readonly pages: { readonly before: Date; readonly limit: number }[] = [];
     #remaining: number;
 
     public constructor(rows: number) {
@@ -33,8 +42,9 @@ class ScriptedPermitStore {
         return operation(undefined as never);
     }
 
-    public prune(_transaction: never, _before: Date, limit: number, after: string) {
+    public prune(_transaction: never, before: Date, limit: number, after: string) {
         this.cursors.push(after);
+        this.pages.push({ before, limit });
         const examined = Math.min(limit, this.#remaining);
         this.#remaining -= examined;
         return Object.freeze({
@@ -191,4 +201,160 @@ describe("scheduled permit retention", () => {
             expect(store.cursors[1]).toBe("row-1");
         }
     );
+});
+
+describe("permit retention bounds", () => {
+    test(
+        "prunes only past the retention window, and never past the epoch",
+        { tags: "p0" },
+        () => {
+            const store = new ScriptedPermitStore(1);
+            let clock = PERMIT_RETENTION_MILLISECONDS + 5_000;
+            const sweep = new PermitRetentionSweep({
+                store,
+                errors: fakeErrors,
+                now: () => clock
+            });
+
+            sweep.sweep();
+            // A settled permit's rows are kept past expiry for the retention window, so
+            // the sweep may only remove what fell out of it: a sweep that passed `now`
+            // would delete rows still inside their window.
+            expect(store.pages[0]?.before.getTime()).toBe(5_000);
+            // Nothing was overridden, so the page is the exported default bound: the
+            // sweep exists to remove an unbounded scan, not to become one.
+            expect(store.pages[0]?.limit).toBe(PERMIT_PRUNE_LIMIT);
+
+            // A clock inside the window has nothing expired behind it, and the window
+            // clamps at the epoch rather than reaching back before time.
+            clock = 10;
+            sweep.sweep("row-1");
+            expect(store.pages[1]?.before.getTime()).toBe(0);
+            expect(store.cursors).toEqual(["", "row-1"]);
+        }
+    );
+
+    test("refuses a clock that cannot name an instant", { tags: "p0" }, () => {
+        for (const reading of [-1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, 2 ** 53]) {
+            const store = new ScriptedPermitStore(4);
+            const sweep = new PermitRetentionSweep({
+                store,
+                errors: fakeErrors,
+                now: () => reading
+            });
+
+            // A retention window derived from a clock like this would delete rows by
+            // accident, so the sweep refuses before it opens a transaction.
+            expectOperationalFailure(() => sweep.sweep(), "operation.invalid-output");
+            expect(store.cursors).toEqual([]);
+        }
+    });
+
+    test("refuses a bound that does not bound anything", { tags: "p1" }, () => {
+        const store = new ScriptedPermitStore(4);
+        const now = () => 1_000;
+        for (const unbounded of [0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY]) {
+            expect(
+                () => new PermitRetentionSweep({ store, errors: fakeErrors, now, limit: unbounded })
+            ).toThrow(TypeError);
+            expect(
+                () =>
+                    new PermitRetentionSweep({
+                        store,
+                        errors: fakeErrors,
+                        now,
+                        retentionMilliseconds: unbounded
+                    })
+            ).toThrow(TypeError);
+
+            const sweep = new PermitRetentionSweep({ store, errors: fakeErrors, now });
+            const database = new NodeSqlite();
+            new SqliteApplicationMigrator(database, fakeErrors, cloudflareRuntimeMigrations).migrate();
+            const outbox = new SqliteReconciliationOutbox(database, fakeErrors);
+            const options = {
+                sweep,
+                database,
+                outbox,
+                entry: RETENTION_ENTRY,
+                owner: OWNER,
+                errors: fakeErrors,
+                now
+            };
+            expect(
+                () =>
+                    new ScheduledPermitRetention({ ...options, intervalMilliseconds: unbounded })
+            ).toThrow(TypeError);
+            expect(
+                () => new ScheduledPermitRetention({ ...options, pageDelayMilliseconds: unbounded })
+            ).toThrow(TypeError);
+        }
+    });
+
+    test(
+        "rearms a drained pass at the exported interval and a backlog at the page delay",
+        { tags: "p1" },
+        async () => {
+            const database = new NodeSqlite();
+            new SqliteApplicationMigrator(database, fakeErrors, cloudflareRuntimeMigrations).migrate();
+            const outbox = new SqliteReconciliationOutbox(database, fakeErrors);
+            const store = new ScriptedPermitStore(PERMIT_PRUNE_LIMIT + 1);
+            const driver = new ScheduledPermitRetention({
+                sweep: new PermitRetentionSweep({ store, errors: fakeErrors, now: () => 1_000 }),
+                database,
+                outbox,
+                entry: RETENTION_ENTRY,
+                owner: OWNER,
+                errors: fakeErrors,
+                now: () => 1_000
+            });
+
+            // A full page leaves more to do, so the next one is scheduled at the short
+            // delay rather than spending a whole alarm here.
+            await driver.reconcile();
+            expect(await outbox.nextDueAt()).toBe(1_000 + PERMIT_RETENTION_PAGE_DELAY_MILLISECONDS);
+
+            // The pass that drains the backlog falls back to the long interval, so
+            // retention keeps running without spinning once there is nothing to do.
+            await driver.reconcile();
+            expect(await outbox.nextDueAt()).toBe(1_000 + PERMIT_RETENTION_INTERVAL_MILLISECONDS);
+            expect(store.cursors).toEqual(["", "row-1"]);
+        }
+    );
+
+    test("refuses a stored cursor that is not text", { tags: "p0" }, async () => {
+        const database = new NodeSqlite();
+        new SqliteApplicationMigrator(database, fakeErrors, cloudflareRuntimeMigrations).migrate();
+        const outbox = new SqliteReconciliationOutbox(database, fakeErrors);
+        const store = new ScriptedPermitStore(4);
+        // The runtime table is STRICT, so a live deployment's own rows cannot hold this.
+        // The driver reads its cursor through the port seam, whose contract admits any
+        // stored value, which is the reason the read validates rather than assumes.
+        const corrupt: SynchronousSqlitePort = {
+            all: (statement, bindings) =>
+                statement.includes("FROM agent_core_permit_retention")
+                    ? [{ cursor: 42 }]
+                    : database.all(statement, bindings),
+            run: (statement, bindings) => {
+                database.run(statement, bindings);
+            },
+            transaction: <Result>(
+                operation: () => Result,
+                ...guard: SynchronousResultGuard<Result>
+            ): Result => database.transaction(operation, ...guard)
+        };
+        const driver = new ScheduledPermitRetention({
+            sweep: new PermitRetentionSweep({ store, errors: fakeErrors, now: () => 1_000 }),
+            database: corrupt,
+            outbox,
+            entry: RETENTION_ENTRY,
+            owner: OWNER,
+            errors: fakeErrors,
+            now: () => 1_000
+        });
+
+        // A cursor that is not text would resume the keyset from a value no row can be
+        // compared against, so the pass refuses instead of sweeping from nowhere.
+        await expect(driver.reconcile()).rejects.toMatchObject({ code: "codec.invalid" });
+        expect(store.cursors).toEqual([]);
+    });
 });
