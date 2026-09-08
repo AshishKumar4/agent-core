@@ -1,10 +1,12 @@
 import { describe, expect, test } from "vitest";
 import { POLICY_IMPACTS } from "../../src/definition";
 import {
+    Impact,
     claimHonorsEnforcementFloor,
     enforcementFloor,
+    requireBoolean,
     type EnforcementTier,
-    type Impact
+    type GeneratedData
 } from "../../src/facets/generated/enforcement/AgentCore/Facets/Enforcement";
 import { malformed } from "../helpers/malformed";
 
@@ -141,6 +143,83 @@ describe("the TSLean-generated enforcement floor", () => {
             expect(claimHonorsEnforcementFloor("observe", unnamed, true)).toBe(false);
             expect(claimHonorsEnforcementFloor("mutate", unnamed, true)).toBe(false);
             expect(claimHonorsEnforcementFloor("mutate", unnamed, false)).toBe(true);
+        }
+    );
+
+    test(
+        "[C13-FACET-IMPACT-BOUNDARY] decodes exactly SPEC §7.1's impact vocabulary and refuses anything else",
+        { tags: "p1" },
+        () => {
+            for (const impact of POLICY_IMPACTS) {
+                expect(Impact.fromData(impact)).toBe(impact);
+                // What a manifest declares arrives as data, so the decoded impact has to
+                // reach the same floor the literal does at every session condition.
+                for (const condition of CONDITIONS) {
+                    expect(
+                        enforcementFloor(
+                            Impact.fromData(impact),
+                            condition.turnOwnedSession,
+                            condition.sessionFilesystemTarget
+                        )
+                    ).toBe(specFloor(impact, condition));
+                }
+            }
+
+            // An impact the vocabulary does not name is refused rather than defaulted:
+            // defaulting it to the weakest name would hand a seam the tier §7.2 denies,
+            // and defaulting it to the strongest would mediate work no policy declared.
+            const unnamed: readonly GeneratedData[] = [
+                "",
+                "Observe",
+                "mutate.session",
+                "read",
+                0,
+                1,
+                true,
+                null,
+                undefined,
+                [],
+                ["observe"],
+                {},
+                { impact: "observe" }
+            ];
+            for (const value of unnamed) {
+                expect(() => Impact.fromData(value)).toThrow(TypeError);
+                expect(() => Impact.fromData(value)).toThrow(/must name a Impact/u);
+            }
+        }
+    );
+
+    test(
+        "[C13-FACET-IMPACT-BOUNDARY] refuses a session condition that is not a boolean",
+        { tags: "p1" },
+        () => {
+            // The session conditions cross the same data boundary as the impact, and
+            // both of them gate `direct`. A guard that coerced would read `1`, `"false"`
+            // or `{}` as a Turn-owned Session and lower a mediated floor to direct,
+            // which is the one escalation §7.2 has no recovery from.
+            for (const value of [0, 1, -1, "", "true", "false", null, undefined, [], {}]) {
+                expect(() => requireBoolean(value, "turnOwnedSession")).toThrow(TypeError);
+                expect(() => requireBoolean(value, "turnOwnedSession")).toThrow(
+                    /turnOwnedSession must be a boolean/u
+                );
+            }
+
+            for (const condition of CONDITIONS) {
+                const turnOwnedSession = requireBoolean(
+                    condition.turnOwnedSession,
+                    "turnOwnedSession"
+                );
+                const sessionFilesystemTarget = requireBoolean(
+                    condition.sessionFilesystemTarget,
+                    "sessionFilesystemTarget"
+                );
+                expect(turnOwnedSession).toBe(condition.turnOwnedSession);
+                expect(sessionFilesystemTarget).toBe(condition.sessionFilesystemTarget);
+                expect(enforcementFloor("execute", turnOwnedSession, sessionFilesystemTarget)).toBe(
+                    specFloor("execute", condition)
+                );
+            }
         }
     );
 });
