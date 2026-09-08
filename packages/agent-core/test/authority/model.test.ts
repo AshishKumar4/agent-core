@@ -198,6 +198,43 @@ describe("authority value records", () => {
     );
 
     test(
+        "[C13-AUTH-WATERMARK-MONOTONE] [authority.invalidation-watermark] carries no entry at the epoch an absent Scope already answers",
+        { tags: "p0" },
+        () => {
+            const ownerTenant = new TenantId("watermark-owner");
+            const owner = new ActorRef("workspace", new ActorId("watermark-workspace"));
+            const holder = new PrincipalRef(new TenantId("foreign-home"), new PrincipalId("guest"));
+            const scope = ScopeRef.tenant(ownerTenant);
+            const empty = InvalidationWatermark.empty(ownerTenant, owner, holder);
+
+            // Joining the epoch an absent Scope already stands at advances nothing, so the
+            // watermark is returned unchanged and its revision does not move.
+            const joinedZero = empty.join([new ScopeEpoch(scope, 0)]);
+            expect(joinedZero).toBe(empty);
+            expect(joinedZero.revision.value).toBe(empty.revision.value);
+
+            // A zero entry handed to the constructor is dropped, so two watermarks that
+            // dominate each other are equal in `delivered`, in their bytes, and in revision —
+            // the property `dominates` would otherwise claim without the representation
+            // agreeing.
+            const constructed = new InvalidationWatermark(
+                ownerTenant,
+                owner,
+                holder,
+                [new ScopeEpoch(scope, 0)],
+                empty.revision
+            );
+            expect(constructed.delivered).toHaveLength(0);
+            expect(constructed.epoch(scope)).toBe(0);
+            expect(constructed.dominates(empty)).toBe(true);
+            expect(empty.dominates(constructed)).toBe(true);
+            expect(InvalidationWatermark.encode(constructed)).toEqual(
+                InvalidationWatermark.encode(empty)
+            );
+        }
+    );
+
+    test(
         "[authority.binding] keeps Binding identity immutable while advancing local generations",
         { tags: "p0" },
         () => {

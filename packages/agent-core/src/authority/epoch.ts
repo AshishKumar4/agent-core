@@ -215,6 +215,11 @@ export class InvalidationWatermark {
         delivered: readonly ScopeEpoch[],
         public readonly revision: Revision
     ) {
+        // A scope this watermark does not carry answers epoch 0, so an entry recorded AT 0
+        // says exactly what its absence says. Keeping it would make two watermarks that
+        // dominate each other unequal — `delivered` is public and `equals`, `toData` and the
+        // revision all read it — so the canonical form drops it and the ordering, equality
+        // and serialization agree.
         const unique = new Map<string, ScopeEpoch>();
         for (const entry of delivered) {
             if (!entry.scope.tenantId.equals(ownerTenant)) {
@@ -222,6 +227,7 @@ export class InvalidationWatermark {
             }
             const key = scopeKey(entry.scope);
             if (unique.has(key)) throw new TypeError("Watermark Scope entries must be unique");
+            if (entry.epoch === 0) continue;
             unique.set(key, entry);
         }
         this.delivered = Object.freeze(
@@ -273,8 +279,9 @@ export class InvalidationWatermark {
                 );
             }
             const key = scopeKey(entry.scope);
-            const previous = joined.get(key);
-            if (previous === undefined || entry.epoch > previous.epoch) {
+            // An absent scope stands at 0, exactly as `epoch` answers it, so joining an entry
+            // at 0 advances nothing and must not bump the revision.
+            if (entry.epoch > (joined.get(key)?.epoch ?? 0)) {
                 joined.set(key, entry);
                 changed = true;
             }
