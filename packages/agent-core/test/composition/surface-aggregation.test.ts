@@ -209,4 +209,90 @@ describe("an aggregating Surface over slot-contributed child Views", () => {
             ]);
         }
     );
+
+    test(
+        "[C13-VIEW-WITHDRAWAL-TERMINAL] opens the parent's own stream at its first revision and composes its children in canonical order whatever order they contributed in",
+        { tags: "p1" },
+        async () => {
+            const state = harness();
+            // The dashboard is registered but has never rendered, so this composition
+            // opens its stream rather than patching one: there is no prior body for a
+            // delta to be against.
+            state.transaction((workspace) =>
+                registerSurface(state.persistence, workspace, dashboard, "workspace:dashboard")
+            );
+            render(state, firstChild, { alerts: 3 }, "workspace:alerts");
+            render(state, secondChild, { usage: "12%" }, "workspace:usage");
+            // Contributed back to front. Child order is the parent's own fact, derived
+            // from the child Surface ids, not the order the slot happened to answer in.
+            state.catalog.contribute([cardEntry(secondChild, 0), cardEntry(firstChild, 1)]);
+
+            const opened = await state.aggregation.advance({
+                parent: dashboard,
+                slot: cards,
+                cursor: new EventCursor("aggregate-cursor-open")
+            });
+            expect(opened.revision.value).toBe(0);
+            expect(opened.epoch.value).toBe(1);
+            expect(composedChildren(opened)).toEqual([
+                { body: { alerts: 3 }, epoch: 1, revision: 0, surface: firstChild.value },
+                { body: { usage: "12%" }, epoch: 1, revision: 0, surface: secondChild.value }
+            ]);
+
+            // Durable at that first revision, and the next composition is the delta the
+            // opened stream can carry rather than a second opening.
+            const stored = state.transaction((workspace) =>
+                state.persistence.currentView(workspace, dashboard.value, opened.epoch)
+            );
+            expect(stored?.revision.value).toBe(0);
+            const next = await state.aggregation.advance({
+                parent: dashboard,
+                slot: cards,
+                cursor: new EventCursor("aggregate-cursor-open-2")
+            });
+            expect(next.revision.value).toBe(1);
+        }
+    );
+
+    test(
+        "[C13-VIEW-WITHDRAWAL-TERMINAL] refuses a slot entry that names no child Surface rather than composing an unnamed child",
+        { tags: "p1" },
+        async () => {
+            const state = harness();
+            render(state, dashboard, { children: [] }, "workspace:dashboard");
+            render(state, firstChild, { alerts: 5 }, "workspace:alerts");
+
+            // A surface-backed slot entry names its child and nothing else about it. An
+            // entry that names none, or names one that is not an id, would otherwise
+            // compose as a child the parent cannot read back or attribute.
+            for (const [label, value] of [
+                ["an entry that is not an object", ["dashboard.card.alerts"]],
+                ["an entry naming no surface", { title: "Alerts" }],
+                ["an entry whose surface is not a string", { surface: 7 }]
+            ] as const) {
+                state.catalog.contribute([
+                    new SlotEntry(cards, attribution("workspace:malformed"), 0, value)
+                ]);
+                await expect(
+                    state.aggregation.advance({
+                        parent: dashboard,
+                        slot: cards,
+                        cursor: new EventCursor("aggregate-cursor-malformed")
+                    }),
+                    label
+                ).rejects.toThrow(/A surface-backed slot entry names its child Surface/);
+            }
+
+            // The refusal lands before the parent's next revision: nothing was published
+            // from a contribution the parent could not read.
+            const current = state.transaction((workspace) =>
+                state.persistence.currentView(
+                    workspace,
+                    dashboard.value,
+                    state.persistence.currentSurfaceEpoch(workspace, dashboard.value)
+                )
+            );
+            expect(current?.revision.value).toBe(0);
+        }
+    );
 });

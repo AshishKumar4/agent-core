@@ -44,10 +44,6 @@ export abstract class ViewPosition {
 
     /** The wire label, which survives only inside this module's decoder. */
     public abstract get label(): string;
-
-    public equals(other: ViewPosition): boolean {
-        return this === other;
-    }
 }
 
 class DataPosition extends ViewPosition {
@@ -282,7 +278,7 @@ export function composeDecisionView(init: DecisionViewCompositionInit): View {
             continue;
         }
         requireAttributedPosition(placement);
-        requireRenderedInput(rendered, decided.value, placement);
+        requireRenderedInput(rendered, decided.value, placement.path, placement.source);
         marks.push(new ViewMark(placement.path, decided.tier));
     }
     for (const action of rendering.actions) {
@@ -345,12 +341,13 @@ function requireAttributedPosition(placement: DecisionPlacement): void {
 function requireRenderedInput(
     rendered: JsonValue,
     input: JsonValue,
-    placement: DecisionPlacement
+    path: string,
+    pointer: string
 ): void {
-    const source = readJsonPointer(input, placement.source ?? "");
+    const source = readJsonPointer(input, pointer);
     if (source === undefined) {
         throw new TypeError(
-            `A decision rendering attributes a value the decided intent does not hold: ${placement.source}`
+            `A decision rendering attributes a value the decided intent does not hold: ${pointer}`
         );
     }
     if (
@@ -359,7 +356,7 @@ function requireRenderedInput(
         )
     ) {
         throw new TypeError(
-            `A decision rendering renders a value its own source does not carry: ${placement.path}`
+            `A decision rendering renders a value its own source does not carry: ${path}`
         );
     }
 }
@@ -384,9 +381,7 @@ function inputText(value: JsonValue, collected: Set<string> = new Set()): Set<st
     if (isJsonString(value)) collected.add(value);
     else if (Array.isArray(value)) for (const entry of value) inputText(entry, collected);
     else if (isJsonObject(value)) {
-        for (const entry of Object.values(value)) {
-            if (entry !== undefined) inputText(entry, collected);
-        }
+        for (const entry of Object.values(value)) inputText(entry, collected);
     }
     return collected;
 }
@@ -420,7 +415,6 @@ function renderedPositions(
     }
     if (isJsonObject(value)) {
         for (const [key, entry] of Object.entries(value)) {
-            if (entry === undefined) continue;
             renderedPositions(
                 entry,
                 `${prefix}/${key.replaceAll("~", "~0").replaceAll("/", "~1")}`,

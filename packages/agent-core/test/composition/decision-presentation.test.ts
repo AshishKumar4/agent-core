@@ -12,9 +12,13 @@ import {
 } from "../../src/facets";
 import { DecisionSurfacePresentation } from "../../src/composition";
 import {
+    DecidedInput,
+    DecisionPlacement,
+    DecisionRendering,
     EventCursor,
     MemoryWorkspaceRecords,
     View,
+    ViewPosition,
     WorkspacePersistence
 } from "../../src/workspaces";
 import { prepared } from "../invocations/fixture";
@@ -390,10 +394,531 @@ describe("the decision presentation path", () => {
             expect(state.currentView()?.revision.value).toBe(2);
         }
     );
+
+    test(
+        "[C13-VIEW-APPROVAL-PROVENANCE] presents an indeterminate item as unmarked host data and still refuses prose that repeats it",
+        { tags: "p1" },
+        async () => {
+            // A decision whose item is still indeterminate — no verdict, a pending count,
+            // and a null reviewer. A value the host originated carries no mark, so the
+            // decision View states it with no provenance at all rather than an empty one.
+            const indeterminate: JsonValue = { command: "rm -rf /srv", pending: 2 };
+            const state = harness({
+                body: {
+                    headline: "Awaiting a second reviewer",
+                    command: "rm -rf /srv",
+                    outstanding: 2,
+                    reviewer: null
+                },
+                actions: [{ id: "wait", label: "Keep waiting", emits: "approval.deferred" }],
+                placements: [
+                    { path: "/headline", position: "platformVoice" },
+                    { path: "/command", position: "data", source: "/command" },
+                    // A count and a null the host wrote itself: host-authored positions
+                    // carrying no source, so neither inherits a mark.
+                    { path: "/outstanding", position: "platformVoice" },
+                    { path: "/reviewer", position: "data" }
+                ]
+            });
+            const view = await state.presentation.present({
+                surface: state.surface,
+                context: context(),
+                prepared: prepared("approval-indeterminate", indeterminate),
+                itemIndex: 0,
+                arrival: eventFixture("approval-indeterminate", { trust: "external" }),
+                cursor: new EventCursor("decision-cursor-indeterminate")
+            });
+
+            // Exactly the attributed position is marked. The host's own count repeats a
+            // number the input carries and is admitted anyway: a number carries no voice,
+            // and refusing it would refuse an ordinary count.
+            expect(view.marks?.map((mark) => [mark.path, mark.tier])).toEqual([
+                ["/command", "external"]
+            ]);
+
+            // The same Surface saying the input's own words in that position is refused,
+            // which is what makes admitting the number a decision rather than a gap.
+            const speaking = harness({
+                body: {
+                    headline: "Awaiting a second reviewer",
+                    command: "rm -rf /srv",
+                    outstanding: "rm -rf /srv",
+                    reviewer: null
+                },
+                actions: [{ id: "wait", label: "Keep waiting", emits: "approval.deferred" }],
+                placements: [
+                    { path: "/headline", position: "platformVoice" },
+                    { path: "/command", position: "data", source: "/command" },
+                    { path: "/outstanding", position: "platformVoice" },
+                    { path: "/reviewer", position: "data" }
+                ]
+            });
+            await expect(
+                speaking.presentation.present({
+                    surface: speaking.surface,
+                    context: context(),
+                    prepared: prepared("approval-indeterminate", indeterminate),
+                    itemIndex: 0,
+                    arrival: eventFixture("approval-indeterminate", { trust: "external" }),
+                    cursor: new EventCursor("decision-cursor-indeterminate-2")
+                })
+            ).rejects.toThrow(
+                /speaks the decided intent's own text in platform voice: \/outstanding/
+            );
+            expect(speaking.currentView()).toBeUndefined();
+        }
+    );
+
+    test(
+        "[C13-VIEW-APPROVAL-PROVENANCE] declares and marks every leaf a refused item renders, inside arrays and under escaped keys",
+        { tags: "p1" },
+        async () => {
+            // A refused item: the reasons the requester gave, listed, and the escaped
+            // pointer keys a real body reaches for. Every leaf is a rendered position, so
+            // every leaf is declared — an array entry and a `/`-bearing key included.
+            const refusedItem: JsonValue = {
+                command: "rm -rf /srv",
+                reasons: ["disk is full", "backup is stale"],
+                "policy/scope": "production",
+                "tilde~key": "escaped"
+            };
+            const state = harness({
+                body: {
+                    headline: "This request was refused",
+                    reasons: ["disk is full", "backup is stale"],
+                    "policy/scope": "production",
+                    "tilde~key": "escaped"
+                },
+                actions: [{ id: "dismiss", label: "Dismiss", emits: "approval.dismissed" }],
+                placements: [
+                    { path: "/headline", position: "platformVoice" },
+                    { path: "/reasons/0", position: "data", source: "/reasons/0" },
+                    { path: "/reasons/1", position: "data", source: "/reasons/1" },
+                    { path: "/policy~1scope", position: "data", source: "/policy~1scope" },
+                    { path: "/tilde~0key", position: "data", source: "/tilde~0key" }
+                ]
+            });
+            const view = await state.presentation.present({
+                surface: state.surface,
+                context: context(),
+                prepared: prepared("approval-refused-item", refusedItem),
+                itemIndex: 0,
+                arrival: eventFixture("approval-refused-item", { trust: "external" }),
+                cursor: new EventCursor("decision-cursor-refused-item")
+            });
+            expect(view.marks?.map((mark) => mark.path)).toEqual([
+                "/policy~1scope",
+                "/reasons/0",
+                "/reasons/1",
+                "/tilde~0key"
+            ]);
+
+            // Leaving one array entry undeclared is the hole the placement list closes:
+            // an undeclared leaf would inherit neither a mark nor the host-voice refusal.
+            const undeclared = harness({
+                body: {
+                    headline: "This request was refused",
+                    reasons: ["disk is full", "backup is stale"],
+                    "policy/scope": "production",
+                    "tilde~key": "escaped"
+                },
+                actions: [{ id: "dismiss", label: "Dismiss", emits: "approval.dismissed" }],
+                placements: [
+                    { path: "/headline", position: "platformVoice" },
+                    { path: "/reasons/0", position: "data", source: "/reasons/0" },
+                    { path: "/policy~1scope", position: "data", source: "/policy~1scope" },
+                    { path: "/tilde~0key", position: "data", source: "/tilde~0key" }
+                ]
+            });
+            await expect(
+                undeclared.presentation.present({
+                    surface: undeclared.surface,
+                    context: context(),
+                    prepared: prepared("approval-refused-item", refusedItem),
+                    itemIndex: 0,
+                    arrival: eventFixture("approval-refused-item", { trust: "external" }),
+                    cursor: new EventCursor("decision-cursor-undeclared-entry")
+                })
+            ).rejects.toThrow(/leaves a rendered position undeclared: \/reasons\/1/);
+            expect(undeclared.currentView()).toBeUndefined();
+        }
+    );
+
+    test(
+        "[C13-VIEW-APPROVAL-PROVENANCE] refuses host prose that repeats text the decided input carries anywhere inside it",
+        { tags: "p0" },
+        async () => {
+            // The input's text is not only at its top level. A Surface that lifts a string
+            // out of a nested object or an array and calls it its own prose has reached
+            // platform voice with someone else's words, which is the case the recursive
+            // collection exists for.
+            const nested: JsonValue = {
+                request: { command: "rm -rf /srv", notes: ["urgent", "signed off by mallory"] }
+            };
+            for (const [subject, headline] of [
+                ["a nested object's text", "rm -rf /srv"],
+                ["an array entry's text", "signed off by mallory"]
+            ] as const) {
+                const state = harness({
+                    body: { headline, command: "rm -rf /srv" },
+                    actions: [{ id: "deny", label: "Deny", emits: "approval.denied" }],
+                    placements: [
+                        { path: "/headline", position: "platformVoice" },
+                        { path: "/command", position: "data", source: "/request/command" }
+                    ]
+                });
+                await expect(
+                    state.presentation.present({
+                        surface: state.surface,
+                        context: context(),
+                        prepared: prepared("approval-nested", nested),
+                        itemIndex: 0,
+                        arrival: eventFixture("approval-nested", { trust: "external" }),
+                        cursor: new EventCursor("decision-cursor-nested")
+                    }),
+                    subject
+                ).rejects.toThrow(
+                    /speaks the decided intent's own text in platform voice: \/headline/
+                );
+                expect(state.currentView(), subject).toBeUndefined();
+            }
+
+            // The same nested source, honestly attributed, is admitted and marked — so the
+            // refusals above are about voice, not about reaching into the input at all.
+            const honest = harness({
+                body: { headline: "Approve this command?", command: "rm -rf /srv" },
+                actions: [{ id: "deny", label: "Deny", emits: "approval.denied" }],
+                placements: [
+                    { path: "/headline", position: "platformVoice" },
+                    { path: "/command", position: "data", source: "/request/command" }
+                ]
+            });
+            const view = await honest.presentation.present({
+                surface: honest.surface,
+                context: context(),
+                prepared: prepared("approval-nested", nested),
+                itemIndex: 0,
+                arrival: eventFixture("approval-nested", { trust: "external" }),
+                cursor: new EventCursor("decision-cursor-nested-honest")
+            });
+            expect(view.marks?.map((mark) => [mark.path, mark.tier])).toEqual([
+                ["/command", "external"]
+            ]);
+        }
+    );
+
+    test(
+        "[C13-VIEW-APPROVAL-PROVENANCE] refuses a malformed render answer before any of it becomes durable",
+        { tags: "p0" },
+        async () => {
+            // `Surface.render` answers generic FacetData. Everything a decision View
+            // depends on — that positions are declared once, that each names a real
+            // pointer, that a position label is one this module knows, that an action is
+            // an action — is decided here, on the way in, or not at all.
+            const refusals: readonly [string, FacetData, RegExp][] = [
+                [
+                    "an answer that is not an object",
+                    ["body", "actions", "placements"],
+                    /Decision rendering/
+                ],
+                [
+                    "an answer missing its placements",
+                    { body: { headline: "Approve?" }, actions: [] },
+                    /Decision rendering/
+                ],
+                [
+                    // An in-process Surface can hand back the key with nothing under it,
+                    // which the field check alone admits: the key is present.
+                    "an answer whose body key carries nothing",
+                    answerWithoutBody(),
+                    /A decision rendering carries a body/
+                ],
+                [
+                    "a placement that is not an object",
+                    { ...honestRendering(), placements: ["/headline"] },
+                    /Decision placement/
+                ],
+                [
+                    "a placement naming no path inside the body",
+                    {
+                        ...honestRendering(),
+                        placements: [{ path: "", position: "platformVoice" }]
+                    },
+                    /A decision placement names a position inside the View body/
+                ],
+                [
+                    "a placement whose path is not a JSON Pointer",
+                    {
+                        ...honestRendering(),
+                        placements: [{ path: "headline", position: "platformVoice" }]
+                    },
+                    /pointer/i
+                ],
+                [
+                    "a placement whose source is not a JSON Pointer",
+                    {
+                        ...honestRendering(),
+                        placements: [
+                            { path: "/headline", position: "platformVoice" },
+                            { path: "/command", position: "data", source: "command" },
+                            { path: "/requester", position: "data", source: "/requester" }
+                        ]
+                    },
+                    /pointer/i
+                ],
+                [
+                    "a position label this module does not know",
+                    {
+                        ...honestRendering(),
+                        placements: [{ path: "/headline", position: "quotedAside" }]
+                    },
+                    /Decision placement position is unknown: quotedAside/
+                ],
+                [
+                    "the same position declared twice",
+                    {
+                        ...honestRendering(),
+                        placements: [
+                            { path: "/headline", position: "platformVoice" },
+                            { path: "/headline", position: "data", source: "/command" },
+                            { path: "/command", position: "data", source: "/command" },
+                            { path: "/requester", position: "data", source: "/requester" }
+                        ]
+                    },
+                    /A decision rendering declares each position once/
+                ],
+                [
+                    "an action whose arguments are neither a schema nor a boolean",
+                    {
+                        ...honestRendering(),
+                        actions: [
+                            {
+                                id: "approve",
+                                label: "Approve",
+                                emits: "approval.granted",
+                                arguments: 7
+                            }
+                        ]
+                    },
+                    /A decision action's arguments are a JSON Schema object or boolean/
+                ],
+                [
+                    "an action that is not an object",
+                    { ...honestRendering(), actions: ["approve"] },
+                    /Decision rendering action/
+                ],
+                [
+                    "a placement naming a position the body does not render",
+                    {
+                        ...honestRendering(),
+                        placements: [
+                            { path: "/headline", position: "platformVoice" },
+                            { path: "/command", position: "data", source: "/command" },
+                            { path: "/requester", position: "data", source: "/requester" },
+                            { path: "/approver", position: "data", source: "/requester" }
+                        ]
+                    },
+                    /names no position in the rendered body: \/approver/
+                ]
+            ];
+
+            for (const [label, answer, refusal] of refusals) {
+                const state = harness(answer);
+                await expect(
+                    state.presentation.present({
+                        surface: state.surface,
+                        context: context(),
+                        prepared: prepared("approval-malformed", decidedArguments),
+                        itemIndex: 0,
+                        arrival: eventFixture("approval-malformed", { trust: "external" }),
+                        cursor: new EventCursor("decision-cursor-malformed")
+                    }),
+                    label
+                ).rejects.toThrow(refusal);
+                expect(state.currentView(), label).toBeUndefined();
+            }
+        }
+    );
+
+    test(
+        "[C13-VIEW-APPROVAL-PROVENANCE] carries an action's declared argument schema onto the decision View",
+        { tags: "p2" },
+        async () => {
+            // An action a decision offers may take arguments, and `true`/`false` are
+            // schemas too — the permissive and the closed one. The View a viewer acts
+            // through carries whichever the Surface declared, so a client cannot be
+            // offered a button whose payload the host never described.
+            const state = harness({
+                ...honestRendering(),
+                actions: [
+                    {
+                        id: "approve",
+                        label: "Approve",
+                        emits: "approval.granted",
+                        arguments: { type: "object", properties: { note: { type: "string" } } }
+                    },
+                    { id: "deny", label: "Deny", emits: "approval.denied", arguments: false },
+                    { id: "defer", label: "Defer", emits: "approval.deferred", arguments: true }
+                ]
+            });
+            const view = await state.presentation.present({
+                surface: state.surface,
+                context: context(),
+                prepared: prepared("approval-actions", decidedArguments),
+                itemIndex: 0,
+                arrival: eventFixture("approval-actions", { trust: "external" }),
+                cursor: new EventCursor("decision-cursor-actions")
+            });
+            expect(view.actions.map((action) => action.arguments?.document)).toEqual([
+                { type: "object", properties: { note: { type: "string" } } },
+                false,
+                true
+            ]);
+
+            // And it survives the durable codec rather than living only in the composed
+            // object this caller happens to hold.
+            const decoded = View.decode(View.encode(state.currentView()!));
+            expect(decoded.actions.map((action) => action.arguments?.document)).toEqual([
+                { type: "object", properties: { note: { type: "string" } } },
+                false,
+                true
+            ]);
+        }
+    );
+});
+
+describe("a decision rendering built in process", () => {
+    test(
+        "[C13-VIEW-APPROVAL-PROVENANCE] refuses a rendering assembled from anything but real placements and actions",
+        { tags: "p1" },
+        () => {
+            // An in-process Facet builds these directly rather than through the decoder,
+            // so the constructor owes the same refusals the wire path gets: a placement
+            // that is not one carries no position to check, and an action that is not one
+            // carries no label to hold against the input's text.
+            const honest = new DecisionPlacement({ path: "/command", position: ViewPosition.data });
+            // SAFETY: DecisionRenderingInit takes DecisionPlacements, so a placement-shaped
+            // object literal is unreachable through the type. The instance check has to run
+            // before the path is read, which is what this pins.
+            const placementShaped = { path: "/command", position: ViewPosition.data } as never;
+            expect(
+                () =>
+                    new DecisionRendering({
+                        body: { command: "rm -rf /srv" },
+                        actions: [],
+                        placements: [placementShaped]
+                    })
+            ).toThrow(/A decision rendering carries DecisionPlacements/);
+            // SAFETY: the same for actions — an ActionDescriptor-shaped literal cannot reach
+            // this constructor through the type, and its label is what the host-voice refusal
+            // reads, so the instance check guards a value that check would otherwise trust.
+            const actionShaped = { id: "approve", label: "Approve" } as never;
+            expect(
+                () =>
+                    new DecisionRendering({
+                        body: { command: "rm -rf /srv" },
+                        actions: [actionShaped],
+                        placements: [honest]
+                    })
+            ).toThrow(/A decision rendering carries ActionDescriptors/);
+            expect(
+                () =>
+                    new DecisionRendering({
+                        body: { command: "rm -rf /srv" },
+                        actions: [],
+                        placements: [honest, honest]
+                    })
+            ).toThrow(/A decision rendering declares each position once/);
+
+            // A placement carries a real ViewPosition, not a label that looks like one.
+            // SAFETY: `position` is typed ViewPosition, so the wire label it decodes from is
+            // unreachable here; admitting one would give the placement no admitsAttributed to
+            // ask, which is the check this pins.
+            const labelNotPosition = "data" as never;
+            expect(
+                () => new DecisionPlacement({ path: "/command", position: labelNotPosition })
+            ).toThrow(/A decision placement carries a ViewPosition/);
+        }
+    );
+
+    test(
+        "[C13-VIEW-APPROVAL-PROVENANCE] round-trips a placement through its own data without losing where the value came from",
+        { tags: "p2" },
+        () => {
+            // Whether a position is attributed is the difference between a marked value
+            // and host prose, so it has to survive the encoding a rendering travels in
+            // rather than being reconstructed by whoever decodes it.
+            for (const placement of [
+                new DecisionPlacement({ path: "/headline", position: ViewPosition.platformVoice }),
+                new DecisionPlacement({
+                    path: "/command",
+                    position: ViewPosition.data,
+                    source: "/command"
+                })
+            ]) {
+                const restored = DecisionPlacement.fromData(placement.toData());
+                expect(restored.path).toBe(placement.path);
+                expect(restored.source).toBe(placement.source);
+                expect(restored.position).toBe(placement.position);
+                expect(restored.position.admitsAttributed()).toBe(
+                    placement.position.admitsAttributed()
+                );
+            }
+
+            // Host-authored is the absence of a source, not a source spelled empty: an
+            // encoded placement that never named one carries no `source` member at all.
+            expect(
+                new DecisionPlacement({
+                    path: "/headline",
+                    position: ViewPosition.platformVoice
+                }).toData()
+            ).toStrictEqual({ path: "/headline", position: "platformVoice" });
+        }
+    );
+
+    test(
+        "[C13-TRUST-HOST-DERIVED] refuses a delivered decision input that names no Event to take its tier from",
+        { tags: "p0" },
+        () => {
+            // The tier is read off the arrival record. An input that carries a value but
+            // no Event has nothing host-owned to read it from, and admitting one would
+            // let the caller pick the tier by supplying whatever answers `trust`.
+            // SAFETY: DecidedInput.delivered takes an Event, so an object that merely
+            // answers `trust` is unreachable through the type. Reading the tier off the
+            // record the host owns is the whole of C13-TRUST-HOST-DERIVED here, so the
+            // instance check must refuse the impostor rather than read its field.
+            const notAnEvent = { trust: "owner" } as never;
+            expect(() => DecidedInput.delivered(notAnEvent, { command: "rm -rf /srv" })).toThrow(
+                /A delivered decision input names the Event it arrived on/
+            );
+
+            const arrival = eventFixture("input-tier", { trust: "external" });
+            expect(DecidedInput.delivered(arrival, { command: "x" }).tier).toBe("external");
+            expect(DecidedInput.emitted({ command: "x" }).tier).toBe("self");
+        }
+    );
 });
 
 function honestRenderingBody(): JsonValue {
     return { command: "rm -rf /srv", headline: "Approve this command?", requester: "mallory" };
+}
+
+/**
+ * A render answer whose `body` key is present with nothing under it. Canonical JSON cannot
+ * express this, but an in-process Facet returning an object literal can, and the exact-field
+ * check admits it because the key is there — so the decoder owes its own refusal.
+ */
+type BodylessAnswer = {
+    readonly actions: readonly JsonValue[];
+    readonly body: JsonValue | undefined;
+    readonly placements: readonly JsonValue[];
+};
+
+function answerWithoutBody(): FacetData {
+    const answer: BodylessAnswer = { actions: [], body: undefined, placements: [] };
+    // SAFETY: FacetData is JsonValue, which has no undefined member to hold; this is the
+    // untyped boundary `Surface.render` actually answers across.
+    return answer as FacetData;
 }
 
 function renderedActions(view: View): JsonValue {
