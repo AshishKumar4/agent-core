@@ -22,7 +22,7 @@
     {
       "id": "ACQ-COVERAGE",
       "instructionSources": ["AGENTS.md"],
-      "instructionContains": "Test Coverage",
+      "instructionContains": "all four aggregate coverage metrics to be at least 95%",
       "checker": "scripts/quality/architecture.mjs",
       "tests": [
         "test/quality/architecture.test.ts#generic AGENTS architecture rules rejects error, ID, codec, immutability, test, and coverage violations"
@@ -64,6 +64,19 @@
       "checker": "scripts/quality/architecture.mjs",
       "tests": [
         "test/quality/architecture.test.ts#generic AGENTS architecture rules rejects error, ID, codec, immutability, test, and coverage violations"
+      ]
+    },
+    {
+      "id": "ACQ-HEURISTIC",
+      "instructionSources": ["packages/agent-core/SPEC.md"],
+      "instructionContains": "Operational use relies on these external assumptions, not hidden formal conclusions",
+      "checker": "scripts/quality/heuristics.mjs",
+      "tests": [
+        "test/quality/heuristics.test.ts#semantic heuristic register gate agrees with the committed register",
+        "test/quality/heuristics.test.ts#semantic heuristic register gate refuses a detected heuristic the register leaves unanswered",
+        "test/quality/heuristics.test.ts#semantic heuristic register gate refuses a withholding the live archive does not freeze",
+        "test/quality/heuristics.test.ts#semantic heuristic register gate refuses a premise the register states with no rationale",
+        "test/quality/heuristics.test.ts#semantic heuristic register gate refuses a site the register answers with no rationale"
       ]
     },
     {
@@ -145,6 +158,18 @@
       ]
     },
     {
+      "id": "ACQ-REPAIR",
+      "instructionSources": ["VERIFIED_SOFTWARE_WORKFLOW.md"],
+      "instructionContains": "They propose and repair artifacts; mechanical gates accept or reject each candidate",
+      "checker": "scripts/quality/proof-repair-ledger.mjs",
+      "tests": [
+        "test/quality/proof-repair-host.test.ts#the proof repair ledger gate accepts the committed genesis ledger",
+        "test/quality/proof-repair-host.test.ts#the proof repair ledger gate refuses a ledger whose accepted text the formal tree does not carry",
+        "test/quality/proof-repair-host.test.ts#the proof repair ledger gate refuses a ledger whose accepted artifact the formal tree omits",
+        "test/quality/proof-repair-host.test.ts#the proof repair ledger gate refuses a committed record the versioned codec does not admit"
+      ]
+    },
+    {
       "id": "ACQ-SCOPE",
       "instructionSources": ["packages/agent-core/artifacts/quality/root-agents.md"],
       "instructionContains": "isolated worktrees",
@@ -163,6 +188,18 @@
       ]
     },
     {
+      "id": "ACQ-SERVICE",
+      "instructionSources": ["AGENTS.md"],
+      "instructionContains": "each implemented profile uses its SPEC-defined stable taxonomy",
+      "checker": "scripts/check-service-contracts.mjs",
+      "tests": [
+        "test/quality/service-contracts.test.ts#service contract gate agrees with the committed artifact",
+        "test/quality/service-contracts.test.ts#service contract gate refuses a code its declared union does not carry",
+        "test/quality/service-contracts.test.ts#service contract gate refuses a union member no service maps and no entry excuses",
+        "test/quality/service-contracts.test.ts#service contract gate refuses a reply vocabulary in which a failure is not a value"
+      ]
+    },
+    {
       "id": "ACQ-SPEC-VOCAB",
       "instructionSources": ["AGENTS.md"],
       "instructionContains": "is SPEC vocabulary, word by word",
@@ -173,9 +210,22 @@
       ]
     },
     {
+      "id": "ACQ-SUBSTRATE",
+      "instructionSources": ["AGENT_OPERATING_DOCTRINE.md"],
+      "instructionContains": "Operational assumptions are discharged by implementation or\nsubstrate evidence only when the relevant conformance plane supports that narrower\nclaim.",
+      "checker": "scripts/check-substrate-contracts.mjs",
+      "tests": [
+        "test/quality/substrate-contracts.test.ts#substrate contract gate agrees with the committed discharge map",
+        "test/quality/substrate-contracts.test.ts#substrate contract gate refuses a premise whose discharge citation resolves to no conformance row",
+        "test/quality/substrate-contracts.test.ts#substrate contract gate refuses a premise recorded below the status the ledger carries",
+        "test/quality/substrate-contracts.test.ts#substrate contract gate refuses a seam that drops its witness debt for a theorem Witness.lean lacks",
+        "test/quality/substrate-contracts.test.ts#substrate contract gate refuses a seam that owes a witness and stops saying what is missing"
+      ]
+    },
+    {
       "id": "ACQ-TEST",
       "instructionSources": ["AGENTS.md"],
-      "instructionContains": "Unit Tests",
+      "instructionContains": "needs a test that would fail if the MUST were violated",
       "checker": "scripts/quality/architecture.mjs",
       "tests": [
         "test/quality/architecture.test.ts#generic AGENTS architecture rules rejects error, ID, codec, immutability, test, and coverage violations"
